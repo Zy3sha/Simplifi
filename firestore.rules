@@ -2,49 +2,377 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function backupCodeId(code) {
+      return code.matches('^BK[A-Z0-9]{6,10}$');
+    }
+
+    function usernameId(username) {
+      return username.matches('^[a-z0-9_-]{3,32}$');
+    }
+
+    function childSyncCodeId(code) {
+      return code.matches('^[A-Z0-9]{6,8}$');
+    }
+
+    function strongCarerTokenId(token) {
+      return token.matches('^CT[A-Z2-9]{20}$');
+    }
+
+    function legacyCarerTokenId(token) {
+      return token.matches('^CT[A-Z0-9]{8}$');
+    }
+
+    function trialDeviceId(deviceKey) {
+      return deviceKey.matches('^[a-f0-9]{1,64}$');
+    }
+
+    function recoveryEmailId(emailHash) {
+      return emailHash.matches('^em_[A-Za-z0-9_-]{43}$') || emailHash.matches('^[a-f0-9]{1,8}$');
+    }
+
+    function clockText(value) {
+      return value.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$');
+    }
+
+    function boundedString(value, maxSize) {
+      return value is string && value.size() <= maxSize;
+    }
+
+    function clientTimestampValue(value) {
+      return value is timestamp
+        || value is int
+        || value is float
+        || boundedString(value, 40);
+    }
+
+    function validDisabledTopics(value) {
+      return value is list
+        && value.size() <= 10
+        && value.hasOnly(['partner_entry', 'partner_update']);
+    }
+
+    function childCodeMapId(mapId) {
+      return mapId.matches('^[A-Za-z0-9_-]{6,80}$');
+    }
+
+    function validFamilyWrite() {
+      return request.resource.data.keys().hasOnly([
+        'children', 'carerInfo', 'sharedData', 'childSyncCodes',
+        'deletedEntryIds', 'deletedDays', 'prediction', 'todayMeds',
+        'updatedAt', 'updatedBy', 'writeToken', 'carerToken',
+        'deleted', 'entries'
+      ])
+      && request.resource.data.keys().hasAny(['children', 'childSyncCodes', 'deleted'])
+      && (!('children' in request.resource.data) || request.resource.data.children is string)
+      && (!('carerInfo' in request.resource.data) || request.resource.data.carerInfo is string)
+      && (!('sharedData' in request.resource.data) || request.resource.data.sharedData is string)
+      && (!('childSyncCodes' in request.resource.data) || request.resource.data.childSyncCodes is string)
+      && (!('deletedEntryIds' in request.resource.data) || request.resource.data.deletedEntryIds is string)
+      && (!('deletedDays' in request.resource.data) || request.resource.data.deletedDays is string)
+      && (!('prediction' in request.resource.data) || request.resource.data.prediction is string)
+      && (!('todayMeds' in request.resource.data) || request.resource.data.todayMeds is string)
+      && (!('updatedBy' in request.resource.data) || request.resource.data.updatedBy is string)
+      && (!('writeToken' in request.resource.data) || request.resource.data.writeToken is string)
+      && (!('carerToken' in request.resource.data) || request.resource.data.carerToken is string)
+      && (!('deleted' in request.resource.data) || request.resource.data.deleted is bool)
+      && (!('entries' in request.resource.data) || request.resource.data.entries is string);
+    }
+
+	    function validUsernameWrite() {
+	      return request.resource.data.keys().hasOnly([
+	        'pinHash', 'pinHashVersion', 'pinHashUpdatedAtClient',
+	        'backupCode', 'familyCode', 'childSyncCodes',
+	        'createdAt', 'createdAtClient', 'displayName', 'trialStartedAtClient',
+        'trialFirstInstallAtClient', 'trialDeviceKey', 'trialUsed',
+        'trialEndedAtClient', 'trialUpdatedAtClient', 'recoveryHash',
+        'recoveryHashVersion', 'recoveryHashUpdatedAtClient',
+        'accountAgeDaysAtTrialStart', 'freeTrialUsed', 'recoveryEmail',
+	        'recoveryEmailLookupId', 'recoveryEmailHashVersion',
+	        'recoveryEmailUpdatedAtClient',
+	        'updatedAt', 'deleted', 'uid', 'authorizedUids'
+	      ])
+	      && (!('authorizedUids' in request.resource.data) || request.resource.data.authorizedUids is map);
+	    }
+
+	    function usernameOwner() {
+	      return signedIn()
+	        && (
+	          resource.data.uid == request.auth.uid
+	          || (resource.data.authorizedUids is map && resource.data.authorizedUids[request.auth.uid] == true)
+	        );
+	    }
+
+    function usernameDocOwner(username) {
+      return signedIn()
+        && usernameId(username)
+        && exists(/databases/$(database)/documents/usernames/$(username))
+        && (
+          get(/databases/$(database)/documents/usernames/$(username)).data.uid == request.auth.uid
+          || (
+            get(/databases/$(database)/documents/usernames/$(username)).data.authorizedUids is map
+            && get(/databases/$(database)/documents/usernames/$(username)).data.authorizedUids[request.auth.uid] == true
+          )
+        );
+    }
+
+    function childSyncDocOwner(code) {
+      return signedIn()
+        && childSyncCodeId(code)
+        && exists(/databases/$(database)/documents/child_syncs/$(code))
+        && get(/databases/$(database)/documents/child_syncs/$(code)).data.ownerUid == request.auth.uid;
+    }
+
+    function validUidBackupWrite() {
+      return request.resource.data.keys().hasOnly([
+        'backupCode', 'childSyncCodes', 'updatedAt', 'deleted'
+      ]);
+    }
+
+    function validRecoveryEmailWrite() {
+      return request.resource.data.keys().hasOnly(['username', 'updatedAt'])
+        && request.resource.data.username is string
+        && usernameId(request.resource.data.username);
+    }
+
+    function validChildCodeMapWrite() {
+      return request.resource.data.keys().hasOnly(['code', 'childId', 'updatedAt'])
+        && request.resource.data.code is string
+        && childSyncCodeId(request.resource.data.code)
+        && request.resource.data.childId is string;
+    }
+
+    function validFcmTokenWrite() {
+      return request.resource.data.keys().hasOnly(['token', 'updatedAt', 'disabledTopics'])
+        && boundedString(request.resource.data.token, 4096)
+        && (!('updatedAt' in request.resource.data) || clientTimestampValue(request.resource.data.updatedAt))
+        && (!('disabledTopics' in request.resource.data) || validDisabledTopics(request.resource.data.disabledTopics));
+    }
+
+    function validUserActivityWrite() {
+      return request.resource.data.keys().hasOnly([
+        'updatedAt', 'babyName', 'babyDob', 'tzOffsetMin',
+        'lastFeedTimestamp', 'lastWakeTimestamp', 'lastNappyTimestamp',
+        'lastNapTimestamp', 'lastBedtimeTimestamp'
+      ])
+      && (!('updatedAt' in request.resource.data) || clientTimestampValue(request.resource.data.updatedAt))
+      && (!('babyName' in request.resource.data) || boundedString(request.resource.data.babyName, 80))
+      && (!('babyDob' in request.resource.data) || boundedString(request.resource.data.babyDob, 20))
+      && (!('tzOffsetMin' in request.resource.data) || (
+        (request.resource.data.tzOffsetMin is int || request.resource.data.tzOffsetMin is float)
+        && request.resource.data.tzOffsetMin >= -840
+        && request.resource.data.tzOffsetMin <= 840
+      ))
+      && (!('lastFeedTimestamp' in request.resource.data) || clientTimestampValue(request.resource.data.lastFeedTimestamp))
+      && (!('lastWakeTimestamp' in request.resource.data) || clientTimestampValue(request.resource.data.lastWakeTimestamp))
+      && (!('lastNappyTimestamp' in request.resource.data) || clientTimestampValue(request.resource.data.lastNappyTimestamp))
+      && (!('lastNapTimestamp' in request.resource.data) || clientTimestampValue(request.resource.data.lastNapTimestamp))
+      && (!('lastBedtimeTimestamp' in request.resource.data) || clientTimestampValue(request.resource.data.lastBedtimeTimestamp));
+    }
+
+    function validChildSyncWrite() {
+      return request.resource.data.keys().hasOnly([
+        'childId', 'childName', 'ownerUid', 'ownerUsername', 'child',
+        'isActive', 'replacedBy', 'updatedAt', 'updatedBy',
+        'writeToken', 'participants', 'participantUids'
+      ])
+      && request.resource.data.keys().hasAny(['child', 'isActive', 'participants'])
+      && (!('childId' in request.resource.data) || request.resource.data.childId is string)
+      && (!('childName' in request.resource.data) || request.resource.data.childName is string)
+      && (!('ownerUid' in request.resource.data) || request.resource.data.ownerUid is string)
+      && (!('ownerUsername' in request.resource.data) || request.resource.data.ownerUsername is string)
+      && (!('child' in request.resource.data) || request.resource.data.child is string)
+      && (!('isActive' in request.resource.data) || request.resource.data.isActive is bool)
+      && (!('replacedBy' in request.resource.data) || request.resource.data.replacedBy is string)
+      && (!('updatedBy' in request.resource.data) || request.resource.data.updatedBy is string)
+      && (!('writeToken' in request.resource.data) || request.resource.data.writeToken is string)
+      && (!('participants' in request.resource.data) || (request.resource.data.participants is list && request.resource.data.participants.size() <= 25))
+      && (!('participantUids' in request.resource.data) || (request.resource.data.participantUids is list && request.resource.data.participantUids.size() <= 25));
+    }
+
+    function childSyncUpdatedBySelf() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['updatedBy'])
+        || request.resource.data.updatedBy == request.auth.uid;
+    }
+
+    function childSyncOwnerWrite() {
+      return signedIn()
+        && resource.data.ownerUid == request.auth.uid
+        && request.resource.data.ownerUid == resource.data.ownerUid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'childId', 'childName', 'child', 'isActive', 'replacedBy',
+          'updatedAt', 'updatedBy', 'writeToken', 'participants', 'participantUids'
+        ])
+        && childSyncUpdatedBySelf();
+    }
+
+    function childSyncParticipantWrite() {
+      return signedIn()
+        && resource.data.isActive != false
+        && resource.data.participantUids is list
+        && resource.data.participantUids.hasAny([request.auth.uid])
+        && (!('ownerUid' in resource.data) || request.resource.data.ownerUid == resource.data.ownerUid)
+        && request.resource.data.participantUids == resource.data.participantUids
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'child', 'childName', 'updatedAt', 'updatedBy', 'writeToken'
+        ])
+        && childSyncUpdatedBySelf();
+    }
+
+    function childSyncLegacyOwnerClaimWrite() {
+      return signedIn()
+        && !('ownerUid' in resource.data)
+        && resource.data.isActive != false
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.participantUids is list
+        && request.resource.data.participantUids.hasAny([request.auth.uid])
+        && (!('child' in resource.data) || request.resource.data.child == resource.data.child)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'ownerUid', 'ownerUsername', 'updatedAt', 'updatedBy',
+          'participants', 'participantUids'
+        ])
+        && childSyncUpdatedBySelf();
+    }
+
+    function childSyncJoinWrite() {
+      return signedIn()
+        && resource.data.isActive != false
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'participants', 'participantUids'
+        ])
+        && (!('ownerUid' in resource.data) || request.resource.data.ownerUid == resource.data.ownerUid)
+        && request.resource.data.participantUids is list
+        && request.resource.data.participantUids.hasAny([request.auth.uid])
+        && (!('participantUids' in resource.data) || request.resource.data.participantUids.size() >= resource.data.participantUids.size())
+        && request.resource.data.participantUids.size() <= 25;
+    }
+
+    function validCarerTokenWrite() {
+      return request.resource.data.keys().hasOnly([
+        'backupCode', 'updatedAt', 'expiresAtMs', 'createdAtClient'
+      ])
+      && request.resource.data.backupCode is string
+      && backupCodeId(request.resource.data.backupCode)
+      && request.resource.data.expiresAtMs is int
+      && request.resource.data.expiresAtMs > request.time.toMillis()
+      && request.resource.data.expiresAtMs <= request.time.toMillis() + 30 * 24 * 60 * 60 * 1000
+      && (!('createdAtClient' in request.resource.data) || request.resource.data.createdAtClient is string);
+    }
+
+    function validCarerEntryWrite() {
+      return request.resource.data.keys().hasOnly([
+        'type', 'time', 'start', 'end', 'amount', 'feedType', 'poopType',
+        'note', 'night', 'nightLocked', 'assisted', 'selfSettled',
+        'assistedType', 'assistedDuration', 'settleDuration', 'settleTime',
+        'date', 'loggedAt', 'loggedBy',
+        '_active', '_activeNightWake', '_merged', '_mergedAt', '_rejected'
+      ])
+      && request.resource.data.keys().hasAny(['type', '_merged', '_rejected'])
+      && (!('type' in request.resource.data) || request.resource.data.type in ['feed', 'poop', 'nappy', 'nap', 'nap-end', 'sleep', 'wake'])
+      && (!('time' in request.resource.data) || (request.resource.data.time is string && clockText(request.resource.data.time)))
+      && (!('start' in request.resource.data) || (request.resource.data.start is string && clockText(request.resource.data.start)))
+      && (!('end' in request.resource.data) || (request.resource.data.end is string && clockText(request.resource.data.end)))
+      && (!('amount' in request.resource.data) || request.resource.data.amount is int || request.resource.data.amount is float)
+      && (!('feedType' in request.resource.data) || (request.resource.data.feedType is string && request.resource.data.feedType.size() <= 32))
+      && (!('poopType' in request.resource.data) || (request.resource.data.poopType is string && request.resource.data.poopType.size() <= 32))
+      && (!('note' in request.resource.data) || (request.resource.data.note is string && request.resource.data.note.size() <= 500))
+      && (!('night' in request.resource.data) || request.resource.data.night is bool)
+      && (!('nightLocked' in request.resource.data) || request.resource.data.nightLocked is bool)
+      && (!('assisted' in request.resource.data) || request.resource.data.assisted is bool)
+      && (!('selfSettled' in request.resource.data) || request.resource.data.selfSettled is bool)
+      && (!('assistedType' in request.resource.data) || (request.resource.data.assistedType is string && request.resource.data.assistedType.size() <= 32))
+      && (!('assistedDuration' in request.resource.data) || request.resource.data.assistedDuration is int || request.resource.data.assistedDuration is float)
+      && (!('settleDuration' in request.resource.data) || request.resource.data.settleDuration is int || request.resource.data.settleDuration is float)
+      && (!('settleTime' in request.resource.data) || (request.resource.data.settleTime is string && clockText(request.resource.data.settleTime)))
+      && (!('date' in request.resource.data) || (request.resource.data.date is string && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')))
+      && (!('loggedAt' in request.resource.data) || (request.resource.data.loggedAt is string && request.resource.data.loggedAt.size() <= 40))
+      && (!('loggedBy' in request.resource.data) || (request.resource.data.loggedBy is string && request.resource.data.loggedBy.size() <= 32))
+      && (!('_active' in request.resource.data) || request.resource.data._active is bool)
+      && (!('_activeNightWake' in request.resource.data) || request.resource.data._activeNightWake is bool)
+      && (!('_merged' in request.resource.data) || request.resource.data._merged is bool)
+      && (!('_mergedAt' in request.resource.data) || request.resource.data._mergedAt is int || request.resource.data._mergedAt is float)
+      && (!('_rejected' in request.resource.data) || request.resource.data._rejected is bool);
+    }
 
     // ── Families (baby data) ──
     // GET only (no list/enumerate). You must know the code to access.
     match /families/{code} {
-      allow get: if request.auth != null;
+      allow get: if signedIn() && backupCodeId(code);
       allow list: if false;
-      allow create: if request.auth != null
-        && request.resource.data.keys().hasAny(['children']);
-      allow update: if request.auth != null
-        && request.resource.data.keys().hasAny(['children']);
+      allow create, update: if signedIn()
+        && backupCodeId(code)
+        && validFamilyWrite();
       allow delete: if false;
     }
 
     // ── Carer Token Lookup ──
     // Maps CT tokens to backup codes. GET only (know token = access).
     match /carer_tokens/{token} {
-      allow get: if request.auth != null;
+      allow get: if signedIn()
+        && (
+          (strongCarerTokenId(token)
+            && resource.data.expiresAtMs is int
+            && resource.data.expiresAtMs > request.time.toMillis())
+          || legacyCarerTokenId(token)
+        );
       allow list: if false;
-      allow create, update: if request.auth != null;
+      allow create, update: if signedIn()
+        && strongCarerTokenId(token)
+        && validCarerTokenWrite();
       allow delete: if false;
     }
 
     // ── UID to Backup mapping ──
     // Locked to own UID only
     match /uid_to_backup/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid && validUidBackupWrite();
+      allow delete: if signedIn() && request.auth.uid == uid;
     }
 
-    // ── Usernames ──
-    // GET only (check if username exists). No list/enumerate.
-    match /usernames/{username} {
-      allow get: if request.auth != null;
-      allow list: if false; // cannot enumerate all usernames
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
-      allow delete: if false;
-    }
+	    // ── Usernames ──
+	    // Sensitive account pointer docs. Existence checks and login recovery go
+	    // through Cloud Functions so knowing a username is not enough to read
+	    // backup/family codes.
+	    match /usernames/{username} {
+	      allow get: if usernameId(username) && usernameOwner();
+	      allow list: if false; // cannot enumerate all usernames
+	      allow create: if signedIn()
+	        && usernameId(username)
+	        && validUsernameWrite()
+	        && request.resource.data.uid == request.auth.uid
+	        && request.resource.data.authorizedUids[request.auth.uid] == true;
+	      allow update: if signedIn()
+	        && usernameId(username)
+	        && (
+	          usernameOwner()
+	          || (
+	            resource.data.deleted == true
+	            && request.resource.data.uid == request.auth.uid
+	            && request.resource.data.authorizedUids[request.auth.uid] == true
+	          )
+	        )
+	        && validUsernameWrite();
+	      allow delete: if false;
+	    }
 
     // ── Complimentary Premium Entitlements ──
     // App clients can read a known username grant, but only trusted admin/IAM
     // tooling should create or change lifetime/complementary access.
     match /premium_entitlements/{username} {
-      allow get: if request.auth != null;
+      allow get: if signedIn() && usernameId(username);
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
+    // ── Runtime Entitlements ──
+    // Server-owned subscription/trial mirror. App clients may read only their
+    // own entitlement and must not be able to mint trial or premium access.
+    match /entitlements/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
       allow list: if false;
       allow create, update, delete: if false;
     }
@@ -53,54 +381,76 @@ service cloud.firestore {
     // Stores minimal first-install/free-trial metadata against a hashed device
     // key so reinstall/account switching cannot repeatedly restart the trial.
     match /trial_devices/{deviceKey} {
-      allow get: if request.auth != null;
+      allow get: if signedIn() && trialDeviceId(deviceKey);
       allow list: if false;
-      allow create, update: if request.auth != null;
-      allow delete: if false;
+      allow create, update, delete: if false;
     }
 
     // ── Recovery Email Lookup ──
     // Stores a hashed email -> username pointer. GET only; no list/enumeration.
-    match /recovery_emails/{emailHash} {
-      allow get: if request.auth != null;
-      allow list: if false;
-      allow create, update: if request.auth != null;
-      allow delete: if false;
-    }
+	    match /recovery_emails/{emailHash} {
+	      allow get: if signedIn() && recoveryEmailId(emailHash);
+	      allow list: if false;
+	      allow create, update: if signedIn()
+	        && recoveryEmailId(emailHash)
+	        && validRecoveryEmailWrite()
+	        && usernameDocOwner(request.resource.data.username);
+	      allow delete: if signedIn()
+	        && recoveryEmailId(emailHash)
+	        && resource.data.username is string
+	        && usernameDocOwner(resource.data.username);
+	    }
 
     // ── Child Sync Codes ──
     // GET only. No list.
     match /child_syncs/{code} {
-      allow get: if request.auth != null;
+      allow get: if signedIn() && childSyncCodeId(code);
       allow list: if false;
-      allow create, update: if request.auth != null;
+      allow create: if signedIn()
+        && childSyncCodeId(code)
+        && validChildSyncWrite()
+        && request.resource.data.ownerUid == request.auth.uid
+        && request.resource.data.participantUids is list
+        && request.resource.data.participantUids.hasAny([request.auth.uid]);
+      allow update: if signedIn()
+        && childSyncCodeId(code)
+        && validChildSyncWrite()
+        && (childSyncOwnerWrite() || childSyncParticipantWrite() || childSyncLegacyOwnerClaimWrite() || childSyncJoinWrite());
       allow delete: if false;
     }
 
     // ── Child Code Map (legacy) ──
-    match /child_code_map/{childId} {
-      allow get: if request.auth != null;
-      allow list: if false;
-      allow create, update: if request.auth != null;
-      allow delete: if false;
-    }
+	    match /child_code_map/{childId} {
+	      allow get: if signedIn() && childCodeMapId(childId);
+	      allow list: if false;
+	      allow create, update: if signedIn()
+	        && childCodeMapId(childId)
+	        && validChildCodeMapWrite()
+	        && childSyncDocOwner(request.resource.data.code);
+	      allow delete: if false;
+	    }
 
     // ── FCM Tokens ──
     match /fcm_tokens/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid && validFcmTokenWrite();
+      allow delete: if signedIn() && request.auth.uid == uid;
     }
 
     // ── User Activity ──
     match /user_activity/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid && validUserActivityWrite();
+      allow delete: if signedIn() && request.auth.uid == uid;
     }
 
     // ── Bubba Hugs ──
     // Anonymous, preset-only support pings. No names, location, text, baby data,
     // usernames, or contact details should ever be stored here.
     match /bubba_hugs/{hugId} {
-      allow get, list: if request.auth != null;
-      allow create: if request.auth != null
+      allow get: if signedIn();
+      allow list: if signedIn() && request.query.limit <= 25;
+      allow create: if signedIn()
         && request.resource.data.keys().hasAll([
           'fromId', 'context', 'messageKey', 'createdAtMs',
           'createdAtClient', 'expiresAtMs', 'app'
@@ -115,14 +465,22 @@ service cloud.firestore {
         && request.resource.data.createdAtMs is int
         && request.resource.data.createdAtClient is string
         && request.resource.data.expiresAtMs is int
+        && request.resource.data.createdAtMs >= request.time.toMillis() - 2 * 60 * 1000
+        && request.resource.data.createdAtMs <= request.time.toMillis() + 2 * 60 * 1000
+        && request.resource.data.expiresAtMs > request.resource.data.createdAtMs
+        && request.resource.data.expiresAtMs <= request.resource.data.createdAtMs + 10 * 60 * 1000
         && request.resource.data.app == 'obubba';
-      allow update: if request.auth != null
+      allow update: if signedIn()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'claimedBy', 'claimedAtMs', 'claimedAtClient'
         ])
+        && resource.data.fromId != request.auth.uid
         && (!('claimedBy' in resource.data) || resource.data.claimedBy == request.resource.data.claimedBy)
         && request.resource.data.claimedBy == request.auth.uid
         && request.resource.data.claimedAtMs is int
+        && resource.data.expiresAtMs >= request.time.toMillis()
+        && request.resource.data.claimedAtMs >= request.time.toMillis() - 2 * 60 * 1000
+        && request.resource.data.claimedAtMs <= request.time.toMillis() + 2 * 60 * 1000
         && request.resource.data.claimedAtClient is string;
       allow delete: if false;
     }
@@ -130,20 +488,31 @@ service cloud.firestore {
     // ── Carer Logs ──
     // GET only on parent doc. Entries subcollection open for carers.
     match /carer_logs/{code} {
-      allow get: if request.auth != null;
+      allow get: if signedIn() && backupCodeId(code);
       allow list: if false;
-      allow create, update: if request.auth != null;
+      allow create, update: if signedIn()
+        && backupCodeId(code)
+	      && request.resource.data.keys().hasOnly(['createdAt', 'updatedAt']);
       allow delete: if false;
 
       match /entries/{entryId} {
-        allow read: if request.auth != null;
-        allow create: if request.auth != null;
-        allow update: if request.auth != null;
-        allow delete: if request.auth != null;
+        allow read: if signedIn() && backupCodeId(code);
+        allow create, update: if signedIn()
+          && backupCodeId(code)
+          && validCarerEntryWrite();
+        allow delete: if signedIn() && backupCodeId(code);
       }
 
       match /_meta/{docId} {
-        allow read, write: if request.auth != null;
+        allow read: if signedIn() && backupCodeId(code);
+        allow create, update: if signedIn()
+          && backupCodeId(code)
+          && docId == 'session'
+          && request.resource.data.keys().hasOnly(['ended', 'endedAt', 'endedBy'])
+	          && (!('ended' in request.resource.data) || request.resource.data.ended is bool)
+	          && (!('endedAt' in request.resource.data) || request.resource.data.endedAt is timestamp)
+	          && (!('endedBy' in request.resource.data) || boundedString(request.resource.data.endedBy, 80));
+        allow delete: if signedIn() && backupCodeId(code) && docId == 'session';
       }
     }
 

@@ -175,6 +175,7 @@ public class StorePlugin extends Plugin implements PurchasesUpdatedListener {
                             if (phase != null) {
                                 p.put("displayPrice", phase.getFormattedPrice());
                                 p.put("price", phase.getPriceAmountMicros() / 1_000_000.0);
+                                p.put("currencyCode", phase.getPriceCurrencyCode());
                             }
                             p.put("type", "subscription");
                             p.put("period", periodForProduct(pd, phase));
@@ -183,6 +184,7 @@ public class StorePlugin extends Plugin implements PurchasesUpdatedListener {
                             if (otpd != null) {
                                 p.put("displayPrice", otpd.getFormattedPrice());
                                 p.put("price", otpd.getPriceAmountMicros() / 1_000_000.0);
+                                p.put("currencyCode", otpd.getPriceCurrencyCode());
                             }
                             p.put("type", "nonConsumable");
                             p.put("period", "lifetime");

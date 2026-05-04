@@ -3,6 +3,12 @@ set -e
 
 echo "Building app.jsx → app.js (Babel transform)..."
 
+echo "Cleaning duplicate generated artifacts..."
+./tools/clean-duplicate-artifacts.sh
+rm -rf dist/assets public/assets ios/App/App/public/assets android/app/src/main/assets/public/assets
+rm -f dist/registerSW.js public/registerSW.js ios/App/App/public/registerSW.js android/app/src/main/assets/public/registerSW.js
+rm -f dist/workbox-*.js public/workbox-*.js ios/App/App/public/workbox-*.js android/app/src/main/assets/public/workbox-*.js
+
 node -e "
 const b=require('@babel/core'), f=require('fs');
 const r=b.transformSync(f.readFileSync('app.jsx','utf8'),{
@@ -33,6 +39,10 @@ cp -f public/vendor/react-dom.production.min.js dist/vendor/react-dom.production
 
 echo "Copying to dist/..."
 cp -f public/index.html dist/index.html
+cp -f public/manifest.json dist/manifest.json
+cp -f public/icon.png dist/icon.png 2>/dev/null || true
+mkdir -p dist/icons
+cp -f public/icons/*.png dist/icons/ 2>/dev/null || true
 cp -f app.js dist/app.js
 cp -f app.jsx dist/app.jsx
 cp -f styles.css dist/styles.css
@@ -60,12 +70,16 @@ if [ -f sw.js ]; then
   sed -i '' "s|obubba-v[0-9]*|obubba-v${CACHE_V}|g" sw.js
   echo "SW cache version: obubba-v${CACHE_V}"
 fi
-# Copy sw.js to public/ so it's always in sync
+# Copy sw.js to generated outputs so they are always in sync.
 cp -f sw.js public/sw.js
+cp -f sw.js dist/sw.js
 
 if [ -f tools/render-seo.mjs ]; then
   echo "Rendering SEO pages, blog, sitemap, robots and llms.txt..."
   node tools/render-seo.mjs
 fi
+
+echo "Final duplicate artifact sweep..."
+./tools/clean-duplicate-artifacts.sh
 
 echo "Build complete. Cache version: $CACHE_V"

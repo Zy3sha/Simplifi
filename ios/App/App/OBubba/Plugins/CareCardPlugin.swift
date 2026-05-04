@@ -20,7 +20,7 @@ public class CareCardPlugin: CAPPlugin, CAPBridgedPlugin {
             call.reject("Missing html parameter")
             return
         }
-        let fileName = call.getString("fileName") ?? "OBubba-Care-Guide.pdf"
+        let fileName = safePDFFileName(call.getString("fileName"))
 
         DispatchQueue.main.async {
             self.renderHTMLToPDF(html: html, fileName: fileName) { result in
@@ -60,6 +60,32 @@ public class CareCardPlugin: CAPPlugin, CAPBridgedPlugin {
         }
     }
 
+    private func safePDFFileName(_ rawName: String?) -> String {
+        let source = ((rawName ?? "OBubba-Care-Guide.pdf") as NSString).lastPathComponent
+        let allowed = CharacterSet.alphanumerics.union(CharacterSet(charactersIn: "._- "))
+        var cleaned = String(source.unicodeScalars.map { allowed.contains($0) ? Character($0) : "-" })
+            .replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+
+        while cleaned.hasPrefix(".") || cleaned.hasPrefix(" ") {
+            cleaned.removeFirst()
+        }
+
+        if cleaned.count > 80 {
+            cleaned = String(cleaned.prefix(80)).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        if cleaned.isEmpty || cleaned == "." || cleaned == ".." {
+            cleaned = "OBubba-Care-Guide.pdf"
+        }
+
+        if !cleaned.lowercased().hasSuffix(".pdf") {
+            cleaned += ".pdf"
+        }
+
+        return cleaned
+    }
+
     // ── Private: render HTML → PDF data via UIPrintPageRenderer ──
     private func renderHTMLToPDF(html: String, fileName: String, completion: @escaping (Result<String, Error>) -> Void) {
         let formatter = UIMarkupTextPrintFormatter(markupText: html)
@@ -90,7 +116,7 @@ public class CareCardPlugin: CAPPlugin, CAPBridgedPlugin {
 
         // Write to temp directory
         let tempDir = FileManager.default.temporaryDirectory
-        let filePath = tempDir.appendingPathComponent(fileName)
+        let filePath = tempDir.appendingPathComponent(safePDFFileName(fileName))
 
         do {
             try pdfData.write(to: filePath, options: .atomic)

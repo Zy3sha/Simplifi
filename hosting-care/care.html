@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <title>Bubba Care</title>
 <meta name="theme-color" content="#FFFCF9"/>
 <!-- Carer portal is live-updating. Prevent stale HTML from being served
@@ -172,12 +172,23 @@ if (!rawCode || rawCode.length < 4) {
     // If code is a CT token, look up the real backup code.
     // If code starts with "BK", it's already a backup code (new simpler flow).
     if (rawCode.startsWith("CT")) {
+      let _resolvedToken = false;
       try {
         const _tokenDoc = await getDoc(doc(db, "carer_tokens", rawCode));
         if (_tokenDoc.exists() && _tokenDoc.data().backupCode) {
           code = _tokenDoc.data().backupCode;
+          _resolvedToken = true;
         }
       } catch(e) { console.warn("CT token lookup failed", e); }
+      if (!_resolvedToken) {
+        $app.innerHTML = `
+          <div class="error-screen">
+            <div class="icon">⏳</div>
+            <h2>Care link expired</h2>
+            <p>This Bubba Care link has expired. Please ask the parent to share a fresh link from OBubba.</p>
+          </div>`;
+        return;
+      }
     }
     // BK codes work directly — no lookup needed
 
@@ -250,6 +261,10 @@ function clockMins(t) {
   const p = clockParts(t);
   return p ? p[0] * 60 + p[1] : null;
 }
+function napEndSortMins(n) {
+  const m = clockMins(n && n.end);
+  return m == null ? -1 : m;
+}
 function minsBetween(start, end) {
   const s = clockMins(start), e = clockMins(end);
   if (s == null || e == null) return null;
@@ -273,11 +288,28 @@ function parseDisplayMins(t) {
 }
 function fmt12(t) {
   const p = clockParts(t);
-  if(!p) return t || "";
+  if(!p) return "";
   const [h,m] = p;
   const ap = h >= 12 ? "pm" : "am";
   const h12 = (h % 12) || 12;
   return h12 + ":" + String(m).padStart(2,"0") + ap;
+}
+function safePositiveNumber(v) {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : 0;
+}
+function safeJsonValue(value, fallback) {
+  if (value === null || value === undefined || value === "") return fallback;
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value);
+      return parsed === null || parsed === undefined ? fallback : parsed;
+    } catch {
+      return fallback;
+    }
+  }
+  if (typeof value === "object") return value;
+  return fallback;
 }
 function agoMin(t) {
   const mins = clockMins(t);
@@ -301,10 +333,70 @@ let familyContext = { babyName: "baby", babyDob: null, ageWeeks: null, babyPhoto
 let _childrenCache = null; // used to recompute stats when carer entries arrive
 let _napEndedLocally = null; // set to end time when carer taps "Nap Ended" — forces render to treat nap as done
 let _nightWakePausedAt = null; // timestamp when carer tapped Night Wake — pauses timer display
+let _nightWakeSettledAt = null; // brief local resume marker while Firestore echoes the settled wake
 
 function todayStrLocal() {
   const d = new Date();
   return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function dateKeyMs(dateStr, fallback = NaN) {
+  const raw = String(dateStr || "").trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return fallback;
+  const parts = raw.split("-").map(Number);
+  const dt = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0, 0);
+  return dt.getFullYear() === parts[0] && dt.getMonth() === parts[1] - 1 && dt.getDate() === parts[2]
+    ? dt.getTime()
+    : fallback;
+}
+function prevDayStrLocal(dayKey) {
+  const ms = dateKeyMs(dayKey, NaN);
+  const d = Number.isFinite(ms) ? new Date(ms) : new Date();
+  d.setDate(d.getDate() - 1);
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function safeEntryList(arr) {
+  return Array.isArray(arr) ? arr.filter(e => e && typeof e === "object" && !Array.isArray(e)) : [];
+}
+function isMorningWakeEntry(e) {
+  if (!e || e.type !== "wake" || e.night) return false;
+  const mins = clockMins(e.time || "");
+  if (mins == null) return false;
+  const hour = Math.floor(mins / 60);
+  return hour >= 5 && hour < 12;
+}
+function isSettledNightWakeEntry(e) {
+  if (!e || e.type !== "wake" || !e.night) return false;
+  return !!(e.nightLocked || e.assisted || e.selfSettled || e.settleTime || e.assistedDuration != null || e.settleDuration != null);
+}
+function recentlySettledNightWake() {
+  return Number.isFinite(_nightWakeSettledAt) && (Date.now() - _nightWakeSettledAt) < 15 * 60 * 1000;
+}
+function morningWakeClosesBed(entries, bedEntry) {
+  const bedMins = clockMins(bedEntry && bedEntry.time);
+  if (bedMins == null) return false;
+  return safeEntryList(entries).some(e => {
+    if (!isMorningWakeEntry(e)) return false;
+    const wakeMins = clockMins(e.time || "");
+    return wakeMins != null && wakeMins > bedMins;
+  });
+}
+function isOpenNightSleep(entries, bedEntry, nowMins) {
+  const bedMins = clockMins(bedEntry && bedEntry.time);
+  if (bedMins == null) return false;
+  if (morningWakeClosesBed(entries, bedEntry)) return false;
+  const bedtimeIsEvening = bedMins >= 16 * 60;
+  const clockLooksOvernight = bedtimeIsEvening && (nowMins >= bedMins || nowMins < 12 * 60);
+  return clockLooksOvernight || nowMins >= 18 * 60 || safeEntryList(entries).some(isSettledNightWakeEntry) || recentlySettledNightWake();
+}
+function resolveCareDayKey(child) {
+  const today = todayStrLocal();
+  if (!child || !child.days || familyContext.dayBoundary === "midnight") return today;
+  const yesterday = prevDayStrLocal(today);
+  const todayEntries = safeEntryList(child.days[today]);
+  const yesterdayEntries = safeEntryList(child.days[yesterday]);
+  const hasMorningWakeToday = todayEntries.some(isMorningWakeEntry);
+  const previousBedtimeOpen = yesterdayEntries.some(e => e.type === "sleep" && !e.night);
+  return previousBedtimeOpen && !hasMorningWakeToday ? yesterday : today;
 }
 
 function getWakeWindow(weeks) {
@@ -319,28 +411,29 @@ function getWakeWindow(weeks) {
   return { min:210, max:240, label:"3.5–4h" };
 }
 
-function computeTodayStats(children, childId, extraEntries) {
+function computeTodayStats(children, childId, extraEntries, dayKey) {
   // Pick first child by default; use childId if provided
   const ch = childId ? (children.find(c=>c.id===childId) || children[0]) : children[0];
   if (!ch) return null;
-  const today = todayStrLocal();
-  const baseEntries = (ch.days && ch.days[today]) || [];
+  const today = dayKey || todayStrLocal();
+  const baseEntries = safeEntryList(ch.days && ch.days[today]);
   // Merge in any extra entries (pending carer_logs entries from Firestore) that haven't been
   // accepted by the parent yet, so the carer portal reflects real-time state.
-  const entries = Array.isArray(extraEntries) ? baseEntries.concat(extraEntries) : baseEntries;
+  const entries = baseEntries.concat(safeEntryList(extraEntries));
   const feeds = entries.filter(e => e.type === "feed" && !e.night);
   const naps = entries.filter(e => e.type === "nap" && !e.night);
   const poops = entries.filter(e => e.type === "poop");
   const lastFeed = feeds.length ? feeds[feeds.length-1] : null;
   const lastNap = naps.length ? naps[naps.length-1] : null;
   const lastPoop = poops.length ? poops[poops.length-1] : null;
-  const wetCount = poops.filter(p => { const _pt=(p.poopType||"wet").toLowerCase(); return _pt.includes("wet")||_pt==="both"; }).length;
-  const dirtyCount = poops.filter(p => (p.poopType||"").includes("dirty")||(p.poopType||"").includes("mixed")||(p.poopType||"").includes("yellow")||(p.poopType||"").includes("green")||(p.poopType||"").includes("brown")).length;
-  const totalMl = feeds.reduce((s,f)=>s+(f.amount||0),0);
+  const wetCount = poops.filter(p => { const _pt=String(p.poopType||"wet").toLowerCase(); return _pt.includes("wet")||_pt==="both"; }).length;
+  const dirtyCount = poops.filter(p => { const _pt=String(p.poopType||"").toLowerCase(); return _pt.includes("dirty")||_pt.includes("mixed")||_pt.includes("yellow")||_pt.includes("green")||_pt.includes("brown"); }).length;
+  const totalMl = feeds.reduce((s,f)=>s+safePositiveNumber(f.amount),0);
   // Avg per feed (from today + recent)
-  const recentFeeds = Object.values(ch.days||{}).flat().filter(e=>e&&e.type==="feed"&&!e.night&&e.amount>0).slice(-20);
-  const avgMl = recentFeeds.length ? Math.round(recentFeeds.reduce((s,f)=>s+f.amount,0)/recentFeeds.length) : 0;
-  const avgFeedsPerDay = (()=>{const days=ch.days||{};const counts=Object.values(days).slice(-7).map(d=>(d||[]).filter(e=>e.type==="feed").length).filter(n=>n>0);return counts.length?Math.round(counts.reduce((a,b)=>a+b,0)/counts.length):0;})();
+  const dayLists = Object.values((ch.days && typeof ch.days === "object") ? ch.days : {}).flatMap(d => Array.isArray(d) ? d : []);
+  const recentFeeds = dayLists.filter(e=>e&&e.type==="feed"&&!e.night&&safePositiveNumber(e.amount)>0).slice(-20);
+  const avgMl = recentFeeds.length ? Math.round(recentFeeds.reduce((s,f)=>s+safePositiveNumber(f.amount),0)/recentFeeds.length) : 0;
+  const avgFeedsPerDay = (()=>{const days=(ch.days&&typeof ch.days==="object")?ch.days:{};const counts=Object.values(days).slice(-7).map(d=>(Array.isArray(d)?d:[]).filter(e=>e&&e.type==="feed").length).filter(n=>n>0);return counts.length?Math.round(counts.reduce((a,b)=>a+b,0)/counts.length):0;})();
   return { today, entries, lastFeed, lastNap, lastPoop, wetCount, dirtyCount, nappyCount: poops.length, totalMl, avgMl, avgFeedsPerDay, naps };
 }
 
@@ -349,65 +442,72 @@ function computeTodayStats(children, childId, extraEntries) {
 // subscription use the same code path.
 function _applyFamilyDoc(data) {
   if (!data) return;
+  let _sharedData = {};
+  try { _sharedData = safeJsonValue(data.sharedData, {}) || {}; } catch {}
+  familyContext.dayBoundary = _sharedData.dayBoundary === "midnight" ? "midnight" : "wake";
   // Extract children → name, dob, photo, today stats
   try {
-    const children = JSON.parse(data.children || "[]");
-    const arr = Array.isArray(children) ? children : Object.values(children);
+    const children = safeJsonValue(data.children, []);
+    const arr = Array.isArray(children) ? children : (children && typeof children === "object" ? Object.values(children) : []);
     if (arr.length > 0) {
-      const ch = arr[0];
+      const ch = childId ? (arr.find(c=>c.id===childId) || arr[0]) : arr[0];
       familyContext.babyName = ch.name || "baby";
       familyContext.babyDob = ch.dob || null;
-      if (ch.dob) {
-        const dobDate = new Date(ch.dob + "T00:00:00");
-        const weeks = Math.floor((Date.now() - dobDate.getTime()) / (7*24*3600*1000));
-        familyContext.ageWeeks = weeks;
+      familyContext.ageWeeks = null;
+      const dobMs = dateKeyMs(ch.dob, NaN);
+      if (Number.isFinite(dobMs)) {
+        const weeks = Math.floor((Date.now() - dobMs) / (7*24*3600*1000));
+        familyContext.ageWeeks = Number.isFinite(weeks) ? Math.max(0, weeks) : null;
       }
       _childrenCache = arr;
       // Use URL childId if present; otherwise pick the baby matching the stored profile
-      familyContext.today = computeTodayStats(arr, childId) || {};
+      const _careDayKey = resolveCareDayKey(ch);
+      familyContext._careDayKey = _careDayKey;
+      familyContext.today = computeTodayStats(arr, childId, [], _careDayKey) || {};
       // Also update name/age from the resolved child (in case URL specified a specific one)
-      const _resolvedCh = childId ? (arr.find(c=>c.id===childId) || arr[0]) : arr[0];
+      const _resolvedCh = ch;
       if (_resolvedCh) {
         familyContext.babyName = _resolvedCh.name || "baby";
         familyContext.babyDob = _resolvedCh.dob || null;
         familyContext.babyPhoto = _resolvedCh.photo || null;
-        if (_resolvedCh.dob) {
-          const _dobDate = new Date(_resolvedCh.dob + "T00:00:00");
-          const _chronoWeeks = Math.floor((Date.now() - _dobDate.getTime()) / (7*24*3600*1000));
+        familyContext.ageWeeks = null;
+        const _dobMs = dateKeyMs(_resolvedCh.dob, NaN);
+        if (Number.isFinite(_dobMs)) {
+          const _chronoWeeks = Math.floor((Date.now() - _dobMs) / (7*24*3600*1000));
           // Use corrected age for preemies (same as main app)
           let _correctedWeeks = _chronoWeeks;
-          if (_resolvedCh.dueDate) {
-            const _dueDate = new Date(_resolvedCh.dueDate + "T00:00:00");
-            const _pretermDays = Math.round((_dueDate.getTime() - _dobDate.getTime()) / (24*3600*1000));
+          const _dueMs = dateKeyMs(_resolvedCh.dueDate, NaN);
+          if (Number.isFinite(_dueMs)) {
+            const _pretermDays = Math.round((_dueMs - _dobMs) / (24*3600*1000));
             if (_pretermDays > 14) {
-              _correctedWeeks = Math.floor((Date.now() - _dueDate.getTime()) / (7*24*3600*1000));
+              _correctedWeeks = Math.floor((Date.now() - _dueMs) / (7*24*3600*1000));
             }
           }
-          familyContext.ageWeeks = Math.max(0, _correctedWeeks);
+          familyContext.ageWeeks = Number.isFinite(_correctedWeeks) ? Math.max(0, _correctedWeeks) : null;
         }
       }
     }
   } catch (e) { console.warn("Children parse", e); }
   // Parse shared data for pinned notes
   try {
-    const sd = JSON.parse(data.sharedData || "{}");
-    familyContext.pinnedNotes = Array.isArray(sd.pinnedNotes) ? sd.pinnedNotes.filter(n=>n&&n.pinned) : [];
+    familyContext.pinnedNotes = Array.isArray(_sharedData.pinnedNotes) ? _sharedData.pinnedNotes.filter(n=>n&&n.pinned) : [];
   } catch {}
   // Parse carer info
   try {
-    const ci = JSON.parse(data.carerInfo || "{}");
+    const ci = safeJsonValue(data.carerInfo, {});
     familyContext.carerNotes = ci.carerNotes || "";
     familyContext.carerComfort = ci.carerComfort || "";
     familyContext.emergencyContacts = Array.isArray(ci.emergencyContacts) ? ci.emergencyContacts : [];
   } catch {}
   // Parse prediction data from parent app
   try {
-    const pred = JSON.parse(data.prediction || "{}");
+    const pred = safeJsonValue(data.prediction, {});
     familyContext.prediction = pred || {};
   } catch { familyContext.prediction = {}; }
   // Parse today's medicines from parent app
   try {
-    familyContext.todayMeds = JSON.parse(data.todayMeds || "[]");
+    const meds = safeJsonValue(data.todayMeds, []);
+    familyContext.todayMeds = Array.isArray(meds) ? meds : [];
   } catch { familyContext.todayMeds = []; }
   // Stamp the sync time so we can show "live · updated just now"
   familyContext._lastSyncedAt = Date.now();
@@ -468,6 +568,7 @@ async function logEntry(entry) {
     if (!code || code.length < 4) { showToast("Invalid care link. ask the parent for a new one"); return; }
     const colRef = collection(db, "carer_logs", code, "entries");
     const _doc = { ...entry, time: _entryTime, loggedAt: new Date().toISOString(), loggedBy: "carer" };
+    if (!_doc.date) _doc.date = entry.night ? (familyContext._careDayKey || todayStrLocal()) : todayStrLocal();
     // For naps, preserve the original start time — don't overwrite with _entryTime
     if (entry.start && !entry.end) _doc.start = entry.start;
     else if (entry.start) _doc.start = entry.start;
@@ -586,6 +687,7 @@ function openSheet(type) {
     sheet.querySelector("#cancel").onclick = closeSheet;
   } else if (type === "wake") {
     // Step 1: Pause the timer — mark night wake in progress
+    _nightWakeSettledAt = null;
     _nightWakePausedAt = Date.now();
     _debouncedRender();
     closeSheet();
@@ -596,6 +698,7 @@ function openSheet(type) {
     return; // handled inline
   } else if (type === "morning-wake") {
     _nightWakePausedAt = null; // clear any active night wake
+    _nightWakeSettledAt = null;
     logEntry({type:"wake", night:false, note:"Morning wake · logged by caregiver"});
   } else if (type === "nap-end") {
     const _endT = nowTime();
@@ -633,11 +736,17 @@ function _mergeCarerEntries() {
   try {
     if (!_childrenCache) return;
     const _todayStr = todayStrLocal();
+    const _careDay = familyContext._careDayKey || _todayStr;
     const _todayPending = recentEntries.filter(e => {
       // Skip entries already merged by parent app — but keep active naps so timer stays visible
       if (e._merged && !e._active) return false;
+      if (e.date) return e.date === _careDay;
       const t = e.loggedAt || e.time || "";
-      if (typeof t === "string" && t.length >= 10) return t.slice(0,10) === _todayStr;
+      if (typeof t === "string" && t.length >= 10) {
+        const loggedDay = t.slice(0,10);
+        if (loggedDay === _careDay) return true;
+        return _careDay !== _todayStr && !!e.night && loggedDay === _todayStr;
+      }
       return true;
     }).map(e => ({
       type: e.type,
@@ -648,9 +757,17 @@ function _mergeCarerEntries() {
       start: e.start || "",
       end: e.end || "",
       night: !!e.night,
+      nightLocked: !!e.nightLocked,
+      assisted: !!e.assisted,
+      selfSettled: !!e.selfSettled,
+      assistedType: e.assistedType || "",
+      assistedDuration: e.assistedDuration,
+      settleDuration: e.settleDuration,
+      settleTime: e.settleTime || "",
+      _activeNightWake: !!e._activeNightWake,
       _active: !!e._active
     }));
-    familyContext.today = computeTodayStats(_childrenCache, childId, _todayPending) || {};
+    familyContext.today = computeTodayStats(_childrenCache, childId, _todayPending, _careDay) || {};
   } catch(e) { console.warn("merge carer entries failed", e); }
 }
 
@@ -757,16 +874,14 @@ function _renderHtml() {
   });
   // Prefer familyContext entries (parent-side, correct data), fall back to recentEntries
   const activeNap = _napEndedLocally ? null : (_findActiveNap(_t.entries || []) || _findActiveNap(recentEntries));
-  const _hasMorningWake = _allEntries.some(e=>e.type==="wake"&&!e.night&&(()=>{const m=clockMins(e.time);if(m==null)return false;const h=Math.floor(m/60);return h>=5&&h<12;})());
-  const _outerBedTimeMins = _bedEntry ? (clockMins(_bedEntry.time) ?? 0) : 0;
-  const _isNightSleep = _bedEntry && ((_outerBedTimeMins >= 16*60 && _nowMins >= _outerBedTimeMins) || _nowMins >= 18*60 || (_nowMins < 12*60 && !_hasMorningWake));
+  const _isNightSleep = isOpenNightSleep(_allEntries, _bedEntry, _nowMins);
   const _bedtimeMins = 19*60; // 7pm, typical bedtime cutoff
   const _nightCutoff = 20*60; // 8pm, after this, baby is winding down; no more feed/nap suggestions
   const _lastFeedAgo = _t.lastFeed ? agoMin(_t.lastFeed.time) : null;
   const _lastFeedTimeMins = _t.lastFeed ? clockMins(_t.lastFeed.time) : null;
   // Parent prediction: is bedtime the next event?
   const _pred0 = familyContext.prediction || {};
-  const _predIsBed = _pred0.nextPredictionLabel ? _pred0.nextPredictionLabel.toLowerCase().includes("bed") : false;
+  const _predIsBed = String(_pred0.nextPredictionLabel || "").toLowerCase().includes("bed");
   const _predBedMins = _predIsBed && _pred0.nextPrediction ? parseDisplayMins(_pred0.nextPrediction) : null;
   // Feed interval: 3h for babies under 6mo, 3.5h from 6mo
   const _feedInterval = _weeks==null ? 180 : (_weeks<26 ? 180 : 210);
@@ -786,7 +901,7 @@ function _renderHtml() {
   }
   // Last nap end → next nap window (check both parent naps + carer-logged naps)
   const _allCompletedNaps = [...(_t.naps||[]), ...recentEntries.filter(e=>e.type==="nap"&&e.end&&e.start!==e.end)];
-  const _lastNapForWindow = _allCompletedNaps.sort((a,b)=>(a.end||"").localeCompare(b.end||"")).pop() || _t.lastNap;
+  const _lastNapForWindow = _allCompletedNaps.sort((a,b)=>napEndSortMins(a)-napEndSortMins(b)).pop() || _t.lastNap;
   let _napWindowStr = null;
   if (_lastNapForWindow && _lastNapForWindow.end && _ww && _nowMins <= _nightCutoff) {
     const endMins = clockMins(_lastNapForWindow.end);
@@ -818,7 +933,7 @@ function _renderHtml() {
         <div style="font-size:20px;margin-bottom:2px">🍼</div>
         <div style="font-size:10px;color:#A89A90;text-transform:uppercase;letter-spacing:0.05em">Last feed</div>
         <div style="font-size:13px;font-weight:700;color:#4A3B35;margin-top:2px">${_t.lastFeed ? fmtAgo(_lastFeedAgo) : "--"}</div>
-        ${_t.lastFeed&&_t.lastFeed.amount ? `<div style="font-size:14px;color:#6A584E;margin-top:1px">${_t.lastFeed.amount}ml</div>` : ""}
+        ${safePositiveNumber(_t.lastFeed&&_t.lastFeed.amount) ? `<div style="font-size:14px;color:#6A584E;margin-top:1px">${safePositiveNumber(_t.lastFeed.amount)}ml</div>` : ""}
       </div>
       <div style="text-align:center;padding:10px 4px;background:#FBF5F0;border-radius:12px">
         <div style="font-size:20px;margin-bottom:2px">💤</div>
@@ -842,7 +957,7 @@ function _renderHtml() {
   </div>`;
   // Build parent context (only show cards that have content)
   // Allergy/medical pinned notes, sticky, can't-miss banner
-  const _allergyNotes = (familyContext.pinnedNotes||[]).filter(n=>n&&n.text&&(n.text.toLowerCase().includes("allerg")||n.text.toLowerCase().includes("dairy")||n.text.toLowerCase().includes("egg")||n.text.toLowerCase().includes("nut")||n.text.toLowerCase().includes("milk allerg")||n.text.toLowerCase().includes("intoleran")));
+  const _allergyNotes = (familyContext.pinnedNotes||[]).filter(n=>{const text=String((n&&n.text)||"").toLowerCase();return text&&(text.includes("allerg")||text.includes("dairy")||text.includes("egg")||text.includes("nut")||text.includes("milk allerg")||text.includes("intoleran"));});
   const _otherPinned = (familyContext.pinnedNotes||[]).filter(n=>!_allergyNotes.includes(n));
   const _allergyBanner = _allergyNotes.length ? `<div style="position:sticky;top:0;z-index:50;background:#c04040;color:white;padding:10px 16px;border-radius:12px;margin-bottom:12px;font-size:14px;font-weight:700;box-shadow:0 4px 12px rgba(192,64,64,0.3)">
     <div style="font-size:14px;text-transform:uppercase;letter-spacing:0.1em;opacity:0.9;margin-bottom:4px">⚠️ ALLERGY ALERT</div>
@@ -853,12 +968,17 @@ function _renderHtml() {
   // Note: carerComfort is already rendered in the Soothing Playbook card above, no duplicate here.
   const _comfortHtml = "";
   // Contacts → tel: buttons
-  const _contactsHtml = (familyContext.emergencyContacts||[]).filter(c=>c && c.phone && String(c.phone).trim()).map(c => `
-    <a class="call-btn" href="tel:${encodeURIComponent(c.phone)}">
+  const _contactsHtml = (familyContext.emergencyContacts||[]).filter(c=>c && c.phone && String(c.phone).trim()).map(c => {
+    const _href = safeTelHref(c.phone);
+    if (!_href) return "";
+    return `
+    <a class="call-btn" href="${escapeHtml(_href)}">
       <span class="emoji">📞</span>
       <span class="name">${escapeHtml(c.name || "Call")}${c.relation?" <span style='font-size:14px;color:#A89A90;font-weight:500'>· "+escapeHtml(c.relation)+"</span>":""}</span>
       <span class="arrow">›</span>
-    </a>`).join("");
+    </a>`;
+  }).join("");
+  const _babyPhotoSrc = safeImageSrc(familyContext.babyPhoto || "");
 
   // ── Build care guide sections (matches the preview content) ──
   const _wakeEntry = (_t.entries||[]).find(e=>e.type==="wake"&&!e.night);
@@ -875,12 +995,12 @@ function _renderHtml() {
   const _emergNum = _isUS||_isCA ? "911" : _isAU ? "000" : _isNZ ? "111" : _isIE ? "999/112" : _isIN ? "112" : "999";
   const _nonEmerg = _isUS ? "Poison Control: 1-800-222-1222" : _isCA ? "811 (Health Link)" : _isAU ? "13 HEALTH (13 43 25 84)" : _isNZ ? "Healthline: 0800 611 116" : _isIE ? "HSE Live: 1800 700 700" : _isIN ? "your paediatrician" : "NHS 111";
   const _hvTitle = _isUS||_isCA ? "pediatrician" : _isAU ? "child health nurse or GP" : _isNZ ? "Plunket nurse or GP" : _isIE ? "public health nurse or GP" : _isIN ? "paediatrician" : "health visitor or GP";
-  const _photoHtml = familyContext.babyPhoto ? `<div style="text-align:center;margin-bottom:12px"><img src="${familyContext.babyPhoto}" alt="${escapeHtml(_name)}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid #E8DED3;box-shadow:0 4px 12px rgba(0,0,0,0.1)"/></div>` : "";
+  const _photoHtml = _babyPhotoSrc ? `<div style="text-align:center;margin-bottom:12px"><img src="${escapeHtml(_babyPhotoSrc)}" alt="${escapeHtml(_name)}" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid #E8DED3;box-shadow:0 4px 12px rgba(0,0,0,0.1)"/></div>` : "";
 
   $app.innerHTML = `
     <div class="header">
       <div class="header-left">
-        ${familyContext.babyPhoto ? `<img class="header-photo" src="${familyContext.babyPhoto}" alt="${escapeHtml(_name)}" onerror="this.style.display='none'"/>` : ""}
+        ${_babyPhotoSrc ? `<img class="header-photo" src="${escapeHtml(_babyPhotoSrc)}" alt="${escapeHtml(_name)}" data-hide-on-error="baby-photo"/>` : ""}
         <div>
           <div class="header-name">${escapeHtml(_name)}</div>
           <div class="header-age">${_ageStr||"Baby"}</div>
@@ -917,16 +1037,13 @@ function _renderHtml() {
         return diff >= 0 && diff <= 12;
       });
       const _allNaps = [...(_t.naps||[]), ...recentEntries.filter(e=>e.type==="nap")];
-      const lastCompletedNap = _allNaps.filter(n=>n.end&&n.start!==n.end).sort((a,b)=>(a.end||"").localeCompare(b.end||"")).pop();
+      const lastCompletedNap = _allNaps.filter(n=>n.end&&n.start!==n.end).sort((a,b)=>napEndSortMins(a)-napEndSortMins(b)).pop();
       const wakeEntry = entries.find(e=>e.type==="wake"&&!e.night);
       let statusIcon="☀️", statusText=_name+" is awake", statusColor="#6A8A7A", statusBg="rgba(155,184,168,0.1)";
       let nextAction = "";
 
       // Baby is sleeping if: bedtime logged AND (afternoon/evening OR early AM with no morning wake)
-      const _hasMorningWake = entries.some(e=>e.type==="wake"&&!e.night&&(()=>{const m=clockMins(e.time);if(m==null)return false;const h=Math.floor(m/60);return h>=5&&h<12;})());
-      const _bedTimeMins = bedEntry ? (clockMins(bedEntry.time) ?? 0) : 0;
-      // Recognise bedtime from 4pm onwards (many babies bed at 5-6pm), or overnight
-      const _isNightSleep = bedEntry && ((_bedTimeMins >= 16*60 && nowM >= _bedTimeMins) || nowM >= 18*60 || (nowM < 12*60 && !_hasMorningWake));
+      const _isNightSleep = isOpenNightSleep(entries, bedEntry, nowM);
       if (_isNightSleep) {
         // Baby is sleeping for the night
         statusIcon="🌙"; statusText=_name+" is sleeping for the night"; statusColor="#7B68EE"; statusBg="rgba(123,104,238,0.08)";
@@ -1006,7 +1123,7 @@ function _renderHtml() {
           if(_napElapSec<0) _napElapSec+=86400;
           const _m2=Math.floor(_napElapSec/60), _s2=_napElapSec%60;
           const _fmtNap = (()=>{ const h=Math.floor(_napElapSec/3600),m=Math.floor((_napElapSec%3600)/60),s=_napElapSec%60; return h>0?h+":"+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0"):m+":"+String(s).padStart(2,"0"); })();
-          _timerHtml = `<div class="status-timer" data-timer-start="${activeNap.start}" data-timer-type="nap" style="color:${statusColor}">${_fmtNap}</div>`;
+          _timerHtml = `<div class="status-timer" data-timer-start="${escapeHtml(activeNap.start)}" data-timer-type="nap" style="color:${statusColor}">${_fmtNap}</div>`;
         }
       } else if (_isNightSleep && _bedEntry) {
         const _bedStartM = clockMins(_bedEntry.time);
@@ -1014,7 +1131,7 @@ function _renderHtml() {
           let _bedElapSec = _nowSec - (_bedStartM*60);
           if(_bedElapSec<0) _bedElapSec+=86400;
           const _fmtBed = (()=>{ const h=Math.floor(_bedElapSec/3600),m=Math.floor((_bedElapSec%3600)/60),s=_bedElapSec%60; return h>0?h+":"+String(m).padStart(2,"0")+":"+String(s).padStart(2,"0"):m+":"+String(s).padStart(2,"0"); })();
-          _timerHtml = `<div class="status-timer" data-timer-start="${_bedEntry.time}" data-timer-type="bed" style="color:${statusColor}">${_fmtBed}</div>
+          _timerHtml = `<div class="status-timer" data-timer-start="${escapeHtml(_bedEntry.time)}" data-timer-type="bed" style="color:${statusColor}">${_fmtBed}</div>
           <div style="font-size:11px;color:#A89A90;text-align:center;margin-bottom:4px">Bedtime ${fmt12(_bedEntry.time)}</div>`;
         }
       }
@@ -1035,7 +1152,7 @@ function _renderHtml() {
         const _events = [];
         const _pred = familyContext.prediction || {};
         if (_pred.nextPrediction) {
-          const _predLabel = _pred.nextPredictionLabel || "Next";
+          const _predLabel = String(_pred.nextPredictionLabel || "Next");
           const _isBed = _predLabel.toLowerCase().includes("bed");
           const _isNap2 = _predLabel.toLowerCase().includes("nap");
           const _icon = _isBed ? "🌙" : _isNap2 ? "😴" : "⏰";
@@ -1050,7 +1167,7 @@ function _renderHtml() {
           }
         }
         if (_events.length) {
-          _countdownHtml = `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${_events.map(e=>`<div style="padding:5px 10px;border-radius:99px;background:rgba(255,255,255,0.6);border:1px solid ${statusColor}25;font-size:11px;font-weight:600;color:#4A3B35">${e}</div>`).join("")}</div>`;
+          _countdownHtml = `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${_events.map(e=>`<div style="padding:5px 10px;border-radius:99px;background:rgba(255,255,255,0.6);border:1px solid ${statusColor}25;font-size:11px;font-weight:600;color:#4A3B35">${escapeHtml(e)}</div>`).join("")}</div>`;
         }
       }
 
@@ -1058,7 +1175,7 @@ function _renderHtml() {
         <div class="status-row">
           <span class="status-icon">${statusIcon}</span>
           <div style="flex:1">
-            <div class="status-text">${statusText}</div>
+            <div class="status-text">${escapeHtml(statusText)}</div>
             <div class="status-sub">Live · updates automatically</div>
           </div>
         </div>
@@ -1066,7 +1183,7 @@ function _renderHtml() {
         ${_countdownHtml}
         ${nextAction?`<div style="padding:10px 12px;background:rgba(255,255,255,0.5);border-radius:12px;font-size:13px;color:#4A3B35;line-height:1.6;margin-top:6px">
           <div style="font-size:10px;font-weight:700;color:${statusColor};text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">👉 What to do</div>
-          ${nextAction}
+          ${escapeHtml(nextAction)}
         </div>`:""}
       </div>`;
     })()}
@@ -1167,8 +1284,9 @@ function _renderHtml() {
       (familyContext.todayMeds||[]).length ? `<div class="card" style="border-color:rgba(212,168,85,0.3);background:linear-gradient(135deg,rgba(212,168,85,0.06),rgba(212,168,85,0.02))">
       <div style="font-size:10px;color:#A88848;text-transform:uppercase;letter-spacing:0.1em;font-weight:700;margin-bottom:8px">💊 Medicine today</div>
       ${(familyContext.todayMeds||[]).map(function(m){
-        var _isP = (m.name||"").toLowerCase().match(/paracetamol|calpol|tylenol|acetaminophen/);
-        var _isI = (m.name||"").toLowerCase().match(/ibuprofen|nurofen|advil|motrin/);
+        var _medNameLower = String(m.name||"").toLowerCase();
+        var _isP = _medNameLower.match(/paracetamol|calpol|tylenol|acetaminophen/);
+        var _isI = _medNameLower.match(/ibuprofen|nurofen|advil|motrin/);
         var _minH = _isI ? 6 : _isP ? 4 : 0;
         var _nextSafe = "";
         if (_minH && m.time) {
@@ -1202,7 +1320,7 @@ function _renderHtml() {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:13px;color:#5B4F5F;margin-bottom:10px">
         ${_t.avgMl ? `<div style="color:#A898AC">Typical amount</div><div style="font-weight:600">~${_t.avgMl}ml per feed</div>` : ""}
         ${_t.avgFeedsPerDay ? `<div style="color:#A898AC">Typical frequency</div><div style="font-weight:600">~${_t.avgFeedsPerDay} feeds/day</div>` : ""}
-        ${_t.lastFeed ? `<div style="color:#A898AC">Last feed</div><div style="font-weight:600">${fmt12(_t.lastFeed.time)}${_t.lastFeed.amount?", "+_t.lastFeed.amount+"ml":""}</div>` : ""}
+        ${_t.lastFeed ? `<div style="color:#A898AC">Last feed</div><div style="font-weight:600">${fmt12(_t.lastFeed.time)}${safePositiveNumber(_t.lastFeed.amount)?", "+safePositiveNumber(_t.lastFeed.amount)+"ml":""}</div>` : ""}
         ${_nextFeedStr ? `<div style="color:#A898AC">Next feed around</div><div style="font-weight:600">~${_nextFeedStr}</div>` : ""}
       </div>
       <div style="font-size:12px;color:#7A6B7E;line-height:1.6">💡 <strong>Feed every ${_weeks&&_weeks<8?"2–3":"3–4"} hours</strong>, or sooner if ${escapeHtml(_name)} shows hunger cues (rooting, lip-smacking, hand-to-mouth). Follow ${escapeHtml(_name)}'s lead.</div>
@@ -1213,7 +1331,7 @@ function _renderHtml() {
       <div style="font-size:15px;font-weight:700;color:#C07088;margin-bottom:10px">👶 Nappies</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:13px;color:#5B4F5F;margin-bottom:10px">
         <div style="color:#A898AC">Today's nappies</div><div style="font-weight:600">${_t.nappyCount||0} (${_t.wetCount||0} wet)</div>
-        ${_t.lastPoop ? `<div style="color:#A898AC">Last nappy</div><div style="font-weight:600">${fmt12(_t.lastPoop.time)}, ${_t.lastPoop.poopType||"wet"}</div>` : ""}
+        ${_t.lastPoop ? `<div style="color:#A898AC">Last nappy</div><div style="font-weight:600">${fmt12(_t.lastPoop.time)}, ${escapeHtml(_t.lastPoop.poopType||"wet")}</div>` : ""}
         <div style="color:#A898AC">Hydration target</div><div style="font-weight:600">${_t.wetCount||0}/6 wet nappies</div>
       </div>
       <div style="font-size:12px;color:#7A6B7E;line-height:1.5">NHS guidance: 6+ wet nappies in 24h indicates adequate hydration. Check nappy every 2-3 hours.</div>
@@ -1328,19 +1446,41 @@ function _renderHtml() {
       <div id="recent-list"><div style="font-size:13px;color:#A89A90;text-align:center;padding:8px">Nothing logged yet</div></div>
     </div>
     ${/* Floating call button */""}
-    ${(familyContext.emergencyContacts||[]).filter(c=>c&&c.phone).length ? `<a class="fab-call" href="tel:${encodeURIComponent((familyContext.emergencyContacts.find(c=>c&&c.phone)||{}).phone||"")}" title="Call parent">📞</a>` : ""}
+    ${(()=>{ const _href = safeTelHref((familyContext.emergencyContacts.find(c=>c&&c.phone)||{}).phone||""); return _href ? `<a class="fab-call" href="${escapeHtml(_href)}" title="Call parent">📞</a>` : ""; })()}
     `;
+
+  document.querySelectorAll('[data-hide-on-error="baby-photo"]').forEach(img => {
+    img.addEventListener("error", () => { img.style.display = "none"; }, { once: true });
+  });
 
   document.querySelectorAll(".action-btn").forEach(b => {
     b.onclick = () => {
       if (b.dataset.action === "night-settle" && b.dataset.settle) {
         // Night wake settle — log the wake entry + resume timer
         const _settle = b.dataset.settle;
+        const _wakeStart = _nightWakePausedAt || Date.now();
+        const _settleMins = Math.max(0, Math.round((Date.now() - _wakeStart) / 60000));
         const _note = _settle === "feed" ? "Night feed · logged by caregiver"
           : _settle === "soothe" ? "Soothed back to sleep · logged by caregiver"
           : "Self settled · logged by caregiver";
-        logEntry({type:"wake", night:true, assistedType: _settle === "feed" ? "milk" : _settle, note: _note});
+        const _nightWakeLog = {
+          type:"wake",
+          night:true,
+          nightLocked:true,
+          assistedType: _settle === "feed" ? "milk" : _settle,
+          note: _note,
+          settleTime: nowTime()
+        };
+        if (_settle === "self") {
+          _nightWakeLog.selfSettled = true;
+          _nightWakeLog.settleDuration = _settleMins;
+        } else {
+          _nightWakeLog.assisted = true;
+          _nightWakeLog.assistedDuration = _settleMins;
+        }
+        logEntry(_nightWakeLog);
         _nightWakePausedAt = null;
+        _nightWakeSettledAt = Date.now();
         setTimeout(()=>{ _debouncedRender(); }, 200);
         return;
       }
@@ -1351,6 +1491,32 @@ function _renderHtml() {
 
 function escapeHtml(s) {
   return String(s||"").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+function safeDialNumber(value, fallback = "") {
+  const pick = (raw) => {
+    const text = String(raw ?? "").trim();
+    if (!text) return "";
+    const first = (text.match(/\+?\d[\d\s().-]{1,24}\d|\+?\d{2,15}|\d{2,15}/) || [])[0] || "";
+    let out = first.replace(/[^\d+]/g, "");
+    out = out.replace(/(?!^)\+/g, "");
+    const digits = out.replace(/\D/g, "");
+    if (digits.length < 2 || digits.length > 16) return "";
+    return out;
+  };
+  return pick(value) || pick(fallback);
+}
+function safeTelHref(value, fallback = "") {
+  const dial = safeDialNumber(value, fallback);
+  return dial ? "tel:" + dial : "";
+}
+
+function safeImageSrc(src) {
+  const raw = String(src || "").trim();
+  if (!raw) return "";
+  if (/^data:image\/(png|jpe?g|webp|gif);base64,[a-z0-9+/=\s]+$/i.test(raw)) return raw.replace(/\s+/g, "");
+  if (/^https:\/\/firebasestorage\.googleapis\.com\//i.test(raw)) return raw;
+  if (/^https:\/\/storage\.googleapis\.com\//i.test(raw)) return raw;
+  return "";
 }
 
 function updateRecentList() {
@@ -1364,10 +1530,17 @@ function updateRecentList() {
   const labels = { feed: "Feed", poop: "Nappy", nap: "Nap", wake: "Wake" };
   list.innerHTML = recentEntries.map(e => {
     const t = e.time || (e.loggedAt || "").slice(11,16);
-    const detail = e.type === "feed" && e.amount ? ` · ${e.amount}ml` : e.type === "poop" && e.poopType ? ` · ${e.poopType}` : "";
+    const type = String(e.type || "");
+    const safeLabel = escapeHtml(labels[type] || type || "Entry");
+    const amount = Number(e.amount);
+    const detail = type === "feed" && Number.isFinite(amount) && amount > 0
+      ? ` · ${amount}ml`
+      : type === "poop" && e.poopType
+        ? ` · ${escapeHtml(e.poopType)}`
+        : "";
     return `<div class="entry">
-      <span class="emoji">${icons[e.type]||"📝"}</span>
-      <span class="label">${labels[e.type]||e.type}${detail}</span>
+      <span class="emoji">${icons[type]||"📝"}</span>
+      <span class="label">${safeLabel}${detail}</span>
       <span class="time">${fmt12(t)}</span>
     </div>`;
   }).join("");

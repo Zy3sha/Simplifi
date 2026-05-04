@@ -6,6 +6,7 @@ import android.appwidget.AppWidgetProvider;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.res.Configuration;
 import android.net.Uri;
 import android.os.Build;
 import android.os.SystemClock;
@@ -47,10 +48,10 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
             try {
                 int bgRes = R.drawable.widget_bg_gradient; // default light
 
-                // "auto" checks time: dark between 7pm-6am
+                // Auto follows the phone appearance; dark remains manually selectable too.
                 if ("auto".equals(widgetTheme)) {
-                    int hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY);
-                    if (hour >= 19 || hour < 6) {
+                    int nightMode = context.getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK;
+                    if (nightMode == Configuration.UI_MODE_NIGHT_YES) {
                         bgRes = R.drawable.widget_bg_dark;
                         isDarkTheme = true;
                     }
@@ -81,6 +82,10 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
                     v.setTextColor(R.id.tv_nappy_label, white);
                     v.setTextColor(R.id.tv_ns_label, white);
                     v.setTextColor(R.id.tv_ns_icon, white);
+                    v.setInt(R.id.status_pill, "setBackgroundResource", R.drawable.widget_timer_pill_dark);
+                    v.setInt(R.id.btn_feed, "setBackgroundResource", R.drawable.widget_btn_glass_dark);
+                    v.setInt(R.id.btn_nappy, "setBackgroundResource", R.drawable.widget_btn_glass_dark);
+                    v.setInt(R.id.btn_nap_stop, "setBackgroundResource", R.drawable.widget_btn_glass_dark);
                     // Breast row (if visible)
                     v.setTextColor(R.id.tv_bl_icon, white);
                     v.setTextColor(R.id.tv_bl_label, secondary);
@@ -102,7 +107,7 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
 
             if (json == null) {
                 v.setTextViewText(R.id.tv_widget_kicker, "OBUBBA");
-                v.setTextViewText(R.id.tv_baby_name, "Open OBubba");
+                v.setTextViewText(R.id.tv_baby_name, "\uD83E\uDDF8 Open OBubba");
                 v.setTextViewText(R.id.tv_status_hint, "Start");
                 v.setTextViewText(R.id.tv_prediction, "Log a day");
                 hide(v); defaults(v, context, isDarkTheme);
@@ -127,7 +132,7 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
                 try { if (!d.isNull("nextPredictionMs")) predictionMs = d.optLong("nextPredictionMs", 0); } catch (Exception x) {}
 
                 v.setTextViewText(R.id.tv_widget_kicker, "OBUBBA");
-                v.setTextViewText(R.id.tv_baby_name, name);
+                v.setTextViewText(R.id.tv_baby_name, "\uD83E\uDDF8 " + name);
 
                 boolean active = timer != null && !timer.isEmpty() && !timer.equals("null") && startMs > 1000000000000L;
                 boolean hasPredictionCountdown = predictionUnlocked && predictionMs > System.currentTimeMillis() - 5 * 60 * 1000L;
@@ -162,27 +167,38 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
 
                     // Since time
                     if (startT != null && !startT.isEmpty() && !startT.equals("null")) {
-                        v.setViewVisibility(R.id.tv_since, View.VISIBLE);
-                        try {
-                            String[] p = startT.split(":");
-                            int h = Integer.parseInt(p[0]), m = Integer.parseInt(p[1]);
-                            String ap = h >= 12 ? "pm" : "am";
-                            int h12 = h == 0 ? 12 : h > 12 ? h - 12 : h;
-                            v.setTextViewText(R.id.tv_since, "since " + h12 + ":" + String.format("%02d", m) + ap);
-                        } catch (Exception e) { v.setTextViewText(R.id.tv_since, "since " + startT); }
+                        String sinceLabel = formatClockLabel(startT);
+                        if (!sinceLabel.isEmpty()) {
+                            v.setViewVisibility(R.id.tv_since, View.VISIBLE);
+                            v.setTextViewText(R.id.tv_since, "since " + sinceLabel);
+                        } else {
+                            v.setViewVisibility(R.id.tv_since, View.GONE);
+                        }
                     } else {
                         v.setViewVisibility(R.id.tv_since, View.GONE);
                     }
 
-                    // Nap/Stop → Stop
-                    v.setImageViewResource(R.id.iv_ns_icon, R.drawable.ic_stop_widget);
-                    v.setViewVisibility(R.id.iv_ns_icon, View.VISIBLE);
-                    v.setTextViewText(R.id.tv_ns_icon, "\u25A0");
-                    v.setTextViewText(R.id.tv_ns_label, "Stop");
-                    v.setTextColor(R.id.tv_ns_icon, 0xFFFFFFFF);
-                    v.setTextColor(R.id.tv_ns_label, 0xFFFFFFFF);
-                    v.setInt(R.id.btn_nap_stop, "setBackgroundResource", R.drawable.widget_btn_stop);
-                    v.setOnClickPendingIntent(R.id.btn_nap_stop, makeIntent(context, "stop_timer", 4));
+                    boolean activeBedtime = timer != null && timer.equals("bed");
+                    if (activeBedtime) {
+                        v.setViewVisibility(R.id.iv_ns_icon, View.GONE);
+                        v.setViewVisibility(R.id.tv_ns_icon, View.VISIBLE);
+                        v.setTextViewText(R.id.tv_ns_icon, "\u2600");
+                        v.setTextViewText(R.id.tv_ns_label, "Wake");
+                        v.setTextColor(R.id.tv_ns_icon, 0xFFFFFFFF);
+                        v.setTextColor(R.id.tv_ns_label, 0xFFFFFFFF);
+                        v.setInt(R.id.btn_nap_stop, "setBackgroundResource", isDarkTheme ? R.drawable.widget_btn_wake_dark : R.drawable.widget_btn_wake);
+                        v.setOnClickPendingIntent(R.id.btn_nap_stop, makeIntent(context, "quick_wake", 4));
+                    } else {
+                        // Nap/Feed active → Stop
+                        v.setImageViewResource(R.id.iv_ns_icon, R.drawable.ic_stop_widget);
+                        v.setViewVisibility(R.id.iv_ns_icon, View.VISIBLE);
+                        v.setTextViewText(R.id.tv_ns_icon, "\u25A0");
+                        v.setTextViewText(R.id.tv_ns_label, "Stop");
+                        v.setTextColor(R.id.tv_ns_icon, 0xFFFFFFFF);
+                        v.setTextColor(R.id.tv_ns_label, 0xFFFFFFFF);
+                        v.setInt(R.id.btn_nap_stop, "setBackgroundResource", R.drawable.widget_btn_stop);
+                        v.setOnClickPendingIntent(R.id.btn_nap_stop, makeIntent(context, "stop_timer", 4));
+                    }
 
                 } else {
                     // Prediction
@@ -243,7 +259,7 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
                 }
             } catch (Exception e) {
                 v.setTextViewText(R.id.tv_widget_kicker, "OBUBBA");
-                v.setTextViewText(R.id.tv_baby_name, "Open OBubba");
+                v.setTextViewText(R.id.tv_baby_name, "\uD83E\uDDF8 Open OBubba");
                 v.setTextViewText(R.id.tv_status_hint, "Start");
                 v.setTextViewText(R.id.tv_prediction, "Log a day");
                 hide(v); defaults(v, context, isDarkTheme);
@@ -290,5 +306,22 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
         hint = hint.replaceAll("\\s+", " ").trim();
         if (hint.equals(prediction.trim())) return "";
         return hint.length() > 12 ? hint.substring(0, 11) + "…" : hint;
+    }
+
+    private static String formatClockLabel(String time) {
+        if (time == null) return "";
+        String raw = time.trim();
+        int colon = raw.indexOf(":");
+        if (colon <= 0 || colon != raw.lastIndexOf(":") || colon >= raw.length() - 1) return "";
+        try {
+            int h = Integer.parseInt(raw.substring(0, colon));
+            int m = Integer.parseInt(raw.substring(colon + 1));
+            if (h < 0 || h > 23 || m < 0 || m > 59) return "";
+            String ap = h >= 12 ? "pm" : "am";
+            int h12 = h == 0 ? 12 : h > 12 ? h - 12 : h;
+            return h12 + ":" + String.format("%02d", m) + ap;
+        } catch (Exception e) {
+            return "";
+        }
     }
 }

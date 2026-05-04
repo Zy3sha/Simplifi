@@ -2,7 +2,7 @@
 // OBubba Service Worker — Offline-first with smart caching
 // ══════════════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'obubba-v1777583999';
+const CACHE_NAME = 'obubba-v1777924646';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -23,6 +23,57 @@ const CDN_ASSETS = [
   'https://cdn.jsdelivr.net/npm/react@18/umd/react.production.min.js',
   'https://cdn.jsdelivr.net/npm/react-dom@18/umd/react-dom.production.min.js',
 ];
+
+function safePushText(value, fallback, maxLen) {
+  let text = value == null ? '' : String(value);
+  text = text.replace(/\s+/g, ' ').trim();
+  if (!text) text = fallback || '';
+  maxLen = maxLen || 120;
+  if (text.length > maxLen) text = text.slice(0, Math.max(0, maxLen - 3)).trim() + '...';
+  return text;
+}
+
+function safeOpenUrl(value) {
+  try {
+    const url = new URL(value || '/', self.location.origin);
+    if (url.origin !== self.location.origin) return '/';
+    return url.pathname + url.search + url.hash;
+  } catch {
+    return '/';
+  }
+}
+
+function safeNotificationData(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const out = {};
+  Object.keys(value).slice(0, 16).forEach((key) => {
+    const safeKey = safePushText(key, '', 40);
+    if (!safeKey) return;
+    if (safeKey === 'url') {
+      out.url = safeOpenUrl(value[key]);
+      return;
+    }
+    out[safeKey] = safePushText(value[key], '', 500);
+  });
+  return out;
+}
+
+function safeNotificationActions(actions) {
+  if (!Array.isArray(actions)) return [
+    { action: 'open', title: 'Open OBubba' },
+    { action: 'dismiss', title: 'Dismiss' },
+  ];
+  const allowed = { open: 'Open OBubba', dismiss: 'Dismiss' };
+  const clean = actions
+    .map((item) => {
+      const action = safePushText(item && item.action, '', 24);
+      if (!Object.prototype.hasOwnProperty.call(allowed, action)) return null;
+      return { action, title: safePushText(item && item.title, allowed[action], 40) };
+    })
+    .filter(Boolean)
+    .slice(0, 2);
+  return clean.length ? clean : safeNotificationActions(null);
+}
 
 // ── Install: pre-cache static assets ────────────────────────────
 self.addEventListener('install', (event) => {
@@ -135,25 +186,23 @@ self.addEventListener('push', (event) => {
     try {
       data = event.data.json();
     } catch {
-      data.body = event.data.text();
+      data.body = safePushText(event.data.text(), 'You have a new reminder', 220);
     }
   }
 
+  const notificationData = safeNotificationData(data.data);
   const options = {
-    body: data.body,
+    body: safePushText(data.body, 'You have a new reminder', 220),
     icon: '/icons/icon-192.png',
     badge: '/icons/badge-72.png',
     vibrate: [100, 50, 100],
-    data: data.data || {},
-    actions: data.actions || [
-      { action: 'open', title: 'Open OBubba' },
-      { action: 'dismiss', title: 'Dismiss' },
-    ],
-    tag: data.tag || 'obubba-notification',
+    data: notificationData,
+    actions: safeNotificationActions(data.actions),
+    tag: safePushText(data.tag, 'obubba-notification', 80),
     renotify: true,
   };
 
-  event.waitUntil(self.registration.showNotification(data.title, options));
+  event.waitUntil(self.registration.showNotification(safePushText(data.title, 'OBubba', 80), options));
 });
 
 // ── Notification click handling ──────────────────────────────────
@@ -162,7 +211,7 @@ self.addEventListener('notificationclick', (event) => {
 
   if (event.action === 'dismiss') return;
 
-  const urlToOpen = event.notification.data?.url || '/';
+  const urlToOpen = safeOpenUrl(event.notification.data && event.notification.data.url);
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {

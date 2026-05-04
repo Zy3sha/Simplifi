@@ -21,6 +21,111 @@ var _plug = function(name) {
   catch(e) { return null; }
 };
 
+var _safeJsonParse = function(raw, fallback, label) {
+  try { return JSON.parse(raw); }
+  catch(e) {
+    if (label) console.warn(label + ' parse failed:', e);
+    return fallback;
+  }
+};
+
+var _safeRandomInt = function(max) {
+  if (!max || max <= 0) return 0;
+  try {
+    var cryptoApi = window.crypto || window.msCrypto;
+    if (cryptoApi && cryptoApi.getRandomValues) {
+      var bucket = new Uint32Array(1);
+      var limit = Math.floor(0x100000000 / max) * max;
+      do { cryptoApi.getRandomValues(bucket); } while (bucket[0] >= limit);
+      return bucket[0] % max;
+    }
+  } catch(e) {}
+  _safeRandomInt._fallbackCounter = (_safeRandomInt._fallbackCounter || 0) + 1;
+  return (Date.now() + _safeRandomInt._fallbackCounter) % max;
+};
+
+var _safeRandomId = function() {
+  try {
+    var cryptoApi = window.crypto || window.msCrypto;
+    if (cryptoApi && typeof cryptoApi.randomUUID === 'function') return cryptoApi.randomUUID();
+    if (cryptoApi && cryptoApi.getRandomValues) {
+      var bytes = new Uint8Array(16);
+      cryptoApi.getRandomValues(bytes);
+      bytes[6] = (bytes[6] & 0x0f) | 0x40;
+      bytes[8] = (bytes[8] & 0x3f) | 0x80;
+      var hex = Array.prototype.map.call(bytes, function(b) { return b.toString(16).padStart(2, '0'); }).join('');
+      return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' + hex.slice(12, 16) + '-' + hex.slice(16, 20) + '-' + hex.slice(20);
+    }
+  } catch(e) {}
+  return '';
+};
+
+var _safeNativeText = function(value, fallback, maxLen) {
+  var text = value == null ? '' : String(value);
+  text = text.replace(/\s+/g, ' ').trim();
+  if (!text) text = fallback || '';
+  maxLen = maxLen || 120;
+  if (text.length > maxLen) text = text.slice(0, Math.max(0, maxLen - 3)).trim() + '...';
+  return text;
+};
+
+var _safePayloadText = function(value, fallback, maxLen) {
+  var text = value == null ? '' : String(value);
+  text = text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '').replace(/\r\n?/g, '\n');
+  if (!text.trim()) text = fallback || '';
+  maxLen = maxLen || 12000;
+  if (text.length > maxLen) text = text.slice(0, Math.max(0, maxLen - 5)).replace(/\s+$/g, '') + '\n...';
+  return text;
+};
+
+var _safeShareUrl = function(value) {
+  var raw = value == null ? '' : String(value).trim();
+  if (!raw || raw.length > 2048) return '';
+  try {
+    var url = new URL(raw, window.location.origin);
+    if (!/^(https?|file|blob):$/.test(url.protocol)) return '';
+    return url.href;
+  } catch(e) {
+    return '';
+  }
+};
+
+var _safeSharePayload = function(opts) {
+  opts = opts && typeof opts === 'object' ? opts : {};
+  var out = {};
+  if (Object.prototype.hasOwnProperty.call(opts, 'title')) out.title = _safeNativeText(opts.title, 'OBubba', 120);
+  if (Object.prototype.hasOwnProperty.call(opts, 'text')) out.text = _safePayloadText(opts.text, '', 12000);
+  if (Object.prototype.hasOwnProperty.call(opts, 'url')) {
+    var url = _safeShareUrl(opts.url);
+    if (url) out.url = url;
+  }
+  if (Array.isArray(opts.files) && opts.files.length) out.files = opts.files.slice(0, 8);
+  if (Object.prototype.hasOwnProperty.call(opts, 'dialogTitle')) out.dialogTitle = _safeNativeText(opts.dialogTitle, 'Share', 120);
+  return out;
+};
+
+var _safeScheduleDate = function(value) {
+  var date = value instanceof Date ? value : new Date(value);
+  return Number.isFinite(date.getTime()) ? date : null;
+};
+
+var _safeNotificationExtra = function(extra) {
+  if (!extra || typeof extra !== 'object' || Array.isArray(extra)) return {};
+  var out = {};
+  Object.keys(extra).slice(0, 16).forEach(function(key) {
+    var safeKey = _safeNativeText(key, '', 40);
+    if (!safeKey) return;
+    var value = extra[key];
+    if (value == null) return;
+    if (typeof value === 'object') {
+      try { value = JSON.stringify(value); }
+      catch(e) { return; }
+    }
+    out[safeKey] = _safeNativeText(value, '', 500);
+  });
+  return out;
+};
+
 // ── 1. HAPTICS ──────────────────────────────────────────────────
 var OBHaptics = {
   impact: function(style) {
@@ -97,12 +202,15 @@ var OBAppleSignIn = {
     var SIWA = _plug('SignInWithApple');
     if (!SIWA) return Promise.resolve({ success: false, error: 'no_plugin' });
     try {
+      var state = _safeRandomId();
+      var nonce = _safeRandomId();
+      if (!state || !nonce) return Promise.resolve({ success: false, error: 'secure_random_unavailable' });
       return SIWA.authorize({
         clientId: 'com.obubba.app',
         redirectURI: 'https://obubba.com/auth/apple/callback',
         scopes: 'email name',
-        state: crypto.randomUUID(),
-        nonce: crypto.randomUUID()
+        state: state,
+        nonce: nonce
       }).then(function(result) {
         return {
           success: true,
@@ -203,11 +311,18 @@ var OBPushNotifications = {
 // ── 6. LOCAL NOTIFICATIONS ──────────────────────────────────────
 var OBLocalNotifications = {
   schedule: function(opts) {
-    var id = opts.id, title = opts.title, body = opts.body;
-    var scheduleAt = opts.scheduleAt, extra = opts.extra, channelId = opts.channelId;
+    opts = opts || {};
+    var id = Number(opts.id);
+    var notificationId = Number.isFinite(id) && id > 0 ? Math.floor(id) : _safeRandomInt(100000);
+    var title = _safeNativeText(opts.title, 'OBubba', 80);
+    var body = _safeNativeText(opts.body, 'Tap to open OBubba.', 220);
+    var scheduleDate = _safeScheduleDate(opts.scheduleAt);
+    var extra = _safeNotificationExtra(opts.extra);
+    var channelId = _safeNativeText(opts.channelId, 'obubba_reminders', 80);
+    if (!scheduleDate) return Promise.resolve();
     if (!isNative()) {
       if ('Notification' in window && Notification.permission === 'granted') {
-        var delay = new Date(scheduleAt).getTime() - Date.now();
+        var delay = scheduleDate.getTime() - Date.now();
         if (delay > 0 && delay < 86400000) {
           setTimeout(function() { new Notification(title, { body: body, icon: '/icons/icon-192.png', data: extra }); }, delay);
         }
@@ -218,13 +333,13 @@ var OBLocalNotifications = {
     if (!LN) return Promise.resolve();
     return LN.schedule({
       notifications: [{
-        id: id || Math.floor(Math.random() * 100000),
+        id: notificationId,
         title: title,
         body: body,
-        schedule: { at: new Date(scheduleAt) },
+        schedule: { at: scheduleDate },
         sound: 'notification.wav',
-        extra: extra || {},
-        channelId: channelId || 'obubba_reminders'
+        extra: extra,
+        channelId: channelId
       }]
     });
   },
@@ -362,10 +477,11 @@ var OBCamera = {
 // ── 9. SHARE ────────────────────────────────────────────────────
 var OBShare = {
   share: function(opts) {
-    var title = opts.title, text = opts.text, url = opts.url, files = opts.files;
+    var safeOpts = _safeSharePayload(opts);
+    var title = safeOpts.title, text = safeOpts.text, url = safeOpts.url, files = safeOpts.files;
     if (!isNative()) {
       if (navigator.share) {
-        return navigator.share({ title: title, text: text, url: url }).then(function() {
+        return navigator.share(safeOpts).then(function() {
           return { shared: true };
         });
       }
@@ -375,7 +491,7 @@ var OBShare = {
     }
     var Share = _plug('Share');
     if (!Share) return Promise.resolve({ shared: false });
-    return Share.share({ title: title, text: text, url: url, files: files }).then(function(result) {
+    return Share.share(safeOpts).then(function(result) {
       return { shared: true, activityType: result.activityType };
     });
   }
@@ -408,6 +524,12 @@ var OBNetwork = {
 };
 
 // ── 11. SQLITE (Offline-first persistence) ──────────────────────
+var OB_SQLITE_TABLES = { entries: true, children: true, milestones: true, settings: true };
+var _sqliteTableName = function(table) {
+  var clean = String(table || '');
+  return OB_SQLITE_TABLES[clean] ? clean : null;
+};
+
 var OBDatabase = {
   _db: null,
 
@@ -436,27 +558,31 @@ var OBDatabase = {
 
   put: function(table, id, data) {
     if (!this._db) return Promise.resolve();
+    var safeTable = _sqliteTableName(table);
+    if (!safeTable) return Promise.resolve();
     var SQL = _plug('CapacitorSQLite');
     if (!SQL) return Promise.resolve();
     var json = JSON.stringify(data);
     return SQL.run({
       database: 'obubba',
-      statement: 'INSERT OR REPLACE INTO ' + table + ' (id, data, synced) VALUES (?, ?, 0)',
+      statement: 'INSERT OR REPLACE INTO ' + safeTable + ' (id, data, synced) VALUES (?, ?, 0)',
       values: [id, json]
     });
   },
 
   get: function(table, id) {
     if (!this._db) return Promise.resolve(null);
+    var safeTable = _sqliteTableName(table);
+    if (!safeTable) return Promise.resolve(null);
     var SQL = _plug('CapacitorSQLite');
     if (!SQL) return Promise.resolve(null);
     return SQL.query({
       database: 'obubba',
-      statement: 'SELECT data FROM ' + table + ' WHERE id = ?',
+      statement: 'SELECT data FROM ' + safeTable + ' WHERE id = ?',
       values: [id]
     }).then(function(result) {
       if (result.values && result.values.length > 0) {
-        return JSON.parse(result.values[0].data);
+        return _safeJsonParse(result.values[0].data, null, 'SQLite row');
       }
       return null;
     });
@@ -464,18 +590,21 @@ var OBDatabase = {
 
   getAll: function(table) {
     if (!this._db) return Promise.resolve([]);
+    var safeTable = _sqliteTableName(table);
+    if (!safeTable) return Promise.resolve([]);
     var SQL = _plug('CapacitorSQLite');
     if (!SQL) return Promise.resolve([]);
     return SQL.query({
       database: 'obubba',
-      statement: 'SELECT id, data FROM ' + table,
+      statement: 'SELECT id, data FROM ' + safeTable,
       values: []
     }).then(function(result) {
       return (result.values || []).map(function(r) {
-        var parsed = JSON.parse(r.data);
+        var parsed = _safeJsonParse(r.data, null, 'SQLite row');
+        if (!parsed || typeof parsed !== 'object') return null;
         parsed.id = r.id;
         return parsed;
-      });
+      }).filter(Boolean);
     });
   }
 };
@@ -739,7 +868,9 @@ var OBAppLifecycle = {
     var AppPlug = _plug('App');
     if (!AppPlug) return Promise.resolve();
     AppPlug.addListener('appUrlOpen', function(data) {
-      callback(data.url);
+      var url = data && typeof data.url === 'string' ? data.url.trim() : '';
+      if (!url || url.length > 2048) return;
+      callback(url);
     });
     return Promise.resolve();
   }

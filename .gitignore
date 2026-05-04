@@ -3,6 +3,7 @@ node_modules/
 functions/node_modules/
 
 # Build output
+build/
 dist/
 ios/build/
 
@@ -32,6 +33,7 @@ android/app/obubba-release.jks
 
 # Claude-generated session backups
 .claude-backups/
+backups/
 
 # Local duplicate files created by Finder/Xcode copy operations
 android/app/src/main/res/xml/config [0-9]*.xml

@@ -188,10 +188,10 @@ beautiful. Parents share things that make them FEEL something.
 
 ## 9. Revenue Expansion
 
-### Current
-- Monthly: £4.99
-- Annual: £44.99
-- Lifetime: £79.99
+### Current UK pricing
+- New users: £7.99/month, £79.99/year, £129.99 lifetime
+- Grandfathered eligible existing users: £4.99/month, £44.99/year, £79.99 lifetime
+- Other countries: Apple and Google set local prices using store pricing tiers, exchange-rate handling, taxes, and store rules
 
 ### V2 Ideas
 - **Sleep consultation package** — £29.99 one-time: 4-week personalised sleep plan

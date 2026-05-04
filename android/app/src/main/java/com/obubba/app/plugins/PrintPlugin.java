@@ -13,7 +13,6 @@ import android.print.PrintDocumentInfo;
 import android.print.PrintManager;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import android.webkit.WebChromeClient;
 import androidx.core.content.FileProvider;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
@@ -27,6 +26,33 @@ import java.io.OutputStream;
 @CapacitorPlugin(name = "OBCareCard")
 public class PrintPlugin extends Plugin {
 
+    private String safePdfFileName(String rawName) {
+        String name = rawName == null ? "" : rawName.trim();
+        name = name.replaceAll("[\\\\/]+", "-");
+        name = name.replaceAll("[^A-Za-z0-9._ -]", "-");
+        name = name.replaceAll("\\s+", " ").trim();
+        while (name.startsWith(".") || name.startsWith(" ")) {
+            name = name.substring(1).trim();
+        }
+        if (name.length() > 80) {
+            name = name.substring(0, 80).trim();
+        }
+        if (name.isEmpty() || name.equals(".") || name.equals("..")) {
+            name = "document.pdf";
+        }
+        if (!name.toLowerCase(java.util.Locale.ROOT).endsWith(".pdf")) {
+            name = name + ".pdf";
+        }
+        return name;
+    }
+
+    private void configurePrintWebView(WebView webView) {
+        webView.getSettings().setJavaScriptEnabled(false);
+        webView.getSettings().setAllowFileAccess(false);
+        webView.getSettings().setAllowContentAccess(false);
+        webView.getSettings().setDomStorageEnabled(false);
+    }
+
     @PluginMethod
     public void printHTML(PluginCall call) {
         String html = call.getString("html");
@@ -38,7 +64,7 @@ public class PrintPlugin extends Plugin {
         act.runOnUiThread(() -> {
             try {
                 WebView webView = new WebView(getContext());
-                webView.getSettings().setJavaScriptEnabled(true);
+                configurePrintWebView(webView);
                 webView.setWebViewClient(new WebViewClient() {
                     @Override
                     public void onPageFinished(WebView view, String url) {
@@ -64,7 +90,7 @@ public class PrintPlugin extends Plugin {
     @PluginMethod
     public void generatePDF(PluginCall call) {
         String html = call.getString("html");
-        String fileName = call.getString("fileName", "document.pdf");
+        String fileName = safePdfFileName(call.getString("fileName", "document.pdf"));
         if (html == null) { call.reject("html required"); return; }
 
         Activity act = getActivity();
@@ -72,7 +98,7 @@ public class PrintPlugin extends Plugin {
         act.runOnUiThread(() -> {
             try {
                 WebView webView = new WebView(getContext());
-                webView.getSettings().setJavaScriptEnabled(true);
+                configurePrintWebView(webView);
                 webView.setWebViewClient(new WebViewClient() {
                     @Override
                     public void onPageFinished(WebView view, String url) {

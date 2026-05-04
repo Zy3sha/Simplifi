@@ -93,6 +93,6 @@
   },
   "handle_links": "preferred",
   "scope_extensions": [
-    { "origin": "https://obubba.com" }
+    { "type": "origin", "origin": "https://obubba.com" }
   ]
 }

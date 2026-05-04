@@ -35,6 +35,7 @@
   <meta name="theme-color" content="#f0ddd6"/>
   <meta name="mobile-web-app-capable" content="yes"/>
   <link rel="manifest" href="manifest.json"/>
+  <link rel="icon" type="image/png" href="icon.png"/>
   <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
 
   <!-- Structured Data -->
@@ -56,7 +57,7 @@
 
   <!-- Fonts: OBubba Script is bundled locally so splash/native boot works offline -->
   <style>@font-face{font-family:'OBubba Script';src:url('Parisienne-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:block}</style>
-  <link rel="preload" href="Parisienne-Regular.ttf" as="font" type="font/truetype"/>
+  <link rel="preload" href="Parisienne-Regular.ttf" as="font" type="font/ttf"/>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Parisienne&family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet"/>
@@ -72,23 +73,16 @@
   <script src="/native-plugins.js" defer></script>
 
   <!-- Styles -->
-  <link rel="stylesheet" href="styles.css?v=1777723910"/>
+  <link rel="stylesheet" href="styles.css?v=1777924646"/>
 </head>
 <body style="background:#FFFEFD;margin:0">
 <div id="ob-splash" style="position:fixed;inset:0;z-index:99999;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#FFFEFD 0%,#FDFAF9 40%,#FBF9F8 100%);padding:40px 24px;text-align:center">
   <style>
     #ob-splash .baby{animation:babyBreathe 3.5s ease-in-out infinite;filter:drop-shadow(0 16px 32px rgba(217,207,243,0.35))}
     @keyframes babyBreathe{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.008)}}
-    #ob-splash .z1{position:absolute;top:8px;right:-5px;font-size:18px;font-weight:700;color:#D9CFF3;font-family:Georgia,serif;font-style:italic;animation:zzz1 2.8s ease-in-out infinite}
-    #ob-splash .z2{position:absolute;top:-8px;right:12px;font-size:24px;font-weight:700;color:#D9CFF3;font-family:Georgia,serif;font-style:italic;animation:zzz2 2.8s ease-in-out 0.5s infinite}
-    #ob-splash .z3{position:absolute;top:-28px;right:28px;font-size:16px;font-weight:700;color:#D9CFF3;font-family:Georgia,serif;font-style:italic;animation:zzz3 2.8s ease-in-out 1s infinite}
-    @keyframes zzz1{0%{opacity:0;transform:translate(0,0) scale(0.6)}30%{opacity:1}100%{opacity:0;transform:translate(15px,-60px) scale(1.2)}}
-    @keyframes zzz2{0%{opacity:0;transform:translate(0,0) scale(0.5)}35%{opacity:1}100%{opacity:0;transform:translate(25px,-75px) scale(1.1)}}
-    @keyframes zzz3{0%{opacity:0;transform:translate(0,0) scale(0.4)}40%{opacity:1}100%{opacity:0;transform:translate(10px,-90px) scale(1)}}
   </style>
   <div style="position:relative;margin-bottom:28px">
-    <img class="baby" src="obubba-loading.png" alt="" width="180" height="270" style="object-fit:contain">
-    <span class="z1">z</span><span class="z2">z</span><span class="z3">z</span>
+    <img class="baby" src="obubba-happy.png" alt="" width="180" height="180" style="object-fit:contain;border-radius:42px">
   </div>
   <div style="font-family:'OBubba Script','Parisienne',cursive;font-size:32px;font-weight:400;color:#5B4F5F;margin-bottom:8px">OBubba</div>
   <div style="font-size:13px;color:#A89898;line-height:1.6">Getting everything ready...</div>
@@ -103,7 +97,7 @@
 <script src="/loader.js"></script>
 
 <!-- App (pre-compiled by Babel; see build-pwa.sh) -->
-<script defer src="/app.js?v=1777723910"></script>
+<script defer src="/app.js?v=1777924646"></script>
 
 <!-- Hide splash + failsafe -->
 <script>

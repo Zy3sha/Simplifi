@@ -1,0 +1,927 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1920" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        background: #07111d;
+      }
+
+      body {
+        font-family: "Inter", "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #f7f1e8;
+      }
+
+      #root {
+        position: relative;
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        background: #07111d;
+      }
+
+      .scene {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        width: 100%;
+        height: 100%;
+        padding: 70px 62px 76px;
+        overflow: hidden;
+      }
+
+      .scene-warm {
+        background:
+          radial-gradient(circle at 20% 10%, rgba(227, 160, 134, 0.22), transparent 34%),
+          radial-gradient(circle at 86% 16%, rgba(131, 211, 177, 0.16), transparent 30%),
+          linear-gradient(180deg, #07111d 0%, #091522 48%, #030a13 100%);
+      }
+
+      .scene-split {
+        background:
+          radial-gradient(circle at 12% 18%, rgba(131, 211, 177, 0.2), transparent 32%),
+          radial-gradient(circle at 86% 10%, rgba(167, 138, 197, 0.22), transparent 30%),
+          linear-gradient(180deg, #07111d 0%, #0e1b2c 52%, #030a13 100%);
+      }
+
+      .scene-night {
+        color: #f4f7fb;
+        background:
+          radial-gradient(circle at 75% 8%, rgba(122, 171, 196, 0.26), transparent 30%),
+          radial-gradient(circle at 15% 70%, rgba(192, 112, 136, 0.22), transparent 28%),
+          linear-gradient(180deg, #07111d 0%, #0a1422 52%, #0d1828 100%);
+      }
+
+      .brand-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+        min-height: 96px;
+      }
+
+      .brand-lockup {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+
+      .app-icon {
+        width: 86px;
+        height: 86px;
+        border-radius: 24px;
+        box-shadow: 0 18px 42px rgba(91, 79, 79, 0.18);
+      }
+
+      .brand-name {
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 47px;
+        line-height: 1;
+        font-weight: 700;
+        color: #f7f1e8;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 46px;
+        padding: 10px 18px;
+        border-radius: 999px;
+        color: #f7f1e8;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(184, 124, 104, 0.55);
+        font-size: 25px;
+        font-weight: 800;
+        box-shadow: 0 12px 28px rgba(0, 0, 0, 0.18);
+      }
+
+      .scene-night .pill {
+        background: rgba(255, 255, 255, 0.11);
+        border-color: rgba(255, 255, 255, 0.16);
+      }
+
+      .hero-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+        width: 100%;
+      }
+
+      .eyebrow {
+        width: fit-content;
+        padding: 13px 20px;
+        border-radius: 999px;
+        color: #f7d08c;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(184, 124, 104, 0.45);
+        font-size: 27px;
+        font-weight: 900;
+        line-height: 1;
+        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
+      }
+
+      .scene-night .eyebrow {
+        color: #f7d08c;
+        background: rgba(255, 255, 255, 0.12);
+      }
+
+      .hook {
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 82px;
+        line-height: 0.98;
+        font-weight: 700;
+        color: #f7f1e8;
+        max-width: 930px;
+      }
+
+      .scene-night .hook {
+        color: #f7f9fc;
+      }
+
+      .subhook {
+        max-width: 885px;
+        font-size: 35px;
+        line-height: 1.18;
+        font-weight: 800;
+        color: #cbd3de;
+      }
+
+      .scene-night .subhook {
+        color: #c8d0dc;
+      }
+
+      .content-grid {
+        display: grid;
+        grid-template-columns: 1fr 1.04fr;
+        align-items: center;
+        gap: 34px;
+        width: 100%;
+        min-height: 770px;
+      }
+
+      .split-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 28px;
+        align-items: center;
+        width: 100%;
+        min-height: 760px;
+      }
+
+      .mess-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      .label {
+        color: #f7d08c;
+        font-size: 26px;
+        font-weight: 900;
+        text-transform: uppercase;
+      }
+
+      .scene-night .label {
+        color: #f2cf91;
+      }
+
+      .mess-card,
+      .benefit-card {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        min-height: 92px;
+        padding: 22px 26px;
+        border-radius: 28px;
+        background: rgba(14, 34, 56, 0.84);
+        border: 2px solid rgba(184, 124, 104, 0.55);
+        box-shadow: 0 18px 38px rgba(0, 0, 0, 0.18);
+        color: #f7f1e8;
+        font-size: 31px;
+        font-weight: 900;
+      }
+
+      .mess-card span {
+        color: #83d3b1;
+        font-size: 26px;
+        font-weight: 900;
+      }
+
+      .phone {
+        position: relative;
+        width: 430px;
+        min-height: 760px;
+        margin: 0 auto;
+        padding: 24px;
+        border-radius: 58px;
+        background: linear-gradient(180deg, #293445, #151c28);
+        border: 2px solid rgba(227, 160, 134, 0.55);
+        box-shadow: 0 28px 72px rgba(0, 0, 0, 0.42);
+      }
+
+      .phone-small {
+        width: 426px;
+        min-height: 700px;
+      }
+
+      .phone-screen {
+        display: flex;
+        flex-direction: column;
+        gap: 19px;
+        width: 100%;
+        min-height: 712px;
+        padding: 28px 24px;
+        border-radius: 42px;
+        background: linear-gradient(180deg, #0e2238 0%, #07111d 100%);
+        overflow: hidden;
+      }
+
+      .real-screen {
+        position: relative;
+        display: block;
+        padding: 0;
+        height: 712px;
+        min-height: 0;
+        border: 1px solid rgba(247, 241, 232, 0.12);
+      }
+
+      .phone-small .real-screen {
+        height: 652px;
+        min-height: 0;
+      }
+
+      .screen-shot {
+        width: 100%;
+        height: 100%;
+        min-height: 0;
+        object-fit: cover;
+        display: block;
+      }
+
+      .screen-dashboard {
+        object-position: 50% 0%;
+      }
+
+      .screen-quickstart {
+        object-position: 50% 44%;
+      }
+
+      .screen-account {
+        object-position: 50% 22%;
+      }
+
+      .screen-sync {
+        object-position: 50% 28%;
+      }
+
+      .screen-launch {
+        object-position: 50% 4%;
+      }
+
+      .dim-ui {
+        opacity: 0.48;
+        filter: saturate(0.9) brightness(0.78);
+      }
+
+      .proof-overlay {
+        position: absolute;
+        left: 22px;
+        right: 22px;
+        bottom: 28px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        padding: 20px 22px;
+        border-radius: 26px;
+        background: rgba(14, 34, 56, 0.96);
+        border: 2px solid rgba(227, 160, 134, 0.72);
+        box-shadow: 0 22px 52px rgba(0, 0, 0, 0.42);
+      }
+
+      .proof-overlay.top {
+        top: 32px;
+        bottom: auto;
+      }
+
+      .proof-title {
+        color: #f7d08c;
+        font-size: 20px;
+        font-weight: 1000;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .proof-answer {
+        color: #f7f1e8;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 32px;
+        line-height: 1.05;
+        font-weight: 700;
+      }
+
+      .proof-line {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        color: #cbd3de;
+        font-size: 22px;
+        line-height: 1.12;
+        font-weight: 800;
+      }
+
+      .proof-line strong {
+        color: #83d3b1;
+      }
+
+      .text-thread {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      .text-bubble {
+        width: fit-content;
+        max-width: 450px;
+        min-height: 78px;
+        padding: 18px 24px;
+        border-radius: 30px 30px 30px 8px;
+        color: #07111d;
+        background: #f7f1e8;
+        font-size: 31px;
+        line-height: 1.05;
+        font-weight: 1000;
+        box-shadow: 0 16px 38px rgba(0, 0, 0, 0.24);
+      }
+
+      .text-bubble.reply {
+        align-self: flex-end;
+        border-radius: 30px 30px 8px 30px;
+        color: #07111d;
+        background: #83d3b1;
+      }
+
+      .text-bubble.warning {
+        color: #07111d;
+        background: #f7d08c;
+      }
+
+      .phone-small .phone-screen {
+        min-height: 652px;
+      }
+
+      .phone-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .phone-title {
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 35px;
+        line-height: 1.05;
+        color: #f7f1e8;
+        font-weight: 700;
+      }
+
+      .mini-dot {
+        width: 16px;
+        height: 16px;
+        border-radius: 999px;
+        background: #6fa898;
+        box-shadow: 22px 0 0 #7aabc4, 44px 0 0 #d4a855;
+      }
+
+      .timeline-card {
+        display: grid;
+        grid-template-columns: 78px 1fr;
+        align-items: center;
+        gap: 16px;
+        min-height: 92px;
+        padding: 16px;
+        border-radius: 24px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        box-shadow: 0 12px 26px rgba(0, 0, 0, 0.16);
+      }
+
+      .icon-chip {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 66px;
+        height: 66px;
+        border-radius: 21px;
+        color: #ffffff;
+        font-size: 24px;
+        font-weight: 1000;
+      }
+
+      .feed {
+        background: #c07088;
+      }
+
+      .sleep {
+        background: #7aabc4;
+      }
+
+      .nappy {
+        background: #6fa898;
+      }
+
+      .wean {
+        background: #d4a855;
+      }
+
+      .growth {
+        background: #8b7ec8;
+      }
+
+      .timeline-text {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .timeline-text strong {
+        color: #f7f1e8;
+        font-size: 30px;
+        line-height: 1;
+      }
+
+      .timeline-text span {
+        color: #cbd3de;
+        font-size: 23px;
+        font-weight: 800;
+      }
+
+      .mascot {
+        position: absolute;
+        right: -18px;
+        bottom: -24px;
+        width: 185px;
+        height: 185px;
+        object-fit: contain;
+        filter: drop-shadow(0 16px 24px rgba(91, 79, 79, 0.2));
+      }
+
+      .phone-pair {
+        position: relative;
+        height: 780px;
+      }
+
+      .phone-pair .phone:first-child {
+        position: absolute;
+        left: 12px;
+        top: 34px;
+        transform: rotate(-4deg);
+      }
+
+      .phone-pair .phone:last-child {
+        position: absolute;
+        right: 12px;
+        top: 0;
+        transform: rotate(4deg);
+      }
+
+      .sync-line {
+        position: absolute;
+        left: 50%;
+        top: 395px;
+        width: 170px;
+        height: 12px;
+        transform: translateX(-50%);
+        border-radius: 999px;
+        background: linear-gradient(90deg, #6fa898, #7aabc4, #d4a855);
+        box-shadow: 0 10px 28px rgba(111, 168, 152, 0.28);
+        z-index: 5;
+      }
+
+      .sync-badge {
+        position: absolute;
+        left: 50%;
+        top: 328px;
+        z-index: 6;
+        transform: translateX(-50%);
+        padding: 18px 24px;
+        border-radius: 999px;
+        background: #f7f1e8;
+        color: #07111d;
+        font-size: 28px;
+        font-weight: 1000;
+        box-shadow: 0 18px 44px rgba(91, 79, 79, 0.14);
+      }
+
+      .night-layout {
+        display: grid;
+        grid-template-columns: 0.95fr 1.05fr;
+        gap: 34px;
+        align-items: center;
+        min-height: 820px;
+      }
+
+      .dark-note {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        padding: 32px;
+        border-radius: 36px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.13);
+        box-shadow: 0 24px 55px rgba(0, 0, 0, 0.24);
+      }
+
+      .note-line {
+        min-height: 84px;
+        padding: 20px 22px;
+        border-radius: 22px;
+        background: rgba(255, 255, 255, 0.1);
+        color: #d3dce8;
+        font-size: 31px;
+        font-weight: 900;
+      }
+
+      .night-phone .phone-screen {
+        background: linear-gradient(180deg, #111d2d 0%, #0b1524 100%);
+      }
+
+      .night-phone .phone-title,
+      .night-phone .timeline-text strong {
+        color: #f7f9fc;
+      }
+
+      .night-phone .timeline-text span {
+        color: #c8d0dc;
+      }
+
+      .night-phone .timeline-card {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .sleep-baby {
+        position: absolute;
+        right: -42px;
+        bottom: -42px;
+        width: 250px;
+        height: 250px;
+        border-radius: 50%;
+        object-fit: cover;
+        filter: drop-shadow(0 16px 30px rgba(0, 0, 0, 0.24));
+      }
+
+      .footer {
+        display: flex;
+        flex-direction: column;
+        gap: 22px;
+        width: 100%;
+      }
+
+      .cta-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
+        width: 100%;
+        min-height: 92px;
+        padding: 16px 18px 16px 28px;
+        border-radius: 30px;
+        background: rgba(14, 34, 56, 0.88);
+        border: 2px solid rgba(184, 124, 104, 0.5);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.22);
+      }
+
+      .scene-night .cta-row {
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+      }
+
+      .cta-text {
+        color: #f7f1e8;
+        font-size: 32px;
+        font-weight: 1000;
+      }
+
+      .scene-night .cta-text {
+        color: #f7f9fc;
+      }
+
+      .store-buttons {
+        display: flex;
+        gap: 14px;
+      }
+
+      .store-button {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 170px;
+        min-height: 56px;
+        padding: 10px 16px;
+        border-radius: 17px;
+        color: #07111d;
+        background: #e3a086;
+        font-size: 23px;
+        font-weight: 1000;
+      }
+
+      .scene-night .store-button {
+        color: #07111d;
+        background: #f7f9fc;
+      }
+
+      .proof-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+      }
+
+      .proof-chip {
+        padding: 12px 17px;
+        border-radius: 999px;
+        color: #d3dce8;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        font-size: 23px;
+        font-weight: 900;
+      }
+
+      .scene-night .proof-chip {
+        color: #d3dce8;
+        background: rgba(255, 255, 255, 0.1);
+      }
+
+      .safe-bottom {
+        min-height: 214px;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="54"
+      data-width="1080"
+      data-height="1920"
+    >
+      <section id="ad1" class="scene scene-warm" aria-label="OBubba baby rhythm learning ad">
+        <div class="brand-row">
+          <div class="brand-lockup">
+            <img class="app-icon" src="assets/icon.png" alt="" />
+            <div class="brand-name">OBubba</div>
+          </div>
+          <div class="pill">Free to start</div>
+        </div>
+
+        <div class="hero-copy">
+          <div class="eyebrow">Parent POV</div>
+          <h1 class="hook">Every nap chart was wrong for my baby.</h1>
+          <p class="subhook">Then OBubba started learning her actual feeds, naps, wake windows, and bedtime rhythm.</p>
+        </div>
+
+        <div class="content-grid">
+          <div class="mess-stack">
+            <div class="label">Before OBubba</div>
+            <div class="mess-card">Wake window says nap <span>nope</span></div>
+            <div class="mess-card">Hungry or tired? <span>guess</span></div>
+            <div class="mess-card">Bedtime moved again <span>chaos</span></div>
+            <div class="mess-card">What helped last time? <span>blank</span></div>
+          </div>
+
+          <div class="phone">
+            <div class="phone-screen real-screen">
+              <img
+                class="screen-shot screen-dashboard dim-ui"
+                src="assets/ui-captures/15-dashboard.png"
+                alt="OBubba dashboard learning a baby's sleep and feed rhythm"
+              />
+              <div class="proof-overlay">
+                <div class="proof-title">OBubba learns Olivia</div>
+                <div class="proof-answer">Next likely step</div>
+                <div class="proof-line">🍼 Feeds + naps build her pattern</div>
+                <div class="proof-line">⏱ Wake window running long</div>
+                <div class="proof-line">🌙 Try calm reset + earlier bedtime</div>
+              </div>
+            </div>
+            <img class="mascot" src="assets/obubba-happy.png" alt="" />
+          </div>
+        </div>
+
+        <div class="footer safe-bottom">
+          <div class="cta-row">
+            <div class="cta-text">Download free. Start with one log.</div>
+            <div class="store-buttons">
+              <div class="store-button">App Store</div>
+              <div class="store-button">Google Play</div>
+            </div>
+          </div>
+          <div class="proof-row">
+            <div class="proof-chip">Learns your baby</div>
+            <div class="proof-chip">Next nap</div>
+            <div class="proof-chip">Bedtime rhythm</div>
+            <div class="proof-chip">Partner sync</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="ad2" class="scene scene-split" aria-label="OBubba iPhone and Android sync ad">
+        <div class="brand-row">
+          <div class="brand-lockup">
+            <img class="app-icon" src="assets/icon.png" alt="" />
+            <div class="brand-name">OBubba</div>
+          </div>
+          <div class="pill">iOS + Android</div>
+        </div>
+
+        <div class="hero-copy">
+          <div class="eyebrow">Family sync</div>
+          <h1 class="hook">Mum logs it. Dad sees it. Nobody has to ask.</h1>
+          <p class="subhook">One shared baby brain for feeds, naps, nappies, sleep, grandparents, and carers.</p>
+        </div>
+
+        <div class="phone-pair" data-layout-allow-overflow>
+          <div class="phone phone-small">
+            <div class="phone-screen real-screen">
+              <img
+                class="screen-shot screen-dashboard dim-ui"
+                src="assets/ui-captures/15-dashboard.png"
+                alt="OBubba baby dashboard on one parent's phone"
+              />
+              <div class="proof-overlay top">
+                <div class="proof-title">Mum logs</div>
+                <div class="proof-answer">Feed updated</div>
+                <div class="proof-line">🍼 4oz at 8:10</div>
+                <div class="proof-line">🌙 Rhythm updated</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="sync-badge">Synced</div>
+          <div class="sync-line"></div>
+
+          <div class="phone phone-small">
+            <div class="phone-screen real-screen">
+              <img
+                class="screen-shot screen-account dim-ui"
+                src="assets/ui-captures/21-account.png"
+                alt="OBubba family sharing and account screen"
+              />
+              <div class="proof-overlay">
+                <div class="proof-title">Dad sees</div>
+                <div class="proof-answer">No text needed</div>
+                <div class="proof-line">✅ Last feed: <strong>8:10</strong></div>
+                <div class="proof-line">📱 Shared across devices</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="footer safe-bottom">
+          <div class="cta-row">
+            <div class="cta-text">One baby routine, shared across iPhone and Android.</div>
+            <div class="store-buttons">
+              <div class="store-button">App Store</div>
+              <div class="store-button">Google Play</div>
+            </div>
+          </div>
+          <div class="proof-row">
+            <div class="proof-chip">Partner sync</div>
+            <div class="proof-chip">Feeds</div>
+            <div class="proof-chip">Naps</div>
+            <div class="proof-chip">Nappies</div>
+          </div>
+        </div>
+      </section>
+
+      <section id="ad3" class="scene scene-night" aria-label="OBubba 3am sleep ad">
+        <div class="brand-row">
+          <div class="brand-lockup">
+            <img class="app-icon" src="assets/icon.png" alt="" />
+            <div class="brand-name">OBubba</div>
+          </div>
+          <div class="pill">Night mode</div>
+        </div>
+
+        <div class="hero-copy">
+          <div class="eyebrow">3am relief</div>
+          <h1 class="hook">Baby crying. I couldn't remember what came last.</h1>
+          <p class="subhook">OBubba keeps the timeline and points you to the likely next step.</p>
+        </div>
+
+        <div class="night-layout" data-layout-allow-overflow>
+          <div class="dark-note">
+            <div class="label">3am brain</div>
+            <div class="note-line">last feed?</div>
+            <div class="note-line">long wake?</div>
+            <div class="note-line">nappy?</div>
+            <div class="note-line">what helped?</div>
+          </div>
+
+          <div class="phone night-phone">
+            <div class="phone-screen real-screen">
+              <img
+                class="screen-shot screen-dashboard dim-ui"
+                src="assets/ui-captures/15-dashboard.png"
+                alt="OBubba dashboard showing a baby's learned night rhythm"
+              />
+              <div class="proof-overlay top">
+                <div class="proof-title">At a glance</div>
+                <div class="proof-answer">Likely sleep pressure</div>
+                <div class="proof-line">🍼 Last feed: <strong>2h ago</strong></div>
+                <div class="proof-line">⏱ Wake window running long</div>
+                <div class="proof-line">💡 Try quiet room + reset</div>
+              </div>
+            </div>
+            <img class="sleep-baby" src="assets/sleep-baby.png" alt="" />
+          </div>
+        </div>
+
+        <div class="footer safe-bottom">
+          <div class="cta-row">
+            <div class="cta-text">The tired version of you deserves backup.</div>
+            <div class="store-buttons">
+              <div class="store-button">App Store</div>
+              <div class="store-button">Google Play</div>
+            </div>
+          </div>
+          <div class="proof-row">
+            <div class="proof-chip">Night logging</div>
+            <div class="proof-chip">Sleep</div>
+            <div class="proof-chip">Feeds</div>
+            <div class="proof-chip">Partner friendly</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+
+      gsap.set(["#ad1", "#ad2", "#ad3"], { opacity: 0 });
+
+      const tl = gsap.timeline({ paused: true });
+
+      function enterScene(scene, start) {
+        tl.set(scene, { opacity: 1 }, start);
+        tl.from(`${scene} .brand-row`, { y: -42, opacity: 0, duration: 0.42, ease: "power3.out" }, start + 0.05);
+        tl.from(`${scene} .eyebrow`, { y: 26, opacity: 0, duration: 0.38, ease: "power3.out" }, start + 0.3);
+        tl.from(`${scene} .hook`, { y: 42, opacity: 0, duration: 0.58, ease: "power3.out" }, start + 0.48);
+        tl.from(`${scene} .subhook`, { y: 32, opacity: 0, duration: 0.45, ease: "power3.out" }, start + 0.8);
+        tl.from(`${scene} .cta-row`, { y: 46, opacity: 0, duration: 0.46, ease: "power3.out" }, start + 12.9);
+        tl.from(`${scene} .proof-chip`, { y: 26, opacity: 0, stagger: 0.05, duration: 0.32, ease: "power3.out" }, start + 13.25);
+      }
+
+      enterScene("#ad1", 0);
+      tl.from("#ad1 .mess-card", { x: -70, opacity: 0, stagger: 0.14, duration: 0.46, ease: "power3.out" }, 2.35);
+      tl.from("#ad1 .phone", { x: 90, y: 30, scale: 0.95, opacity: 0, duration: 0.62, ease: "power3.out" }, 3.0);
+      tl.from("#ad1 .screen-shot", { x: 55, opacity: 0.3, scale: 1.04, duration: 0.5, ease: "power3.out" }, 3.45);
+      tl.from("#ad1 .proof-overlay", { y: 38, opacity: 0, scale: 0.96, duration: 0.48, ease: "power3.out" }, 3.85);
+      tl.from("#ad1 .proof-line", { x: 24, opacity: 0, stagger: 0.07, duration: 0.26, ease: "power3.out" }, 4.2);
+      tl.from("#ad1 .mascot", { y: 95, scale: 0.82, opacity: 0, duration: 0.52, ease: "back.out(1.7)" }, 5.1);
+      tl.to("#ad1 .mess-stack", { x: -24, opacity: 0.34, duration: 0.48, ease: "power2.out" }, 8.9);
+      tl.to("#ad1 .phone", { scale: 1.035, duration: 0.55, ease: "power2.out" }, 8.95);
+      tl.to("#ad1", { opacity: 0, duration: 0.42, ease: "power2.in" }, 17.58);
+
+      enterScene("#ad2", 18);
+      tl.from("#ad2 .phone:first-of-type", { x: -120, y: 45, rotation: -9, opacity: 0, duration: 0.68, ease: "power3.out" }, 20.3);
+      tl.from("#ad2 .phone:last-of-type", { x: 120, y: 45, rotation: 9, opacity: 0, duration: 0.68, ease: "power3.out" }, 20.54);
+      tl.from("#ad2 .sync-line", { scaleX: 0, opacity: 0, duration: 0.48, ease: "power3.out" }, 21.55);
+      tl.from("#ad2 .sync-badge", { y: 30, scale: 0.86, opacity: 0, duration: 0.45, ease: "back.out(1.6)" }, 21.75);
+      tl.from("#ad2 .screen-shot", { opacity: 0.35, stagger: 0.08, duration: 0.36, ease: "power3.out" }, 22.25);
+      tl.from("#ad2 .proof-overlay", { y: 32, opacity: 0, scale: 0.96, stagger: 0.09, duration: 0.42, ease: "power3.out" }, 22.55);
+      tl.to("#ad2 .sync-badge", { scale: 1.08, duration: 0.22, ease: "power2.out" }, 26.2);
+      tl.to("#ad2 .sync-badge", { scale: 1, duration: 0.22, ease: "power2.inOut" }, 26.42);
+      tl.to("#ad2", { opacity: 0, duration: 0.42, ease: "power2.in" }, 35.58);
+
+      enterScene("#ad3", 36);
+      tl.from("#ad3 .dark-note", { x: -80, opacity: 0, duration: 0.56, ease: "power3.out" }, 38.35);
+      tl.from("#ad3 .note-line", { x: -45, opacity: 0, stagger: 0.12, duration: 0.36, ease: "power3.out" }, 38.72);
+      tl.from("#ad3 .phone", { x: 95, y: 35, scale: 0.95, opacity: 0, duration: 0.62, ease: "power3.out" }, 39.55);
+      tl.from("#ad3 .screen-shot", { x: 52, opacity: 0.35, scale: 1.04, duration: 0.45, ease: "power3.out" }, 40.1);
+      tl.from("#ad3 .proof-overlay", { y: 34, opacity: 0, scale: 0.96, duration: 0.44, ease: "power3.out" }, 40.45);
+      tl.from("#ad3 .proof-line", { x: 24, opacity: 0, stagger: 0.07, duration: 0.26, ease: "power3.out" }, 40.8);
+      tl.from("#ad3 .sleep-baby", { y: 80, scale: 0.82, opacity: 0, duration: 0.52, ease: "back.out(1.7)" }, 41.4);
+      tl.to("#ad3 .dark-note", { opacity: 0.38, duration: 0.45, ease: "power2.out" }, 44.85);
+      tl.to("#ad3 .phone", { scale: 1.035, duration: 0.55, ease: "power2.out" }, 44.9);
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

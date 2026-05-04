@@ -5,13 +5,695 @@
 
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { initializeApp } = require("firebase-admin/app");
-const { getFirestore } = require("firebase-admin/firestore");
+const { getAuth } = require("firebase-admin/auth");
+const { getFirestore, FieldPath } = require("firebase-admin/firestore");
 const { getMessaging } = require("firebase-admin/messaging");
+const crypto = require("crypto");
 
 initializeApp();
+const adminAuth = getAuth();
 const db = getFirestore();
 const messaging = getMessaging();
+
+function safeErrorSummary(err) {
+  const code = String(err && err.code || "").replace(/[^A-Za-z0-9/_-]/g, "").slice(0, 80);
+  if (code) return code;
+  const message = String(err && err.message || err || "unknown")
+    .replace(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, "[email]")
+    .replace(/\b[A-Za-z0-9_-]{12,}\b/g, "[redacted]")
+    .slice(0, 140);
+  return message || "unknown";
+}
+
+function logFunctionError(scope, err) {
+  console.error(`${scope}:`, safeErrorSummary(err));
+}
+
+function logFunctionWarn(scope, err) {
+  console.warn(`${scope}:`, safeErrorSummary(err));
+}
+
+function normaliseUsername(value) {
+  return String(value || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+}
+
+function usernameId(value) {
+  return /^[a-z0-9_-]{3,32}$/.test(value || "");
+}
+
+function backupCodeId(value) {
+  return /^BK[A-Z0-9]{6,10}$/.test(value || "");
+}
+
+function recoveryEmailId(value) {
+  return /^em_[A-Za-z0-9_-]{43}$/.test(value || "") || /^[a-f0-9]{1,8}$/.test(value || "");
+}
+
+function childSyncCodeId(value) {
+  return /^[A-Z0-9]{6,8}$/.test(value || "");
+}
+
+function trialDeviceId(value) {
+  return /^[a-f0-9]{1,64}$/.test(value || "");
+}
+
+const TRIAL_DAYS = 14;
+const TRIAL_MS = TRIAL_DAYS * 24 * 60 * 60 * 1000;
+
+function timestampMs(value) {
+  if (!value) return 0;
+  if (typeof value.toMillis === "function") {
+    const ms = value.toMillis();
+    return Number.isFinite(ms) && ms > 0 ? ms : 0;
+  }
+  if (value instanceof Date) {
+    const ms = value.getTime();
+    return Number.isFinite(ms) && ms > 0 ? ms : 0;
+  }
+  if (typeof value === "number") return Number.isFinite(value) && value > 0 ? value : 0;
+  if (typeof value === "string") {
+    const ms = Date.parse(value);
+    return Number.isFinite(ms) && ms > 0 ? ms : 0;
+  }
+  return 0;
+}
+
+function trialStartFromClient(value, nowMs) {
+  const ms = timestampMs(value);
+  const oneYearMs = 365 * 24 * 60 * 60 * 1000;
+  if (!ms || ms > nowMs || nowMs - ms > oneYearMs) return nowMs;
+  return ms;
+}
+
+function publicTrialPayload(data, nowMs) {
+  const startMs = timestampMs(data.trialStartedAtMs || data.trialStartedAt || data.firstInstallAt || data.createdAtClient);
+  const endMs = timestampMs(data.trialEndsAtMs || data.trialEndsAt) || (startMs ? startMs + TRIAL_MS : 0);
+  const used = data.trialUsed === true || !!data.trialEndedAt || (!!endMs && nowMs >= endMs);
+  const active = !!(startMs && endMs && !used && nowMs < endMs);
+  return {
+    trialStartedAt: startMs ? new Date(startMs).toISOString() : "",
+    trialEndsAt: endMs ? new Date(endMs).toISOString() : "",
+    trialStartedAtMs: startMs || 0,
+    trialEndsAtMs: endMs || 0,
+    trialUsed: used,
+    trialActive: active,
+    daysLeft: active ? Math.max(0, Math.ceil((endMs - nowMs) / (24 * 60 * 60 * 1000))) : 0,
+    source: "server",
+  };
+}
+
+function parseChildSyncCodes(value) {
+  if (!value) return {};
+  if (typeof value === "string") {
+    try { return parseChildSyncCodes(JSON.parse(value)); } catch { return {}; }
+  }
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const out = {};
+  for (const [childId, code] of Object.entries(value)) {
+    const cleanId = String(childId || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 80);
+    const cleanCode = String(code || "").trim().toUpperCase();
+    if (cleanId && childSyncCodeId(cleanCode)) out[cleanId] = cleanCode;
+  }
+  return out;
+}
+
+function parseObjectPayload(value) {
+  if (!value) return null;
+  if (typeof value === "string") {
+    try { return parseObjectPayload(JSON.parse(value)); } catch { return null; }
+  }
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+
+function childCodeMapIdsForOwner(childId, child, ownerSeed) {
+  const cleanChildId = String(childId || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 80);
+  if (!cleanChildId) return [];
+  const owner = normaliseUsername(ownerSeed) || legacyHashPin(ownerSeed || "local");
+  const childObj = child && typeof child === "object" && !Array.isArray(child) ? child : {};
+  const name = String(childObj.name || "baby").trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  const dob = String(childObj.dob || childObj.dueDate || childObj.birthDate || "").trim().toLowerCase();
+  const sig = `${owner}|${name || "baby"}|${dob || "no-date"}`;
+  return [...new Set([
+    cleanChildId,
+    "owner_child_" + legacyHashPin(`${owner}|${cleanChildId}`),
+    "owner_sig_" + legacyHashPin(sig),
+  ])];
+}
+
+function legacyHashPin(pin) {
+  let h = 5381;
+  const text = String(pin || "");
+  for (let i = 0; i < text.length; i++) h = ((h << 5) + h) + text.charCodeAt(i);
+  return (h >>> 0).toString(16);
+}
+
+function base64Url(buffer) {
+  return Buffer.from(buffer).toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function hardenedHash(value, saltPrefix, username) {
+  const key = normaliseUsername(username);
+  const salt = `${saltPrefix}${key}`;
+  const iterations = 120000;
+  const derived = crypto.pbkdf2Sync(String(value || ""), salt, iterations, 32, "sha256");
+  return `v2$pbkdf2-sha256$${iterations}$${base64Url(derived)}`;
+}
+
+function accountPinHash(pin, username) {
+  return hardenedHash(pin, "obubba:pin:v2:", username);
+}
+
+function recoveryWordHash(word, username) {
+  return hardenedHash(String(word || "").trim().toLowerCase(), "obubba:recovery-word:v2:", username);
+}
+
+function publicAccountPayload(username, data) {
+  const out = {
+    displayName: typeof data.displayName === "string" ? data.displayName : username,
+    backupCode: typeof data.backupCode === "string" ? data.backupCode : null,
+    familyCode: typeof data.familyCode === "string" ? data.familyCode : null,
+    childSyncCodes: (typeof data.childSyncCodes === "string" || (data.childSyncCodes && typeof data.childSyncCodes === "object")) ? data.childSyncCodes : {},
+    createdAt: data.createdAt || data.createdAtClient || null,
+    createdAtClient: data.createdAtClient || null,
+    trialStartedAtClient: data.trialStartedAtClient || "",
+    trialFirstInstallAtClient: data.trialFirstInstallAtClient || "",
+    trialDeviceKey: data.trialDeviceKey || "",
+    trialEndsAtClient: data.trialEndsAtClient || "",
+    trialUsed: !!data.trialUsed,
+    trialEndedAtClient: data.trialEndedAtClient || "",
+    trialUpdatedAtClient: data.trialUpdatedAtClient || "",
+    recoveryEmailLookupId: data.recoveryEmailLookupId || "",
+    recoveryEmailHashVersion: data.recoveryEmailHashVersion || "",
+    recoveryEmailUpdatedAtClient: data.recoveryEmailUpdatedAtClient || "",
+    deleted: !!data.deleted,
+  };
+  return out;
+}
+
+async function authoriseUsernameForUid(ref, uid) {
+  if (!uid) return;
+  await ref.set({
+    uid,
+    authorizedUids: { [uid]: true },
+    updatedAt: new Date(),
+  }, { merge: true });
+}
+
+function userOwnsAccountData(data, uid) {
+  return !!uid && !!data && (
+    data.uid === uid ||
+    (data.authorizedUids && data.authorizedUids[uid] === true)
+  );
+}
+
+function accountBackupMatches(data, backupCode) {
+  const code = String(backupCode || "").trim().toUpperCase();
+  return backupCodeId(code) && !!data && (
+    String(data.backupCode || "").trim().toUpperCase() === code ||
+    String(data.familyCode || "").trim().toUpperCase() === code
+  );
+}
+
+exports.usernameStatus = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required");
+  const username = normaliseUsername(request.data && request.data.username);
+  if (!usernameId(username)) throw new HttpsError("invalid-argument", "Invalid username");
+  const snap = await db.collection("usernames").doc(username).get();
+  const data = snap.exists ? snap.data() || {} : {};
+  return { exists: snap.exists && !data.deleted };
+});
+
+exports.accountLogin = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required");
+  const username = normaliseUsername(request.data && request.data.username);
+  const pin = String((request.data && request.data.pin) || "");
+  const preHashed = !!(request.data && request.data.preHashed);
+  if (!usernameId(username)) throw new HttpsError("invalid-argument", "Invalid username");
+  if (!preHashed && !/^\d{4}$/.test(pin)) throw new HttpsError("invalid-argument", "PIN must be 4 digits");
+
+  const ref = db.collection("usernames").doc(username);
+  const snap = await ref.get();
+  if (!snap.exists) return { ok: false, error: "Username not found" };
+  const data = snap.data() || {};
+  if (data.deleted) return { ok: false, error: "Username not found" };
+
+  const storedPinHash = String(data.pinHash || "");
+  const strong = accountPinHash(pin, username);
+  const legacy = legacyHashPin(pin);
+  const pinOk = preHashed ? storedPinHash === pin : (storedPinHash === strong || storedPinHash === legacy);
+  if (!pinOk) return { ok: false, error: "Incorrect PIN" };
+
+  const patch = {
+    uid: request.auth.uid,
+    authorizedUids: { [request.auth.uid]: true },
+    updatedAt: new Date(),
+  };
+  if (!preHashed && storedPinHash === legacy) {
+    patch.pinHash = strong;
+    patch.pinHashVersion = "pbkdf2-v2";
+    patch.pinHashUpdatedAtClient = new Date().toISOString();
+  }
+  await ref.set(patch, { merge: true });
+  return { ok: true, account: publicAccountPayload(username, data) };
+});
+
+exports.resetAccountPin = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required");
+  const username = normaliseUsername(request.data && request.data.username);
+  const proof = String((request.data && request.data.proof) || "").trim();
+  const newPin = String((request.data && request.data.newPin) || "");
+  if (!usernameId(username)) throw new HttpsError("invalid-argument", "Invalid username");
+  if (!proof) throw new HttpsError("invalid-argument", "Recovery code required");
+  if (!/^\d{4}$/.test(newPin)) throw new HttpsError("invalid-argument", "PIN must be 4 digits");
+
+  const ref = db.collection("usernames").doc(username);
+  const snap = await ref.get();
+  if (!snap.exists) return { ok: false, error: "Username not found" };
+  const data = snap.data() || {};
+  if (data.deleted) return { ok: false, error: "Username not found" };
+
+  const codeMatch = String(data.backupCode || data.familyCode || "").toUpperCase() === proof.toUpperCase();
+  const legacyRecovery = legacyHashPin(proof.toLowerCase());
+  const strongRecovery = recoveryWordHash(proof, username);
+  const wordMatch = data.recoveryHash && (data.recoveryHash === strongRecovery || data.recoveryHash === legacyRecovery);
+  if (!codeMatch && !wordMatch) return { ok: false, error: "That doesn't match. check your recovery word" };
+
+  const patch = {
+    uid: request.auth.uid,
+    authorizedUids: { [request.auth.uid]: true },
+    pinHash: accountPinHash(newPin, username),
+    pinHashVersion: "pbkdf2-v2",
+    pinHashUpdatedAtClient: new Date().toISOString(),
+    updatedAt: new Date(),
+  };
+  if (wordMatch && data.recoveryHash === legacyRecovery) {
+    patch.recoveryHash = strongRecovery;
+    patch.recoveryHashVersion = "pbkdf2-v2";
+    patch.recoveryHashUpdatedAtClient = new Date().toISOString();
+  }
+  await ref.set(patch, { merge: true });
+  return { ok: true };
+});
+
+exports.accountSignInStatus = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required");
+  const uid = request.auth.uid;
+  const username = normaliseUsername(request.data && request.data.username);
+  const backupCode = String((request.data && request.data.backupCode) || "").trim().toUpperCase();
+  if (!usernameId(username)) throw new HttpsError("invalid-argument", "Invalid username");
+  if (!backupCodeId(backupCode)) return { ok: false, status: "needed", message: "Backup code missing. save to cloud first, then repair sign-in." };
+
+  const snap = await db.collection("usernames").doc(username).get();
+  if (!snap.exists) {
+    return { ok: false, status: "needed", message: "This device has your OBubba data and backup code, but the cloud username record is missing. Recreate it here so other devices can find your account." };
+  }
+  const data = snap.data() || {};
+  if (data.deleted) {
+    return { ok: false, status: "needed", message: "This username was deleted. choose a new username" };
+  }
+  if (accountBackupMatches(data, backupCode)) return { ok: true, status: "ok" };
+  if (userOwnsAccountData(data, uid) && (!data.backupCode || !backupCodeId(String(data.backupCode).trim().toUpperCase()))) {
+    return { ok: false, status: "needed", message: "The cloud username record needs refreshing for this device's backup. Choose a 4-digit PIN to relink sign-in safely." };
+  }
+  return { ok: false, status: "needed", message: "The cloud username record does not match this device's backup. Repair sign-in with this phone's backup code." };
+});
+
+exports.repairAccountSignIn = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required");
+  const uid = request.auth.uid;
+  const username = normaliseUsername(request.data && request.data.username);
+  const backupCode = String((request.data && request.data.backupCode) || "").trim().toUpperCase();
+  const pin = String((request.data && request.data.pin) || "");
+  const displayName = String((request.data && request.data.displayName) || username).trim().slice(0, 40) || username;
+  const familyCode = String((request.data && request.data.familyCode) || "").trim().toUpperCase();
+  const createdAtClient = String((request.data && request.data.createdAtClient) || "").slice(0, 40);
+  const requestedChildSyncCodes = parseChildSyncCodes(request.data && request.data.childSyncCodes);
+  if (!usernameId(username)) throw new HttpsError("invalid-argument", "Invalid username");
+  if (!backupCodeId(backupCode)) throw new HttpsError("invalid-argument", "Invalid backup code");
+  if (!/^\d{4}$/.test(pin)) throw new HttpsError("invalid-argument", "PIN must be 4 digits");
+
+  const ref = db.collection("usernames").doc(username);
+  const snap = await ref.get();
+  const data = snap.exists ? (snap.data() || {}) : null;
+  if (data && data.deleted) return { ok: false, error: "This username was deleted. choose a new username" };
+  if (data && !userOwnsAccountData(data, uid) && !accountBackupMatches(data, backupCode)) {
+    return { ok: false, error: "Backup code does not match this username" };
+  }
+
+  const backupMatches = accountBackupMatches(data, backupCode);
+  const childSyncCodes = {
+    ...parseChildSyncCodes(data && data.childSyncCodes),
+    ...requestedChildSyncCodes,
+  };
+  const now = new Date();
+  const patch = {
+    uid,
+    authorizedUids: { [uid]: true },
+    pinHash: accountPinHash(pin, username),
+    pinHashVersion: "pbkdf2-v2",
+    pinHashUpdatedAtClient: now.toISOString(),
+    backupCode: backupMatches && data && data.backupCode ? data.backupCode : backupCode,
+    childSyncCodes,
+    displayName: data && typeof data.displayName === "string" && data.displayName.trim() ? data.displayName : displayName,
+    updatedAt: now,
+  };
+  if (familyCode && backupCodeId(familyCode) && !(data && data.familyCode)) patch.familyCode = familyCode;
+  if (!snap.exists) {
+    patch.createdAt = now;
+    patch.familyCode = patch.familyCode || null;
+    patch.deleted = false;
+  }
+  if (createdAtClient && !(data && data.createdAtClient)) patch.createdAtClient = createdAtClient;
+
+  await ref.set(patch, { merge: true });
+  await db.collection("uid_to_backup").doc(uid).set({
+    backupCode,
+    childSyncCodes,
+    updatedAt: now,
+  }, { merge: true });
+
+  const nextData = { ...(data || {}), ...patch };
+  return { ok: true, account: publicAccountPayload(username, nextData) };
+});
+
+exports.saveRecoveryEmail = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required");
+  const uid = request.auth.uid;
+  const username = normaliseUsername(request.data && request.data.username);
+  const emailLookupId = String((request.data && request.data.emailLookupId) || "");
+  const backupCode = String((request.data && request.data.backupCode) || "").trim().toUpperCase();
+  if (!usernameId(username)) throw new HttpsError("invalid-argument", "Invalid username");
+  if (!recoveryEmailId(emailLookupId)) throw new HttpsError("invalid-argument", "Invalid recovery email id");
+
+  const ref = db.collection("usernames").doc(username);
+  const snap = await ref.get();
+  if (!snap.exists) return { ok: false, error: "Repair sign-in first, then save recovery email" };
+  const data = snap.data() || {};
+  if (data.deleted) return { ok: false, error: "Username not found" };
+  const owner = userOwnsAccountData(data, uid);
+  const backupMatches = accountBackupMatches(data, backupCode);
+  if (!owner && !backupMatches) return { ok: false, error: "Sign-in repair needed before saving recovery email" };
+
+  const now = new Date();
+  await ref.set({
+    recoveryEmailLookupId: emailLookupId,
+    recoveryEmailHashVersion: "sha256-v2",
+    recoveryEmailUpdatedAtClient: now.toISOString(),
+    uid,
+    authorizedUids: { [uid]: true },
+    updatedAt: now,
+  }, { merge: true });
+  await db.collection("recovery_emails").doc(emailLookupId).set({ username, updatedAt: now }, { merge: true });
+  const previousLookupId = String(data.recoveryEmailLookupId || "");
+  if (previousLookupId && previousLookupId !== emailLookupId && recoveryEmailId(previousLookupId)) {
+    await db.collection("recovery_emails").doc(previousLookupId).delete().catch(() => null);
+  }
+  return { ok: true };
+});
+
+exports.recoveryEmailLookup = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required");
+  const ids = [
+    String((request.data && request.data.emailLookupId) || ""),
+    String((request.data && request.data.legacyEmailLookupId) || ""),
+  ].filter(Boolean);
+  const validId = (id) => /^em_[A-Za-z0-9_-]{43}$/.test(id) || /^[a-f0-9]{1,8}$/.test(id);
+  for (const id of ids) {
+    if (!validId(id)) continue;
+    const lookup = await db.collection("recovery_emails").doc(id).get();
+    if (!lookup.exists) continue;
+    const username = normaliseUsername((lookup.data() || {}).username);
+    if (!usernameId(username)) continue;
+    const userSnap = await db.collection("usernames").doc(username).get();
+    if (!userSnap.exists) continue;
+    const data = userSnap.data() || {};
+    if (data.deleted) continue;
+    if (data.recoveryEmailLookupId && data.recoveryEmailLookupId !== id && id.startsWith("em_")) continue;
+    return { ok: true, username };
+  }
+  return { ok: false };
+});
+
+exports.claimTrial = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required");
+  const uid = request.auth.uid;
+  const trialDeviceKey = String((request.data && request.data.trialDeviceKey) || "").trim().toLowerCase();
+  const username = normaliseUsername(request.data && request.data.username);
+  const platform = String((request.data && request.data.platform) || "").trim().toLowerCase().replace(/[^a-z0-9_-]/g, "").slice(0, 24) || "native";
+  const firstInstallAtClient = String((request.data && request.data.firstInstallAtClient) || "").slice(0, 40);
+  if (!trialDeviceId(trialDeviceKey)) throw new HttpsError("invalid-argument", "Invalid trial device key");
+
+  const nowMs = Date.now();
+  const now = new Date(nowMs);
+  const result = await db.runTransaction(async (tx) => {
+    const deviceRef = db.collection("trial_devices").doc(trialDeviceKey);
+    const entitlementRef = db.collection("entitlements").doc(uid);
+    const usernameRef = usernameId(username) ? db.collection("usernames").doc(username) : null;
+    const [deviceSnap, entitlementSnap, usernameSnap] = await Promise.all([
+      tx.get(deviceRef),
+      tx.get(entitlementRef),
+      usernameRef ? tx.get(usernameRef) : Promise.resolve(null),
+    ]);
+
+    const candidates = [];
+    const pushCandidate = (data) => {
+      if (!data) return;
+      const startMs = timestampMs(data.trialStartedAtMs || data.trialStartedAt || data.trialStartedAtClient || data.firstInstallAt || data.createdAtClient);
+      if (!startMs) return;
+      const endMs = timestampMs(data.trialEndsAtMs || data.trialEndsAt || data.trialEndsAtClient) || startMs + TRIAL_MS;
+      candidates.push({
+        startMs,
+        endMs,
+        used: data.trialUsed === true || data.freeTrialUsed === true || !!data.trialEndedAt || !!data.trialEndedAtClient || nowMs >= endMs,
+      });
+    };
+
+    pushCandidate(deviceSnap.exists ? (deviceSnap.data() || {}) : null);
+    pushCandidate(entitlementSnap.exists ? (entitlementSnap.data() || {}) : null);
+    const usernameData = usernameSnap && usernameSnap.exists ? (usernameSnap.data() || {}) : null;
+    const ownsUsername = usernameData && !usernameData.deleted && userOwnsAccountData(usernameData, uid);
+    if (ownsUsername) pushCandidate(usernameData);
+
+    const fallbackStartMs = trialStartFromClient(firstInstallAtClient, nowMs);
+    const startMs = candidates.length ? Math.min(...candidates.map(c => c.startMs)) : fallbackStartMs;
+    const endMs = startMs + TRIAL_MS;
+    const used = candidates.some(c => c.used || nowMs >= c.endMs) || nowMs >= endMs;
+    const trialEndedAt = used ? new Date(Math.min(nowMs, endMs)).toISOString() : "";
+
+    const devicePatch = {
+      trialStartedAtMs: startMs,
+      trialStartedAt: new Date(startMs).toISOString(),
+      trialEndsAtMs: endMs,
+      trialEndsAt: new Date(endMs).toISOString(),
+      trialUsed: used,
+      trialEndedAt,
+      firstInstallAt: new Date(startMs).toISOString(),
+      firstInstallAtClient: firstInstallAtClient || "",
+      platform,
+      uid,
+      lastSeenAt: now,
+      updatedAt: now,
+      source: "claimTrial",
+    };
+    if (!deviceSnap.exists) devicePatch.createdAt = now;
+
+    const entitlementPatch = {
+      uid,
+      trialDeviceKey,
+      trialStartedAtMs: startMs,
+      trialStartedAt: new Date(startMs).toISOString(),
+      trialEndsAtMs: endMs,
+      trialEndsAt: new Date(endMs).toISOString(),
+      trialUsed: used,
+      trialEndedAt,
+      trialActive: !used && nowMs < endMs,
+      platform,
+      updatedAt: now,
+      source: "claimTrial",
+    };
+
+    tx.set(deviceRef, devicePatch, { merge: true });
+    tx.set(entitlementRef, entitlementPatch, { merge: true });
+    if (ownsUsername && usernameRef) {
+      tx.set(usernameRef, {
+        trialStartedAtClient: usernameData.trialStartedAtClient || new Date(startMs).toISOString(),
+        trialFirstInstallAtClient: usernameData.trialFirstInstallAtClient || new Date(startMs).toISOString(),
+        trialEndsAtClient: new Date(endMs).toISOString(),
+        trialDeviceKey,
+        trialUsed: used,
+        trialEndedAtClient: used ? (usernameData.trialEndedAtClient || trialEndedAt || now.toISOString()) : "",
+        trialUpdatedAtClient: now.toISOString(),
+        uid,
+        authorizedUids: { [uid]: true },
+        updatedAt: now,
+      }, { merge: true });
+    }
+
+    return publicTrialPayload(entitlementPatch, nowMs);
+  });
+
+  return { ok: true, trial: result };
+});
+
+exports.deleteAccount = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required");
+  const uid = request.auth.uid;
+  const username = normaliseUsername(request.data && request.data.username);
+  const backupCode = String((request.data && request.data.backupCode) || "").trim().toUpperCase();
+  const trialDeviceKey = String((request.data && request.data.trialDeviceKey) || "").trim().toLowerCase();
+  const requestedChildCodes = parseChildSyncCodes(request.data && request.data.childSyncCodes);
+
+  const cleanup = [];
+  let usernameData = null;
+  if (usernameId(username)) {
+    const usernameRef = db.collection("usernames").doc(username);
+    const usernameSnap = await usernameRef.get();
+    if (usernameSnap.exists) {
+      const data = usernameSnap.data() || {};
+      const owner = data.uid === uid || (data.authorizedUids && data.authorizedUids[uid] === true);
+      if (owner) {
+        usernameData = data;
+        cleanup.push(usernameRef.delete());
+        if (data.recoveryEmailLookupId) cleanup.push(db.collection("recovery_emails").doc(String(data.recoveryEmailLookupId)).delete());
+      }
+    }
+  }
+
+  const uidBackupRef = db.collection("uid_to_backup").doc(uid);
+  const uidBackupSnap = await uidBackupRef.get();
+  const uidBackupData = uidBackupSnap.exists ? (uidBackupSnap.data() || {}) : {};
+  const verifiedBackupCode = backupCodeId(backupCode)
+    && (
+      uidBackupData.backupCode === backupCode
+      || (usernameData && (usernameData.backupCode === backupCode || usernameData.familyCode === backupCode))
+    )
+    ? backupCode
+    : "";
+  if (verifiedBackupCode) cleanup.push(db.collection("families").doc(verifiedBackupCode).delete());
+
+  const cloudChildCodes = {
+    ...parseChildSyncCodes(uidBackupData.childSyncCodes),
+    ...parseChildSyncCodes(usernameData && usernameData.childSyncCodes),
+    ...requestedChildCodes,
+  };
+  for (const [childId, code] of Object.entries(cloudChildCodes)) {
+    const syncRef = db.collection("child_syncs").doc(code);
+    const syncSnap = await syncRef.get();
+    const syncData = syncSnap.exists ? (syncSnap.data() || {}) : {};
+    const ownsSync = syncData.ownerUid === uid || (!!username && syncData.ownerUsername === username);
+    if (ownsSync) {
+      const syncChild = parseObjectPayload(syncData.child);
+      const ownerSeed = username || syncData.ownerUsername || uid;
+      cleanup.push(syncRef.delete());
+      for (const mapId of childCodeMapIdsForOwner(childId, syncChild, ownerSeed)) {
+        cleanup.push(db.collection("child_code_map").doc(mapId).delete());
+      }
+    }
+  }
+
+  if (trialDeviceId(trialDeviceKey)) {
+    const trialRef = db.collection("trial_devices").doc(trialDeviceKey);
+    const trialSnap = await trialRef.get();
+    const trialData = trialSnap.exists ? (trialSnap.data() || {}) : {};
+    if (trialData.uid === uid) {
+      cleanup.push(trialRef.set({
+        uid: "",
+        username: "",
+        accountDeletedAt: new Date(),
+        updatedAt: new Date(),
+      }, { merge: true }));
+    }
+  }
+
+  cleanup.push(
+    db.collection("uid_to_backup").doc(uid).delete(),
+    db.collection("fcm_tokens").doc(uid).delete(),
+    db.collection("user_activity").doc(uid).delete(),
+  );
+  const results = await Promise.allSettled(cleanup);
+  const cleanupFailures = results.filter(result => result.status === "rejected");
+  if (cleanupFailures.length > 0) {
+    logFunctionError("Account deletion cleanup failed", cleanupFailures[0].reason);
+    throw new HttpsError("internal", "Account deletion cleanup failed");
+  }
+  try {
+    await adminAuth.deleteUser(uid);
+  } catch (err) {
+    if (!err || err.code !== "auth/user-not-found") {
+      throw err;
+    }
+  }
+  return { ok: true };
+});
+
+function safePushText(value, fallback, maxLen = 180) {
+  const raw = typeof value === "string" ? value : "";
+  const text = raw.replace(/\s+/g, " ").trim() || fallback;
+  return text.slice(0, maxLen);
+}
+
+function safeDataPayload(data) {
+  const out = {};
+  if (!data || typeof data !== "object" || Array.isArray(data)) return out;
+  for (const [key, value] of Object.entries(data)) {
+    if (!/^[A-Za-z0-9_.-]{1,40}$/.test(key)) continue;
+    if (value === null || value === undefined) continue;
+    if (!["string", "number", "boolean"].includes(typeof value)) continue;
+    out[key] = String(value).slice(0, 120);
+  }
+  return out;
+}
+
+function timestampMs(value) {
+  if (!value) return null;
+  if (typeof value.toMillis === "function") return value.toMillis();
+  if (typeof value.toDate === "function") return value.toDate().getTime();
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === "number") return Number.isFinite(value) ? value : null;
+  if (typeof value === "string") {
+    const ms = Date.parse(value);
+    return Number.isFinite(ms) ? ms : null;
+  }
+  return null;
+}
+
+function safeTzOffsetMin(value) {
+  return typeof value === "number" && Number.isFinite(value) && value >= -840 && value <= 840 ? value : 0;
+}
+
+function userLocalDate(tzOffsetMin, ms = Date.now()) {
+  const offset = safeTzOffsetMin(tzOffsetMin);
+  return new Date(ms - offset * 60 * 1000);
+}
+
+function isInvalidFcmTokenError(err) {
+  const code = String(err && err.code || "");
+  const message = String(err && err.message || "").toLowerCase();
+  return code === "messaging/invalid-registration-token" ||
+    code === "messaging/registration-token-not-registered" ||
+    (code === "messaging/invalid-argument" && (
+      message.includes("registration token") ||
+      message.includes("fcm registration token") ||
+      message.includes("not a valid fcm")
+    ));
+}
+
+async function forEachFcmToken(callback, pageSize = 500) {
+  let lastDoc = null;
+  while (true) {
+    let query = db.collection("fcm_tokens").orderBy(FieldPath.documentId()).limit(pageSize);
+    if (lastDoc) query = query.startAfter(lastDoc);
+    const snap = await query.get();
+    if (snap.empty) break;
+    for (const doc of snap.docs) {
+      await callback(doc, doc.id);
+    }
+    lastDoc = snap.docs[snap.docs.length - 1];
+    if (snap.size < pageSize) break;
+  }
+}
 
 // ── Send push notification to a specific user ───────────────────
 async function sendPush(uid, { title, body, data = {} }) {
@@ -19,13 +701,19 @@ async function sendPush(uid, { title, body, data = {} }) {
     const tokenDoc = await db.collection("fcm_tokens").doc(uid).get();
     if (!tokenDoc.exists) return;
 
-    const token = tokenDoc.data().token;
+    const rawToken = tokenDoc.data().token;
+    const token = typeof rawToken === "string" ? rawToken.trim() : "";
     if (!token) return;
+    const safeData = safeDataPayload(data);
+    const channelId = safeData.channelId || "obubba_reminders";
 
     await messaging.send({
       token,
-      notification: { title, body },
-      data: { ...data, click_action: "FLUTTER_NOTIFICATION_CLICK" },
+      notification: {
+        title: safePushText(title, "OBubba", 80),
+        body: safePushText(body, "Tap to open OBubba.", 220),
+      },
+      data: { ...safeData, click_action: "FLUTTER_NOTIFICATION_CLICK" },
       apns: {
         payload: {
           aps: {
@@ -39,21 +727,19 @@ async function sendPush(uid, { title, body, data = {} }) {
         priority: "high",
         notification: {
           sound: "default",
-          channelId: data.channelId || "obubba_reminders",
+          channelId,
           color: "#C07088",
           icon: "ic_notification",
         },
       },
     });
   } catch (err) {
-    // Token may be invalid — clean up
-    if (
-      err.code === "messaging/invalid-registration-token" ||
-      err.code === "messaging/registration-token-not-registered"
-    ) {
+    if (isInvalidFcmTokenError(err)) {
       await db.collection("fcm_tokens").doc(uid).delete();
+      logFunctionWarn("Removed invalid FCM token", err);
+      return;
     }
-    console.error(`Push to ${uid} failed:`, err.message);
+    logFunctionError("Push delivery failed", err);
   }
 }
 
@@ -63,27 +749,54 @@ async function sendPush(uid, { title, body, data = {} }) {
 // on server UTC would roll over at UTC midnight instead of the user's local
 // midnight and produce duplicate reminders on DST and at timezone boundaries.
 function todayKeyForUser(tzOffsetMin) {
-  const offset = typeof tzOffsetMin === "number" ? tzOffsetMin : 0;
-  const local = new Date(Date.now() - offset * 60 * 1000);
-  return local.toISOString().split("T")[0];
+  return userLocalDate(tzOffsetMin).toISOString().split("T")[0];
 }
 
 // Helper: user-local hour of the day (0–23). Used to gate the 7am-10pm
 // "daytime only" reminder window on the USER's wall clock, not the
 // function's server region.
 function userLocalHour(tzOffsetMin) {
-  const offset = typeof tzOffsetMin === "number" ? tzOffsetMin : 0;
-  const local = new Date(Date.now() - offset * 60 * 1000);
-  return local.getUTCHours();
+  return userLocalDate(tzOffsetMin).getUTCHours();
+}
+
+function userLocalDayOfWeek(tzOffsetMin) {
+  return userLocalDate(tzOffsetMin).getUTCDay();
+}
+
+function userLocalWeekKey(tzOffsetMin) {
+  const local = userLocalDate(tzOffsetMin);
+  const day = local.getUTCDay() || 7;
+  const monday = new Date(local.getTime());
+  monday.setUTCDate(local.getUTCDate() - day + 1);
+  return monday.toISOString().split("T")[0];
+}
+
+function datePartsForUser(value, tzOffsetMin) {
+  if (typeof value === "string") {
+    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (m) return { year: Number(m[1]), month: Number(m[2]), day: Number(m[3]) };
+  }
+  const ms = timestampMs(value);
+  if (!ms) return null;
+  const d = userLocalDate(tzOffsetMin, ms);
+  return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() };
+}
+
+function ageWeeksForUser(value, tzOffsetMin) {
+  const dob = datePartsForUser(value, tzOffsetMin);
+  if (!dob) return null;
+  const now = userLocalDate(tzOffsetMin);
+  const dobNoon = Date.UTC(dob.year, dob.month - 1, dob.day, 12);
+  const nowNoon = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 12);
+  return Math.floor((nowNoon - dobNoon) / (7 * 24 * 60 * 60 * 1000));
 }
 
 // Helper: check if a Firestore timestamp is from the user's local "today".
 function isToday(timestamp, tzOffsetMin) {
-  if (!timestamp) return false;
-  const ts = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-  const offset = typeof tzOffsetMin === "number" ? tzOffsetMin : 0;
-  const tsLocal = new Date(ts.getTime() - offset * 60 * 1000);
-  const nowLocal = new Date(Date.now() - offset * 60 * 1000);
+  const ms = timestampMs(timestamp);
+  if (!ms) return false;
+  const tsLocal = userLocalDate(tzOffsetMin, ms);
+  const nowLocal = userLocalDate(tzOffsetMin);
   return tsLocal.getUTCFullYear() === nowLocal.getUTCFullYear()
       && tsLocal.getUTCMonth() === nowLocal.getUTCMonth()
       && tsLocal.getUTCDate() === nowLocal.getUTCDate();
@@ -92,28 +805,27 @@ function isToday(timestamp, tzOffsetMin) {
 // ── Feed reminder: notify if no feed logged in 4+ hours ─────────
 exports.feedReminder = onSchedule("every 30 minutes", async () => {
   const cutoff = Date.now() - 4 * 60 * 60 * 1000; // 4 hours ago
-  const tokens = await db.collection("fcm_tokens").get();
 
-  for (const doc of tokens.docs) {
-    const uid = doc.id;
+  await forEachFcmToken(async (doc, uid) => {
     try {
       const actDoc = await db.collection("user_activity").doc(uid).get();
-      if (!actDoc.exists) continue;
+      if (!actDoc.exists) return;
 
       const data = actDoc.data();
       const lastFeedTime = data.lastFeedTimestamp;
-      const tzOff = typeof data.tzOffsetMin === "number" ? data.tzOffsetMin : 0;
+      const lastFeedMs = timestampMs(lastFeedTime);
+      const tzOff = safeTzOffsetMin(data.tzOffsetMin);
 
       // Daytime gate + dedupe key both computed in the USER's local timezone.
       const hour = userLocalHour(tzOff);
-      if (hour < 7 || hour > 22) continue;
+      if (hour < 7 || hour > 22) return;
 
-      if (lastFeedTime && lastFeedTime.toMillis() < cutoff) {
-        const hoursSince = Math.round((Date.now() - lastFeedTime.toMillis()) / 3600000);
+      if (lastFeedMs && lastFeedMs < cutoff) {
+        const hoursSince = Math.round((Date.now() - lastFeedMs) / 3600000);
         // Don't spam — check if we already sent a feed reminder today (user-local)
         const sentKey = `feedReminder_${todayKeyForUser(tzOff)}_${uid}`;
         const sentDoc = await db.collection("push_log").doc(sentKey).get();
-        if (sentDoc.exists) continue;
+        if (sentDoc.exists) return;
 
         await sendPush(uid, {
           title: "🍼 Feed Reminder",
@@ -123,9 +835,9 @@ exports.feedReminder = onSchedule("every 30 minutes", async () => {
         await db.collection("push_log").doc(sentKey).set({ sentAt: new Date() });
       }
     } catch (err) {
-      console.error(`Feed reminder for ${uid}:`, err.message);
+      logFunctionError("Feed reminder failed", err);
     }
-  }
+  });
 });
 
 // ── No feed all day: alert if it's past 10am and zero feeds logged today ──
@@ -135,26 +847,23 @@ exports.noFeedAlert = onSchedule("every 1 hours", async () => {
   // stored tzOffsetMin. Without this, a UTC-scheduled 10am-8pm gate meant
   // users outside UTC were either silenced for most of their day or spammed
   // at the wrong local times.
-  const tokens = await db.collection("fcm_tokens").get();
-
-  for (const doc of tokens.docs) {
-    const uid = doc.id;
+  await forEachFcmToken(async (doc, uid) => {
     try {
       const actDoc = await db.collection("user_activity").doc(uid).get();
-      if (!actDoc.exists) continue;
+      if (!actDoc.exists) return;
 
       const data = actDoc.data();
       const lastFeed = data.lastFeedTimestamp;
-      const tzOff = typeof data.tzOffsetMin === "number" ? data.tzOffsetMin : 0;
+      const tzOff = safeTzOffsetMin(data.tzOffsetMin);
       const localHour = userLocalHour(tzOff);
-      if (localHour < 10 || localHour > 20) continue;
+      if (localHour < 10 || localHour > 20) return;
 
       // If no feed today (in user's local timezone)
       if (!lastFeed || !isToday(lastFeed, tzOff)) {
         // Don't spam — one alert per user-local day
         const sentKey = `noFeed_${todayKeyForUser(tzOff)}_${uid}`;
         const sentDoc = await db.collection("push_log").doc(sentKey).get();
-        if (sentDoc.exists) continue;
+        if (sentDoc.exists) return;
 
         await sendPush(uid, {
           title: "🍼 No feeds logged today",
@@ -164,30 +873,28 @@ exports.noFeedAlert = onSchedule("every 1 hours", async () => {
         await db.collection("push_log").doc(sentKey).set({ sentAt: new Date() });
       }
     } catch (err) {
-      console.error(`No feed alert for ${uid}:`, err.message);
+      logFunctionError("No feed alert failed", err);
     }
-  }
+  });
 });
 
 // ── Morning wake reminder: feed logged but no wake ──────────────
 // If a feed is logged today but no morning wake, nudge the parent
 exports.noWakeAlert = onSchedule("every 1 hours", async () => {
   // Per-user local-time gate: see feedReminder/noFeedAlert comments.
-  const tokens = await db.collection("fcm_tokens").get();
 
-  for (const doc of tokens.docs) {
-    const uid = doc.id;
+  await forEachFcmToken(async (doc, uid) => {
     try {
       const actDoc = await db.collection("user_activity").doc(uid).get();
-      if (!actDoc.exists) continue;
+      if (!actDoc.exists) return;
 
       const data = actDoc.data();
       const lastFeed = data.lastFeedTimestamp;
       const lastWake = data.lastWakeTimestamp;
-      const tzOff = typeof data.tzOffsetMin === "number" ? data.tzOffsetMin : 0;
+      const tzOff = safeTzOffsetMin(data.tzOffsetMin);
       const hour = userLocalHour(tzOff);
       // Only check between 8am and 12pm — after that, wake was probably just missed.
-      if (hour < 8 || hour > 12) continue;
+      if (hour < 8 || hour > 12) return;
 
       // Feed logged today but no wake today (both in user-local tz)
       const feedToday = lastFeed && isToday(lastFeed, tzOff);
@@ -196,7 +903,7 @@ exports.noWakeAlert = onSchedule("every 1 hours", async () => {
       if (feedToday && !wakeToday) {
         const sentKey = `noWake_${todayKeyForUser(tzOff)}_${uid}`;
         const sentDoc = await db.collection("push_log").doc(sentKey).get();
-        if (sentDoc.exists) continue;
+        if (sentDoc.exists) return;
 
         await sendPush(uid, {
           title: "☀️ Morning wake not logged",
@@ -206,9 +913,9 @@ exports.noWakeAlert = onSchedule("every 1 hours", async () => {
         await db.collection("push_log").doc(sentKey).set({ sentAt: new Date() });
       }
     } catch (err) {
-      console.error(`No wake alert for ${uid}:`, err.message);
+      logFunctionError("No wake alert failed", err);
     }
-  }
+  });
 });
 
 // ── Medicine reminder: notify when dose is due ──────────────────
@@ -218,6 +925,7 @@ exports.medicineReminder = onSchedule("every 15 minutes", async () => {
     .collection("medicine_reminders")
     .where("nextDue", "<=", new Date(now))
     .where("sent", "==", false)
+    .limit(200)
     .get();
 
   for (const doc of reminders.docs) {
@@ -230,7 +938,7 @@ exports.medicineReminder = onSchedule("every 15 minutes", async () => {
       });
       await doc.ref.update({ sent: true });
     } catch (err) {
-      console.error(`Medicine reminder ${doc.id}:`, err.message);
+      logFunctionError("Medicine reminder failed", err);
     }
   }
 });
@@ -245,6 +953,7 @@ exports.appointmentReminder = onSchedule("every 15 minutes", async () => {
     .where("datetime", ">=", now)
     .where("datetime", "<=", oneHourFromNow)
     .where("reminded", "==", false)
+    .limit(200)
     .get();
 
   for (const doc of appts.docs) {
@@ -258,7 +967,7 @@ exports.appointmentReminder = onSchedule("every 15 minutes", async () => {
       });
       await doc.ref.update({ reminded: true });
     } catch (err) {
-      console.error(`Appointment reminder ${doc.id}:`, err.message);
+      logFunctionError("Appointment reminder failed", err);
     }
   }
 });
@@ -298,55 +1007,65 @@ exports.processScheduledPushes = onSchedule("every 5 minutes", async () => {
       });
       await doc.ref.update({ sent: true });
     } catch (err) {
-      console.error(`Scheduled push ${doc.id}:`, err.message);
+      logFunctionError("Scheduled push failed", err);
     }
   }
 });
 
 // ── Weekly digest: Monday morning summary ───────────────────────
-exports.weeklyDigest = onSchedule("every monday 08:00", async () => {
-  const tokens = await db.collection("fcm_tokens").get();
-
-  for (const doc of tokens.docs) {
-    const uid = doc.id;
+exports.weeklyDigest = onSchedule("every 1 hours", async () => {
+  await forEachFcmToken(async (doc, uid) => {
     try {
+      const actDoc = await db.collection("user_activity").doc(uid).get();
+      const activity = actDoc.exists ? actDoc.data() : {};
+      const tzOff = safeTzOffsetMin(activity.tzOffsetMin);
+      if (userLocalDayOfWeek(tzOff) !== 1 || userLocalHour(tzOff) !== 8) return;
+
       // Check if user has weekly digest enabled
       const prefs = await db.collection("user_prefs").doc(uid).get();
-      if (prefs.exists && prefs.data().weeklyDigest === false) continue;
+      if (prefs.exists && prefs.data().weeklyDigest === false) return;
+
+      const sentKey = `weeklyDigest_${userLocalWeekKey(tzOff)}_${uid}`;
+      const sentDoc = await db.collection("push_log").doc(sentKey).get();
+      if (sentDoc.exists) return;
 
       await sendPush(uid, {
         title: "📊 Your Weekly Summary is Ready",
         body: "See how baby's week went — feeds, sleep patterns, and milestones.",
         data: { action: "baby_summary", channelId: "obubba_milestones" },
       });
+      await db.collection("push_log").doc(sentKey).set({ sentAt: new Date() });
     } catch (err) {
-      console.error(`Weekly digest for ${uid}:`, err.message);
+      logFunctionError("Weekly digest failed", err);
     }
-  }
+  });
 });
 
 // ── Monthly birthday: celebrate baby turning X months ────────────
-exports.monthlyBirthday = onSchedule("every day 09:00", async () => {
-  const tokens = await db.collection("fcm_tokens").get();
-  const today = new Date();
-
-  for (const doc of tokens.docs) {
-    const uid = doc.id;
+exports.monthlyBirthday = onSchedule("every 1 hours", async () => {
+  await forEachFcmToken(async (doc, uid) => {
     try {
       const actDoc = await db.collection("user_activity").doc(uid).get();
-      if (!actDoc.exists) continue;
+      if (!actDoc.exists) return;
       const data = actDoc.data();
-      if (!data.babyDob) continue;
+      const tzOff = safeTzOffsetMin(data.tzOffsetMin);
+      if (userLocalHour(tzOff) !== 9) return;
+      if (!data.babyDob) return;
 
-      const dob = data.babyDob.toDate ? data.babyDob.toDate() : new Date(data.babyDob);
+      const dobMs = timestampMs(data.babyDob);
+      if (!dobMs) return;
+      const dob = datePartsForUser(data.babyDob, tzOff);
+      if (!dob) return;
+      const today = userLocalDate(tzOff);
+      const todayDay = today.getUTCDate();
       // Check if today is the monthly anniversary
-      if (dob.getDate() !== today.getDate()) continue;
-      const months = (today.getFullYear() - dob.getFullYear()) * 12 + (today.getMonth() - dob.getMonth());
-      if (months <= 0 || months > 24) continue;
+      if (dob.day !== todayDay) return;
+      const months = (today.getUTCFullYear() - dob.year) * 12 + ((today.getUTCMonth() + 1) - dob.month);
+      if (months <= 0 || months > 24) return;
 
-      const sentKey = `monthly_${months}_${uid}`;
+      const sentKey = `monthly_${months}_${todayKeyForUser(tzOff)}_${uid}`;
       const sentDoc = await db.collection("push_log").doc(sentKey).get();
-      if (sentDoc.exists) continue;
+      if (sentDoc.exists) return;
 
       const name = data.babyName || "Baby";
       await sendPush(uid, {
@@ -356,15 +1075,13 @@ exports.monthlyBirthday = onSchedule("every day 09:00", async () => {
       });
       await db.collection("push_log").doc(sentKey).set({ sentAt: new Date() });
     } catch (err) {
-      console.error(`Monthly birthday for ${uid}:`, err.message);
+      logFunctionError("Monthly birthday failed", err);
     }
-  }
+  });
 });
 
 // ── New development phase: notify when baby enters a wonder week/phase ──
-exports.developmentPhase = onSchedule("every day 09:30", async () => {
-  const tokens = await db.collection("fcm_tokens").get();
-
+exports.developmentPhase = onSchedule("every 1 hours", async () => {
   // Wonder Weeks leap starts (in weeks from due date)
   const leapWeeks = [5, 8, 12, 19, 26, 37, 46, 55, 64, 75];
   const leapNames = [
@@ -373,25 +1090,28 @@ exports.developmentPhase = onSchedule("every day 09:30", async () => {
     "Programmes", "Principles", "Systems"
   ];
 
-  for (const doc of tokens.docs) {
-    const uid = doc.id;
+  await forEachFcmToken(async (doc, uid) => {
     try {
       const actDoc = await db.collection("user_activity").doc(uid).get();
-      if (!actDoc.exists) continue;
+      if (!actDoc.exists) return;
       const data = actDoc.data();
-      if (!data.babyDob) continue;
+      const tzOff = safeTzOffsetMin(data.tzOffsetMin);
+      if (userLocalHour(tzOff) !== 9) return;
+      if (!data.babyDob) return;
 
-      const dob = data.babyDob.toDate ? data.babyDob.toDate() : new Date(data.babyDob);
-      const ageWeeks = Math.floor((Date.now() - dob.getTime()) / (7 * 24 * 60 * 60 * 1000));
+      const dobMs = timestampMs(data.babyDob);
+      if (!dobMs) return;
+      const ageWeeks = ageWeeksForUser(data.babyDob, tzOff);
+      if (ageWeeks === null) return;
       const name = data.babyName || "Baby";
 
       // Check if baby just entered a leap week
       const leapIdx = leapWeeks.indexOf(ageWeeks);
-      if (leapIdx === -1) continue;
+      if (leapIdx === -1) return;
 
-      const sentKey = `leap_${ageWeeks}_${uid}`;
+      const sentKey = `leap_${ageWeeks}_${todayKeyForUser(tzOff)}_${uid}`;
       const sentDoc = await db.collection("push_log").doc(sentKey).get();
-      if (sentDoc.exists) continue;
+      if (sentDoc.exists) return;
 
       await sendPush(uid, {
         title: `🧠 Leap ${leapIdx + 1}: ${leapNames[leapIdx]}`,
@@ -400,34 +1120,35 @@ exports.developmentPhase = onSchedule("every day 09:30", async () => {
       });
       await db.collection("push_log").doc(sentKey).set({ sentAt: new Date() });
     } catch (err) {
-      console.error(`Development phase for ${uid}:`, err.message);
+      logFunctionError("Development phase failed", err);
     }
-  }
+  });
 });
 
 // ── New milestones unlocked: notify when milestones enter baby's window ──
-exports.milestonesUnlocked = onSchedule("every day 10:00", async () => {
-  const tokens = await db.collection("fcm_tokens").get();
-
-  for (const doc of tokens.docs) {
-    const uid = doc.id;
+exports.milestonesUnlocked = onSchedule("every 1 hours", async () => {
+  await forEachFcmToken(async (doc, uid) => {
     try {
       const actDoc = await db.collection("user_activity").doc(uid).get();
-      if (!actDoc.exists) continue;
+      if (!actDoc.exists) return;
       const data = actDoc.data();
-      if (!data.babyDob) continue;
+      const tzOff = safeTzOffsetMin(data.tzOffsetMin);
+      if (userLocalHour(tzOff) !== 10) return;
+      if (!data.babyDob) return;
 
-      const dob = data.babyDob.toDate ? data.babyDob.toDate() : new Date(data.babyDob);
-      const ageWeeks = Math.floor((Date.now() - dob.getTime()) / (7 * 24 * 60 * 60 * 1000));
+      const dobMs = timestampMs(data.babyDob);
+      if (!dobMs) return;
+      const ageWeeks = ageWeeksForUser(data.babyDob, tzOff);
+      if (ageWeeks === null) return;
       const name = data.babyName || "Baby";
 
       // Check weekly — only alert once per week
-      const weekKey = `milestones_w${ageWeeks}_${uid}`;
+      const weekKey = `milestones_w${ageWeeks}_${userLocalWeekKey(tzOff)}_${uid}`;
       const sentDoc = await db.collection("push_log").doc(weekKey).get();
-      if (sentDoc.exists) continue;
+      if (sentDoc.exists) return;
 
       // Only notify at key age milestones (every 4 weeks after 8 weeks)
-      if (ageWeeks < 8 || ageWeeks % 4 !== 0) continue;
+      if (ageWeeks < 8 || ageWeeks % 4 !== 0) return;
 
       await sendPush(uid, {
         title: `✨ New milestones for ${name}`,
@@ -436,33 +1157,34 @@ exports.milestonesUnlocked = onSchedule("every day 10:00", async () => {
       });
       await db.collection("push_log").doc(weekKey).set({ sentAt: new Date() });
     } catch (err) {
-      console.error(`Milestones for ${uid}:`, err.message);
+      logFunctionError("Milestones reminder failed", err);
     }
-  }
+  });
 });
 
 // ── Re-engagement: gentle nudge if inactive for 3+ days ─────────
-exports.reEngagement = onSchedule("every day 11:00", async () => {
-  const tokens = await db.collection("fcm_tokens").get();
+exports.reEngagement = onSchedule("every 1 hours", async () => {
   const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
 
-  for (const doc of tokens.docs) {
-    const uid = doc.id;
+  await forEachFcmToken(async (doc, uid) => {
     try {
       const actDoc = await db.collection("user_activity").doc(uid).get();
-      if (!actDoc.exists) continue;
+      if (!actDoc.exists) return;
       const data = actDoc.data();
+      const tzOff = safeTzOffsetMin(data.tzOffsetMin);
+      if (userLocalHour(tzOff) !== 11) return;
       const lastUpdate = data.updatedAt;
-      if (!lastUpdate) continue;
+      if (!lastUpdate) return;
 
-      const lastMs = lastUpdate.toMillis ? lastUpdate.toMillis() : new Date(lastUpdate).getTime();
-      if (lastMs > threeDaysAgo) continue; // Active recently — skip
+      const lastMs = timestampMs(lastUpdate);
+      if (!lastMs) return;
+      if (lastMs > threeDaysAgo) return; // Active recently — skip
 
       // Don't spam — once per week max
-      const weekNum = Math.floor(Date.now() / (7 * 24 * 60 * 60 * 1000));
+      const weekNum = userLocalWeekKey(tzOff);
       const sentKey = `reengage_w${weekNum}_${uid}`;
       const sentDoc = await db.collection("push_log").doc(sentKey).get();
-      if (sentDoc.exists) continue;
+      if (sentDoc.exists) return;
 
       const name = data.babyName || "Baby";
       const daysSince = Math.round((Date.now() - lastMs) / (24 * 60 * 60 * 1000));
@@ -481,16 +1203,35 @@ exports.reEngagement = onSchedule("every day 11:00", async () => {
       });
       await db.collection("push_log").doc(sentKey).set({ sentAt: new Date() });
     } catch (err) {
-      console.error(`Re-engagement for ${uid}:`, err.message);
+      logFunctionError("Re-engagement failed", err);
     }
-  }
+  });
 });
 
-// ── Cleanup: purge old push_log entries (older than 3 days) ─────
+// ── Cleanup: purge old server-side ephemera ─────────────────────
 exports.cleanupPushLog = onSchedule("every day 03:00", async () => {
   const cutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
   const old = await db.collection("push_log")
     .where("sentAt", "<", cutoff)
+    .limit(200)
+    .get();
+
+  const batch = db.batch();
+  old.docs.forEach(doc => batch.delete(doc.ref));
+  const hugCutoffMs = Date.now();
+  const expiredHugs = await db.collection("bubba_hugs")
+    .where("expiresAtMs", "<", hugCutoffMs)
+    .limit(200)
+    .get();
+  expiredHugs.docs.forEach(doc => batch.delete(doc.ref));
+  if (old.docs.length > 0 || expiredHugs.docs.length > 0) await batch.commit();
+});
+
+// ── Cleanup: purge expired anonymous Bubba Hugs ─────────────────
+exports.cleanupBubbaHugs = onSchedule("every 1 hours", async () => {
+  const cutoffMs = Date.now();
+  const old = await db.collection("bubba_hugs")
+    .where("expiresAtMs", "<", cutoffMs)
     .limit(200)
     .get();
 

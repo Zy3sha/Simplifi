@@ -21,6 +21,8 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 import org.json.JSONObject;
 import java.util.Calendar;
 import java.util.TimeZone;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @CapacitorPlugin(
     name = "OBCalendar",
@@ -30,6 +32,8 @@ import java.util.TimeZone;
 )
 public class CalendarPlugin extends Plugin {
     public static final String CALENDAR = "calendar";
+    private static final Pattern DATE_PATTERN = Pattern.compile("^(\\d{4})-(\\d{2})-(\\d{2})$");
+    private static final Pattern TIME_PATTERN = Pattern.compile("^(\\d{1,2}):(\\d{2})$");
 
     @PluginMethod
     public void addEvent(PluginCall call) {
@@ -40,13 +44,13 @@ public class CalendarPlugin extends Plugin {
             return;
         }
 
-        String title = call.getString("title", "OBubba appointment");
+        String title = safeText(call.getString("title", "OBubba appointment"), "OBubba appointment", 120);
         String date = call.getString("date", "");
         String time = call.getString("time", "");
         String endDate = call.getString("endDate", date);
         String endTime = call.getString("endTime", "");
-        String location = call.getString("location", "");
-        String note = call.getString("note", "");
+        String location = safeText(call.getString("location", ""), "", 240);
+        String note = safeText(call.getString("note", ""), "", 1200);
         Boolean allDayValue = call.getBoolean("allDay", false);
         boolean allDay = allDayValue != null && allDayValue;
 
@@ -114,15 +118,15 @@ public class CalendarPlugin extends Plugin {
         try {
             long calendarId = getWritableCalendarId();
             JSObject event = new JSObject();
-            event.put("title", call.getString("title", "OBubba appointment"));
+            event.put("title", safeText(call.getString("title", "OBubba appointment"), "OBubba appointment", 120));
             event.put("date", call.getString("date", ""));
             event.put("time", call.getString("time", ""));
             event.put("endDate", call.getString("endDate", call.getString("date", "")));
             event.put("endTime", call.getString("endTime", ""));
             event.put("allDay", call.getBoolean("allDay", false));
-            event.put("location", call.getString("location", ""));
-            event.put("note", call.getString("note", ""));
-            event.put("alarm", call.getInt("alarm", 0));
+            event.put("location", safeText(call.getString("location", ""), "", 240));
+            event.put("note", safeText(call.getString("note", ""), "", 1200));
+            event.put("alarm", safeAlarm(call.getInt("alarm", 0)));
             long id = insertEvent(event, calendarId);
             JSObject ret = new JSObject();
             ret.put("saved", 1);
@@ -222,13 +226,13 @@ public class CalendarPlugin extends Plugin {
 
         ContentValues values = new ContentValues();
         values.put(CalendarContract.Events.CALENDAR_ID, calendarId);
-        values.put(CalendarContract.Events.TITLE, optString(event, "title", "OBubba appointment"));
+        values.put(CalendarContract.Events.TITLE, safeText(optString(event, "title", "OBubba appointment"), "OBubba appointment", 120));
         values.put(CalendarContract.Events.DTSTART, start.getTimeInMillis());
         values.put(CalendarContract.Events.DTEND, end.getTimeInMillis());
         values.put(CalendarContract.Events.EVENT_TIMEZONE, TimeZone.getDefault().getID());
         values.put(CalendarContract.Events.ALL_DAY, allDay ? 1 : 0);
-        String location = optString(event, "location", "");
-        String note = optString(event, "note", "");
+        String location = safeText(optString(event, "location", ""), "", 240);
+        String note = safeText(optString(event, "note", ""), "", 1200);
         if (!location.trim().isEmpty()) values.put(CalendarContract.Events.EVENT_LOCATION, location.trim());
         if (!note.trim().isEmpty()) values.put(CalendarContract.Events.DESCRIPTION, note.trim());
 
@@ -236,7 +240,7 @@ public class CalendarPlugin extends Plugin {
         if (uri == null) throw new Exception("Calendar insert failed");
         long eventId = Long.parseLong(uri.getLastPathSegment());
 
-        int alarm = event.optInt("alarm", 0);
+        int alarm = safeAlarm(event.optInt("alarm", 0));
         if (alarm > 0) {
             ContentValues reminder = new ContentValues();
             reminder.put(CalendarContract.Reminders.EVENT_ID, eventId);
@@ -247,18 +251,37 @@ public class CalendarPlugin extends Plugin {
         return eventId;
     }
 
-    private Calendar buildCalendar(String date, String time) {
-        String[] d = date.split("-");
-        String[] t = defaultTime(time, "09:00").split(":");
+    private Calendar buildCalendar(String date, String time) throws Exception {
+        int[] d = parseDateParts(date);
+        int[] t = parseTimeParts(defaultTime(time, "09:00"));
         Calendar cal = Calendar.getInstance();
-        cal.set(Calendar.YEAR, Integer.parseInt(d[0]));
-        cal.set(Calendar.MONTH, Integer.parseInt(d[1]) - 1);
-        cal.set(Calendar.DAY_OF_MONTH, Integer.parseInt(d[2]));
-        cal.set(Calendar.HOUR_OF_DAY, Integer.parseInt(t[0]));
-        cal.set(Calendar.MINUTE, Integer.parseInt(t[1]));
+        cal.set(Calendar.YEAR, d[0]);
+        cal.set(Calendar.MONTH, d[1] - 1);
+        cal.set(Calendar.DAY_OF_MONTH, d[2]);
+        cal.set(Calendar.HOUR_OF_DAY, t[0]);
+        cal.set(Calendar.MINUTE, t[1]);
         cal.set(Calendar.SECOND, 0);
         cal.set(Calendar.MILLISECOND, 0);
         return cal;
+    }
+
+    private int[] parseDateParts(String date) throws Exception {
+        Matcher m = DATE_PATTERN.matcher(date == null ? "" : date.trim());
+        if (!m.matches()) throw new Exception("Invalid date");
+        int year = Integer.parseInt(m.group(1));
+        int month = Integer.parseInt(m.group(2));
+        int day = Integer.parseInt(m.group(3));
+        if (month < 1 || month > 12 || day < 1 || day > 31) throw new Exception("Invalid date");
+        return new int[] { year, month, day };
+    }
+
+    private int[] parseTimeParts(String time) {
+        Matcher m = TIME_PATTERN.matcher(time == null ? "" : time.trim());
+        if (!m.matches()) return new int[] { 9, 0 };
+        int hour = Integer.parseInt(m.group(1));
+        int minute = Integer.parseInt(m.group(2));
+        if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return new int[] { 9, 0 };
+        return new int[] { hour, minute };
     }
 
     private String defaultDate(String value, String fallback) {
@@ -272,5 +295,17 @@ public class CalendarPlugin extends Plugin {
     private String optString(JSONObject obj, String key, String fallback) {
         String value = obj.optString(key, fallback);
         return value == null ? fallback : value;
+    }
+
+    private String safeText(String value, String fallback, int maxLen) {
+        String text = value == null ? fallback : value;
+        text = text.replaceAll("[\\r\\n<>]+", " ").replaceAll("\\s+", " ").trim();
+        if (text.isEmpty()) text = fallback;
+        return text.length() > maxLen ? text.substring(0, maxLen) : text;
+    }
+
+    private int safeAlarm(Integer value) {
+        if (value == null || value < 0) return 0;
+        return Math.min(value, 10080);
     }
 }

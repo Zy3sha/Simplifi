@@ -12,6 +12,8 @@ import com.obubba.app.services.TimerService;
 
 @CapacitorPlugin(name = "OBTimerService")
 public class TimerServicePlugin extends Plugin {
+    private static final long MAX_TIMER_AGE_MS = 16 * 3600 * 1000L;
+    private static final long MAX_PREDICTION_AHEAD_MS = 36 * 3600 * 1000L;
 
     private void sendServiceAction(String action) {
         Intent intent = new Intent(getContext(), TimerService.class);
@@ -19,13 +21,45 @@ public class TimerServicePlugin extends Plugin {
         getContext().startService(intent);
     }
 
+    private String safeText(String value, String fallback, int maxLen) {
+        String text = value == null ? fallback : value;
+        text = text.replaceAll("[\\r\\n<>]+", " ").replaceAll("\\s+", " ").trim();
+        if (text.isEmpty()) text = fallback;
+        return text.length() > maxLen ? text.substring(0, maxLen) : text;
+    }
+
+    private String safeTimerType(String value) {
+        if ("feed".equals(value) || "nap".equals(value) || "sleep".equals(value) || "bed".equals(value)) return value;
+        return "feed";
+    }
+
+    private String safeSide(String value) {
+        if ("left".equals(value) || "right".equals(value)) return value;
+        return null;
+    }
+
+    private long safeStartTime(Long value) {
+        long now = System.currentTimeMillis();
+        long start = value == null ? now : value;
+        if (start > now + 60000L) start -= 24 * 3600 * 1000L;
+        if (start > now + 60000L || start < now - MAX_TIMER_AGE_MS) return now;
+        return start;
+    }
+
+    private long safePredictionTarget(Long value) {
+        long now = System.currentTimeMillis();
+        long target = value == null ? 0L : value;
+        if (target < now - 5 * 60000L || target > now + MAX_PREDICTION_AHEAD_MS) return 0L;
+        return target;
+    }
+
     @PluginMethod
     public void startTimer(PluginCall call) {
         try {
-            long startTime = call.getLong("startTime", System.currentTimeMillis());
-            String type = call.getString("type", "feed");
-            String babyName = call.getString("babyName", "Baby");
-            String side = call.getString("side", null);
+            long startTime = safeStartTime(call.getLong("startTime", System.currentTimeMillis()));
+            String type = safeTimerType(call.getString("type", "feed"));
+            String babyName = safeText(call.getString("babyName", "Baby"), "Baby", 40);
+            String side = safeSide(call.getString("side", null));
 
             Intent intent = new Intent(getContext(), TimerService.class);
             intent.setAction(TimerService.ACTION_START);
@@ -76,10 +110,14 @@ public class TimerServicePlugin extends Plugin {
     @PluginMethod
     public void startPrediction(PluginCall call) {
         try {
-            long targetTime = call.getLong("targetTime", 0L);
-            String label = call.getString("label", "Next event");
-            String babyName = call.getString("babyName", "Baby");
-            String timeFormatted = call.getString("timeFormatted", null);
+            long targetTime = safePredictionTarget(call.getLong("targetTime", 0L));
+            if (targetTime == 0L) {
+                call.reject("Invalid prediction target");
+                return;
+            }
+            String label = safeText(call.getString("label", "Next event"), "Next event", 40);
+            String babyName = safeText(call.getString("babyName", "Baby"), "Baby", 40);
+            String timeFormatted = safeText(call.getString("timeFormatted", ""), "", 40);
 
             Intent intent = new Intent(getContext(), TimerService.class);
             intent.setAction(TimerService.ACTION_START_PREDICTION);
@@ -132,15 +170,15 @@ public class TimerServicePlugin extends Plugin {
     @PluginMethod
     public void updateTimer(PluginCall call) {
         try {
-            String side = call.getString("side", null);
-            String babyName = call.getString("babyName", null);
+            String side = safeSide(call.getString("side", null));
+            String babyName = safeText(call.getString("babyName", null), "", 40);
 
             Intent intent = new Intent(getContext(), TimerService.class);
             intent.setAction(TimerService.ACTION_UPDATE);
             if (side != null) {
                 intent.putExtra(TimerService.EXTRA_SIDE, side);
             }
-            if (babyName != null) {
+            if (babyName != null && !babyName.isEmpty()) {
                 intent.putExtra(TimerService.EXTRA_BABY_NAME, babyName);
             }
 

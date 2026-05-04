@@ -62,8 +62,5 @@ project(':capacitor-status-bar').projectDir = new File('../node_modules/@capacit
 include ':capawesome-capacitor-app-shortcuts'
 project(':capawesome-capacitor-app-shortcuts').projectDir = new File('../node_modules/@capawesome/capacitor-app-shortcuts/android')
 
-include ':capawesome-capacitor-badge'
-project(':capawesome-capacitor-badge').projectDir = new File('../node_modules/@capawesome/capacitor-badge/android')
-
 include ':capawesome-capacitor-live-update'
 project(':capawesome-capacitor-live-update').projectDir = new File('../node_modules/@capawesome/capacitor-live-update/android')

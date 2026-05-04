@@ -6,7 +6,7 @@ We have updated the paywall screen inside the app to include all required subscr
 
 - Subscription title: "OBubba Premium — Auto-renewing subscription"
 - Length: Monthly / Annual / Lifetime (one-time, non-renewing)
-- Price: £4.99/month, £44.99/year, £79.99 lifetime
+- Price: Current UK pricing for new users is £7.99/month, £79.99/year, £129.99 lifetime. Eligible existing users may see grandfathered UK pricing of £4.99/month, £44.99/year, £79.99 lifetime.
 - Auto-renewal disclosure text
 - Functional link to Terms of Use (EULA): https://obubba.com/terms
 - Functional link to Privacy Policy: https://obubba.com/privacy
@@ -25,7 +25,7 @@ In-App Purchases can be accessed from multiple locations inside OBubba. The simp
 1. Launch the app and complete quick onboarding (enter baby's name + date of birth — any values work for testing)
 2. Tap the **Account** tab (bottom-right, profile icon)
 3. Tap **"Try free →"** or **"See plans"** on the "OBubba Free" plan card near the top
-4. The paywall modal appears showing Monthly (£4.99), Annual (£44.99), and Lifetime (£79.99) plans
+4. The paywall modal appears showing Monthly, Annual, and Lifetime plans. New UK users see £7.99/month, £79.99/year, and £129.99 lifetime; eligible existing UK users may see grandfathered £4.99/month, £44.99/year, and £79.99 lifetime.
 5. Terms of Use, Privacy Policy, and auto-renewal disclosure are visible at the bottom of the paywall
 
 **Path 2 — Tap any locked feature:**

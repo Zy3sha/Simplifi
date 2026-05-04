@@ -110,7 +110,6 @@
 		"SplashScreenPlugin",
 		"StatusBarPlugin",
 		"AppShortcutsPlugin",
-		"BadgePlugin",
 		"LiveUpdatePlugin"
 	]
 }

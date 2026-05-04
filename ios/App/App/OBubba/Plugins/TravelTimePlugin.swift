@@ -18,6 +18,8 @@ public class TravelTimePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
     private var pendingCall: CAPPluginCall?
     private var pendingAddress: String?
     private var pendingDestination: CLLocationCoordinate2D?
+    private let locationRequiredMessage = "Location permission is needed to calculate travel time. Set travel time manually or allow location in Settings."
+    private let locationUnavailableMessage = "Current location is unavailable. Set travel time manually or try again in a moment."
 
     /// Calculate travel time from current location to a destination address.
     /// Returns { travelMins: Int, distanceKm: Double, address: String }
@@ -101,9 +103,7 @@ public class TravelTimePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
         }
 
         if authStatus == .denied || authStatus == .restricted {
-            // Fallback: use a rough estimate based on distance from centre of UK
-            let defaultLocation = CLLocationCoordinate2D(latitude: 52.0, longitude: -1.5)
-            self.performRouteCalculation(from: defaultLocation, to: destination, call: call, approximate: true)
+            call.reject(locationRequiredMessage)
             return
         }
 
@@ -134,9 +134,7 @@ public class TravelTimePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
                 manager.requestLocation()
             }
         } else {
-            // Denied — use fallback
-            let defaultLocation = CLLocationCoordinate2D(latitude: 52.0, longitude: -1.5)
-            performRouteCalculation(from: defaultLocation, to: dest, call: call, approximate: true)
+            call.reject(locationRequiredMessage)
         }
     }
 
@@ -148,12 +146,10 @@ public class TravelTimePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
     }
 
     public func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        guard let call = pendingCall, let dest = pendingDestination else { return }
+        guard let call = pendingCall else { return }
         pendingCall = nil
         pendingDestination = nil
-        // Fallback on error
-        let defaultLocation = CLLocationCoordinate2D(latitude: 52.0, longitude: -1.5)
-        performRouteCalculation(from: defaultLocation, to: dest, call: call, approximate: true)
+        call.reject(locationUnavailableMessage)
     }
 
     private func performRouteCalculation(from source: CLLocationCoordinate2D, to destination: CLLocationCoordinate2D, call: CAPPluginCall, approximate: Bool) {

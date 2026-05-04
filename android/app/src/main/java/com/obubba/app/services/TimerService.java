@@ -60,6 +60,23 @@ public class TimerService extends Service {
     private String predictionBabyName;
     private PowerManager.WakeLock wakeLock;
 
+    private String safeText(String value, String fallback, int maxLen) {
+        String text = value == null ? fallback : value;
+        text = text.replaceAll("[\\r\\n<>]+", " ").replaceAll("\\s+", " ").trim();
+        if (text.isEmpty()) text = fallback;
+        return text.length() > maxLen ? text.substring(0, maxLen) : text;
+    }
+
+    private String safeTimerType(String value) {
+        if ("feed".equals(value) || "nap".equals(value) || "sleep".equals(value) || "bed".equals(value)) return value;
+        return "feed";
+    }
+
+    private String safeSide(String value) {
+        if ("left".equals(value) || "right".equals(value)) return value;
+        return null;
+    }
+
     @Override
     public void onCreate() {
         super.onCreate();
@@ -98,10 +115,10 @@ public class TimerService extends Service {
                     return START_NOT_STICKY;
                 }
                 if (intent.hasExtra(EXTRA_SIDE)) {
-                    side = intent.getStringExtra(EXTRA_SIDE);
+                    side = safeSide(intent.getStringExtra(EXTRA_SIDE));
                 }
                 if (intent.hasExtra(EXTRA_BABY_NAME)) {
-                    babyName = intent.getStringExtra(EXTRA_BABY_NAME);
+                    babyName = safeText(intent.getStringExtra(EXTRA_BABY_NAME), "Baby", 40);
                 }
                 if (!running) startTimer();
                 saveTimerState();
@@ -120,11 +137,14 @@ public class TimerService extends Service {
                 }
                 stopPrediction();
                 predictionTargetMs = intent.getLongExtra(EXTRA_TARGET_TIME, 0);
-                predictionLabel = intent.getStringExtra(EXTRA_LABEL);
-                predictionTimeFormatted = intent.getStringExtra(EXTRA_TIME_FORMATTED);
-                predictionBabyName = intent.getStringExtra(EXTRA_BABY_NAME);
-                if (predictionLabel == null) predictionLabel = "Next event";
-                if (predictionBabyName == null) predictionBabyName = "Baby";
+                predictionLabel = safeText(intent.getStringExtra(EXTRA_LABEL), "Next event", 40);
+                predictionTimeFormatted = safeText(intent.getStringExtra(EXTRA_TIME_FORMATTED), "", 40);
+                predictionBabyName = safeText(intent.getStringExtra(EXTRA_BABY_NAME), "Baby", 40);
+                if (predictionTargetMs < System.currentTimeMillis() - 5 * 60000L || predictionTargetMs > System.currentTimeMillis() + 36 * 3600 * 1000L) {
+                    stopPrediction();
+                    if (!running) stopSelf(startId);
+                    return START_NOT_STICKY;
+                }
                 startPrediction();
                 return START_STICKY;
 
@@ -137,11 +157,9 @@ public class TimerService extends Service {
             default:
                 stopPrediction(); // prediction goes away when a real timer starts
                 startTimeMs = intent.getLongExtra(EXTRA_START_TIME, System.currentTimeMillis());
-                timerType = intent.getStringExtra(EXTRA_TIMER_TYPE);
-                babyName = intent.getStringExtra(EXTRA_BABY_NAME);
-                side = intent.getStringExtra(EXTRA_SIDE);
-                if (timerType == null) timerType = "feed";
-                if (babyName == null) babyName = "Baby";
+                timerType = safeTimerType(intent.getStringExtra(EXTRA_TIMER_TYPE));
+                babyName = safeText(intent.getStringExtra(EXTRA_BABY_NAME), "Baby", 40);
+                side = safeSide(intent.getStringExtra(EXTRA_SIDE));
                 saveTimerState();
                 startTimer();
                 return START_STICKY;
@@ -235,9 +253,9 @@ public class TimerService extends Service {
     }
 
     private String buildTitle() {
-        String safeBabyName = (babyName == null || babyName.trim().isEmpty()) ? "Baby" : babyName.trim();
-        String safeTimerType = (timerType == null || timerType.trim().isEmpty()) ? "timer" : timerType.trim();
-        switch (safeTimerType) {
+        String safeBabyName = safeText(babyName, "Baby", 40);
+        String type = safeTimerType(timerType);
+        switch (type) {
             case "feed":
                 String feedTitle = "Feeding " + safeBabyName;
                 if (side != null && !side.isEmpty()) {
@@ -250,17 +268,18 @@ public class TimerService extends Service {
             case "bed":
                 return safeBabyName + " is asleep";
             default:
-                return safeTimerType.substring(0, 1).toUpperCase(Locale.UK) + safeTimerType.substring(1) + " timer";
+                return "Timer";
         }
     }
 
     private String buildTimerContext() {
         String since = "started " + formatClock(startTimeMs);
-        String safeTimerType = (timerType == null || timerType.trim().isEmpty()) ? "timer" : timerType.trim();
-        switch (safeTimerType) {
+        String type = safeTimerType(timerType);
+        switch (type) {
             case "feed":
-                if (side != null && !side.isEmpty()) {
-                    return side.substring(0, 1).toUpperCase(Locale.UK) + side.substring(1) + " side · " + since;
+                String safeSide = safeSide(side);
+                if (safeSide != null && !safeSide.isEmpty()) {
+                    return safeSide.substring(0, 1).toUpperCase(Locale.UK) + safeSide.substring(1) + " side · " + since;
                 }
                 return "Feed timer · " + since;
             case "nap":
@@ -346,9 +365,9 @@ public class TimerService extends Service {
             }
         }
 
-        String time = predictionTimeFormatted != null ? predictionTimeFormatted : "";
-        String safeBabyName = (predictionBabyName == null || predictionBabyName.trim().isEmpty()) ? "Baby" : predictionBabyName.trim();
-        String title = predictionLabel + (time.isEmpty() ? "" : " around " + time);
+        String time = safeText(predictionTimeFormatted, "", 40);
+        String safeBabyName = safeText(predictionBabyName, "Baby", 40);
+        String title = safeText(predictionLabel, "Next event", 40) + (time.isEmpty() ? "" : " around " + time);
         String body = countdown + " for " + safeBabyName;
 
         return new NotificationCompat.Builder(this, CHANNEL_ID)
@@ -415,9 +434,9 @@ public class TimerService extends Service {
             return false;
         }
 
-        timerType = prefs.getString("timerType", "feed");
-        babyName = prefs.getString("babyName", "Baby");
-        side = prefs.getString("side", null);
+        timerType = safeTimerType(prefs.getString("timerType", "feed"));
+        babyName = safeText(prefs.getString("babyName", "Baby"), "Baby", 40);
+        side = safeSide(prefs.getString("side", null));
         return true;
     }
 

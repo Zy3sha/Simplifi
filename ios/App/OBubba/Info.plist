@@ -72,9 +72,7 @@
     <!-- Notifications -->
     <key>UIBackgroundModes</key>
     <array>
-        <string>fetch</string>
         <string>remote-notification</string>
-        <string>audio</string>
     </array>
 
     <!-- Siri -->

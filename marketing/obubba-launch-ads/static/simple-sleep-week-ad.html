@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1080, height=1350" />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 1080px;
+        height: 1350px;
+        overflow: hidden;
+        background: #07111d;
+      }
+
+      body {
+        font-family: Inter, "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #f7f1e8;
+      }
+
+      .ad {
+        position: relative;
+        width: 1080px;
+        height: 1350px;
+        padding: 74px 70px 62px;
+        overflow: hidden;
+        background:
+          radial-gradient(circle at 14% 9%, rgba(227, 160, 134, 0.26), transparent 32%),
+          radial-gradient(circle at 88% 10%, rgba(131, 211, 177, 0.18), transparent 28%),
+          radial-gradient(circle at 16% 86%, rgba(167, 138, 197, 0.18), transparent 30%),
+          linear-gradient(180deg, #07111d 0%, #0a1725 55%, #030a13 100%);
+      }
+
+      .brand-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+      }
+
+      .brand-lockup {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+      }
+
+      .icon {
+        width: 88px;
+        height: 88px;
+        border-radius: 24px;
+        box-shadow: 0 22px 50px rgba(0, 0, 0, 0.28);
+      }
+
+      .brand {
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 52px;
+        line-height: 1;
+        font-weight: 700;
+      }
+
+      .pill {
+        min-height: 52px;
+        padding: 12px 22px;
+        border-radius: 999px;
+        border: 1px solid rgba(227, 160, 134, 0.62);
+        background: rgba(255, 255, 255, 0.1);
+        color: #f7f1e8;
+        font-size: 27px;
+        line-height: 1;
+        font-weight: 900;
+      }
+
+      .copy {
+        position: relative;
+        z-index: 3;
+        margin-top: 102px;
+        max-width: 930px;
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        min-height: 52px;
+        padding: 13px 22px;
+        border-radius: 999px;
+        color: #f7d08c;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(184, 124, 104, 0.5);
+        font-size: 28px;
+        line-height: 1;
+        font-weight: 950;
+      }
+
+      h1 {
+        margin: 26px 0 0;
+        max-width: 900px;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 82px;
+        line-height: 1;
+        letter-spacing: 0;
+        color: #f7f1e8;
+      }
+
+      .no {
+        display: inline-block;
+        margin-top: 30px;
+        color: #83d3b1;
+        font-family: Georgia, "Times New Roman", serif;
+        font-size: 106px;
+        line-height: 0.9;
+        font-weight: 800;
+      }
+
+      .sub {
+        margin-top: 28px;
+        max-width: 650px;
+        color: #cbd3de;
+        font-size: 40px;
+        line-height: 1.12;
+        font-weight: 900;
+      }
+
+      .phone {
+        position: absolute;
+        right: 22px;
+        bottom: 206px;
+        z-index: 2;
+        width: 330px;
+        height: 584px;
+        padding: 18px;
+        border-radius: 50px;
+        border: 2px solid rgba(227, 160, 134, 0.54);
+        background: linear-gradient(180deg, #293445, #151c28);
+        box-shadow: 0 30px 82px rgba(0, 0, 0, 0.42);
+        transform: rotate(3deg);
+        opacity: 0.36;
+      }
+
+      .screen {
+        width: 100%;
+        height: 100%;
+        border-radius: 36px;
+        object-fit: cover;
+        object-position: 50% 0%;
+        filter: saturate(0.92) brightness(0.74);
+      }
+
+      .baby {
+        position: absolute;
+        right: 58px;
+        bottom: 146px;
+        z-index: 5;
+        width: 180px;
+        filter: drop-shadow(0 24px 42px rgba(0, 0, 0, 0.28));
+      }
+
+      .footer {
+        position: absolute;
+        left: 70px;
+        right: 70px;
+        bottom: 112px;
+        z-index: 6;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+      }
+
+      .cta {
+        color: #07111d;
+        background: #f7f1e8;
+        border: 2px solid rgba(247, 208, 140, 0.85);
+        border-radius: 999px;
+        padding: 22px 34px;
+        font-size: 33px;
+        line-height: 1;
+        font-weight: 1000;
+        box-shadow: 0 22px 52px rgba(0, 0, 0, 0.28);
+      }
+
+      .stores {
+        color: #f7f1e8;
+        font-size: 25px;
+        font-weight: 950;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="ad">
+      <header class="brand-row">
+        <div class="brand-lockup">
+          <img class="icon" src="../assets/icon.png" alt="" />
+          <div class="brand">OBubba</div>
+        </div>
+        <div class="pill">Free to start</div>
+      </header>
+
+      <section class="copy">
+        <div class="eyebrow">Sleep tracking should do more</div>
+        <h1>Does your baby tracker actually help with sleep?</h1>
+        <div class="no">No?</div>
+        <p class="sub">Try OBubba for 7 nights. Mums tell us their babies are sleeping better.</p>
+      </section>
+
+      <div class="phone">
+        <img class="screen" src="../assets/ui-captures/15-dashboard.png" alt="" />
+      </div>
+
+      <img class="baby" src="../assets/sleep-baby.png" alt="" />
+
+      <footer class="footer">
+        <div class="cta">Download free</div>
+        <div class="stores">iPhone + Android</div>
+      </footer>
+    </main>
+  </body>
+</html>

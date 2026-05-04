@@ -234,7 +234,7 @@ Smart reminders only:
 - **`PremiumTeaser` component**: Inline teaser for locked features
 - **`triggerPaywall(context)`**: Max 1 per session. Context-specific warm messages.
 - **Paywall ethos**: "For less than a coffee a month — no more guessing, no more juggling 5 different apps"
-- **Pricing**: £4.99/month, £39.99/year (33% off), £79.99 lifetime
+- **Pricing**: new UK users £7.99/month, £79.99/year, £129.99 lifetime; eligible existing UK users keep grandfathered £4.99/month, £44.99/year, £79.99 lifetime
 - **RevenueCat**: `window._purchases` for store integration (not yet wired)
 - **Free features**: All logging, sound machine, crying helper, basic age-based predictions, milestones, teething
 - **Premium features**: Personal Rhythm predictions, Sleep Story, Tonight's Guidance, Schedule Builder, Growth Charts, Partner Sync, Feed Intelligence, Weaning Intelligence, Health Visitor Reports, Full Activity Library
@@ -320,7 +320,7 @@ Smart reminders only:
 
 - Auto-triggers on first native app open if user has 3+ days of data
 - Shows once ever (stored in `ob_review_prompted_v1`)
-- Flow: "Thank you" → "Love it?" → App Store/Play Store review OR "Needs work?" → feedback email form
+- Flow: neutral prompt → App Store/Play Store review OR feedback email form
 - Feedback emails to hello@obubba.com with baby name, age, days logged, platform
 - **TODO**: Replace `idXXXXXXXXXX` in App Store URL with actual App Store ID once published
 

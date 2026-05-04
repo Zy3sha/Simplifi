@@ -39,6 +39,7 @@ public class StorePlugin: CAPPlugin, CAPBridgedPlugin {
                         "description": product.description,
                         "displayPrice": product.displayPrice,
                         "price": NSDecimalNumber(decimal: product.price).doubleValue,
+                        "currencyCode": product.priceFormatStyle.currencyCode,
                         "type": product.type == .autoRenewable ? "subscription" : "nonConsumable"
                     ]
                     // Add subscription period info

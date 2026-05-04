@@ -1,0 +1,76 @@
+#!/usr/bin/env node
+
+const fs = require("fs");
+const path = require("path");
+
+const root = path.resolve(__dirname, "..");
+const rules = fs.readFileSync(path.join(root, "firestore.rules"), "utf8");
+const app = fs.readFileSync(path.join(root, "app.jsx"), "utf8");
+
+function assert(name, condition) {
+  if (!condition) throw new Error(name);
+  console.log("✓ " + name);
+}
+
+assert("rules use shared signed-in helper", rules.includes("function signedIn()"));
+assert("family docs require backup-code-shaped ids", rules.includes("backupCodeId(code)") && rules.includes("allow get: if signedIn() && backupCodeId(code);"));
+assert("backup code rules accept stronger new codes while preserving legacy restores", rules.includes("code.matches('^BK[A-Z0-9]{6,10}$')"));
+assert("family writes are field allowlisted", rules.includes("function validFamilyWrite()") && rules.includes("'children', 'carerInfo', 'sharedData', 'childSyncCodes'"));
+assert("family backup writes are type-checked", rules.includes("request.resource.data.children is string") && rules.includes("request.resource.data.sharedData is string") && rules.includes("request.resource.data.deleted is bool"));
+const usernameBlock = (rules.match(/match \/usernames\/\{username\} \{[\s\S]*?allow delete: if false;\s*\}/) || [""])[0];
+assert("username docs require owner authorization, not raw username knowledge", rules.includes("function usernameOwner()") && usernameBlock.includes("allow get: if usernameId(username) && usernameOwner();") && !usernameBlock.includes("allow get: if signedIn() && usernameId(username);"));
+assert("username writes are field allowlisted", rules.includes("function validUsernameWrite()") && rules.includes("'pinHash', 'pinHashVersion', 'pinHashUpdatedAtClient'") && rules.includes("'backupCode', 'familyCode', 'childSyncCodes'") && rules.includes("'authorizedUids'"));
+assert("username creates and updates are uid-scoped", rules.includes("request.resource.data.uid == request.auth.uid") && rules.includes("request.resource.data.authorizedUids[request.auth.uid] == true") && rules.includes("&& usernameOwner()"));
+assert("deleted usernames can be safely reclaimed by a newly authorized uid", usernameBlock.includes("resource.data.deleted == true") && usernameBlock.includes("request.resource.data.uid == request.auth.uid"));
+assert("child sync docs accept legacy six-character and stronger eight-character codes", rules.includes("function childSyncCodeId(code)") && rules.includes("^[A-Z0-9]{6,8}$") && rules.includes("allow get: if signedIn() && childSyncCodeId(code);"));
+assert("child sync writes are field allowlisted", rules.includes("function validChildSyncWrite()") && rules.includes("'participants'"));
+assert("child sync writes are type-checked", rules.includes("request.resource.data.child is string") && rules.includes("request.resource.data.isActive is bool") && rules.includes("request.resource.data.participants is list") && rules.includes("request.resource.data.participantUids is list"));
+assert("child sync creates are owner-uid scoped", rules.includes("allow create: if signedIn()") && rules.includes("request.resource.data.ownerUid == request.auth.uid") && rules.includes("request.resource.data.participantUids.hasAny([request.auth.uid]);"));
+assert("child sync owner updates keep ownership immutable", rules.includes("function childSyncOwnerWrite()") && rules.includes("resource.data.ownerUid == request.auth.uid") && rules.includes("request.resource.data.ownerUid == resource.data.ownerUid"));
+assert("child sync participant updates cannot edit protected sharing fields", rules.includes("function childSyncParticipantWrite()") && rules.includes("!('ownerUid' in resource.data) || request.resource.data.ownerUid == resource.data.ownerUid") && rules.includes("request.resource.data.participantUids == resource.data.participantUids") && rules.includes("'child', 'childName', 'updatedAt', 'updatedBy', 'writeToken'"));
+assert("legacy child sync ownership can be claimed without changing baby data", rules.includes("function childSyncLegacyOwnerClaimWrite()") && rules.includes("!('ownerUid' in resource.data)") && rules.includes("request.resource.data.ownerUid == request.auth.uid") && rules.includes("request.resource.data.child == resource.data.child"));
+assert("child sync updatedBy changes must match the signed-in writer", rules.includes("function childSyncUpdatedBySelf()") && rules.includes("request.resource.data.updatedBy == request.auth.uid"));
+assert("child sync join writes can only add participant fields", rules.includes("function childSyncJoinWrite()") && rules.includes("affectedKeys().hasOnly([\n          'participants', 'participantUids'") && rules.includes("request.resource.data.participantUids.hasAny([request.auth.uid])"));
+assert("carer token creates require strong CT tokens", rules.includes("function strongCarerTokenId(token)") && rules.includes("&& strongCarerTokenId(token)"));
+assert("strong Bubba Care tokens expire in Firestore rules", rules.includes("function validCarerTokenWrite()") && rules.includes("'expiresAtMs'") && rules.includes("request.resource.data.expiresAtMs <= request.time.toMillis() + 30 * 24 * 60 * 60 * 1000") && rules.includes("resource.data.expiresAtMs > request.time.toMillis()"));
+assert("legacy CT tokens are read-only for existing sessions", rules.includes("legacyCarerTokenId(token)") && rules.includes("|| legacyCarerTokenId(token)") && rules.includes("allow create, update: if signedIn()") && rules.includes("&& strongCarerTokenId(token)"));
+assert("carer entry writes are field allowlisted", rules.includes("function validCarerEntryWrite()") && rules.includes("'loggedAt', 'loggedBy'") && rules.includes("'feedType'") && rules.includes("'_active'") && rules.includes("'nightLocked'") && rules.includes("'assistedDuration'") && rules.includes("'date'"));
+assert("carer entry writes are type-checked", rules.includes("request.resource.data.type in ['feed', 'poop', 'nappy', 'nap', 'nap-end', 'sleep', 'wake']") && rules.includes("request.resource.data.feedType is string") && rules.includes("request.resource.data._active is bool") && rules.includes("request.resource.data._merged is bool") && rules.includes("request.resource.data.amount is int || request.resource.data.amount is float") && rules.includes("request.resource.data.nightLocked is bool") && rules.includes("request.resource.data.assistedDuration is int || request.resource.data.assistedDuration is float") && rules.includes("request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')"));
+assert("carer entry clock fields must be valid HH:MM values", rules.includes("function clockText(value)") && rules.includes("clockText(request.resource.data.time)") && rules.includes("clockText(request.resource.data.start)") && rules.includes("clockText(request.resource.data.end)") && rules.includes("clockText(request.resource.data.settleTime)"));
+assert("carer entry text fields are size capped", rules.includes("request.resource.data.note.size() <= 500") && rules.includes("request.resource.data.feedType.size() <= 32") && rules.includes("request.resource.data.loggedAt.size() <= 40"));
+assert("uid backup docs are owner-scoped and field allowlisted", rules.includes("function validUidBackupWrite()") && rules.includes("allow create, update: if signedIn() && request.auth.uid == uid && validUidBackupWrite();"));
+assert("trial device records are server-owned and read-only to clients", rules.includes("function trialDeviceId(deviceKey)") && rules.includes("match /trial_devices/{deviceKey}") && rules.includes("allow get: if signedIn() && trialDeviceId(deviceKey);") && rules.includes("allow create, update, delete: if false;"));
+assert("runtime entitlement mirror is owner-readable and server-owned", rules.includes("match /entitlements/{uid}") && rules.includes("request.auth.uid == uid") && rules.includes("allow create, update, delete: if false;"));
+assert("recovery email lookup uses strong hash-shaped ids", rules.includes("function recoveryEmailId(emailHash)") && rules.includes("em_[A-Za-z0-9_-]{43}"));
+assert("username writes allow hashed recovery email metadata", rules.includes("'recoveryEmailLookupId', 'recoveryEmailHashVersion'") && rules.includes("'recoveryEmailUpdatedAtClient'"));
+assert("recovery email writes require username document ownership", rules.includes("function usernameDocOwner(username)") && rules.includes("&& usernameDocOwner(request.resource.data.username);"));
+assert("stale recovery email lookup deletes require username document ownership", rules.includes("allow delete: if signedIn()") && rules.includes("resource.data.username is string") && rules.includes("usernameDocOwner(resource.data.username);"));
+assert("legacy child-code map writes no longer include baby identity fields", rules.includes("function validChildCodeMapWrite()") && rules.includes("request.resource.data.keys().hasOnly(['code', 'childId', 'updatedAt'])") && !rules.includes("'childName', 'childDob'"));
+assert("legacy child-code map writes require child-sync ownership", rules.includes("function childSyncDocOwner(code)") && rules.includes("&& childSyncDocOwner(request.resource.data.code);"));
+assert("FCM token writes are owner-scoped and field allowlisted", rules.includes("function validFcmTokenWrite()") && rules.includes("request.auth.uid == uid && validFcmTokenWrite()"));
+assert("FCM token writes are bounded and topic allowlisted", rules.includes("boundedString(request.resource.data.token, 4096)") && rules.includes("function validDisabledTopics(value)") && rules.includes("value.hasOnly(['partner_entry', 'partner_update'])"));
+assert("user activity writes are owner-scoped and field allowlisted", rules.includes("function validUserActivityWrite()") && rules.includes("request.auth.uid == uid && validUserActivityWrite()"));
+assert("user activity writes type-check reminder metadata", rules.includes("boundedString(request.resource.data.babyName, 80)") && rules.includes("boundedString(request.resource.data.babyDob, 20)") && rules.includes("request.resource.data.tzOffsetMin >= -840") && rules.includes("clientTimestampValue(request.resource.data.lastFeedTimestamp)"));
+assert("Bubba Hug list reads are capped", rules.includes("allow list: if signedIn() && request.query.limit <= 25;"));
+assert("Bubba Hug lifetime is capped", rules.includes("request.resource.data.expiresAtMs <= request.resource.data.createdAtMs + 10 * 60 * 1000"));
+assert("broad raw auth-only document access is gone", !/allow\s+(get|create|update|read|write):\s*if\s+request\.auth\s*!=\s*null\s*;/.test(rules));
+
+assert("app generates Bubba Care tokens with the shared secure random helper", app.includes("function ensureCarerTokenForBackup()") && app.includes('const token = "CT" + Array.from({length:20}, () => chars[secureRandomIndex(chars.length)]).join("");'));
+assert("app writes expiry metadata with Bubba Care token mappings", app.includes("const CARE_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000") && app.includes("expiresAtMs:payload.expiresAtMs") && app.includes("expiresAtMs:_carerTokenExpiresAtMs"));
+assert("app validates stored Bubba Care token expiry timestamps", app.includes("const _createdMs = safeTimestampMs(_stored && _stored.created, 0);") && app.includes("const _expiresAtMs = safeTimestampMs(_stored && _stored.expiresAtMs, _createdMs ? _createdMs + CARE_TOKEN_TTL_MS : 0);") && !app.includes("new Date(_stored.created).getTime()"));
+assert("app refuses Bubba Care token generation instead of using Math.random fallback", !/ob_carer_token_v1[\s\S]{0,900}Math\.random/.test(app) && app.includes("showCareTokenError(err)"));
+assert("app syncs Bubba Care token mapping before sharing links", app.includes("async function ensureSyncedCarerToken()") && (app.match(/await ensureSyncedCarerToken\(\)/g) || []).length >= 3);
+assert("app never falls back to raw backup codes in Bubba Care share links", !/code=\\"\+encodeURIComponent\([^)]*backupCode/.test(app) && !/d&&d\.token\?d\.token:\(backupCode\|\|""\)/.test(app));
+assert("app rejects legacy stored Bubba Care tokens before reuse", app.includes("const _strongTokenRe = /^CT[A-Z2-9]{20}$/") && app.includes("_strongTokenRe.test(_stored.token)"));
+assert("app hashes recovery email lookup ids with SHA-256", app.includes("obubba:recovery-email:v2:") && app.includes("async function recoveryEmailDocId(email)"));
+assert("app saves recovery email as hashed lookup metadata", app.includes("recoveryEmailLookupId: emailLookupId") && !app.includes("recoveryEmail: cleanEmail"));
+assert("app removes stale hashed recovery email lookup records after changes", app.includes("previousLookupId && previousLookupId !== emailLookupId") && app.includes('fsDelete("recovery_emails", previousLookupId)'));
+assert("app uses callable account functions before username document reads", app.includes('callAccountFunction("accountLogin"') && app.includes('callAccountFunction("usernameStatus"') && app.includes('callAccountFunction("resetAccountPin"') && app.includes('callAccountFunction("accountSignInStatus"') && app.includes('callAccountFunction("repairAccountSignIn"') && app.includes('callAccountFunction("saveRecoveryEmail"') && app.includes('callAccountFunction("recoveryEmailLookup"'));
+assert("username setup availability check uses the callable account path", app.includes("async function checkUsernameAvailability(raw)") && app.includes("checkUsernameAvailability={checkUsernameAvailability}") && !app.includes('getDoc(doc(db,"usernames"'));
+assert("app no longer stores usernames in new trial-device records", !/fsSet\("trial_devices"[\s\S]{0,500}username:\s*normaliseUsername/.test(app));
+assert("app writes minimal legacy child-code map records", app.includes("fsSet(\"child_code_map\", id, mapPayload, false)") && !/const mapPayload = \{[\s\S]{0,220}childName/.test(app));
+assert("app stamps child sync owners and participant uid lists", app.includes("async function ensureFirebaseUid(") && app.includes("ownerUid,") && app.includes("participantUids: [ownerUid]") && (app.includes("participantUids: [...new Set([..._curParticipantUids, joinerUid])].slice(-25)") || (app.includes("const _nextParticipantUids = [...new Set([..._curParticipantUids, joinerUid])].slice(-25);") && app.includes("participantUids: _nextParticipantUids"))));
+assert("app can claim legacy child-sync ownership before stricter rules deploy", app.includes("async function claimLegacyChildSyncOwner(") && app.includes("await claimLegacyChildSyncOwner(_existingCode, _snap.data())") && app.includes("await claimLegacyChildSyncOwner(code, _snapData)") && app.includes("await claimLegacyChildSyncOwner(newCode, _snapData)"));
+assert("app displays joined child-sync participants from the sync code key", app.includes("setChildSyncParticipants(prev => ({...prev, [childId]: d.participants, [code]: d.participants}))") && app.includes("participants={code ? (childSyncParticipants[code] || []) : []}"));
+
+console.log("Firestore rules audit passed.");

@@ -1,7 +1,7 @@
 {
   "name": "OBubba — Smart Baby Tracker",
   "short_name": "OBubba",
-  "description": "Track feeds, sleep, naps, milestones & growth with personalised predictions powered by NHS guidance.",
+  "description": "Track feeds, sleep, naps, milestones & growth with personalised predictions and trusted country-specific guidance.",
   "start_url": "/",
   "display": "standalone",
   "orientation": "portrait",
@@ -93,6 +93,6 @@
   },
   "handle_links": "preferred",
   "scope_extensions": [
-    { "origin": "https://obubba.com" }
+    { "type": "origin", "origin": "https://obubba.com" }
   ]
 }

@@ -1,0 +1,61 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "schedule",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "time",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "medicine_reminders",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "sent",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "nextDue",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "reminded",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "datetime",
+          "order": "ASCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "scheduled_pushes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "sent",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "sendAt",
+          "order": "ASCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

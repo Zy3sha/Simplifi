@@ -29,7 +29,6 @@ dependencies {
     implementation project(':capacitor-splash-screen')
     implementation project(':capacitor-status-bar')
     implementation project(':capawesome-capacitor-app-shortcuts')
-    implementation project(':capawesome-capacitor-badge')
     implementation project(':capawesome-capacitor-live-update')
 
 }

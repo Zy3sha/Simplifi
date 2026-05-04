@@ -264,6 +264,8 @@ const OUTPUT_ROOTS = [
 ];
 
 const SHARED_ASSETS = [
+  'privacy.html',
+  'terms.html',
   'obubba-happy.png',
   'obubba-thinking.png',
   'obubba-celebration.png',

@@ -17,6 +17,59 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "stopPrediction", returnType: CAPPluginReturnPromise),
     ]
 
+    private func safeText(_ value: String?, fallback: String, maxLength: Int) -> String {
+        let raw = value ?? fallback
+        let cleaned = raw
+            .replacingOccurrences(of: #"[<>\r\n]+"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = cleaned.isEmpty ? fallback : cleaned
+        return String(text.prefix(maxLength))
+    }
+
+    private func safeTimerType(_ value: String?) -> String {
+        switch value {
+        case "feed", "nap", "sleep", "bed":
+            return value ?? "feed"
+        default:
+            return "feed"
+        }
+    }
+
+    private func safeSide(_ value: String?) -> String? {
+        switch value {
+        case "left", "right":
+            return value
+        default:
+            return nil
+        }
+    }
+
+    private func safeStartDate(_ startMs: Double?) -> Date {
+        let now = Date()
+        guard let startMs = startMs, startMs.isFinite else { return now }
+        var startDate = Date(timeIntervalSince1970: startMs / 1000)
+        if startDate > now.addingTimeInterval(60) {
+            startDate = startDate.addingTimeInterval(-86400)
+        }
+        if startDate > now.addingTimeInterval(60) || startDate < now.addingTimeInterval(-16 * 3600) {
+            return now
+        }
+        return startDate
+    }
+
+    private func safeElapsed(_ value: Int?) -> Int {
+        min(max(value ?? 0, 0), 16 * 3600)
+    }
+
+    private func safePredictionDate(_ targetMs: Double?) -> Date? {
+        let now = Date()
+        guard let targetMs = targetMs, targetMs.isFinite, targetMs > 0 else { return nil }
+        let target = Date(timeIntervalSince1970: targetMs / 1000)
+        guard target > now.addingTimeInterval(-300), target < now.addingTimeInterval(36 * 3600) else { return nil }
+        return target
+    }
+
     @objc func isAvailable(_ call: CAPPluginCall) {
         if #available(iOS 16.1, *) {
             call.resolve(["available": ActivityAuthorizationInfo().areActivitiesEnabled])
@@ -31,18 +84,11 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
 
-        let type = call.getString("type") ?? "feed"
-        let babyName = call.getString("babyName") ?? "Baby"
-        let startTime = call.getDouble("startTime") ?? Date().timeIntervalSince1970 * 1000
-        let side = call.getString("side")
-        let nextNap = call.getString("nextNap")
-
-        var startDate = Date(timeIntervalSince1970: startTime / 1000)
-        // Safety: if startDate is in the future, it was yesterday (cross-midnight)
-        if startDate > Date() {
-            startDate = startDate.addingTimeInterval(-86400)
-            print("[OBLiveActivity] Cross-midnight fix: adjusted startDate back 24h to \(startDate)")
-        }
+        let type = safeTimerType(call.getString("type"))
+        let babyName = safeText(call.getString("babyName"), fallback: "Baby", maxLength: 40)
+        let side = safeSide(call.getString("side"))
+        let nextNap = safeText(call.getString("nextNap"), fallback: "", maxLength: 60)
+        let startDate = safeStartDate(call.getDouble("startTime"))
         let elapsed = Date().timeIntervalSince(startDate)
         print("[OBLiveActivity] start() — startDate=\(startDate), elapsed=\(Int(elapsed))s (\(String(format: "%.0f", elapsed/3600))h), now=\(Date())")
 
@@ -50,7 +96,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             startTime: startDate,
             elapsed: 0,
             side: side,
-            nextNap: nextNap
+            nextNap: nextNap.isEmpty ? nil : nextNap
         )
 
         Task {
@@ -97,15 +143,15 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
 
-        let elapsed = call.getInt("elapsed") ?? 0
-        let side = call.getString("side")
-        let nextNap = call.getString("nextNap")
+        let elapsed = safeElapsed(call.getInt("elapsed"))
+        let side = safeSide(call.getString("side"))
+        let nextNap = safeText(call.getString("nextNap"), fallback: "", maxLength: 60)
 
         let state = OBubbaTimerAttributes.ContentState(
             startTime: Date(timeIntervalSinceNow: -Double(elapsed)),
             elapsed: elapsed,
             side: side,
-            nextNap: nextNap
+            nextNap: nextNap.isEmpty ? nil : nextNap
         )
 
         Task {
@@ -138,14 +184,17 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
 
-        let babyName = call.getString("babyName") ?? "Baby"
-        let targetMs = call.getDouble("targetTime") ?? 0
-        let label = call.getString("label") ?? "Nap"
-        let timeFormatted = call.getString("timeFormatted") ?? ""
+        let babyName = safeText(call.getString("babyName"), fallback: "Baby", maxLength: 40)
+        guard let targetDate = safePredictionDate(call.getDouble("targetTime")) else {
+            call.reject("Invalid prediction target")
+            return
+        }
+        let label = safeText(call.getString("label"), fallback: "Nap", maxLength: 40)
+        let timeFormatted = safeText(call.getString("timeFormatted"), fallback: "", maxLength: 40)
 
         let attributes = OBubbaPredictionAttributes(babyName: babyName)
         let state = OBubbaPredictionAttributes.ContentState(
-            targetTime: Date(timeIntervalSince1970: targetMs / 1000),
+            targetTime: targetDate,
             label: label,
             timeFormatted: timeFormatted
         )
@@ -183,12 +232,15 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
             return
         }
 
-        let targetMs = call.getDouble("targetTime") ?? 0
-        let label = call.getString("label") ?? "Nap"
-        let timeFormatted = call.getString("timeFormatted") ?? ""
+        guard let targetDate = safePredictionDate(call.getDouble("targetTime")) else {
+            call.reject("Invalid prediction target")
+            return
+        }
+        let label = safeText(call.getString("label"), fallback: "Nap", maxLength: 40)
+        let timeFormatted = safeText(call.getString("timeFormatted"), fallback: "", maxLength: 40)
 
         let state = OBubbaPredictionAttributes.ContentState(
-            targetTime: Date(timeIntervalSince1970: targetMs / 1000),
+            targetTime: targetDate,
             label: label,
             timeFormatted: timeFormatted
         )

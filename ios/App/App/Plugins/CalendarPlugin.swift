@@ -79,34 +79,34 @@ public class CalendarPlugin: CAPPlugin, CAPBridgedPlugin, EKEventEditViewDelegat
     }
 
     private func makeEventData(from call: CAPPluginCall) -> CalendarEventData? {
-        guard let date = call.getString("date"), !date.isEmpty else { return nil }
+        guard let date = call.getString("date"), makeDate(date: date, time: "00:00") != nil else { return nil }
         let allDay = call.getBool("allDay") ?? false
         return CalendarEventData(
-            title: call.getString("title") ?? "OBubba appointment",
+            title: safeText(call.getString("title"), fallback: "OBubba appointment", maxLength: 120),
             date: date,
             time: allDay ? "00:00" : (call.getString("time") ?? "09:00"),
             endDate: call.getString("endDate") ?? date,
             endTime: call.getString("endTime"),
             allDay: allDay,
-            location: call.getString("location") ?? "",
-            note: call.getString("note") ?? "",
-            alarm: call.getInt("alarm") ?? 0
+            location: safeText(call.getString("location"), fallback: "", maxLength: 240),
+            note: safeText(call.getString("note"), fallback: "", maxLength: 1200),
+            alarm: safeAlarm(call.getInt("alarm"))
         )
     }
 
     private func makeEventData(from object: JSObject) -> CalendarEventData? {
-        guard let date = object["date"] as? String, !date.isEmpty else { return nil }
+        guard let date = object["date"] as? String, makeDate(date: date, time: "00:00") != nil else { return nil }
         let allDay = (object["allDay"] as? Bool) ?? false
         return CalendarEventData(
-            title: (object["title"] as? String) ?? "OBubba appointment",
+            title: safeText(object["title"] as? String, fallback: "OBubba appointment", maxLength: 120),
             date: date,
             time: allDay ? "00:00" : ((object["time"] as? String) ?? "09:00"),
             endDate: (object["endDate"] as? String) ?? date,
             endTime: object["endTime"] as? String,
             allDay: allDay,
-            location: (object["location"] as? String) ?? "",
-            note: (object["note"] as? String) ?? "",
-            alarm: (object["alarm"] as? Int) ?? 0
+            location: safeText(object["location"] as? String, fallback: "", maxLength: 240),
+            note: safeText(object["note"] as? String, fallback: "", maxLength: 1200),
+            alarm: safeAlarm(object["alarm"] as? Int)
         )
     }
 
@@ -200,16 +200,48 @@ public class CalendarPlugin: CAPPlugin, CAPBridgedPlugin, EKEventEditViewDelegat
     }
 
     private func makeDate(date: String, time: String) -> Date? {
+        guard let dateParts = parseDateParts(date) else { return nil }
+        let timeParts = parseTimeParts(time) ?? (9, 0)
         var comps = DateComponents()
-        let dateParts = date.split(separator: "-").compactMap { Int($0) }
-        guard dateParts.count == 3 else { return nil }
-        let timeParts = time.split(separator: ":").compactMap { Int($0) }
         comps.year = dateParts[0]
         comps.month = dateParts[1]
         comps.day = dateParts[2]
-        comps.hour = timeParts.indices.contains(0) ? timeParts[0] : 9
-        comps.minute = timeParts.indices.contains(1) ? timeParts[1] : 0
+        comps.hour = timeParts.0
+        comps.minute = timeParts.1
         return Calendar.current.date(from: comps)
+    }
+
+    private func parseDateParts(_ value: String) -> [Int]? {
+        let pattern = #"^(\d{4})-(\d{2})-(\d{2})$"#
+        guard let match = value.range(of: pattern, options: .regularExpression) else { return nil }
+        let matched = String(value[match])
+        let parts = matched.components(separatedBy: "-").compactMap { Int($0) }
+        guard parts.count == 3, (1...12).contains(parts[1]), (1...31).contains(parts[2]) else { return nil }
+        return parts
+    }
+
+    private func parseTimeParts(_ value: String) -> (Int, Int)? {
+        let pattern = #"^(\d{1,2}):(\d{2})$"#
+        guard let match = value.range(of: pattern, options: .regularExpression) else { return nil }
+        let matched = String(value[match])
+        let parts = matched.components(separatedBy: ":").compactMap { Int($0) }
+        guard parts.count == 2, (0...23).contains(parts[0]), (0...59).contains(parts[1]) else { return nil }
+        return (parts[0], parts[1])
+    }
+
+    private func safeText(_ value: String?, fallback: String, maxLength: Int) -> String {
+        let raw = value ?? fallback
+        let cleaned = raw
+            .replacingOccurrences(of: #"[<>\r\n]+"#, with: " ", options: .regularExpression)
+            .replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = cleaned.isEmpty ? fallback : cleaned
+        return String(text.prefix(maxLength))
+    }
+
+    private func safeAlarm(_ value: Int?) -> Int {
+        guard let value = value, value > 0 else { return 0 }
+        return min(value, 10080)
     }
 
     private func makeEndDate(startDate: Date, endDate: String, endTime: String?, allDay: Bool) -> Date {

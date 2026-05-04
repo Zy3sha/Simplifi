@@ -130,9 +130,23 @@ struct OBNextPredictionIntent: AppIntent {
 
 struct OBStopTimerIntent: AppIntent {
     static var title: LocalizedStringResource = "Stop timer"
-    static var description = IntentDescription("Stop the active nap or sleep timer in OBubba")
+    static var description = IntentDescription("Stop the active nap, sleep, or feed timer in OBubba")
     static var openAppWhenRun: Bool = false
     func perform() async throws -> some IntentResult & ReturnsValue<String> {
+        let defaults = UserDefaults(suiteName: widgetAppGroupId)
+        let activeTimer: String?
+        if let json = defaults?.string(forKey: "widgetData"),
+           let data = json.data(using: .utf8),
+           let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            activeTimer = dict["activeTimer"] as? String
+        } else {
+            activeTimer = nil
+        }
+        if activeTimer == "feed" {
+            widgetStorePendingEntry(["type": "breast_stop", "source": "siri"])
+            clearActiveTimer()
+            return .result(value: "Feed timer stopped ✓")
+        }
         widgetStorePendingEntry(["type": "nap_stop", "source": "siri"])
         clearActiveTimer()
         return .result(value: "Timer stopped ✓")
@@ -271,6 +285,84 @@ private func obLockIcon(label: String, timerType: String? = nil) -> String {
     return "moon.zzz.fill"
 }
 
+private func normalizedBreastSide(_ raw: String?) -> String? {
+    switch (raw ?? "").trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+    case "l", "left":
+        return "left"
+    case "r", "right":
+        return "right"
+    default:
+        return nil
+    }
+}
+
+private func breastSideLetter(_ raw: String?) -> String? {
+    switch normalizedBreastSide(raw) {
+    case "left":
+        return "L"
+    case "right":
+        return "R"
+    default:
+        return nil
+    }
+}
+
+private func breastSideName(_ raw: String?) -> String? {
+    switch normalizedBreastSide(raw) {
+    case "left":
+        return "Left"
+    case "right":
+        return "Right"
+    default:
+        return nil
+    }
+}
+
+private func widgetAccent(label: String?, timerType: String? = nil) -> Color {
+    let lower = (label ?? "").lowercased()
+    if timerType == "feed" || lower.contains("feed") || lower.contains("nursing") { return brandRose }
+    if lower.contains("nap") || lower.contains("bed") || lower.contains("sleep") { return brandPurple }
+    return brandMint
+}
+
+private func widgetIcon(label: String?, timerType: String? = nil) -> String {
+    let lower = (label ?? "").lowercased()
+    if timerType == "feed" || lower.contains("feed") || lower.contains("nursing") { return "drop.fill" }
+    if lower.contains("bed") { return "moon.stars.fill" }
+    if lower.contains("wake") { return "sun.max.fill" }
+    return "moon.zzz.fill"
+}
+
+private func widgetTimerStatusTitle(label: String?, timerType: String?, breastSide: String?) -> String {
+    let lower = ((label ?? "") + " " + (timerType ?? "")).lowercased()
+    if timerType == "feed" || lower.contains("feed") || lower.contains("nursing") {
+        if let letter = breastSideLetter(breastSide) { return "Nursing \(letter)" }
+        return "Feeding"
+    }
+    if lower.contains("bed") || lower.contains("sleep") { return "Sleeping" }
+    if lower.contains("nap") { return "Napping" }
+    return obLockLabel(label, fallback: "Timer")
+}
+
+private func widgetPredictionTimeHint(_ prediction: String?) -> String? {
+    guard let prediction, !prediction.isEmpty else { return nil }
+    let timeOnly = prediction.replacingOccurrences(of: "^.*~\\s*", with: "", options: .regularExpression)
+        .trimmingCharacters(in: .whitespaces)
+    guard !timeOnly.isEmpty, timeOnly != prediction else { return nil }
+    return timeOnly
+}
+
+private func widgetFriendlyClock(_ clock: String?) -> String? {
+    guard let clock, !clock.isEmpty else { return nil }
+    let parts = clock.split(separator: ":").compactMap { Int($0) }
+    guard parts.count >= 2 else { return clock }
+    let h = parts[0], m = parts[1]
+    guard h >= 0, h <= 23, m >= 0, m <= 59 else { return clock }
+    let suffix = h >= 12 ? "pm" : "am"
+    let h12 = h == 0 ? 12 : h > 12 ? h - 12 : h
+    return "\(h12):\(String(format: "%02d", m))\(suffix)"
+}
+
 // SwiftUI helper: conditionally apply a modifier
 extension View {
     @ViewBuilder func ifLet<T, Content: View>(_ value: T?, transform: (Self, T) -> Content) -> some View {
@@ -284,25 +376,126 @@ extension View {
 
 // Widget theme backgrounds — user can pick in Settings
 private func widgetThemeBackground() -> some View {
-    let theme = UserDefaults(suiteName: "group.com.obubba.app")?.string(forKey: "ob_widget_theme") ?? "auto"
-    let isDark = theme == "dark"
-    return ZStack {
-        switch theme {
-        case "rose":
-            LinearGradient(colors: [Color(hex: "#FFFAF8"), Color(hex: "#F6E8E4"), Color(hex: "#F2DCE5")], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case "lavender":
-            LinearGradient(colors: [Color(hex: "#FFFCFA"), Color(hex: "#EDEAF7"), Color(hex: "#E6F3F7")], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case "mint":
-            LinearGradient(colors: [Color(hex: "#FFFDF9"), Color(hex: "#EAF6F0"), Color(hex: "#F2ECE8")], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case "sky":
-            LinearGradient(colors: [Color(hex: "#FFFCFA"), Color(hex: "#EAF1F7"), Color(hex: "#F2F5F7")], startPoint: .topLeading, endPoint: .bottomTrailing)
-        case "dark":
-            LinearGradient(colors: [Color(hex: "#2C2430"), Color(hex: "#211B24"), Color(hex: "#302A3D")], startPoint: .topLeading, endPoint: .bottomTrailing)
-        default: // auto
-            LinearGradient(colors: [Color(light: "#FFFCF9", dark: "#1C1820"), Color(light: "#F7ECEB", dark: "#252028"), Color(light: "#ECE7F6", dark: "#2A2433")], startPoint: .topLeading, endPoint: .bottomTrailing)
+    WidgetGlassBackground()
+}
+
+private struct WidgetGlassBackground: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    var body: some View {
+        let theme = UserDefaults(suiteName: "group.com.obubba.app")?.string(forKey: "ob_widget_theme") ?? "auto"
+        let isDark = theme == "dark" || (theme == "auto" && colorScheme == .dark)
+        let sheenStart = Color.white.opacity(isDark ? 0.52 : 0.72)
+        let sheenMid = Color.white.opacity(isDark ? 0.26 : 0.32)
+        let cornerGlow = (isDark ? Color(hex: "#F4FAFF") : Color(hex: "#DDF2FF")).opacity(isDark ? 0.34 : 0.34)
+        let violetGlow = brandPurple.opacity(isDark ? 0.22 : 0.09)
+        let blueGlow = Color(hex: "#BEE5FF").opacity(isDark ? 0.28 : 0.30)
+        let moonGlow = Color(hex: "#DCD2FF").opacity(isDark ? 0.18 : 0.0)
+        let lowerGlow = (isDark ? Color(hex: "#EAF6FF") : Color(hex: "#DCEFFF")).opacity(isDark ? 0.08 : 0.18)
+
+        ZStack {
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .fill(.ultraThinMaterial)
+            widgetGlassBaseGradient(theme: theme, isDark: isDark)
+            RadialGradient(
+                colors: [cornerGlow, Color.clear],
+                center: .topLeading,
+                startRadius: 4,
+                endRadius: 230
+            )
+            RadialGradient(
+                colors: [blueGlow, Color.clear],
+                center: .topTrailing,
+                startRadius: 10,
+                endRadius: 220
+            )
+            RadialGradient(
+                colors: [violetGlow, Color.clear],
+                center: .bottomTrailing,
+                startRadius: 8,
+                endRadius: 210
+            )
+            if isDark {
+                RadialGradient(
+                    colors: [moonGlow, Color.clear],
+                    center: .bottomLeading,
+                    startRadius: 14,
+                    endRadius: 190
+                )
+            }
+            LinearGradient(
+                colors: [sheenStart, sheenMid, Color.white.opacity(isDark ? 0.02 : 0.07), Color.clear],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            LinearGradient(
+                colors: [Color.clear, lowerGlow],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            RoundedRectangle(cornerRadius: 26, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(isDark ? 0.62 : 0.82),
+                            Color(hex: "#B9DCFF").opacity(isDark ? 0.30 : 0.34),
+                            brandPurple.opacity(isDark ? 0.24 : 0.10)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 0.9
+                )
+                .padding(0.5)
+            RoundedRectangle(cornerRadius: 25, style: .continuous)
+                .stroke(Color.black.opacity(isDark ? 0.10 : 0.018), lineWidth: 0.6)
+                .padding(1.2)
         }
-        LinearGradient(
-            colors: [Color.white.opacity(isDark ? 0.08 : 0.42), Color.white.opacity(isDark ? 0.02 : 0.08), Color.clear],
+    }
+}
+
+private func widgetGlassBaseGradient(theme: String, isDark: Bool) -> LinearGradient {
+    if isDark {
+        return LinearGradient(
+            colors: [
+                Color.white.opacity(0.32),
+                Color(hex: "#DDEBFF").opacity(0.18),
+                Color(hex: "#C9B8FF").opacity(0.12),
+                Color(hex: "#091225").opacity(0.24)
+            ],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    }
+
+    switch theme {
+    case "rose":
+        return LinearGradient(
+            colors: [Color.white.opacity(0.60), Color(hex: "#F6E8E4").opacity(0.38), Color(hex: "#F2DCE5").opacity(0.28)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    case "lavender":
+        return LinearGradient(
+            colors: [Color.white.opacity(0.60), Color(hex: "#EDEAF7").opacity(0.38), Color(hex: "#E6F3F7").opacity(0.26)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    case "mint":
+        return LinearGradient(
+            colors: [Color.white.opacity(0.60), Color(hex: "#EAF6F0").opacity(0.36), Color(hex: "#F2ECE8").opacity(0.26)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    case "sky":
+        return LinearGradient(
+            colors: [Color.white.opacity(0.60), Color(hex: "#EAF1F7").opacity(0.36), Color(hex: "#F2F5F7").opacity(0.26)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+    default:
+        return LinearGradient(
+            colors: [Color.white.opacity(0.58), Color(hex: "#F8FCFF").opacity(0.42), Color(hex: "#EAF6FF").opacity(0.30), Color(hex: "#F0DDD6").opacity(0.18)],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
         )
@@ -311,7 +504,19 @@ private func widgetThemeBackground() -> some View {
 
 private func widgetForcedScheme() -> ColorScheme? {
     let theme = UserDefaults(suiteName: "group.com.obubba.app")?.string(forKey: "ob_widget_theme") ?? "auto"
-    return theme == "dark" ? .dark : nil
+    switch theme {
+    case "dark":
+        return .dark
+    case "auto":
+        return nil
+    default:
+        return .light
+    }
+}
+
+private func widgetThemePrefersDark() -> Bool {
+    let theme = UserDefaults(suiteName: "group.com.obubba.app")?.string(forKey: "ob_widget_theme") ?? "auto"
+    return theme == "dark"
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -541,6 +746,8 @@ struct StatRing: View {
 
 // ── Action Button for medium widget ──────────────────────────────
 struct ActionBtn: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     let icon: String
     let label: String
     let color: Color
@@ -552,6 +759,10 @@ struct ActionBtn: View {
     }
 
     var body: some View {
+        let isDark = colorScheme == .dark || widgetThemePrefersDark()
+        let dayBlueGlass = Color(hex: "#DFF3FF")
+        let nightGlass = Color(hex: "#EAF6FF")
+
         HStack(spacing: 6) {
             if let emoji = emoji {
                 Text(emoji).font(.system(size: 13))
@@ -566,24 +777,49 @@ struct ActionBtn: View {
         }
         .foregroundColor(filled ? Color.white : color)
         .frame(maxWidth: .infinity)
-        .frame(height: 44)
+        .frame(height: 40)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(
                     LinearGradient(
                         colors: filled
-                            ? [color.opacity(0.92), color.opacity(0.72)]
-                            : [Color.white.opacity(0.58), color.opacity(0.12)],
+                            ? [Color.white.opacity(isDark ? 0.46 : 0.18), color.opacity(isDark ? 0.54 : 0.76), color.opacity(isDark ? 0.30 : 0.56)]
+                            : isDark
+                                ? [Color.white.opacity(0.40), nightGlass.opacity(0.18), color.opacity(0.18)]
+                                : [Color.white.opacity(0.62), dayBlueGlass.opacity(0.38), color.opacity(0.11)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                 )
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(Color.white.opacity(filled ? 0.32 : 0.58), lineWidth: 0.8)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [Color.white.opacity(isDark ? 0.18 : 0.34), Color.clear],
+                        startPoint: .topLeading,
+                        endPoint: .center
+                    )
+                )
         )
-        .environment(\.colorScheme, .light)
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(filled ? (isDark ? 0.46 : 0.62) : (isDark ? 0.48 : 0.78)),
+                            color.opacity(isDark ? 0.20 : 0.18),
+                            Color.white.opacity(isDark ? 0.10 : 0.38)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 0.85
+                )
+        )
+        .shadow(color: Color.black.opacity(isDark ? 0.10 : 0.065), radius: isDark ? 8 : 7, x: 0, y: isDark ? 4 : 4)
+        .shadow(color: (isDark ? Color(hex: "#DDEBFF") : Color(hex: "#8CCBFF")).opacity(isDark ? 0.20 : 0.15), radius: isDark ? 15 : 11, x: 0, y: isDark ? 2 : 3)
+        .shadow(color: color.opacity(isDark ? 0.12 : 0.08), radius: 9, x: 0, y: 3)
     }
 }
 
@@ -680,10 +916,14 @@ struct LockActivityAction: View {
 
 // ── Breast side button ───────────────────────────────────────────
 struct BreastBtn: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     let letter: String
     let isNext: Bool
 
     var body: some View {
+        let isDark = colorScheme == .dark || widgetThemePrefersDark()
+
         HStack(spacing: 5) {
             Text(letter)
                 .font(.system(size: 16, weight: .black, design: .rounded))
@@ -695,20 +935,195 @@ struct BreastBtn: View {
         }
         .foregroundColor(isNext ? Color.white : brandRose)
         .frame(maxWidth: .infinity)
-        .frame(height: 44)
+        .frame(height: 40)
         .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(isNext ? brandRose.opacity(0.9) : Color.white.opacity(0.58))
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: isNext
+                            ? [brandRose.opacity(isDark ? 0.96 : 0.90), brandRose.opacity(isDark ? 0.74 : 0.68)]
+                            : isDark
+                                ? [Color.white.opacity(0.36), Color.white.opacity(0.20), brandRose.opacity(0.13)]
+                                : [Color.white.opacity(0.68), brandRose.opacity(0.12), Color.white.opacity(0.38)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .stroke(isNext ? Color.white.opacity(0.28) : brandRose.opacity(0.24), lineWidth: 0.8)
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: [
+                            Color.white.opacity(isNext ? (isDark ? 0.52 : 0.32) : (isDark ? 0.56 : 0.62)),
+                            brandRose.opacity(isDark ? 0.26 : 0.20),
+                            Color.white.opacity(isDark ? 0.14 : 0.28)
+                        ],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 0.85
+                )
         )
-        .environment(\.colorScheme, .light)
+        .shadow(color: Color.black.opacity(isDark ? 0.22 : 0.06), radius: isDark ? 8 : 6, x: 0, y: isDark ? 5 : 3)
+        .shadow(color: brandRose.opacity(isDark ? 0.16 : 0.07), radius: 8, x: 0, y: 3)
     }
 }
 
 // Old small widget removed — new clean version below
+
+struct SmallMetric: View {
+    let value: String
+    let label: String
+    let color: Color
+
+    var body: some View {
+        VStack(spacing: 1) {
+            Text(value)
+                .font(.system(size: 17, weight: .heavy, design: .rounded))
+                .foregroundColor(color)
+                .lineLimit(1)
+                .minimumScaleFactor(0.66)
+            Text(label)
+                .font(.system(size: 7.8, weight: .heavy, design: .rounded))
+                .foregroundColor(brandDeep.opacity(0.44))
+                .lineLimit(1)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(Color.white.opacity(0.46))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.white.opacity(0.42), lineWidth: 0.7)
+        )
+    }
+}
+
+struct MediumStatusPanel: View {
+    @Environment(\.colorScheme) private var colorScheme
+
+    let accent: Color
+    let icon: String
+    let title: String
+    let detail: String?
+    let date: Date?
+    let fontSize: CGFloat
+    let primaryColor: Color
+
+    var body: some View {
+        let isDark = colorScheme == .dark || widgetThemePrefersDark()
+        let glassBlue = Color(hex: "#DFF3FF")
+        let nightGlass = Color(hex: "#EAF6FF")
+
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 7) {
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: isDark
+                                    ? [accent.opacity(0.26), Color.white.opacity(0.10)]
+                                    : [accent.opacity(0.18), Color.white.opacity(0.74)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 24, height: 24)
+                        .overlay(Circle().stroke(Color.white.opacity(isDark ? 0.44 : 0.72), lineWidth: 0.8))
+                    Image(systemName: icon)
+                        .font(.system(size: 10, weight: .heavy))
+                        .foregroundColor(accent)
+                }
+
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(title)
+                        .font(.system(size: 10, weight: .heavy, design: .rounded))
+                        .foregroundColor(accent)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.70)
+                    if let detail, !detail.isEmpty {
+                        Text(detail)
+                            .font(.system(size: 8.2, weight: .semibold, design: .rounded))
+                            .foregroundColor(brandDeep.opacity(isDark ? 0.68 : 0.44))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.72)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+            if let date {
+                Text(date, style: .timer)
+                    .font(.system(size: fontSize, weight: .heavy, design: .rounded))
+                    .foregroundColor(primaryColor)
+                    .monospacedDigit()
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.58)
+                    .allowsTightening(true)
+                    .layoutPriority(10)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+        .padding(.horizontal, 9)
+        .padding(.vertical, 6)
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: isDark
+                                ? [Color.white.opacity(0.42), nightGlass.opacity(0.18), accent.opacity(0.14)]
+                                : [Color.white.opacity(0.62), glassBlue.opacity(0.38), accent.opacity(0.10)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                (isDark ? Color(hex: "#8EC7FF") : Color(hex: "#8BCBFF")).opacity(isDark ? 0.18 : 0.20),
+                                Color.clear
+                            ],
+                            center: .topTrailing,
+                            startRadius: 4,
+                            endRadius: 120
+                        )
+                    )
+            }
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(
+                    LinearGradient(
+                        colors: [Color.white.opacity(isDark ? 0.15 : 0.20), Color.clear],
+                        startPoint: .topLeading,
+                        endPoint: .center
+                    )
+                )
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(
+                    LinearGradient(
+                        colors: isDark
+                            ? [Color.white.opacity(0.50), accent.opacity(0.24), Color.white.opacity(0.12)]
+                            : [Color.white.opacity(0.84), accent.opacity(0.20), Color.white.opacity(0.34)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 0.9
+                )
+        )
+        .shadow(color: Color.black.opacity(isDark ? 0.11 : 0.065), radius: isDark ? 10 : 8, x: 0, y: isDark ? 4 : 4)
+        .shadow(color: (isDark ? Color(hex: "#DDEBFF") : Color(hex: "#8CCBFF")).opacity(isDark ? 0.22 : 0.16), radius: isDark ? 16 : 12, x: 0, y: 3)
+        .shadow(color: accent.opacity(isDark ? 0.12 : 0.08), radius: 10, x: 0, y: 3)
+        .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+    }
+}
 
 // ══════════════════════════════════════════════════════════════════
 // MARK: - Adaptive Widget View (switches layout by family size)
@@ -758,129 +1173,133 @@ struct OBubbaSmallWidgetView: View {
     }
 
     var body: some View {
-        VStack(spacing: 7) {
-            Text(d.babyName)
-                .font(.system(size: 12, weight: .bold, design: .rounded))
-                .foregroundColor(brandDeep.opacity(0.78))
-                .lineLimit(1)
-                .minimumScaleFactor(0.72)
+        let isNightTheme = colorScheme == .dark || widgetThemePrefersDark()
+        let panelGlass = LinearGradient(
+            colors: isNightTheme
+                ? [Color.white.opacity(0.40), Color(hex: "#EAF6FF").opacity(0.18), Color(hex: "#8EC7FF").opacity(0.12)]
+                : [Color.white.opacity(0.60), Color(hex: "#DFF3FF").opacity(0.34), Color.white.opacity(0.20)],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        )
+
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("OBUBBA")
+                        .font(.system(size: 8.5, weight: .heavy, design: .rounded))
+                        .foregroundColor(brandDeep.opacity(0.42))
+                    Text(d.babyName)
+                        .font(.system(size: 17, weight: .heavy, design: .rounded))
+                        .foregroundColor(brandDeep)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.64)
+                }
+                Spacer(minLength: 4)
+                Text("Today")
+                    .font(.system(size: 9, weight: .heavy, design: .rounded))
+                    .foregroundColor(brandDeep.opacity(0.52))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color.white.opacity(0.46)))
+            }
 
             if hasTimer, let startDate = d.timerStartDate {
-                let systemIcon = (d.activeTimer ?? "") == "feed" ? "drop.fill" : "moon.zzz.fill"
                 let label = d.timerLabel ?? ((d.activeTimer ?? "").capitalized)
+                let accent = widgetAccent(label: label, timerType: d.activeTimer)
 
-                ZStack {
-                    Circle()
-                        .fill(Color.white.opacity(0.56))
-                        .frame(width: 34, height: 34)
-                    Image(systemName: systemIcon)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(brandRose)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Image(systemName: widgetIcon(label: label, timerType: d.activeTimer))
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(accent)
+                        Text(label)
+                            .font(.system(size: 11, weight: .heavy, design: .rounded))
+                            .foregroundColor(accent)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.72)
+                    }
+                    Text(startDate, style: .timer)
+                        .font(.system(size: 23, weight: .heavy, design: .rounded))
+                        .foregroundColor(brandDeep)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.44)
+                        .allowsTightening(true)
+                        .layoutPriority(10)
+                    Text(label.lowercased().contains("feed") ? "tap to stop when done" : "since \(Self.formatBedtime(startDate))")
+                        .font(.system(size: 9, weight: .semibold, design: .rounded))
+                        .foregroundColor(brandDeep.opacity(0.46))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
                 }
-
-                Text(label)
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
-                    .foregroundColor(brandRose)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-
-                Text(startDate, style: .timer)
-                    .font(.system(size: 20, weight: .heavy, design: .rounded))
-                    .foregroundColor(brandDeep)
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.45)
-                    .allowsTightening(true)
-                    .frame(maxWidth: .infinity)
-                    .layoutPriority(10)
-
-                if label.lowercased().contains("sleep") {
-                    Text("since \(Self.formatBedtime(startDate))")
-                        .font(.system(size: 9, weight: .medium))
-                        .foregroundColor(brandDeep.opacity(0.5))
-                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 9)
+                .background(
+                    RoundedRectangle(cornerRadius: 17, style: .continuous)
+                        .fill(panelGlass)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 17, style: .continuous)
+                        .stroke(accent.opacity(0.16), lineWidth: 0.8)
+                )
 
             } else if let targetDate = d.predictionTargetDate,
                       let label = d.nextPredictionLabel, !label.isEmpty {
-                let systemIcon = label.lowercased().contains("bed") ? "moon.stars.fill" : "moon.zzz.fill"
+                let accent = widgetAccent(label: label)
 
-                ZStack {
-                    Circle()
-                        .fill(Color.white.opacity(0.56))
-                        .frame(width: 34, height: 34)
-                    Image(systemName: systemIcon)
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundColor(brandPurple)
-                }
-
-                Text(label)
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
-                    .foregroundColor(brandPurple)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-
-                Text(targetDate, style: .timer)
-                    .font(.system(size: 19, weight: .heavy, design: .rounded))
-                    .foregroundColor(brandDeep)
-                    .monospacedDigit()
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.45)
-                    .allowsTightening(true)
-                    .frame(maxWidth: .infinity)
-                    .layoutPriority(10)
-
-                if let pred = d.nextPrediction, !pred.isEmpty {
-                    let timeOnly = pred.replacingOccurrences(of: "^.*~\\s*", with: "", options: .regularExpression)
-                        .trimmingCharacters(in: .whitespaces)
-                    if !timeOnly.isEmpty && timeOnly != pred {
-                        Text("around \(timeOnly)")
-                            .font(.system(size: 10, weight: .medium, design: .rounded))
-                            .foregroundColor(brandPurple.opacity(0.72))
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Image(systemName: widgetIcon(label: label))
+                            .font(.system(size: 12, weight: .bold))
+                            .foregroundColor(accent)
+                        Text(label)
+                            .font(.system(size: 11, weight: .heavy, design: .rounded))
+                            .foregroundColor(accent)
                             .lineLimit(1)
+                            .minimumScaleFactor(0.72)
                     }
+                    Text(targetDate, style: .timer)
+                        .font(.system(size: 21, weight: .heavy, design: .rounded))
+                        .foregroundColor(brandDeep)
+                        .monospacedDigit()
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.44)
+                        .allowsTightening(true)
+                        .layoutPriority(10)
+                    Text(widgetPredictionTimeHint(d.nextPrediction).map { "around \($0)" } ?? "next rhythm cue")
+                        .font(.system(size: 9, weight: .semibold, design: .rounded))
+                        .foregroundColor(brandDeep.opacity(0.48))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.78)
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 9)
+                .background(
+                    RoundedRectangle(cornerRadius: 17, style: .continuous)
+                        .fill(panelGlass)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 17, style: .continuous)
+                        .stroke(accent.opacity(0.16), lineWidth: 0.8)
+                )
 
             } else {
-                Text("Today")
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundColor(brandDeep.opacity(0.58))
-
-                HStack(spacing: 8) {
-                    VStack(spacing: 1) {
-                        Text("\(d.feedCount)")
-                            .font(.system(size: 18, weight: .heavy, design: .rounded))
-                            .foregroundColor(brandRose)
-                        Text("feeds")
-                            .font(.system(size: 8, weight: .semibold, design: .rounded))
-                            .foregroundColor(brandDeep.opacity(0.45))
-                    }
-                    VStack(spacing: 1) {
-                        Text("\(d.sleepCount)")
-                            .font(.system(size: 18, weight: .heavy, design: .rounded))
-                            .foregroundColor(brandPurple)
-                        Text("naps")
-                            .font(.system(size: 8, weight: .semibold, design: .rounded))
-                            .foregroundColor(brandDeep.opacity(0.45))
-                    }
-                    VStack(spacing: 1) {
-                        let wet = d.wetNappyCount ?? 0
-                        Text("\(wet)/6")
-                            .font(.system(size: 18, weight: .heavy, design: .rounded))
-                            .foregroundColor(wet >= 6 ? brandMint : brandDeep.opacity(0.6))
-                        Text("wet")
-                            .font(.system(size: 8, weight: .semibold, design: .rounded))
-                            .foregroundColor(brandDeep.opacity(0.45))
-                    }
+                HStack(spacing: 6) {
+                    SmallMetric(value: "\(d.feedCount)", label: "feeds", color: brandRose)
+                    SmallMetric(value: "\(d.sleepCount)", label: "naps", color: brandPurple)
+                    SmallMetric(value: "\((d.wetNappyCount ?? 0))/6", label: "wet", color: (d.wetNappyCount ?? 0) >= 6 ? brandMint : brandSky)
                 }
 
                 Text("quietly keeping track")
-                    .font(.system(size: 9, weight: .medium, design: .rounded))
-                    .foregroundColor(brandDeep.opacity(0.65))
+                    .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+                    .foregroundColor(brandDeep.opacity(0.56))
                     .lineLimit(1)
                     .minimumScaleFactor(0.76)
             }
         }
-        .padding(12)
+        .padding(11)
         .ifLet(widgetForcedScheme()) { view, scheme in
             view.environment(\.colorScheme, scheme)
         }
@@ -894,6 +1313,8 @@ struct OBubbaSmallWidgetView: View {
 // ══════════════════════════════════════════════════════════════════
 
 struct OBubbaMediumWidgetView: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     let entry: OBubbaEntry
     private var d: WidgetData { entry.data }
 
@@ -905,117 +1326,61 @@ struct OBubbaMediumWidgetView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
+        let activeBreastSide = normalizedBreastSide(d.breastSide)
+        let lastSide = normalizedBreastSide(d.lastBreastSide)
+        let showsBreastControls = d.showNursing == true || d.activeTimer == "feed" || activeBreastSide != nil || lastSide != nil
+        let actionSpacing: CGFloat = showsBreastControls ? 4 : 6
+        let timerFontSize: CGFloat = showsBreastControls ? 17 : 19
+        let predictionFontSize: CGFloat = showsBreastControls ? 16 : 18
+        let isNightTheme = colorScheme == .dark || widgetThemePrefersDark()
+        let timerTextColor = isNightTheme ? Color(hex: "#F8EEF2") : brandDeep
+
+        VStack(spacing: 8) {
 
             // ── ROW 1: Header + Timer/Prediction ──
-            HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text("OBubba")
-                        .font(.system(size: 9, weight: .bold, design: .rounded))
-                        .textCase(.uppercase)
-                        .foregroundColor(brandDeep.opacity(0.44))
+            HStack(alignment: .center, spacing: 8) {
+                HStack(spacing: 6) {
+                    Text("🧸")
+                        .font(.system(size: 15))
                     Text(d.babyName)
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
                         .foregroundColor(brandDeep)
                         .lineLimit(1)
                         .minimumScaleFactor(0.72)
                 }
-                .frame(maxWidth: 116, alignment: .leading)
-
-                Spacer()
+                .frame(width: 108, alignment: .leading)
 
                 if hasTimer, let startDate = d.timerStartDate {
-                    VStack(alignment: .trailing, spacing: 2) {
-                        HStack(spacing: 4) {
-                            Circle().fill(brandRose).frame(width: 6, height: 6)
-                            Text(d.timerLabel ?? (d.activeTimer ?? "").capitalized)
-                                .font(.system(size: 10, weight: .bold))
-                                .foregroundColor(brandRose)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.7)
-                                .layoutPriority(0)
-                        }
-                        Text(startDate, style: .timer)
-                            .font(.system(size: 21, weight: .heavy, design: .rounded))
-                            .foregroundColor(brandDeep)
-                            .monospacedDigit()
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.45)
-                            .allowsTightening(true)
-                            .frame(minWidth: 112, maxWidth: .infinity, alignment: .trailing)
-                            .layoutPriority(10)
-                        // "since X:XX" line
-                        if let startTime = d.timerStartTime, !startTime.isEmpty {
-                            let parts = startTime.split(separator: ":").compactMap { Int($0) }
-                            let sinceText: String = {
-                                if parts.count >= 2 {
-                                    let h = parts[0], m = parts[1]
-                                    let suffix = h >= 12 ? "pm" : "am"
-                                    let h12 = h == 0 ? 12 : h > 12 ? h - 12 : h
-                                    return "since \(h12):\(String(format: "%02d", m))\(suffix)"
-                                }
-                                return "since \(startTime)"
-                            }()
-                            Text(sinceText)
-                                .font(.system(size: 9, weight: .medium))
-                                .foregroundColor(brandDeep.opacity(0.35))
-                        }
-                        if let s = d.breastSide {
-                            Text(s.capitalized + " side")
-                                .font(.system(size: 9, weight: .medium))
-                                .foregroundColor(brandDeep.opacity(0.65))
-                        }
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(Color.white.opacity(0.48))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(brandRose.opacity(0.2), lineWidth: 0.8)
+                    let timerAccent = d.activeTimer == "feed" ? brandRose : brandPurple
+                    let timerTitle = d.timerLabel ?? (d.activeTimer ?? "").capitalized
+                    let sinceClock = widgetFriendlyClock(d.timerStartTime)
+                    let baseTimerStatusTitle = widgetTimerStatusTitle(label: timerTitle, timerType: d.activeTimer, breastSide: activeBreastSide)
+                    let timerStatusTitle = baseTimerStatusTitle
+                    let timerDetails = [
+                        sinceClock.map { "since \($0)" },
+                        d.activeTimer == "feed" ? breastSideName(activeBreastSide).map { "\($0) side" } : nil
+                    ].compactMap { $0 }.joined(separator: " · ")
+                    MediumStatusPanel(
+                        accent: timerAccent,
+                        icon: widgetIcon(label: timerTitle, timerType: d.activeTimer),
+                        title: timerStatusTitle,
+                        detail: timerDetails.isEmpty ? nil : timerDetails,
+                        date: startDate,
+                        fontSize: timerFontSize,
+                        primaryColor: timerTextColor
                     )
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .frame(maxWidth: .infinity, alignment: .trailing)
                 } else if let targetDate = d.predictionTargetDate,
                           let label = d.nextPredictionLabel, !label.isEmpty {
-                    VStack(alignment: .trailing, spacing: 1) {
-                        Text(label)
-                            .font(.system(size: 9, weight: .bold))
-                            .foregroundColor(brandPurple.opacity(0.7))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
-                        HStack(spacing: 4) {
-                            Text(targetDate, style: .timer)
-                                .font(.system(size: 12, weight: .heavy, design: .rounded))
-                                .foregroundColor(brandPurple)
-                                .monospacedDigit()
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.45)
-                                .allowsTightening(true)
-                                .layoutPriority(5)
-                            // Show predicted time next to countdown
-                            if let pred = d.nextPrediction, !pred.isEmpty {
-                                // Strip any leading label up to and including "~ "
-                                let timeOnly = pred.replacingOccurrences(of: "^.*~\\s*", with: "", options: .regularExpression)
-                                    .trimmingCharacters(in: .whitespaces)
-                                if !timeOnly.isEmpty && timeOnly != pred {
-                                    Text(timeOnly)
-                                        .font(.system(size: 9, weight: .semibold))
-                                        .foregroundColor(brandPurple.opacity(0.7))
-                                        .lineLimit(1)
-                                        .minimumScaleFactor(0.7)
-                                }
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 5)
-                    .background(Color.white.opacity(0.48))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12, style: .continuous)
-                            .stroke(brandPurple.opacity(0.2), lineWidth: 0.8)
+                    let accent = widgetAccent(label: label)
+                    MediumStatusPanel(
+                        accent: accent,
+                        icon: widgetIcon(label: label),
+                        title: label,
+                        detail: widgetPredictionTimeHint(d.nextPrediction).map { "around \($0)" } ?? "next rhythm cue",
+                        date: targetDate,
+                        fontSize: predictionFontSize,
+                        primaryColor: accent
                     )
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .frame(maxWidth: .infinity, alignment: .trailing)
                 } else if let pred = d.nextPrediction, !pred.isEmpty {
                     HStack(spacing: 4) {
                         Image(systemName: "clock")
@@ -1037,15 +1402,13 @@ struct OBubbaMediumWidgetView: View {
                 }
             }
 
-            Spacer(minLength: 5)
-
             // ── ROW 2: Action Buttons (big, tappable via deep links) ──
-            HStack(spacing: 8) {
+            HStack(spacing: actionSpacing) {
                 Link(destination: URL(string: "obubba://?action=quick_feed")!) {
                     ActionBtn(icon: "drop.fill", label: "Feed", color: brandRose)
                 }
-                if d.showNursing == true {
-                    let leftIsNext = d.lastBreastSide != "left"
+                if showsBreastControls {
+                    let leftIsNext = lastSide != "left"
                     Link(destination: URL(string: "obubba://?action=breast_left")!) {
                         BreastBtn(letter: "L", isNext: leftIsNext)
                     }
@@ -1076,7 +1439,6 @@ struct OBubbaMediumWidgetView: View {
                 }
             }
 
-            Spacer(minLength: 5)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
@@ -1104,21 +1466,22 @@ struct OBubbaLockScreenRectangular: View {
     var body: some View {
         if let timer = d.activeTimer, !timer.isEmpty, let startDate = d.timerStartDate {
             // Timer active
-            let label = obLockLabel(d.timerLabel, fallback: timer == "feed" ? "Feed" : "Bedtime")
+            let sideLetter = breastSideLetter(d.breastSide)
+            let label = timer == "feed" && sideLetter != nil ? "Nursing \(sideLetter!)" : obLockLabel(d.timerLabel, fallback: timer == "feed" ? "Feed" : "Bedtime")
             HStack(spacing: 7) {
                 Image(systemName: obLockIcon(label: label, timerType: timer))
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.system(size: 12, weight: .bold))
                 VStack(alignment: .leading, spacing: 1) {
                     Text(label)
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                    Text(timer == "feed" ? (d.breastSide.map { "\($0.capitalized) side" } ?? d.babyName) : "\(d.babyName) asleep")
-                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .font(.system(size: 11.5, weight: .heavy, design: .rounded))
+                    Text(timer == "feed" ? (breastSideName(d.breastSide).map { "\($0) side" } ?? d.babyName) : "\(d.babyName) asleep")
+                        .font(.system(size: 9.5, weight: .semibold, design: .rounded))
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                 }
                 Spacer()
                 Text(startDate, style: .timer)
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
+                    .font(.system(size: 13, weight: .heavy, design: .rounded))
                     .monospacedDigit()
                     .lineLimit(1)
                     .minimumScaleFactor(0.34)
@@ -1129,21 +1492,21 @@ struct OBubbaLockScreenRectangular: View {
         } else if let targetDate = d.predictionTargetDate {
             HStack(spacing: 8) {
                 Image(systemName: obLockIcon(label: predictionLabel))
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.system(size: 12, weight: .bold))
                 VStack(alignment: .leading, spacing: 1) {
                     Text(predictionLabel)
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
+                        .font(.system(size: 11.5, weight: .heavy, design: .rounded))
                     Text(d.babyName)
-                        .font(.system(size: 10, weight: .semibold, design: .rounded))
+                        .font(.system(size: 9.5, weight: .semibold, design: .rounded))
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                 }
                 Spacer()
                 Text(targetDate, style: .timer)
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .font(.system(size: 13, weight: .heavy, design: .rounded))
                     .monospacedDigit()
                     .lineLimit(1)
-                    .minimumScaleFactor(0.45)
+                    .minimumScaleFactor(0.5)
                     .allowsTightening(true)
                     .frame(minWidth: 68, alignment: .trailing)
                     .layoutPriority(10)
@@ -1185,7 +1548,8 @@ struct OBubbaLockScreenInline: View {
 
     var body: some View {
         if let timer = d.activeTimer, !timer.isEmpty, let startDate = d.timerStartDate {
-            let label = obLockLabel(d.timerLabel, fallback: timer == "feed" ? "Feed" : "Bedtime")
+            let sideLetter = breastSideLetter(d.breastSide)
+            let label = timer == "feed" && sideLetter != nil ? "Nursing \(sideLetter!)" : obLockLabel(d.timerLabel, fallback: timer == "feed" ? "Feed" : "Bedtime")
             HStack(spacing: 4) {
                 Image(systemName: obLockIcon(label: label, timerType: timer)).font(.caption2)
                 Text(label).font(.system(.caption, design: .rounded)).bold()
@@ -1201,7 +1565,7 @@ struct OBubbaLockScreenInline: View {
             HStack(spacing: 4) {
                 Image(systemName: obLockIcon(label: predictionLabel)).font(.caption2)
                 Text(predictionLabel).font(.system(.caption, design: .rounded)).bold()
-                    Text(targetDate, style: .timer)
+                Text(targetDate, style: .timer)
                     .font(.system(.caption, design: .rounded)).bold()
                     .monospacedDigit()
                     .lineLimit(1)
@@ -1264,10 +1628,17 @@ struct OBubbaTimerLiveActivity: Widget {
         obLockLabel(nextNap, fallback: timerLabel(timerType))
     }
 
+    private func displayLabel(nextNap: String?, timerType: String, side: String?) -> String {
+        if timerType == "feed", let letter = breastSideLetter(side) {
+            return "Nursing \(letter)"
+        }
+        return smartLabel(nextNap: nextNap, timerType: timerType)
+    }
+
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: OBubbaTimerAttributes.self) { context in
             // ── Lock Screen / Notification Banner ──
-            let label = smartLabel(nextNap: context.state.nextNap, timerType: context.attributes.timerType)
+            let label = displayLabel(nextNap: context.state.nextNap, timerType: context.attributes.timerType, side: context.state.side)
             let icon = obLockIcon(label: label, timerType: context.attributes.timerType)
             HStack(spacing: 0) {
                 // Left: icon circle + baby name below
@@ -1278,11 +1649,11 @@ struct OBubbaTimerLiveActivity: Widget {
                 // Middle: label + timer (centered)
                 VStack(alignment: .center, spacing: 0) {
                     Text(label)
-                        .font(.system(size: 12, weight: .heavy, design: .rounded))
+                        .font(.system(size: 11.5, weight: .heavy, design: .rounded))
                         .foregroundColor(lockCreamText.opacity(0.62))
                         .lineLimit(1)
                     Text(context.state.startTime, style: .timer)
-                        .font(.system(size: 25, weight: .black, design: .rounded))
+                        .font(.system(size: 21, weight: .heavy, design: .rounded))
                         .foregroundColor(lockCreamText)
                         .monospacedDigit()
                         .lineLimit(1)
@@ -1291,8 +1662,8 @@ struct OBubbaTimerLiveActivity: Widget {
                         .multilineTextAlignment(.center)
                         .frame(maxWidth: .infinity, alignment: .center)
                         .layoutPriority(10)
-                    if let side = context.state.side {
-                        Text("\(side.capitalized) side")
+                    if let sideName = breastSideName(context.state.side) {
+                        Text("\(sideName) side")
                             .font(.system(size: 9, weight: .medium))
                             .foregroundColor(lockCreamText.opacity(0.48))
                     }
@@ -1328,10 +1699,10 @@ struct OBubbaTimerLiveActivity: Widget {
                 }
                 DynamicIslandExpandedRegion(.center) {
                     VStack(spacing: 2) {
-                        Text(smartLabel(nextNap: context.state.nextNap, timerType: context.attributes.timerType))
+                        Text(displayLabel(nextNap: context.state.nextNap, timerType: context.attributes.timerType, side: context.state.side))
                             .font(.system(size: 14, weight: .bold, design: .rounded))
-                        if let side = context.state.side {
-                            Text("\(side.capitalized) side")
+                        if let sideName = breastSideName(context.state.side) {
+                            Text("\(sideName) side")
                                 .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
@@ -1339,7 +1710,7 @@ struct OBubbaTimerLiveActivity: Widget {
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     Text(context.state.startTime, style: .timer)
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .font(.system(size: 16, weight: .heavy, design: .rounded))
                         .foregroundColor(brandRose)
                         .monospacedDigit()
                         .lineLimit(1)
@@ -1395,11 +1766,11 @@ struct OBubbaPredictionLiveActivity: Widget {
                 // Middle: label + time + countdown (centered)
                 VStack(alignment: .center, spacing: 0) {
                     Text(label)
-                        .font(.system(size: 12, weight: .heavy, design: .rounded))
+                        .font(.system(size: 11.5, weight: .heavy, design: .rounded))
                         .foregroundColor(lockCreamText.opacity(0.62))
                         .lineLimit(1)
                     Text(context.state.timeFormatted)
-                        .font(.system(size: 27, weight: .black, design: .rounded))
+                        .font(.system(size: 23, weight: .heavy, design: .rounded))
                         .foregroundColor(lockCreamText)
                     Text(context.state.targetTime, style: .timer)
                         .font(.system(size: 11, weight: .bold, design: .rounded))
@@ -1449,12 +1820,12 @@ struct OBubbaPredictionLiveActivity: Widget {
                             .font(.system(size: 12, weight: .semibold))
                             .foregroundColor(.secondary)
                         Text(context.state.timeFormatted)
-                            .font(.system(size: 22, weight: .heavy, design: .rounded))
+                            .font(.system(size: 20, weight: .heavy, design: .rounded))
                     }
                 }
                 DynamicIslandExpandedRegion(.trailing) {
                     Text(context.state.targetTime, style: .timer)
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .font(.system(size: 13, weight: .heavy, design: .rounded))
                         .foregroundColor(brandPurple)
                         .monospacedDigit()
                         .lineLimit(1)
@@ -1503,6 +1874,7 @@ struct OBubbaSummaryWidget: Widget {
         .configurationDisplayName("Baby Summary")
         .description("Feeds, sleeps, nappies and quick actions at a glance.")
         .supportedFamilies([.systemSmall, .systemMedium])
+        .contentMarginsDisabled()
     }
 }
 
