@@ -17565,6 +17565,63 @@ function App(){
       });
     } catch {}
   }
+  function mergeChildSyncCloudChildForPush(childId, localChildRaw, cloudChildRaw) {
+    const local = normaliseChildrenPayload({[childId]: {...(localChildRaw || {}), id: childId}})[childId] || {};
+    const cloud = normaliseChildrenPayload({[childId]: {...(cloudChildRaw || {}), id: childId}})[childId] || {};
+    const localDays = local.days || {};
+    const cloudDays = cloud.days || {};
+    const now = Date.now();
+    const clampFuture = (t) => (typeof t === "number" && t > now + 60 * 60 * 1000) ? now : (t || 0);
+    const mergedDays = {};
+    const allDays = new Set([...Object.keys(cloudDays), ...Object.keys(localDays)]);
+
+    allDays.forEach(dayKey => {
+      if(deletedDaysRef.current.has(childId + ":" + dayKey)) return;
+      const byId = new Map();
+      const noIdEntries = [];
+      const addEntry = (entry) => {
+        if(!entry) return;
+        const id = entry.id || "";
+        if(id && deletedEntryIdsRef.current.has(id)) return;
+        if(!id) {
+          noIdEntries.push(entry);
+          return;
+        }
+        const previous = byId.get(id);
+        if(!previous || clampFuture(entry.modifiedAt) >= clampFuture(previous.modifiedAt)) byId.set(id, entry);
+      };
+      (Array.isArray(cloudDays[dayKey]) ? cloudDays[dayKey] : []).forEach(addEntry);
+      (Array.isArray(localDays[dayKey]) ? localDays[dayKey] : []).forEach(addEntry);
+      mergedDays[dayKey] = dedupEntries([...byId.values(), ...noIdEntries]);
+    });
+
+    const reclassifiedDays = {};
+    Object.keys(mergedDays).sort().forEach((dayKey, index, sortedDays) => {
+      const prevDay = index > 0 ? sortedDays[index - 1] : null;
+      reclassifiedDays[dayKey] = autoClassifyNight(mergedDays[dayKey], prevDay ? mergedDays[prevDay] : null);
+    });
+    const mergeArrayByKey = (localArr, cloudArr, keyFn) => {
+      const merged = [];
+      const seen = new Set();
+      [...(localArr || []), ...(cloudArr || [])].forEach(item => {
+        const key = keyFn(item);
+        if(key && seen.has(key)) return;
+        if(key) seen.add(key);
+        merged.push(item);
+      });
+      return merged;
+    };
+    return {
+      ...cloud,
+      ...local,
+      id: childId,
+      days: reclassifiedDays,
+      weights: mergeArrayByKey(local.weights, cloud.weights, w => w && (w.id || (w.date + "|" + w.kg))),
+      heights: mergeArrayByKey(local.heights, cloud.heights, h => h && (h.id || (h.date + "|" + h.cm))),
+      photos: mergeArrayByKey(local.photos, cloud.photos, p => p && (p.id || p.url || p.createdAt)),
+      milestones: {...(cloud.milestones || {}), ...(local.milestones || {})}
+    };
+  }
 	  async function _persistChildSyncCode(childId, code, childOverride) {
     const {serverTimestamp} = window._fb || {};
     const child = childOverride || childrenRef.current?.[childId] || children?.[childId] || {};
@@ -17935,6 +17992,7 @@ function App(){
 	    const writerUid = await ensureFirebaseUid(5000);
 	    if(!writerUid) return;
 	    try {
+      let childForCloud = child;
       // SAFETY: never overwrite cloud with fewer entries than it already has.
       // This prevents data loss from merge bugs, cache clears, or stale state.
       const localEntryCount = Object.values(child.days || {}).reduce((s, d) => s + (d ? d.length : 0), 0);
@@ -17952,22 +18010,23 @@ function App(){
             console.warn("[OBubba] pushChildSync BLOCKED: local has", localEntryCount, "entries vs cloud", cloudEntryCount, "— refusing to overwrite");
             return;
           }
+          childForCloud = mergeChildSyncCloudChildForPush(childId, childForCloud, cloudChild);
         }
       } catch(e2) { /* proceed if check fails */ }
 	      await fsSet("child_syncs", code, {
-	        child: JSON.stringify(child),
-	        childName: child.name || "",
+	        child: JSON.stringify(childForCloud),
+	        childName: childForCloud.name || child.name || "",
 	        isActive: true,
 		        updatedAt: serverTimestamp(),
 		        updatedBy: writerUid,
 		        writeToken: writeTokenRef.current
 		      }, true);
-	      queueSyncV2ChildShadow(code, childId, child, {
+	      queueSyncV2ChildShadow(code, childId, childForCloud, {
 	        ownerUid: writerUid,
 	        writeToken: writeTokenRef.current
 	      });
-	      queueSyncV2ChildReadShadowAudit(code, childId, child, "after-child-sync-write");
-	      try { await _persistChildSyncCode(childId, code, child); } catch {}
+	      queueSyncV2ChildReadShadowAudit(code, childId, childForCloud, "after-child-sync-write");
+	      try { await _persistChildSyncCode(childId, code, childForCloud); } catch {}
 	    } catch(e) { console.warn("pushChildSync error", e); }
 	  }
   const subscribeToChildSync = React.useCallback((childId, code) => {

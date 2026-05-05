@@ -13773,10 +13773,12 @@ function App(){
   const _pushQueued = useRef(null);
   const _syncV2FamilyShadowRef = useRef({running:false, pending:null});
   const _syncV2ChildShadowRef = useRef({running:false, pending:null});
+  const _syncV2ReadShadowRef = useRef({running:{}, pending:{}, timers:{}});
   const PUSH_MIN_INTERVAL = 10000; // 10 seconds minimum between pushes
   const OB_SYNC_V2_SCHEMA = "sync-v2-shadow-2026-05";
   const OB_SYNC_V2_FAMILY_HASH_PREFIX = "ob_sync_v2_family_hashes_";
   const OB_SYNC_V2_CHILD_HASH_PREFIX = "ob_sync_v2_child_hashes_";
+  const OB_SYNC_V2_READ_SHADOW_PREFIX = "ob_sync_v2_read_shadow_last_";
   const _readLocalJson = (key, fallback) => {
     try {
       const raw = localStorage.getItem(key);
@@ -13794,7 +13796,8 @@ function App(){
     try {
       // Default off for the first billing-safe rollout. Enable only on
       // known test devices until Firestore transfer and write volume look calm.
-      return localStorage.getItem("ob_sync_v2_shadow_enabled") === "1"
+      const buildShadowEnabled = "__OB_SYNC_V2_SHADOW_BUILD__" === "1";
+      return (buildShadowEnabled || localStorage.getItem("ob_sync_v2_shadow_enabled") === "1")
         && localStorage.getItem("ob_sync_v2_shadow_disabled") !== "1";
     } catch {
       return false;
@@ -13804,6 +13807,18 @@ function App(){
   function syncV2ReadEnabled() {
     try {
       return localStorage.getItem("ob_sync_v2_read_enabled") === "1";
+    } catch {
+      return false;
+    }
+  }
+
+  function syncV2ReadShadowEnabled() {
+    try {
+      const buildReadShadowEnabled = "__OB_SYNC_V2_READ_SHADOW_BUILD__" === "1";
+      return (buildReadShadowEnabled ||
+        localStorage.getItem("ob_sync_v2_read_shadow_enabled") === "1" ||
+        syncV2ReadEnabled())
+        && localStorage.getItem("ob_sync_v2_read_shadow_disabled") !== "1";
     } catch {
       return false;
     }
@@ -14117,6 +14132,166 @@ function App(){
     }
     syncV2SaveHashMap(OB_SYNC_V2_CHILD_HASH_PREFIX, safeCode, hashes);
     return true;
+  }
+
+  function syncV2PlainValue(value) {
+    if(value === null || value === undefined) return value;
+    if(typeof value !== "object" || Array.isArray(value)) return value;
+    if(value.stringValue !== undefined) return value.stringValue;
+    if(value.booleanValue !== undefined) return value.booleanValue;
+    if(value.integerValue !== undefined) return parseInt(value.integerValue, 10);
+    if(value.doubleValue !== undefined) return Number(value.doubleValue);
+    if(value.timestampValue !== undefined) return value.timestampValue;
+    if(value.nullValue !== undefined) return null;
+    if(value.arrayValue) return Object.values(value.arrayValue.values || {}).map(syncV2PlainValue);
+    if(value.mapValue) {
+      const out = {};
+      Object.entries(value.mapValue.fields || {}).forEach(([k,v]) => { out[k] = syncV2PlainValue(v); });
+      return out;
+    }
+    return value;
+  }
+
+  function syncV2PlainData(data) {
+    const out = {};
+    Object.entries(data || {}).forEach(([k,v]) => { out[k] = syncV2PlainValue(v); });
+    return out;
+  }
+
+  function syncV2AuditDayKeys(child, limit=14) {
+    const daysMap = child && child.days && typeof child.days === "object" ? child.days : {};
+    const keys = Object.keys(daysMap).map(safeDateKey).filter(Boolean).sort();
+    const nonEmpty = keys.filter(dayKey => Array.isArray(daysMap[dayKey]) && daysMap[dayKey].some(e => e && !e._deleted));
+    const picked = nonEmpty.slice(-limit);
+    [todayStr(), yesterdayStr()].forEach(dayKey => {
+      if(keys.includes(dayKey) && !picked.includes(dayKey)) picked.push(dayKey);
+    });
+    return [...new Set(picked)].sort();
+  }
+
+  async function readSyncV2ChildForAudit(code, childId, legacyChild) {
+    const safeCode = String(code || "").trim().toUpperCase();
+    const safeChildId = syncV2FirestoreId(childId || legacyChild?.id, "child");
+    if(!safeCode || !safeChildId) return {exists:false, reason:"missing-code-or-child"};
+    const rootSnap = await fsGet("child_sync_v2", safeCode);
+    if(rootSnap.error) return {exists:false, reason:"root-read-error", message:rootSnap.message || ""};
+    if(!rootSnap.exists()) return {exists:false, reason:"root-missing"};
+    const root = syncV2PlainData(rootSnap.data() || {});
+    const profileSnap = await fsGet("child_sync_v2/" + safeCode + "/profile", "core");
+    const extrasSnap = await fsGet("child_sync_v2/" + safeCode + "/extras", "core");
+    const profile = profileSnap.exists() ? syncV2PlainData(profileSnap.data() || {}) : null;
+    const extras = extrasSnap.exists() ? syncV2PlainData(extrasSnap.data() || {}) : null;
+    const dayKeys = syncV2AuditDayKeys(legacyChild || {}, 14);
+    const days = {};
+    const reconstructedDays = {};
+    await Promise.all(dayKeys.map(async dayKey => {
+      const daySnap = await fsGet("child_sync_v2/" + safeCode + "/days", dayKey);
+      if(daySnap.exists()) {
+        const doc = syncV2PlainData(daySnap.data() || {});
+        const entries = safeJsonArray(doc.payload);
+        days[dayKey] = {...doc, entries};
+        reconstructedDays[dayKey] = normaliseDayEntries(entries);
+      } else {
+        days[dayKey] = null;
+      }
+    }));
+    const extrasPayload = extras && extras.payload ? safeJsonObject(extras.payload) : {};
+    const reconstructed = normaliseChildrenPayload({
+      [safeChildId]: {
+        id: safeChildId,
+        name: profile?.name || root.childName || legacyChild?.name || "",
+        dob: profile?.dob || legacyChild?.dob || "",
+        sex: profile?.sex || legacyChild?.sex || "",
+        dueDate: profile?.dueDate || legacyChild?.dueDate || "",
+        unborn: profile?.unborn === true,
+        conditions: safeChildConditions(profile?.conditions || legacyChild?.conditions),
+        customDailyTarget: safeChildDailyTarget(profile?.customDailyTarget || legacyChild?.customDailyTarget),
+        day1Profile: safeJsonObject(profile?.day1Profile),
+        ...extrasPayload,
+        days: reconstructedDays
+      }
+    })[safeChildId];
+    return {exists:true, root, profile, extras, days, child:reconstructed, dayKeys};
+  }
+
+  function syncV2CompareChildRead(code, childId, legacyChild, v2) {
+    const safeCode = String(code || "").trim().toUpperCase();
+    const safeChildId = syncV2FirestoreId(childId || legacyChild?.id, "child");
+    const mismatches = [];
+    const legacy = normaliseChildrenPayload({[safeChildId]: {...(legacyChild || {}), id:safeChildId}})[safeChildId] || {};
+    if(!v2 || !v2.exists) mismatches.push(v2?.reason || "v2-missing");
+    if(v2 && v2.exists) {
+      const expectedProfileHash = syncV2Hash(syncV2ChildProfile(legacy, safeChildId));
+      const expectedExtrasHash = syncV2Hash(syncV2ChildExtrasPayload(legacy));
+      if(!v2.profile) mismatches.push("profile-missing");
+      else if(v2.profile.hash !== expectedProfileHash) mismatches.push("profile-hash");
+      if(!v2.extras) mismatches.push("extras-missing");
+      else if(v2.extras.hash !== expectedExtrasHash) mismatches.push("extras-hash");
+      (v2.dayKeys || syncV2AuditDayKeys(legacy, 14)).forEach(dayKey => {
+        const expectedPayload = syncV2EntryPayload((legacy.days || {})[dayKey] || []);
+        const expectedEntries = safeJsonArray(expectedPayload);
+        const expectedHash = syncV2Hash(expectedPayload);
+        const doc = v2.days ? v2.days[dayKey] : null;
+        if(!doc) { mismatches.push("day-missing:" + dayKey); return; }
+        if(doc.hash !== expectedHash) mismatches.push("day-hash:" + dayKey);
+        if(Number(doc.count || 0) !== expectedEntries.length) mismatches.push("day-count:" + dayKey);
+        const docIds = Array.isArray(doc.entryIds) ? doc.entryIds : [];
+        const expectedIds = expectedEntries.map(e => syncV2FirestoreId(e && e.id, "")).filter(Boolean).slice(0, 500);
+        if(expectedIds.length && docIds.length && expectedIds.join("|") !== docIds.join("|")) mismatches.push("day-entry-ids:" + dayKey);
+      });
+    }
+    return {
+      ok: mismatches.length === 0,
+      code: safeCode,
+      childId: safeChildId,
+      dayKeys: (v2 && v2.dayKeys) || syncV2AuditDayKeys(legacy, 14),
+      mismatchCount: mismatches.length,
+      mismatches: mismatches.slice(0, 20),
+      checkedAtClient: new Date().toISOString()
+    };
+  }
+
+  async function runSyncV2ChildReadShadowAudit(code, childId, legacyChild, reason="manual") {
+    if(!syncV2ReadShadowEnabled() || !legacyChild) return null;
+    const safeCode = String(code || "").trim().toUpperCase();
+    const safeChildId = syncV2FirestoreId(childId || legacyChild?.id, "child");
+    if(!safeCode || !safeChildId) return null;
+    let result = null;
+    try {
+      const v2 = await readSyncV2ChildForAudit(safeCode, safeChildId, legacyChild);
+      result = {...syncV2CompareChildRead(safeCode, safeChildId, legacyChild, v2), reason};
+    } catch(e) {
+      result = {ok:false, code:safeCode, childId:safeChildId, reason, mismatchCount:1, mismatches:["exception"], message:e?.message || String(e || ""), checkedAtClient:new Date().toISOString()};
+    }
+    try {
+      localStorage.setItem(OB_SYNC_V2_READ_SHADOW_PREFIX + safeCode + "_" + safeChildId, JSON.stringify(result));
+      window.__obSyncV2LastReadShadow = result;
+    } catch {}
+    if(result && !result.ok) console.warn("[OBubba] sync v2 read-shadow mismatch", result);
+    else if(result) console.info("[OBubba] sync v2 read-shadow ok", {code:safeCode, childId:safeChildId, dayKeys:result.dayKeys});
+    return result;
+  }
+
+  function queueSyncV2ChildReadShadowAudit(code, childId, legacyChild, reason="child-sync-snapshot") {
+    if(!syncV2ReadShadowEnabled() || !legacyChild) return;
+    const safeCode = String(code || "").trim().toUpperCase();
+    const safeChildId = syncV2FirestoreId(childId || legacyChild?.id, "child");
+    if(!safeCode || !safeChildId) return;
+    const key = safeCode + ":" + safeChildId;
+    const ref = _syncV2ReadShadowRef.current;
+    ref.pending[key] = {code:safeCode, childId:safeChildId, legacyChild, reason};
+    clearTimeout(ref.timers[key]);
+    ref.timers[key] = setTimeout(async()=>{
+      if(ref.running[key]) return;
+      ref.running[key] = true;
+      const job = ref.pending[key];
+      delete ref.pending[key];
+      try {
+        if(job) await runSyncV2ChildReadShadowAudit(job.code, job.childId, job.legacyChild, job.reason);
+      } finally {
+        ref.running[key] = false;
+      }
+    }, reason === "after-child-sync-write" ? 3500 : 1200);
   }
 
   function queueSyncV2ChildShadow(code, childId, child, meta={}) {
@@ -17390,6 +17565,63 @@ function App(){
       });
     } catch {}
   }
+  function mergeChildSyncCloudChildForPush(childId, localChildRaw, cloudChildRaw) {
+    const local = normaliseChildrenPayload({[childId]: {...(localChildRaw || {}), id: childId}})[childId] || {};
+    const cloud = normaliseChildrenPayload({[childId]: {...(cloudChildRaw || {}), id: childId}})[childId] || {};
+    const localDays = local.days || {};
+    const cloudDays = cloud.days || {};
+    const now = Date.now();
+    const clampFuture = (t) => (typeof t === "number" && t > now + 60 * 60 * 1000) ? now : (t || 0);
+    const mergedDays = {};
+    const allDays = new Set([...Object.keys(cloudDays), ...Object.keys(localDays)]);
+
+    allDays.forEach(dayKey => {
+      if(deletedDaysRef.current.has(childId + ":" + dayKey)) return;
+      const byId = new Map();
+      const noIdEntries = [];
+      const addEntry = (entry) => {
+        if(!entry) return;
+        const id = entry.id || "";
+        if(id && deletedEntryIdsRef.current.has(id)) return;
+        if(!id) {
+          noIdEntries.push(entry);
+          return;
+        }
+        const previous = byId.get(id);
+        if(!previous || clampFuture(entry.modifiedAt) >= clampFuture(previous.modifiedAt)) byId.set(id, entry);
+      };
+      (Array.isArray(cloudDays[dayKey]) ? cloudDays[dayKey] : []).forEach(addEntry);
+      (Array.isArray(localDays[dayKey]) ? localDays[dayKey] : []).forEach(addEntry);
+      mergedDays[dayKey] = dedupEntries([...byId.values(), ...noIdEntries]);
+    });
+
+    const reclassifiedDays = {};
+    Object.keys(mergedDays).sort().forEach((dayKey, index, sortedDays) => {
+      const prevDay = index > 0 ? sortedDays[index - 1] : null;
+      reclassifiedDays[dayKey] = autoClassifyNight(mergedDays[dayKey], prevDay ? mergedDays[prevDay] : null);
+    });
+    const mergeArrayByKey = (localArr, cloudArr, keyFn) => {
+      const merged = [];
+      const seen = new Set();
+      [...(localArr || []), ...(cloudArr || [])].forEach(item => {
+        const key = keyFn(item);
+        if(key && seen.has(key)) return;
+        if(key) seen.add(key);
+        merged.push(item);
+      });
+      return merged;
+    };
+    return {
+      ...cloud,
+      ...local,
+      id: childId,
+      days: reclassifiedDays,
+      weights: mergeArrayByKey(local.weights, cloud.weights, w => w && (w.id || (w.date + "|" + w.kg))),
+      heights: mergeArrayByKey(local.heights, cloud.heights, h => h && (h.id || (h.date + "|" + h.cm))),
+      photos: mergeArrayByKey(local.photos, cloud.photos, p => p && (p.id || p.url || p.createdAt)),
+      milestones: {...(cloud.milestones || {}), ...(local.milestones || {})}
+    };
+  }
 	  async function _persistChildSyncCode(childId, code, childOverride) {
     const {serverTimestamp} = window._fb || {};
     const child = childOverride || childrenRef.current?.[childId] || children?.[childId] || {};
@@ -17760,6 +17992,7 @@ function App(){
 	    const writerUid = await ensureFirebaseUid(5000);
 	    if(!writerUid) return;
 	    try {
+      let childForCloud = child;
       // SAFETY: never overwrite cloud with fewer entries than it already has.
       // This prevents data loss from merge bugs, cache clears, or stale state.
       const localEntryCount = Object.values(child.days || {}).reduce((s, d) => s + (d ? d.length : 0), 0);
@@ -17777,21 +18010,23 @@ function App(){
             console.warn("[OBubba] pushChildSync BLOCKED: local has", localEntryCount, "entries vs cloud", cloudEntryCount, "— refusing to overwrite");
             return;
           }
+          childForCloud = mergeChildSyncCloudChildForPush(childId, childForCloud, cloudChild);
         }
       } catch(e2) { /* proceed if check fails */ }
 	      await fsSet("child_syncs", code, {
-	        child: JSON.stringify(child),
-	        childName: child.name || "",
+	        child: JSON.stringify(childForCloud),
+	        childName: childForCloud.name || child.name || "",
 	        isActive: true,
 		        updatedAt: serverTimestamp(),
 		        updatedBy: writerUid,
 		        writeToken: writeTokenRef.current
 		      }, true);
-	      queueSyncV2ChildShadow(code, childId, child, {
+	      queueSyncV2ChildShadow(code, childId, childForCloud, {
 	        ownerUid: writerUid,
 	        writeToken: writeTokenRef.current
 	      });
-	      try { await _persistChildSyncCode(childId, code, child); } catch {}
+	      queueSyncV2ChildReadShadowAudit(code, childId, childForCloud, "after-child-sync-write");
+	      try { await _persistChildSyncCode(childId, code, childForCloud); } catch {}
 	    } catch(e) { console.warn("pushChildSync error", e); }
 	  }
   const subscribeToChildSync = React.useCallback((childId, code) => {
@@ -17847,6 +18082,13 @@ function App(){
 	        if (Array.isArray(d.participants)) {
 	          setChildSyncParticipants(prev => ({...prev, [childId]: d.participants, [code]: d.participants}));
 	        }
+      } catch {}
+
+      try {
+        if(d.child) {
+          const shadowChild = normaliseChildrenPayload({[childId]: safeObjectPayload(d.child)})[childId] || null;
+          if(shadowChild) queueSyncV2ChildReadShadowAudit(code, childId, shadowChild, "child-sync-snapshot");
+        }
       } catch {}
 
       if(d.writeToken && d.writeToken === writeTokenRef.current) return;
@@ -39376,6 +39618,7 @@ function App(){
         </section>
       );
     }
+    if (!_recent) return null;
     return (
       <section data-testid="soft-sleep-resume-card" className={"ob-soft-sleep-card"+(opts.compact?" is-compact":"")}>
         <div className="ob-soft-sleep-icon"><BubbaIcon name="timer" size={22}/></div>

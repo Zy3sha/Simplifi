@@ -60,13 +60,21 @@ assert(
   app.includes('await fsSet("families", code, {') &&
     app.includes('children: JSON.stringify(cleanForCloud)') &&
     app.includes('await fsSet("child_syncs", code, {') &&
-    app.includes('child: JSON.stringify(child)')
+    app.includes('child: JSON.stringify(childForCloud)')
 );
 
 assert(
   "shadow writes are queued after legacy writes rather than replacing them",
   app.includes("queueSyncV2FamilyShadow(code, cleanForCloud") &&
-    app.includes("queueSyncV2ChildShadow(code, childId, child")
+    app.includes("queueSyncV2ChildShadow(code, childId, childForCloud")
+);
+
+assert(
+  "child sync legacy writes merge cloud days before overwrite",
+  app.includes("function mergeChildSyncCloudChildForPush") &&
+    app.includes('deletedDaysRef.current.has(childId + ":" + dayKey)') &&
+    app.includes("deletedEntryIdsRef.current.has(id)") &&
+    app.includes("childForCloud = mergeChildSyncCloudChildForPush(childId, childForCloud, cloudChild);")
 );
 
 assert(
@@ -100,7 +108,7 @@ assert(
     app.includes("function syncV2CompareChildRead") &&
     app.includes("syncV2Hash(syncV2ChildProfile(legacy, safeChildId))") &&
     app.includes("const expectedHash = syncV2Hash(expectedPayload)") &&
-    app.includes('queueSyncV2ChildReadShadowAudit(code, childId, child, "after-child-sync-write")') &&
+    app.includes('queueSyncV2ChildReadShadowAudit(code, childId, childForCloud, "after-child-sync-write")') &&
     app.includes('queueSyncV2ChildReadShadowAudit(code, childId, shadowChild, "child-sync-snapshot")') &&
     !app.includes("setChildren(syncV2")
 );
