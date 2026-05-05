@@ -16785,15 +16785,7 @@ function App(){
       if(_data.error) return snapErr(_data.error.message || _data.error.status, _status);
       const fields = _data.fields || {};
       const parsed = {};
-      for(const [k,v] of Object.entries(fields)) {
-        if(v.stringValue !== undefined) parsed[k] = v.stringValue;
-        else if(v.timestampValue !== undefined) parsed[k] = v.timestampValue;
-        else if(v.booleanValue !== undefined) parsed[k] = v.booleanValue;
-        else if(v.integerValue !== undefined) parsed[k] = parseInt(v.integerValue);
-        else if(v.nullValue !== undefined) parsed[k] = null;
-        else if(v.mapValue) parsed[k] = v.mapValue;
-        else parsed[k] = v;
-      }
+      for(const [k,v] of Object.entries(fields)) parsed[k] = syncV2PlainValue(v);
       return {exists:()=>true, data:()=>parsed};
     } catch(e) { return {exists:()=>false, data:()=>({}), error:true, message:e?.message||"Firestore read failed"}; }
   }

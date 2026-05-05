@@ -101,6 +101,13 @@ assert(
 );
 
 assert(
+  "rest firestore reads decode array fields for child sync participant checks",
+  app.includes("function syncV2PlainValue(value)") &&
+    app.includes("if(value.arrayValue) return Object.values(value.arrayValue.values || {}).map(syncV2PlainValue);") &&
+    app.includes("for(const [k,v] of Object.entries(fields)) parsed[k] = syncV2PlainValue(v);")
+);
+
+assert(
   "shadow writes are queued after legacy writes rather than replacing them",
   app.includes("queueSyncV2FamilyShadow(code, cleanForCloud") &&
     app.includes("queueSyncV2ChildShadow(code, childId, childForCloud")
