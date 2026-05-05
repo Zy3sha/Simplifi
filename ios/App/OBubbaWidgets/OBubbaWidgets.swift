@@ -256,6 +256,16 @@ private let brandMint    = Color(hex: "#6FA898")
 private let brandPurple  = Color(hex: "#8B7EC8")
 private let brandSky     = Color(hex: "#7AABC4")
 private let brandGold    = Color(hex: "#D4A855")
+private let appNightFaceTop = Color(hex: "#122741")
+private let appNightFaceBottom = Color(hex: "#081527")
+private let appNightFaceSoftTop = Color(hex: "#162D46")
+private let appNightFaceSoftBottom = Color(hex: "#0A192C")
+private let appNightText = Color(hex: "#F5F0F5")
+private let appNightWarmText = Color(hex: "#FFF4EA")
+private let appNightRimCream = Color(hex: "#FFD2A6")
+private let appNightRimOrange = Color(hex: "#FF8B56")
+private let appNightRimMilk = Color(hex: "#FFECD6")
+private let appNightRimHot = Color(hex: "#FF6C3E")
 private let lockNightA    = Color(hex: "#151B2A")
 private let lockNightB    = Color(hex: "#211827")
 private let lockCreamText = Color(hex: "#FFF0D6")
@@ -385,71 +395,113 @@ private struct WidgetGlassBackground: View {
     var body: some View {
         let theme = UserDefaults(suiteName: "group.com.obubba.app")?.string(forKey: "ob_widget_theme") ?? "auto"
         let isDark = theme == "dark" || (theme == "auto" && colorScheme == .dark)
-        let sheenStart = Color.white.opacity(isDark ? 0.52 : 0.72)
-        let sheenMid = Color.white.opacity(isDark ? 0.26 : 0.32)
-        let cornerGlow = (isDark ? Color(hex: "#F4FAFF") : Color(hex: "#DDF2FF")).opacity(isDark ? 0.34 : 0.34)
-        let violetGlow = brandPurple.opacity(isDark ? 0.22 : 0.09)
-        let blueGlow = Color(hex: "#BEE5FF").opacity(isDark ? 0.28 : 0.30)
-        let moonGlow = Color(hex: "#DCD2FF").opacity(isDark ? 0.18 : 0.0)
-        let lowerGlow = (isDark ? Color(hex: "#EAF6FF") : Color(hex: "#DCEFFF")).opacity(isDark ? 0.08 : 0.18)
 
-        ZStack {
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(.ultraThinMaterial)
-            widgetGlassBaseGradient(theme: theme, isDark: isDark)
-            RadialGradient(
-                colors: [cornerGlow, Color.clear],
-                center: .topLeading,
-                startRadius: 4,
-                endRadius: 230
-            )
-            RadialGradient(
-                colors: [blueGlow, Color.clear],
-                center: .topTrailing,
-                startRadius: 10,
-                endRadius: 220
-            )
-            RadialGradient(
-                colors: [violetGlow, Color.clear],
-                center: .bottomTrailing,
-                startRadius: 8,
-                endRadius: 210
-            )
-            if isDark {
+        if isDark {
+            ZStack {
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                appNightFaceTop.opacity(0.996),
+                                appNightFaceBottom.opacity(0.992)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
                 RadialGradient(
-                    colors: [moonGlow, Color.clear],
+                    colors: [appNightRimOrange.opacity(0.17), Color.clear],
                     center: .bottomLeading,
-                    startRadius: 14,
-                    endRadius: 190
+                    startRadius: 8,
+                    endRadius: 230
                 )
+                RadialGradient(
+                    colors: [brandPurple.opacity(0.14), Color.clear],
+                    center: .topTrailing,
+                    startRadius: 12,
+                    endRadius: 220
+                )
+                LinearGradient(
+                    colors: [appNightWarmText.opacity(0.10), Color.clear, appNightRimHot.opacity(0.06)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                appNightRimCream.opacity(0.76),
+                                appNightRimOrange.opacity(0.50),
+                                appNightRimMilk.opacity(0.18),
+                                appNightRimHot.opacity(0.28)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1.35
+                    )
+                RoundedRectangle(cornerRadius: 25, style: .continuous)
+                    .stroke(appNightWarmText.opacity(0.12), lineWidth: 0.7)
+                    .padding(1)
             }
-            LinearGradient(
-                colors: [sheenStart, sheenMid, Color.white.opacity(isDark ? 0.02 : 0.07), Color.clear],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            LinearGradient(
-                colors: [Color.clear, lowerGlow],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .stroke(
-                    LinearGradient(
-                        colors: [
-                            Color.white.opacity(isDark ? 0.62 : 0.82),
-                            Color(hex: "#B9DCFF").opacity(isDark ? 0.30 : 0.34),
-                            brandPurple.opacity(isDark ? 0.24 : 0.10)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    ),
-                    lineWidth: 0.9
+        } else {
+            let sheenStart = Color.white.opacity(0.72)
+            let sheenMid = Color.white.opacity(0.32)
+            let cornerGlow = Color(hex: "#DDF2FF").opacity(0.34)
+            let violetGlow = brandPurple.opacity(0.09)
+            let blueGlow = Color(hex: "#BEE5FF").opacity(0.30)
+            let lowerGlow = Color(hex: "#DCEFFF").opacity(0.18)
+
+            ZStack {
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .fill(.ultraThinMaterial)
+                widgetGlassBaseGradient(theme: theme, isDark: false)
+                RadialGradient(
+                    colors: [cornerGlow, Color.clear],
+                    center: .topLeading,
+                    startRadius: 4,
+                    endRadius: 230
                 )
-                .padding(0.5)
-            RoundedRectangle(cornerRadius: 25, style: .continuous)
-                .stroke(Color.black.opacity(isDark ? 0.10 : 0.018), lineWidth: 0.6)
-                .padding(1.2)
+                RadialGradient(
+                    colors: [blueGlow, Color.clear],
+                    center: .topTrailing,
+                    startRadius: 10,
+                    endRadius: 220
+                )
+                RadialGradient(
+                    colors: [violetGlow, Color.clear],
+                    center: .bottomTrailing,
+                    startRadius: 8,
+                    endRadius: 210
+                )
+                LinearGradient(
+                    colors: [sheenStart, sheenMid, Color.white.opacity(0.07), Color.clear],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                LinearGradient(
+                    colors: [Color.clear, lowerGlow],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color.white.opacity(0.82),
+                                Color(hex: "#B9DCFF").opacity(0.34),
+                                brandPurple.opacity(0.10)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 0.9
+                    )
+                    .padding(0.5)
+                RoundedRectangle(cornerRadius: 25, style: .continuous)
+                    .stroke(Color.black.opacity(0.018), lineWidth: 0.6)
+                    .padding(1.2)
+            }
         }
     }
 }
@@ -458,13 +510,11 @@ private func widgetGlassBaseGradient(theme: String, isDark: Bool) -> LinearGradi
     if isDark {
         return LinearGradient(
             colors: [
-                Color.white.opacity(0.32),
-                Color(hex: "#DDEBFF").opacity(0.18),
-                Color(hex: "#C9B8FF").opacity(0.12),
-                Color(hex: "#091225").opacity(0.24)
+                appNightFaceTop.opacity(0.996),
+                appNightFaceBottom.opacity(0.992)
             ],
-            startPoint: .topLeading,
-            endPoint: .bottomTrailing
+            startPoint: .top,
+            endPoint: .bottom
         )
     }
 
@@ -761,7 +811,6 @@ struct ActionBtn: View {
     var body: some View {
         let isDark = colorScheme == .dark || widgetThemePrefersDark()
         let dayBlueGlass = Color(hex: "#DFF3FF")
-        let nightGlass = Color(hex: "#EAF6FF")
 
         HStack(spacing: 6) {
             if let emoji = emoji {
@@ -775,17 +824,21 @@ struct ActionBtn: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.78)
         }
-        .foregroundColor(filled ? Color.white : color)
+        .foregroundColor(isDark ? (filled ? appNightWarmText : color) : (filled ? Color.white : color))
         .frame(maxWidth: .infinity)
         .frame(height: 40)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: filled
-                            ? [Color.white.opacity(isDark ? 0.46 : 0.18), color.opacity(isDark ? 0.54 : 0.76), color.opacity(isDark ? 0.30 : 0.56)]
-                            : isDark
-                                ? [Color.white.opacity(0.40), nightGlass.opacity(0.18), color.opacity(0.18)]
+                        colors: isDark
+                            ? [
+                                appNightFaceSoftTop.opacity(0.988),
+                                appNightFaceSoftBottom.opacity(0.982),
+                                color.opacity(filled ? 0.24 : 0.13)
+                            ]
+                            : filled
+                                ? [Color.white.opacity(0.18), color.opacity(0.76), color.opacity(0.56)]
                                 : [Color.white.opacity(0.62), dayBlueGlass.opacity(0.38), color.opacity(0.11)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -796,7 +849,7 @@ struct ActionBtn: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: [Color.white.opacity(isDark ? 0.18 : 0.34), Color.clear],
+                        colors: [(isDark ? appNightWarmText.opacity(0.12) : Color.white.opacity(0.34)), Color.clear],
                         startPoint: .topLeading,
                         endPoint: .center
                     )
@@ -807,9 +860,10 @@ struct ActionBtn: View {
                 .stroke(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(filled ? (isDark ? 0.46 : 0.62) : (isDark ? 0.48 : 0.78)),
-                            color.opacity(isDark ? 0.20 : 0.18),
-                            Color.white.opacity(isDark ? 0.10 : 0.38)
+                            (isDark ? appNightRimCream.opacity(0.42) : Color(hex: "#FFF0D6").opacity(filled ? 0.62 : 0.78)),
+                            (isDark ? appNightRimOrange.opacity(filled ? 0.34 : 0.24) : color.opacity(0.18)),
+                            (isDark ? appNightRimMilk.opacity(0.16) : Color.white.opacity(0.38)),
+                            (isDark ? appNightRimHot.opacity(0.18) : color.opacity(0.10))
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -817,9 +871,9 @@ struct ActionBtn: View {
                     lineWidth: 0.85
                 )
         )
-        .shadow(color: Color.black.opacity(isDark ? 0.10 : 0.065), radius: isDark ? 8 : 7, x: 0, y: isDark ? 4 : 4)
-        .shadow(color: (isDark ? Color(hex: "#DDEBFF") : Color(hex: "#8CCBFF")).opacity(isDark ? 0.20 : 0.15), radius: isDark ? 15 : 11, x: 0, y: isDark ? 2 : 3)
-        .shadow(color: color.opacity(isDark ? 0.12 : 0.08), radius: 9, x: 0, y: 3)
+        .shadow(color: Color.black.opacity(isDark ? 0.28 : 0.065), radius: isDark ? 9 : 7, x: 0, y: isDark ? 5 : 4)
+        .shadow(color: (isDark ? appNightRimHot : Color(hex: "#8CCBFF")).opacity(isDark ? 0.14 : 0.15), radius: isDark ? 12 : 11, x: 0, y: isDark ? 2 : 3)
+        .shadow(color: color.opacity(isDark ? 0.10 : 0.08), radius: 9, x: 0, y: 3)
     }
 }
 
@@ -941,9 +995,11 @@ struct BreastBtn: View {
                 .fill(
                     LinearGradient(
                         colors: isNext
-                            ? [brandRose.opacity(isDark ? 0.96 : 0.90), brandRose.opacity(isDark ? 0.74 : 0.68)]
+                            ? (isDark
+                                ? [appNightFaceSoftTop.opacity(0.988), appNightFaceSoftBottom.opacity(0.982), brandRose.opacity(0.24)]
+                                : [brandRose.opacity(0.90), brandRose.opacity(0.68)])
                             : isDark
-                                ? [Color.white.opacity(0.36), Color.white.opacity(0.20), brandRose.opacity(0.13)]
+                                ? [appNightFaceSoftTop.opacity(0.988), appNightFaceSoftBottom.opacity(0.982), brandRose.opacity(0.13)]
                                 : [Color.white.opacity(0.68), brandRose.opacity(0.12), Color.white.opacity(0.38)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -955,9 +1011,10 @@ struct BreastBtn: View {
                 .stroke(
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(isNext ? (isDark ? 0.52 : 0.32) : (isDark ? 0.56 : 0.62)),
-                            brandRose.opacity(isDark ? 0.26 : 0.20),
-                            Color.white.opacity(isDark ? 0.14 : 0.28)
+                            (isDark ? appNightRimCream.opacity(isNext ? 0.44 : 0.32) : Color.white.opacity(isNext ? 0.32 : 0.62)),
+                            (isDark ? appNightRimOrange.opacity(isNext ? 0.32 : 0.22) : brandRose.opacity(0.20)),
+                            (isDark ? appNightRimMilk.opacity(0.14) : Color.white.opacity(0.28)),
+                            (isDark ? appNightRimHot.opacity(0.16) : brandRose.opacity(0.08))
                         ],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -965,19 +1022,24 @@ struct BreastBtn: View {
                     lineWidth: 0.85
                 )
         )
-        .shadow(color: Color.black.opacity(isDark ? 0.22 : 0.06), radius: isDark ? 8 : 6, x: 0, y: isDark ? 5 : 3)
-        .shadow(color: brandRose.opacity(isDark ? 0.16 : 0.07), radius: 8, x: 0, y: 3)
+        .shadow(color: Color.black.opacity(isDark ? 0.28 : 0.06), radius: isDark ? 9 : 6, x: 0, y: isDark ? 5 : 3)
+        .shadow(color: appNightRimHot.opacity(isDark ? 0.12 : 0.0), radius: 10, x: 0, y: 3)
+        .shadow(color: brandRose.opacity(isDark ? 0.10 : 0.07), radius: 8, x: 0, y: 3)
     }
 }
 
 // Old small widget removed — new clean version below
 
 struct SmallMetric: View {
+    @Environment(\.colorScheme) private var colorScheme
+
     let value: String
     let label: String
     let color: Color
 
     var body: some View {
+        let isDark = colorScheme == .dark || widgetThemePrefersDark()
+
         VStack(spacing: 1) {
             Text(value)
                 .font(.system(size: 17, weight: .heavy, design: .rounded))
@@ -986,18 +1048,26 @@ struct SmallMetric: View {
                 .minimumScaleFactor(0.66)
             Text(label)
                 .font(.system(size: 7.8, weight: .heavy, design: .rounded))
-                .foregroundColor(brandDeep.opacity(0.44))
+                .foregroundColor(brandDeep.opacity(isDark ? 0.66 : 0.44))
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.white.opacity(0.46))
+                .fill(
+                    LinearGradient(
+                        colors: isDark
+                            ? [appNightFaceSoftTop.opacity(0.988), appNightFaceSoftBottom.opacity(0.982), color.opacity(0.13)]
+                            : [Color.white.opacity(0.46), Color.white.opacity(0.36)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    )
+                )
         )
         .overlay(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(Color.white.opacity(0.42), lineWidth: 0.7)
+                .stroke(isDark ? appNightRimCream.opacity(0.22) : Color.white.opacity(0.42), lineWidth: 0.7)
         )
     }
 }
@@ -1016,7 +1086,6 @@ struct MediumStatusPanel: View {
     var body: some View {
         let isDark = colorScheme == .dark || widgetThemePrefersDark()
         let glassBlue = Color(hex: "#DFF3FF")
-        let nightGlass = Color(hex: "#EAF6FF")
 
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 7) {
@@ -1032,7 +1101,7 @@ struct MediumStatusPanel: View {
                             )
                         )
                         .frame(width: 24, height: 24)
-                        .overlay(Circle().stroke(Color.white.opacity(isDark ? 0.44 : 0.72), lineWidth: 0.8))
+                        .overlay(Circle().stroke((isDark ? appNightRimCream.opacity(0.30) : Color.white.opacity(0.72)), lineWidth: 0.8))
                     Image(systemName: icon)
                         .font(.system(size: 10, weight: .heavy))
                         .foregroundColor(accent)
@@ -1041,13 +1110,13 @@ struct MediumStatusPanel: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(title)
                         .font(.system(size: 10, weight: .heavy, design: .rounded))
-                        .foregroundColor(accent)
+                        .foregroundColor(isDark ? appNightWarmText : accent)
                         .lineLimit(1)
                         .minimumScaleFactor(0.70)
                     if let detail, !detail.isEmpty {
                         Text(detail)
                             .font(.system(size: 8.2, weight: .semibold, design: .rounded))
-                            .foregroundColor(brandDeep.opacity(isDark ? 0.68 : 0.44))
+                            .foregroundColor((isDark ? appNightWarmText : brandDeep).opacity(isDark ? 0.70 : 0.44))
                             .lineLimit(1)
                             .minimumScaleFactor(0.72)
                     }
@@ -1075,7 +1144,7 @@ struct MediumStatusPanel: View {
                     .fill(
                         LinearGradient(
                             colors: isDark
-                                ? [Color.white.opacity(0.42), nightGlass.opacity(0.18), accent.opacity(0.14)]
+                                ? [appNightFaceSoftTop.opacity(0.988), appNightFaceSoftBottom.opacity(0.982), accent.opacity(0.13)]
                                 : [Color.white.opacity(0.62), glassBlue.opacity(0.38), accent.opacity(0.10)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -1085,7 +1154,7 @@ struct MediumStatusPanel: View {
                     .fill(
                         RadialGradient(
                             colors: [
-                                (isDark ? Color(hex: "#8EC7FF") : Color(hex: "#8BCBFF")).opacity(isDark ? 0.18 : 0.20),
+                                (isDark ? appNightRimOrange : Color(hex: "#8BCBFF")).opacity(isDark ? 0.12 : 0.20),
                                 Color.clear
                             ],
                             center: .topTrailing,
@@ -1099,7 +1168,7 @@ struct MediumStatusPanel: View {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(
                     LinearGradient(
-                        colors: [Color.white.opacity(isDark ? 0.15 : 0.20), Color.clear],
+                        colors: [(isDark ? appNightWarmText.opacity(0.10) : Color.white.opacity(0.20)), Color.clear],
                         startPoint: .topLeading,
                         endPoint: .center
                     )
@@ -1110,7 +1179,12 @@ struct MediumStatusPanel: View {
                 .stroke(
                     LinearGradient(
                         colors: isDark
-                            ? [Color.white.opacity(0.50), accent.opacity(0.24), Color.white.opacity(0.12)]
+                            ? [
+                                appNightRimCream.opacity(0.42),
+                                appNightRimOrange.opacity(0.28),
+                                appNightRimMilk.opacity(0.14),
+                                appNightRimHot.opacity(0.16)
+                            ]
                             : [Color.white.opacity(0.84), accent.opacity(0.20), Color.white.opacity(0.34)],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
@@ -1118,9 +1192,9 @@ struct MediumStatusPanel: View {
                     lineWidth: 0.9
                 )
         )
-        .shadow(color: Color.black.opacity(isDark ? 0.11 : 0.065), radius: isDark ? 10 : 8, x: 0, y: isDark ? 4 : 4)
-        .shadow(color: (isDark ? Color(hex: "#DDEBFF") : Color(hex: "#8CCBFF")).opacity(isDark ? 0.22 : 0.16), radius: isDark ? 16 : 12, x: 0, y: 3)
-        .shadow(color: accent.opacity(isDark ? 0.12 : 0.08), radius: 10, x: 0, y: 3)
+        .shadow(color: Color.black.opacity(isDark ? 0.30 : 0.065), radius: isDark ? 11 : 8, x: 0, y: isDark ? 5 : 4)
+        .shadow(color: (isDark ? appNightRimHot : Color(hex: "#8CCBFF")).opacity(isDark ? 0.14 : 0.16), radius: isDark ? 13 : 12, x: 0, y: 3)
+        .shadow(color: accent.opacity(isDark ? 0.10 : 0.08), radius: 10, x: 0, y: 3)
         .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
     }
 }
@@ -1176,7 +1250,7 @@ struct OBubbaSmallWidgetView: View {
         let isNightTheme = colorScheme == .dark || widgetThemePrefersDark()
         let panelGlass = LinearGradient(
             colors: isNightTheme
-                ? [Color.white.opacity(0.40), Color(hex: "#EAF6FF").opacity(0.18), Color(hex: "#8EC7FF").opacity(0.12)]
+                ? [Color(hex: "#182842").opacity(0.88), Color(hex: "#0D182B").opacity(0.92), Color(hex: "#FFD39A").opacity(0.10)]
                 : [Color.white.opacity(0.60), Color(hex: "#DFF3FF").opacity(0.34), Color.white.opacity(0.20)],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -1200,7 +1274,7 @@ struct OBubbaSmallWidgetView: View {
                     .foregroundColor(brandDeep.opacity(0.52))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Capsule().fill(Color.white.opacity(0.46)))
+                    .background(Capsule().fill(isNightTheme ? Color(hex: "#1A2942").opacity(0.82) : Color.white.opacity(0.46)))
             }
 
             if hasTimer, let startDate = d.timerStartDate {
@@ -1333,7 +1407,7 @@ struct OBubbaMediumWidgetView: View {
         let timerFontSize: CGFloat = showsBreastControls ? 17 : 19
         let predictionFontSize: CGFloat = showsBreastControls ? 16 : 18
         let isNightTheme = colorScheme == .dark || widgetThemePrefersDark()
-        let timerTextColor = isNightTheme ? Color(hex: "#F8EEF2") : brandDeep
+        let timerTextColor = isNightTheme ? appNightWarmText : brandDeep
 
         VStack(spacing: 8) {
 
@@ -1344,7 +1418,7 @@ struct OBubbaMediumWidgetView: View {
                         .font(.system(size: 15))
                     Text(d.babyName)
                         .font(.system(size: 17, weight: .bold, design: .rounded))
-                        .foregroundColor(brandDeep)
+                        .foregroundColor(isNightTheme ? appNightWarmText : brandDeep)
                         .lineLimit(1)
                         .minimumScaleFactor(0.72)
                 }

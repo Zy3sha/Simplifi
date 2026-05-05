@@ -6868,6 +6868,251 @@ body.dark-mode .ob-app-root .ob-quick-log-subtitle{
   color:rgba(255,255,255,0.66)!important;
 }
 
+/* Daylight premium v2 pass.
+   Day mode should feel as deliberately designed as night mode: pearl glass,
+   clearer ink, visible warm/cool rims, and physical separation from the page.
+   The small final lock at EOF keeps the one-tap log on the same material after
+   the joined-log layout pass. */
+body.light-mode,
+body:not(.dark-mode){
+  --bg-solid:#EDF7FA!important;
+  --bg-grad:linear-gradient(180deg,#E8F6FF 0%,#F7F2FF 34%,#FFF6F0 66%,#EEE0D9 100%)!important;
+  --card-bg:rgba(255,252,247,0.82)!important;
+  --card-bg-solid:rgba(255,253,249,0.94)!important;
+  --card-bg-alt:rgba(244,251,255,0.70)!important;
+  --card-border:rgba(139,189,208,0.46)!important;
+  --card-shadow:inset 0 1px 0 rgba(255,255,255,0.95),inset 0 -1px 0 rgba(142,102,112,0.08),0 20px 44px rgba(65,84,104,0.16),0 7px 18px rgba(178,86,118,0.10)!important;
+  --card-shadow-elevated:inset 0 1px 0 rgba(255,255,255,0.98),inset 0 -1px 0 rgba(142,102,112,0.10),0 28px 64px rgba(65,84,104,0.20),0 11px 28px rgba(178,86,118,0.12)!important;
+  --nav-bg:rgba(255,253,249,0.91)!important;
+  --nav-border:rgba(139,189,208,0.44)!important;
+  --nav-shadow:inset 0 1px 0 rgba(255,255,255,0.96),0 -18px 42px rgba(65,84,104,0.16),0 -6px 18px rgba(178,86,118,0.08)!important;
+  --ob-calm-tool-fill:rgba(255,253,249,0.58)!important;
+  --ob-calm-tool-active:rgba(255,255,255,0.96)!important;
+  --ob-calm-tool-border:rgba(139,189,208,0.44)!important;
+  --ob-calm-nav-fill:rgba(255,253,249,0.91)!important;
+  --ob-calm-nav-shadow:inset 0 1px 0 rgba(255,255,255,0.96),0 -18px 42px rgba(65,84,104,0.16)!important;
+  --ob-calm-icon-fill:rgba(232,248,255,0.86)!important;
+  --text-deep:#403640!important;
+  --text-mid:#665A66!important;
+  --text-lt:#897B87!important;
+  --ter:#B24F79!important;
+  --sky:#287EA8!important;
+  --mint:#3D8677!important;
+  --gold:#B57924!important;
+  --blush:#D8AFC1!important;
+  --rose:#C8779A!important;
+  --glass-blur:26px!important;
+  --glass-sat:1.55!important;
+}
+body.light-mode::before,
+body:not(.dark-mode)::before{
+  background:
+    linear-gradient(155deg,rgba(220,243,255,0.98) 0%,rgba(249,244,255,0.94) 32%,rgba(255,248,242,0.96) 62%,rgba(235,220,214,0.98) 100%)!important;
+}
+body.light-mode::after,
+body:not(.dark-mode)::after{
+  opacity:0.18!important;
+  background-image:
+    linear-gradient(105deg,transparent 0%,rgba(255,255,255,0.34) 18%,transparent 36%),
+    linear-gradient(180deg,rgba(255,255,255,0.20),transparent 52%)!important;
+}
+body.light-mode .ob-app-root,
+body:not(.dark-mode) .ob-app-root{
+  color:#403640!important;
+}
+body.light-mode .ob-top-shell,
+body:not(.dark-mode) .ob-top-shell{
+  background:linear-gradient(180deg,rgba(217,243,255,0.94),rgba(255,248,243,0.88))!important;
+  box-shadow:inset 0 -1px 0 rgba(139,189,208,0.32),0 10px 26px rgba(65,84,104,0.10)!important;
+}
+body.light-mode .ob-header-glass,
+body:not(.dark-mode) .ob-header-glass{
+  border:1.35px solid transparent!important;
+  background:
+    linear-gradient(180deg,rgba(255,255,255,0.76),rgba(247,251,255,0.56)) padding-box,
+    linear-gradient(135deg,rgba(120,186,214,0.70),rgba(205,126,164,0.34),rgba(111,168,152,0.30),rgba(255,255,255,0.62)) border-box!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.96),
+    inset 0 -1px 0 rgba(178,86,118,0.08),
+    0 12px 28px rgba(65,84,104,0.14),
+    0 5px 14px rgba(178,86,118,0.08)!important;
+}
+body.light-mode .ob-header-glass [data-testid="ob-header-brand-left"],
+body.light-mode .ob-header-glass [data-testid="ob-header-child-center"] > div:last-child > div:first-child,
+body:not(.dark-mode) .ob-header-glass [data-testid="ob-header-brand-left"],
+body:not(.dark-mode) .ob-header-glass [data-testid="ob-header-child-center"] > div:last-child > div:first-child{
+  color:#403640!important;
+  text-shadow:0 1px 0 rgba(255,255,255,0.72)!important;
+}
+body.light-mode .ob-header-glass [aria-label="Change baby photo"],
+body:not(.dark-mode) .ob-header-glass [aria-label="Change baby photo"]{
+  border-color:rgba(255,255,255,0.94)!important;
+  box-shadow:0 0 0 1px rgba(120,186,214,0.24),0 7px 16px rgba(65,84,104,0.16)!important;
+}
+body.light-mode .glass-card,
+body.light-mode .glass-entry,
+body.light-mode .ob-premium-tile,
+body.light-mode .ob-day-mode-switcher,
+body.light-mode .ob-quick-log-shell,
+body.light-mode div[role="navigation"][aria-label="Main navigation"],
+body:not(.dark-mode) .glass-card,
+body:not(.dark-mode) .glass-entry,
+body:not(.dark-mode) .ob-premium-tile,
+body:not(.dark-mode) .ob-day-mode-switcher,
+body:not(.dark-mode) .ob-quick-log-shell,
+body:not(.dark-mode) div[role="navigation"][aria-label="Main navigation"]{
+  border:1.35px solid transparent!important;
+  background:
+    linear-gradient(180deg,rgba(255,254,250,0.84),rgba(247,252,255,0.58)) padding-box,
+    linear-gradient(135deg,rgba(112,174,202,0.56),rgba(202,122,162,0.24),rgba(111,168,152,0.24),rgba(255,255,255,0.62)) border-box!important;
+  box-shadow:var(--card-shadow)!important;
+}
+body.light-mode .glass-card::before,
+body.light-mode .ob-premium-tile::before,
+body:not(.dark-mode) .glass-card::before,
+body:not(.dark-mode) .ob-premium-tile::before{
+  background:linear-gradient(180deg,rgba(255,255,255,0.60),rgba(255,255,255,0.11) 62%,transparent 100%)!important;
+  opacity:0.86!important;
+}
+body.light-mode .glass-card::after,
+body.light-mode .ob-premium-tile::after,
+body:not(.dark-mode) .glass-card::after,
+body:not(.dark-mode) .ob-premium-tile::after{
+  opacity:0.78!important;
+  background:linear-gradient(90deg,transparent,rgba(91,166,199,0.40),rgba(196,116,156,0.22),transparent)!important;
+}
+body.light-mode .ob-app-root .ob-hero,
+body.light-mode .ob-app-root [data-testid="today-hero"],
+body.light-mode .ob-app-root .ob-hero-mini,
+body:not(.dark-mode) .ob-app-root .ob-hero,
+body:not(.dark-mode) .ob-app-root [data-testid="today-hero"],
+body:not(.dark-mode) .ob-app-root .ob-hero-mini{
+  border:1.5px solid transparent!important;
+  background:
+    linear-gradient(180deg,rgba(255,254,250,0.88),rgba(241,250,255,0.66)) padding-box,
+    linear-gradient(135deg,rgba(80,156,190,0.68),rgba(198,105,151,0.32),rgba(72,148,130,0.24),rgba(255,255,255,0.66)) border-box!important;
+  box-shadow:var(--card-shadow-elevated)!important;
+}
+body.light-mode .ob-app-root div[style*="background: var(--card-bg)"][style*="border-radius"],
+body.light-mode .ob-app-root div[style*="background:var(--card-bg)"][style*="border-radius"],
+body.light-mode .ob-app-root div[style*="background: var(--card-bg-alt)"][style*="border-radius"],
+body.light-mode .ob-app-root div[style*="background:var(--card-bg-alt)"][style*="border-radius"],
+body:not(.dark-mode) .ob-app-root div[style*="background: var(--card-bg)"][style*="border-radius"],
+body:not(.dark-mode) .ob-app-root div[style*="background:var(--card-bg)"][style*="border-radius"],
+body:not(.dark-mode) .ob-app-root div[style*="background: var(--card-bg-alt)"][style*="border-radius"],
+body:not(.dark-mode) .ob-app-root div[style*="background:var(--card-bg-alt)"][style*="border-radius"]{
+  border-color:rgba(139,189,208,0.40)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.78),0 9px 20px rgba(65,84,104,0.10)!important;
+}
+body.light-mode .ob-app-root .ob-quick-log-shell,
+body:not(.dark-mode) .ob-app-root .ob-quick-log-shell{
+  padding:12px 10px 10px!important;
+  border-color:transparent!important;
+  background:
+    linear-gradient(180deg,rgba(255,254,250,0.86),rgba(245,251,255,0.60)) padding-box,
+    linear-gradient(135deg,rgba(112,174,202,0.54),rgba(202,122,162,0.22),rgba(111,168,152,0.22),rgba(255,255,255,0.60)) border-box!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.94),0 16px 34px rgba(65,84,104,0.14),0 6px 16px rgba(178,86,118,0.08)!important;
+}
+body.light-mode .ob-app-root .ob-quick-log-heading,
+body:not(.dark-mode) .ob-app-root .ob-quick-log-heading{
+  border-bottom-color:rgba(139,189,208,0.38)!important;
+}
+body.light-mode .ob-app-root .ob-quick-log-badge,
+body:not(.dark-mode) .ob-app-root .ob-quick-log-badge{
+  border-color:rgba(139,189,208,0.46)!important;
+  background:linear-gradient(180deg,rgba(255,255,255,0.88),rgba(231,248,255,0.58))!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.92),0 8px 18px rgba(65,84,104,0.12)!important;
+}
+body.light-mode .ob-app-root button.ob-quick-log-btn,
+body:not(.dark-mode) .ob-app-root button.ob-quick-log-btn{
+  border-color:rgba(139,189,208,0.42)!important;
+  background:linear-gradient(180deg,rgba(255,255,255,0.78),rgba(244,251,255,0.50))!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.86),0 8px 18px rgba(65,84,104,0.10)!important;
+}
+body.light-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"],
+body:not(.dark-mode) .ob-app-root div[role="navigation"][aria-label="Main navigation"]{
+  background:
+    linear-gradient(180deg,rgba(255,254,250,0.94),rgba(246,251,255,0.78)) padding-box,
+    linear-gradient(135deg,rgba(112,174,202,0.52),rgba(202,122,162,0.20),rgba(111,168,152,0.20),rgba(255,255,255,0.64)) border-box!important;
+  box-shadow:var(--nav-shadow)!important;
+}
+body.light-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"] button.ob-main-tab-btn,
+body:not(.dark-mode) .ob-app-root div[role="navigation"][aria-label="Main navigation"] button.ob-main-tab-btn{
+  --ob-nav-contour-core:rgba(70,156,196,0.74);
+  --ob-nav-contour-mid:rgba(70,156,196,0.28);
+  --ob-nav-contour-soft:rgba(202,122,162,0.13);
+  --ob-nav-contour-fill:rgba(230,248,255,0.30);
+  --ob-nav-contour-border:rgba(139,189,208,0.50);
+  --ob-nav-contour-glass:rgba(255,255,255,0.92);
+}
+body.light-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"] button.ob-main-tab-btn[aria-current="page"],
+body:not(.dark-mode) .ob-app-root div[role="navigation"][aria-label="Main navigation"] button.ob-main-tab-btn[aria-current="page"]{
+  background:linear-gradient(180deg,rgba(255,255,255,0.98),rgba(230,248,255,0.76))!important;
+  border-color:rgba(139,189,208,0.58)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.98),inset 0 -1px 0 rgba(202,122,162,0.10),0 9px 20px rgba(65,84,104,0.13)!important;
+}
+
+/* Night header polish.
+   Keep the compact header height, but stop it reading as a flat grey strip.
+   The header now has its own muted plum/navy glass with a rose-gold rim so it
+   feels designed, not washed over. */
+body.dark-mode .ob-app-root .ob-top-shell{
+  background:
+    radial-gradient(ellipse 96% 92% at 50% 105%,rgba(255,184,116,0.16),transparent 68%),
+    radial-gradient(ellipse 74% 88% at 0% 0%,rgba(162,132,220,0.15),transparent 64%),
+    radial-gradient(ellipse 64% 74% at 100% 8%,rgba(229,120,166,0.12),transparent 66%),
+    linear-gradient(180deg,rgba(18,18,42,0.99),rgba(12,21,42,0.97) 64%,rgba(8,18,34,0.96))!important;
+  box-shadow:inset 0 -1px 0 rgba(255,197,132,0.15)!important;
+}
+/* Header colour containment pass.
+   Keep the tinted header inside the top shell so it does not read as a wash
+   sitting behind the first card. */
+body.dark-mode .ob-app-root .ob-top-shell + .ob-main-content{
+  position:relative!important;
+  z-index:1!important;
+  background:var(--bg-grad)!important;
+}
+body.dark-mode .ob-app-root .ob-header-glass{
+  border:1.35px solid transparent!important;
+  background:
+    radial-gradient(ellipse 90% 72% at 50% 0%,rgba(255,221,184,0.10),transparent 64%) padding-box,
+    linear-gradient(180deg,rgba(43,31,60,0.97),rgba(17,25,48,0.94)) padding-box,
+    linear-gradient(135deg,rgba(255,221,168,0.46),rgba(232,142,178,0.30),rgba(139,177,226,0.16),rgba(255,139,86,0.24)) border-box!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,236,220,0.20),
+    inset 0 -1px 0 rgba(226,126,165,0.08),
+    0 0 0 0.5px rgba(255,174,116,0.10),
+    0 12px 26px rgba(0,0,0,0.30),
+    0 0 24px rgba(229,120,166,0.10),
+    0 0 22px rgba(255,158,92,0.08)!important;
+  backdrop-filter:blur(7px) saturate(1.13)!important;
+  -webkit-backdrop-filter:blur(7px) saturate(1.13)!important;
+}
+body.dark-mode .ob-app-root .ob-header-glass [data-testid="ob-header-brand-left"],
+body.dark-mode .ob-app-root .ob-header-glass [data-testid="ob-header-child-center"] > div:last-child > div:first-child{
+  color:#FFF4EA!important;
+  text-shadow:0 1px 0 rgba(0,0,0,0.18)!important;
+}
+body.dark-mode .ob-app-root .ob-header-glass [data-testid="ob-header-child-center"] > div:last-child > div:not(:first-child),
+body.dark-mode .ob-app-root .ob-header-glass [data-testid="ob-header-add-child-right"] button{
+  color:rgba(255,234,218,0.72)!important;
+}
+body.dark-mode .ob-app-root .ob-header-glass [aria-label="Change baby photo"]{
+  border-color:rgba(255,231,210,0.42)!important;
+  box-shadow:
+    0 0 0 1px rgba(255,165,98,0.08),
+    0 6px 14px rgba(0,0,0,0.25),
+    0 0 18px rgba(255,153,86,0.10)!important;
+}
+body.dark-mode .ob-app-root .ob-header-glass [data-testid="ob-header-add-child-right"] button{
+  border-color:rgba(255,216,176,0.22)!important;
+  background:linear-gradient(180deg,rgba(255,255,255,0.09),rgba(255,255,255,0.045))!important;
+}
+body.dark-mode .ob-app-root .ob-header-glass [data-testid="ob-header-add-child-right"] button span:last-child{
+  background:rgba(255,190,104,0.15)!important;
+  color:#FFE6C7!important;
+}
+
 /* Coming-up contextual action pass.
    Bedtime nudges belong with the next event, not as a separate card floating
    between Detailed Log and the timeline. */
@@ -8958,4 +9203,32 @@ body.dark-mode .ob-app-root .ob-quick-log-title{
 }
 body.dark-mode .ob-app-root .ob-quick-log-subtitle{
   color:rgba(255,255,255,0.66)!important;
+}
+
+/* Daylight premium v2 final lock.
+   The joined one-tap log pass is intentionally last for layout, so daylight
+   gets this small afterburner to keep the richer material on the visible tool. */
+body.light-mode .ob-app-root .ob-quick-log-shell,
+body:not(.dark-mode) .ob-app-root .ob-quick-log-shell{
+  border:1.35px solid transparent!important;
+  background:
+    linear-gradient(180deg,rgba(255,254,250,0.86),rgba(245,251,255,0.60)) padding-box,
+    linear-gradient(135deg,rgba(112,174,202,0.54),rgba(202,122,162,0.22),rgba(111,168,152,0.22),rgba(255,255,255,0.60)) border-box!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.94),0 16px 34px rgba(65,84,104,0.14),0 6px 16px rgba(178,86,118,0.08)!important;
+}
+body.light-mode .ob-app-root .ob-quick-log-heading,
+body:not(.dark-mode) .ob-app-root .ob-quick-log-heading{
+  border-bottom-color:rgba(139,189,208,0.38)!important;
+}
+body.light-mode .ob-app-root .ob-quick-log-badge,
+body:not(.dark-mode) .ob-app-root .ob-quick-log-badge{
+  border-color:rgba(139,189,208,0.46)!important;
+  background:linear-gradient(180deg,rgba(255,255,255,0.88),rgba(231,248,255,0.58))!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.92),0 8px 18px rgba(65,84,104,0.12)!important;
+}
+body.light-mode .ob-app-root button.ob-quick-log-btn,
+body:not(.dark-mode) .ob-app-root button.ob-quick-log-btn{
+  border-color:rgba(139,189,208,0.42)!important;
+  background:linear-gradient(180deg,rgba(255,255,255,0.78),rgba(244,251,255,0.50))!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.86),0 8px 18px rgba(65,84,104,0.10)!important;
 }

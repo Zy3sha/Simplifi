@@ -3167,6 +3167,15 @@ function allergensForWeaningEntry(entry) {
   return [...detected];
 }
 
+function normaliseSolidFoodLog(foodText) {
+  const food = safeTextPayload(foodText, "", 100).replace(/\s+/g, " ").trim();
+  return {
+    food,
+    note: food,
+    allergens: detectAllergens(food)
+  };
+}
+
 function getWeaningEvidenceFromLogs(weaningLog, daysObj) {
   const out = [];
   const seen = new Set();
@@ -8065,6 +8074,21 @@ function ChildSyncCard({ child, cid, code, isShared, participants, myUid, create
   const [showRegen, setShowRegen] = React.useState(false);
   const [regenCode, setRegenCode] = React.useState("");
   const [regenError, setRegenError] = React.useState("");
+  const childLabel = child.name || "your baby";
+  const inviteUrl = code ? buildChildSyncInviteUrl(code) : "";
+  const inviteQrUrl = inviteUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=190x190&data=${encodeURIComponent(inviteUrl)}&bgcolor=FFFCF9` : "";
+  const inviteText = code ? `I'm using OBubba to track ${child.name||"baby"}'s feeds, nappies and sleep.\n\nTap this invite link to join ${child.name||"baby"}'s tracker:\n${inviteUrl}\n\nIf OBubba asks for a code, use: ${code}` : "";
+
+  async function shareChildInvite() {
+    try{trackEvent&&trackEvent("partner_invite_tapped",{method:"native_share"});}catch{}
+    try {
+      if(window.Capacitor?.Plugins?.Share) {
+        await safeCapacitorShare(window.Capacitor.Plugins.Share, {title:`Track ${child.name||"baby"} with me`,text:inviteText,url:inviteUrl});
+      } else if(navigator.share) {
+        await safeNavigatorShare({title:`OBubba. join ${child.name||"baby"}'s tracker`,text:inviteText,url:inviteUrl});
+      } else if (safeCopyText) await safeCopyText(inviteText,"Copied to clipboard ✓");
+    } catch(_){}
+  }
 
   async function handleCreate() {
     setError("");
@@ -8112,6 +8136,32 @@ function ChildSyncCard({ child, cid, code, isShared, participants, myUid, create
       {/* ── Shared: show code + actions ── */}
       {isShared && (
         <>
+          <div data-testid="child-sync-invite-profile-card" style={{position:"relative",overflow:"hidden",background:"linear-gradient(145deg,#15132F 0%,#121B31 48%,#07101F 100%)",border:"1px solid rgba(225,158,132,0.36)",borderRadius:22,padding:"18px 16px 16px",marginBottom:10,boxShadow:"0 18px 46px rgba(7,12,28,0.34), inset 0 1px 0 rgba(255,255,255,0.08)",color:"#FFF8F1"}}>
+            <div aria-hidden="true" style={{position:"absolute",inset:"-35% -20% auto",height:180,background:"radial-gradient(circle at 50% 45%, rgba(159,137,255,0.28), transparent 62%)",pointerEvents:"none"}}/>
+            <div aria-hidden="true" style={{position:"absolute",left:22,top:18,width:4,height:26,borderRadius:99,background:"rgba(210,206,255,0.72)"}}/>
+            <div style={{position:"relative",display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
+              <OBubbaMascot type="happy" size={78} alt="OBubba" style={{flexShrink:0}}/>
+              <div style={{minWidth:0}}>
+                <div style={{fontSize:10,fontFamily:_fM,color:"rgba(202,237,255,0.78)",textTransform:"uppercase",letterSpacing:_ls08,fontWeight:800,marginBottom:4}}>Family invite</div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:800,lineHeight:1.08,color:"#FFF8F1",letterSpacing:0}}>Share {childLabel}'s OBubba profile</div>
+              </div>
+            </div>
+            <div style={{position:"relative",fontSize:13,color:"rgba(237,244,255,0.78)",lineHeight:1.48,marginBottom:14,fontWeight:650}}>Invite someone you trust to co-log feeds, naps, nappies and soothing notes for this child only.</div>
+            <div style={{position:"relative",display:"grid",gridTemplateColumns:"minmax(116px, 154px) 1fr",gap:14,alignItems:"center"}}>
+              <div style={{background:"#FFFCF9",borderRadius:18,padding:10,border:"1px solid rgba(255,255,255,0.75)",boxShadow:"0 0 0 7px rgba(129,118,215,0.16), 0 16px 34px rgba(0,0,0,0.26)"}}>
+                {inviteQrUrl ? (
+                  <img src={inviteQrUrl} alt="" style={{display:"block",width:"100%",aspectRatio:"1 / 1",objectFit:"cover",borderRadius:10}}/>
+                ) : (
+                  <div style={{width:"100%",aspectRatio:"1 / 1",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",color:C.lt,fontSize:12,fontWeight:800}}>QR</div>
+                )}
+              </div>
+              <div style={{minWidth:0}}>
+                <div style={{fontSize:11,color:"rgba(202,237,255,0.76)",fontFamily:_fM,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Scan or send</div>
+                <div style={{fontFamily:_fM,fontSize:21,fontWeight:800,color:"#F3C49E",letterSpacing:"0.16em",marginBottom:12,wordBreak:"break-word"}}>{code}</div>
+                <button onClick={shareChildInvite} style={{width:"100%",minHeight:42,borderRadius:99,border:"1px solid rgba(205,229,255,0.44)",background:"linear-gradient(135deg,#CDE9FF,#A798FF)",color:"#15132F",fontSize:14,fontWeight:900,fontFamily:_fI,cursor:_cP,boxShadow:"0 0 22px rgba(157,210,255,0.28)"}}>Send invite</button>
+              </div>
+            </div>
+          </div>
           <div style={{background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:10,padding:"10px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6,border:"1px solid var(--card-border)",boxShadow:"var(--card-shadow)"}}>
             <div>
               <div style={{fontSize:11,fontFamily:_fM,color:"var(--mint)",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>Sync code</div>
@@ -8131,16 +8181,7 @@ function ChildSyncCard({ child, cid, code, isShared, participants, myUid, create
                 ✉ Email
               </button>
               <button onClick={async()=>{
-                try{trackEvent&&trackEvent("partner_invite_tapped",{method:"native_share"});}catch{}
-                const inviteUrl = buildChildSyncInviteUrl(code);
-                const msg = `I'm using OBubba to track ${child.name||"baby"}'s feeds, nappies and sleep.\n\nTap this invite link to join ${child.name||"baby"}'s tracker:\n${inviteUrl}\n\nIf OBubba asks for a code, use: ${code}`;
-	                try {
-	                  if(window.Capacitor?.Plugins?.Share) {
-	                    await safeCapacitorShare(window.Capacitor.Plugins.Share, {title:`Track ${child.name||"baby"} with me`,text:msg,url:inviteUrl});
-	                  } else if(navigator.share) {
-	                    await safeNavigatorShare({title:`OBubba. join ${child.name||"baby"}'s tracker`,text:msg,url:inviteUrl});
-	                  } else if (safeCopyText) await safeCopyText(msg,"Copied to clipboard ✓");
-                } catch(_){}
+                await shareChildInvite();
               }} style={{padding:"6px 12px",borderRadius:99,border:`1px solid ${C.mint}`,background:"rgba(155,184,168,0.12)",fontSize:12,fontWeight:600,color:C.mint,cursor:_cP,fontFamily:_fI}}>
                 Share ↗
               </button>
@@ -13239,12 +13280,19 @@ function App(){
 		  const APP_TOUR_TARGETS = [
 		    ["simple-actions", "quick-log-row"],
 		    ["simple-detailed-log", "detail-log-grid"],
-		    ["tile-schedule", "nav-settings"]
+		    ["tile-schedule", "nav-settings"],
+		    ["family-hub", "nav-settings"]
 		  ];
 		  const DAY_TOUR_TARGETS = [
 		    ["today-hero"],
 		    ["quick-log-row", "simple-actions"],
 		    ["detail-log-grid", "tile-schedule"]
+		  ];
+		  const OB_APP_TOUR_JOURNEY = [
+		    { chapter:"Chapter 1", iconName:"sparkle", target:"One-tap log", title:"Log the moment", body:"Feed, breast, nappy, nap, crying and soothing sounds stay close to your thumb.\n\nTap now; tidy later." },
+		    { chapter:"Chapter 2", iconName:"log", target:"Detailed log", title:"See today clearly", body:"Your daily log, plans and tiny wins sit together, so the day feels less scattered." },
+		    { chapter:"Chapter 3", iconName:"timer", target:"Schedule Builder", title:"Shape the rhythm", body:"Schedule Builder helps you plan around real life without fighting your baby's cues." },
+		    { chapter:"Chapter 4", iconName:"care", target:"Family Hub", title:"Share the care", body:"Family Hub holds Share & Sync, Bubba Care, Save to Cloud, and Lock Bubba Care session when you need to close the carer portal." }
 		  ];
 
   const[childSyncCodes,setChildSyncCodes]=useState(()=>{
@@ -18658,6 +18706,9 @@ function App(){
       else if (activeTimer === "bed") timerLabel = bedPaused ? "Night wake" : "Sleeping";
       else if (activeTimer === "feed") timerLabel = activeSide ? "Nursing " + (activeSide === "left" ? "L" : "R") : "Nursing";
 
+      var widgetTheme = "auto";
+      try { widgetTheme = localStorage.getItem("ob_widget_theme") || "auto"; } catch(ex4) {}
+
       // Shape matches Swift WidgetData struct
 	      var _wetNappyCount = (nappies||[]).filter(function(n){return n && n.type === "poop" && isWetPoopType(n.poopType);}).length;
       var widgetData = {
@@ -18677,7 +18728,7 @@ function App(){
         nextPrediction: nextPrediction ? String(nextPrediction) : null,
         nextPredictionMs: nextPredictionMs ? parseFloat(nextPredictionMs) : null,
         nextPredictionLabel: nextPredictionLabel ? String(nextPredictionLabel) : null,
-        theme: "light",
+        theme: widgetTheme,
         updatedAt: Date.now(),
         // When bed timer is paused, don't show elapsed timer on widget (it would be wrong)
         activeTimer: (activeTimer && !(activeTimer === "bed" && bedPausedRef.current)) ? String(activeTimer) : null,
@@ -29403,9 +29454,9 @@ function App(){
     setLogPanel(panel);
   }
 
-  function syncBrandSolidFood(foodText, dateKey, opts) {
-    const _food = (foodText || "").trim();
-    if (!_food) return null;
+	  function syncBrandSolidFood(foodText, dateKey, opts) {
+	    const _food = (foodText || "").trim();
+	    if (!_food) return null;
     const _brandInfo = recogniseBabyFoodProduct(_food);
     if (!_brandInfo) return null;
     const _key = normaliseWeaningName(_brandInfo.displayName || _food);
@@ -29486,10 +29537,30 @@ function App(){
       source: "day_solids"
     }}));
 
-    return _brandInfo;
-  }
+	    return _brandInfo;
+	  }
 
-  // ── SECTION 6: NIGHT CLASSIFICATION ENGINE ──────────────────────────
+	  function startAllergenWatchFromSolidLog(entry) {
+	    if (!entry || entry.feedType !== "solids") return [];
+	    const _food = safeTextPayload(entry.food || entry.note, "", 100).replace(/\s+/g, " ").trim();
+	    if (!_food) return [];
+	    const _allergens = [
+	      ...new Set((Array.isArray(entry.allergens) && entry.allergens.length ? entry.allergens : detectAllergens(_food))
+	        .map(a => normaliseAllergenId(a))
+	        .filter(Boolean))
+	    ];
+	    if (!_allergens.length) return [];
+	    const _newAllergens = _allergens.filter(a => !allergenIntroduced(weaningEvidence || weaning || [], a));
+	    if (_newAllergens.length) {
+	      try {
+	        const _allergenTimer = normaliseAllergenTimerPayload({allergens:_newAllergens, food:_food, startMs:Date.now()});
+	        if (_allergenTimer) localStorage.setItem("ob_allergen_timer", JSON.stringify(_allergenTimer));
+	      } catch {}
+	    }
+	    return _newAllergens;
+	  }
+
+	  // ── SECTION 6: NIGHT CLASSIFICATION ENGINE ──────────────────────────
   // THE RULE. absolute, no exceptions:
   // Only feed and wake entries can ever be night:true.
   // An entry is night if and only if:
@@ -31585,10 +31656,13 @@ function App(){
       const _prev = parseInt(localStorage.getItem(_dLogKey) || "0", 10) || 0;
       localStorage.setItem(_dLogKey, String(_prev + 1));
     } catch {}
-    const _brandSolidInfo = (type === "feed" && data.feedType === "solids" && data.note && !data.skipWeaningMirror)
-      ? syncBrandSolidFood(data.note, _targetDay, {sourceEntryId: entryId, note: "Logged from Day solids"})
-      : null;
-    setDays(d=>{
+	    const _brandSolidInfo = (type === "feed" && data.feedType === "solids" && data.note && !data.skipWeaningMirror)
+	      ? syncBrandSolidFood(data.note, _targetDay, {sourceEntryId: entryId, note: "Logged from Day solids"})
+	      : null;
+	    const _newSolidAllergens = (type === "feed" && data.feedType === "solids" && !data.skipWeaningMirror)
+	      ? startAllergenWatchFromSolidLog(data)
+	      : [];
+	    setDays(d=>{
       const _dayArr = d[_targetDay]||[];
       // Auto-detect night mode: only flag as night if ENTRY TIME is after bedtime.
       // Strict filter: the "bedtime" must be a real bedtime (PM, h >= 12), not a
@@ -31645,9 +31719,10 @@ function App(){
     setLogPanel(null);
     haptic("medium")
 	    const label = type==="feed"?(data.feedType==="breast"?"🤱 Logged":data.feedType==="pump"?"🥛 Pump logged":data.feedType==="solids"?"🥣 Logged":"🍼 Logged"):type==="poop"?"💧💩 Logged":type==="wake"?"☀️ Logged":type==="nap"?"😴 Started":"✓ Logged";
-    const timeLabel = data.time ? " at "+fmt12(data.time) : "";
-    const _brandSolidMsg = _brandSolidInfo && _brandSolidInfo.cat !== "milk" ? " · added to Weaning" : "";
-	    showToast(label+timeLabel+_brandSolidMsg,5200,1,{label:"Undo",onClick:()=>undoLoggedAction(_undoAction)});
+	    const timeLabel = data.time ? " at "+fmt12(data.time) : "";
+	    const _brandSolidMsg = _brandSolidInfo && _brandSolidInfo.cat !== "milk" ? " · added to Weaning" : "";
+	    const _solidAllergenMsg = _newSolidAllergens.length ? " · allergen watch" : "";
+		    showToast(label+timeLabel+_brandSolidMsg+_solidAllergenMsg,5200,1,{label:"Undo",onClick:()=>undoLoggedAction(_undoAction)});
 
     // ═══ REAL-TIME NIGHT-WAKE ATTRIBUTION ═══
     // When a parent logs a night wake, immediately surface the likely cause
@@ -31860,7 +31935,7 @@ function App(){
       const pL=displayToMl(f.pumpL,FU), pR=displayToMl(f.pumpR,FU);
       quickAddLog("feed",{type:"feed",time:t,feedType:"pump",pumpL:pL,pumpR:pR,amount:pL+pR,note:f.note||""});
     } else {
-      quickAddLog("feed",{type:"feed",time:t,feedType:"solids",amount:0,note:f.note||""});
+      quickAddLog("feed",{type:"feed",time:t,feedType:"solids",amount:0,...normaliseSolidFoodLog(f.note)});
     }
   }
 
@@ -32009,6 +32084,8 @@ function App(){
       } else if(feedType==="pump"){
         const pL=Math.max(0,parseInt(form.pumpL)||0), pR=Math.max(0,parseInt(form.pumpR)||0);
         e={...e,type:"feed",time:formTime,amount:pL+pR,feedType:"pump",pumpL:pL,pumpR:pR,night:form.night==="yes"};
+      } else if(feedType==="solids"){
+        e={...e,type:"feed",time:formTime,amount:0,night:form.night==="yes",feedType:"solids",...normaliseSolidFoodLog(form.note)};
       } else {
         e={...e,type:"feed",time:formTime,amount:Math.max(0,displayToMl(form.amount,FU)),night:form.night==="yes",feedType:feedType};
       }
@@ -32126,12 +32203,15 @@ function App(){
     if (eType === "sleep" && !e.night && !editEntry && selDay === todayStr() && !_wakeEntry) {
       _postBedtimeFlow();
     }
-    if (eType === "feed" && e.feedType === "solids" && e.note) {
-      syncBrandSolidFood(e.note, selDay, {sourceEntryId: e.id, note: editEntry ? "Updated from Day solids" : "Logged from Day solids"});
-    }
-    setModal(null);setEditEntry(null);
-    showToast(editEntry ? "✓ Updated" : "✓ Logged", 1200, 1);
-  }
+	    if (eType === "feed" && e.feedType === "solids" && e.note) {
+	      syncBrandSolidFood(e.note, selDay, {sourceEntryId: e.id, note: editEntry ? "Updated from Day solids" : "Logged from Day solids"});
+	    }
+	    const _newEntrySolidAllergens = (!editEntry && eType === "feed" && e.feedType === "solids")
+	      ? startAllergenWatchFromSolidLog(e)
+	      : [];
+	    setModal(null);setEditEntry(null);
+	    showToast(_newEntrySolidAllergens.length ? "🛡️ Allergen logged. Watch for 2 hours" : (editEntry ? "✓ Updated" : "✓ Logged"), _newEntrySolidAllergens.length ? 4200 : 1200, _newEntrySolidAllergens.length ? 2 : 1);
+	  }
 
   // ═══ WHY IS MY BABY CRYING. helper ═══
   function getCryingAnalysis() {
@@ -40060,15 +40140,50 @@ function App(){
 	        .ob-tour-card>*{position:relative!important;z-index:1!important;}
 	        body.dark-mode .ob-tour-card{background:#111D31!important;background-color:#111D31!important;background-image:none!important;}
 	        body.dark-mode .ob-tour-card::before{background:#111D31!important;}
+	        .ob-tour-journey-sheet{position:relative;width:min(420px,calc(var(--ob-vw,100vw) - 24px));max-height:min(760px,calc(var(--ob-vh,100vh) - 32px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)));overflow:auto;-webkit-overflow-scrolling:touch;box-sizing:border-box;border-radius:30px;padding:18px 18px 16px;background:linear-gradient(152deg,#211D43 0%,#141B32 48%,#09101F 100%);border:1px solid rgba(224,158,132,.36);box-shadow:0 28px 80px rgba(3,8,18,.64),inset 0 1px 0 rgba(255,255,255,.08);color:#FFF8F1;text-align:left;}
+	        .ob-tour-journey-sheet::before{content:"";position:absolute;inset:-26% -18% auto;height:230px;background:radial-gradient(circle at 50% 42%,rgba(155,139,248,.34),transparent 64%);pointer-events:none;}
+	        .ob-tour-journey-handle{position:relative;width:58px;height:6px;border-radius:99px;background:rgba(211,208,255,.74);margin:0 auto 18px;box-shadow:0 0 20px rgba(178,171,255,.32);}
+	        .ob-tour-journey-hero{position:relative;text-align:center;margin-bottom:16px;}
+	        .ob-tour-journey-title{font-family:Georgia,serif;font-size:28px;font-weight:800;line-height:1.04;letter-spacing:0;color:#FFF8F1;margin:8px 0 8px;}
+	        .ob-tour-journey-copy{font-size:14px;line-height:1.5;color:rgba(235,243,255,.78);font-weight:650;margin:0 auto;max-width:330px;}
+	        .ob-tour-journey-list{position:relative;display:grid;gap:10px;margin:16px 0 14px;padding-left:20px;}
+	        .ob-tour-journey-list::before{content:"";position:absolute;left:8px;top:14px;bottom:14px;width:2px;border-radius:99px;background:linear-gradient(to bottom,#8B87FF,#8DD4FF 52%,rgba(243,196,158,.72));box-shadow:0 0 14px rgba(136,198,255,.34);}
+	        .ob-tour-journey-card{position:relative;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;border-radius:20px;padding:12px 12px;background:rgba(18,31,53,.76);border:1px solid rgba(149,184,221,.18);box-shadow:inset 0 1px 0 rgba(255,255,255,.05);}
+	        .ob-tour-journey-dot{position:absolute;left:-18px;top:17px;width:13px;height:13px;border-radius:50%;background:#121B32;border:2px solid #91C9FF;box-shadow:0 0 0 4px rgba(137,130,255,.16),0 0 16px rgba(145,201,255,.35);}
+	        .ob-tour-journey-icon{width:38px;height:38px;border-radius:15px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.09);box-shadow:inset 0 1px 0 rgba(255,255,255,.08);flex-shrink:0;}
+	        .ob-tour-journey-pill{display:inline-flex;align-items:center;border-radius:99px;padding:4px 10px;background:rgba(147,211,255,.12);color:#CDEEFF;font-size:11px;font-family:'DM Mono',monospace;font-weight:800;letter-spacing:.03em;margin-bottom:5px;}
+	        .ob-tour-journey-name{font-family:Georgia,serif;font-size:17px;font-weight:800;line-height:1.12;color:#FFF8F1;margin-bottom:3px;letter-spacing:0;}
+	        .ob-tour-journey-desc{font-size:12px;line-height:1.35;color:rgba(225,236,250,.72);font-weight:650;}
+	        .ob-tour-journey-chevron{color:rgba(255,248,241,.72);font-size:23px;line-height:1;}
+	        .ob-tour-journey-primary{width:100%;min-height:48px;border-radius:999px;border:1px solid rgba(205,229,255,.52);background:linear-gradient(135deg,#CDE9FF,#A798FF);color:#15132F;font-size:15px;font-weight:900;font-family:'DM Sans',sans-serif;box-shadow:0 0 24px rgba(157,210,255,.3);cursor:pointer;}
+	        .ob-tour-journey-secondary{width:100%;min-height:42px;margin-top:8px;border-radius:999px;border:1px solid rgba(255,248,241,.14);background:rgba(255,255,255,.06);color:rgba(255,248,241,.68);font-size:13px;font-weight:800;font-family:'DM Sans',sans-serif;cursor:pointer;}
+	        @media (max-width:390px){.ob-tour-journey-sheet{padding:16px 14px 14px;border-radius:26px}.ob-tour-journey-title{font-size:24px}.ob-tour-journey-card{grid-template-columns:1fr auto;padding:11px}.ob-tour-journey-icon{display:none}}
 	      `}</style>
 	      {showTutPrompt && (
-	        <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}} onClick={()=>{setShowTutPrompt(false);clearPendingAppTour(true);}}>
-	          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(30px) saturate(1.6)",WebkitBackdropFilter:"blur(30px) saturate(1.6)",borderRadius:24,padding:"28px 24px",maxWidth:340,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,0.4)",border:"1px solid var(--card-border)"}}>
-	            <div style={{fontSize:36,marginBottom:12}}>✨</div>
-	            <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:8}}>Want the quick tour?</div>
-		            <div style={{fontSize:14,color:C.mid,lineHeight:1.6,marginBottom:20}}>It highlights the buttons you need first: one-tap logging, Detailed log, Schedule Builder and Account for sharing.</div>
-	            <button onClick={()=>{setShowTutPrompt(false);clearPendingAppTour(false);setTab("day");setDaySubScreen(null);setTutStep(0);}} style={{width:"100%",padding:"13px",borderRadius:14,border:"none",background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:15,fontWeight:700,cursor:_cP,marginBottom:8,fontFamily:_fI}}>Show me around →</button>
-	            <button onClick={()=>{setShowTutPrompt(false);clearPendingAppTour(true);}} style={{width:"100%",padding:"11px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.lt,fontSize:13,fontWeight:600,cursor:_cP,fontFamily:_fI}}>Maybe later</button>
+	        <div style={{position:"fixed",inset:0,zIndex:9990,background:"rgba(3,7,18,0.78)",backdropFilter:"blur(10px)",WebkitBackdropFilter:"blur(10px)",display:"flex",alignItems:"center",justifyContent:"center",padding:"calc(env(safe-area-inset-top,0px) + 16px) 12px calc(env(safe-area-inset-bottom,0px) + 16px)"}} onClick={()=>{setShowTutPrompt(false);clearPendingAppTour(true);}}>
+	          <div className="ob-tour-journey-sheet" role="dialog" aria-modal="true" aria-label="OBubba app tour" onClick={e=>e.stopPropagation()}>
+	            <div className="ob-tour-journey-handle"/>
+	            <div className="ob-tour-journey-hero">
+	              <OBubbaMascot type="happy" size={96} alt="OBubba" style={{margin:"0 auto"}}/>
+	              <div className="ob-tour-journey-title">Your OBubba care journey</div>
+	              <p className="ob-tour-journey-copy">A quick tour of the bits that help when your hands are full, your brain is tired, and the day still needs a little shape.</p>
+	            </div>
+	            <div className="ob-tour-journey-list">
+	              {OB_APP_TOUR_JOURNEY.map((item,i)=>(
+	                <div className="ob-tour-journey-card" key={item.chapter}>
+	                  <span className="ob-tour-journey-dot" aria-hidden="true"/>
+	                  <div className="ob-tour-journey-icon"><BubbaIcon name={item.iconName} size={22}/></div>
+	                  <div>
+	                    <div className="ob-tour-journey-pill">{item.chapter}</div>
+	                    <div className="ob-tour-journey-name">{item.title}</div>
+	                    <div className="ob-tour-journey-desc">{item.target}</div>
+	                  </div>
+	                  <div className="ob-tour-journey-chevron" aria-hidden="true">›</div>
+	                </div>
+	              ))}
+	            </div>
+	            <button className="ob-tour-journey-primary" onClick={()=>{setShowTutPrompt(false);clearPendingAppTour(false);setTab("day");setDaySubScreen(null);setTutStep(0);}}>Start OBubba tour</button>
+	            <button className="ob-tour-journey-secondary" onClick={()=>{setShowTutPrompt(false);clearPendingAppTour(true);}}>Maybe later</button>
 	          </div>
 	        </div>
 	      )}
@@ -40145,11 +40260,7 @@ function App(){
 
             {tutStep >= 0 && (()=>{
 	        const _bn2 = babyName || "your baby";
-		        const TUT_STEPS = [
-		          { icon:"✨", title:"Start simple", body:"These are your no-pressure buttons.\n\nTap once to save. Add amounts, notes or edits later." },
-		          { icon:"📋", title:"Details stay tucked away", body:"This is where your day lives: your logs and today's plans." },
-		          { icon:"⏰", title:"Shape the day", body:"Schedule Builder helps when you need a specific schedule or if you want to plan for an event." },
-		        ];
+		        const TUT_STEPS = OB_APP_TOUR_JOURNEY;
 
         const dismissTutorial = () => {
           try{localStorage.setItem("tut_v2","1");}catch{}
@@ -40159,20 +40270,21 @@ function App(){
 	        const nextStep = () => {
 	          if (tutStep >= TUT_STEPS.length - 1) { dismissTutorial(); return; }
 	          const next = tutStep + 1;
-	          if (next >= 3) {
-	            try { setTab("day"); setDaySubScreen(null); } catch {}
-	            if (simpleStartActive) dismissSimpleStart();
-	          }
-	          setTutStep(next);
+	          goTourStep(next);
 	        };
-	        const jumpStep = (i) => {
+	        const goTourStep = (i) => {
 	          if (i >= 3) {
-	            try { setTab("day"); setDaySubScreen(null); } catch {}
+	            try { setTab("settings"); setDaySubScreen(null); } catch {}
 	            if (simpleStartActive) dismissSimpleStart();
+	          } else {
+	            try { setTab("day"); setDaySubScreen(null); } catch {}
 	          }
 	          setTutStep(i);
 	        };
-	        const prevStep = () => { if (tutStep > 0) setTutStep(s => s-1); };
+	        const jumpStep = (i) => {
+	          goTourStep(i);
+	        };
+	        const prevStep = () => { if (tutStep > 0) goTourStep(tutStep - 1); };
 
         const step = TUT_STEPS[tutStep];
         const isLast = tutStep === TUT_STEPS.length - 1;
@@ -40224,19 +40336,19 @@ function App(){
             }}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
                 <div data-testid="tour-step-label" style={{display:"inline-flex",alignItems:"center",gap:6,borderRadius:99,padding:"5px 10px",background:locBg,color:locText,fontSize:12,fontWeight:800,fontFamily:_fI}}>
-                  Step {tutStep + 1} of {TUT_STEPS.length}
+                  {step.chapter} · Step {tutStep + 1} of {TUT_STEPS.length}
                 </div>
                 <button onClick={dismissTutorial} aria-label="Close" style={{background:_bN,border:_bN,color:locText,fontSize:19,cursor:_cP,padding:"10px 12px",lineHeight:1,flexShrink:0,minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>✕</button>
               </div>
               <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:12}}>
                 <div style={_S.flexCenter10}>
-                  <div style={{width:40,height:40,borderRadius:14,background:iconBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:21,flexShrink:0}}>{step.icon}</div>
+                  <div style={{width:40,height:40,borderRadius:14,background:iconBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:21,flexShrink:0}}>{step.iconName ? <BubbaIcon name={step.iconName} size={22}/> : step.icon}</div>
                   <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:800,color:cardText,lineHeight:1.15,letterSpacing:0}}>{step.title}</div>
                 </div>
               </div>
-              {step.location && (
+              {(step.location || step.target) && (
                 <div style={{display:"inline-flex",alignItems:"center",gap:5,background:locBg,borderRadius:99,padding:"4px 12px",marginBottom:10,fontSize:12,color:locText,fontFamily:_fM}}>
-                  📍 {step.location}
+                  {step.location || step.target}
                 </div>
               )}
 
@@ -40257,7 +40369,7 @@ function App(){
                   </button>
                 )}
                 <button onClick={nextStep} style={{flex:2,minHeight:44,padding:"10px",borderRadius:14,border:"1.5px solid rgba(201,112,90,0.35)",background:"var(--card-bg)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",color:C.ter,fontSize:16,fontWeight:900,cursor:_cP,fontFamily:_fI,boxShadow:"inset 0 0 8px rgba(201,112,90,0.15), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 6px rgba(201,112,90,0.20), 0 0 14px rgba(201,112,90,0.12)"}}>
-                  {isLast ? "🎉 Start Tracking!" : "Next →"}
+                  {isLast ? "All set" : "Next →"}
                 </button>
               </div>
 
@@ -41557,12 +41669,13 @@ function App(){
 		                    {icon:"nappy",displayIcon:"💩",label:"Nappy",longAction:()=>openLogPanel("nappy"),action:()=>(logForAll?quickAddLogForAll:quickAddLog)("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""})},
 		                    {icon:"nap",label:napOn?"Stop":"Nap",longAction:napOn?()=>{showConfirm("Discard nap attempt?",(babyName||"Baby")+" didn't actually settle? Discarding won't save any nap minutes, so today's predictions stay clean.",()=>{cancelNap();setConfirmDialog(null);},"Discard");}:()=>{setShowNapStartPicker(true);setNapCustomStart(nowTime());},action:()=>{if(napOn){endNap();}else{startNap();}}},
 		                  ];
-		                  const _extraQuickLogActions = [
-			                    {icon:"pump",label:"Pump",longAction:()=>openLogPanel("pump"),action:()=>(logForAll?quickAddLogForAll:quickAddLog)("feed",{type:"feed",time:nowTime(),feedType:"pump",pumpL:0,pumpR:0,amount:0,pumpDuration:0,night:false,note:""})},
-			                  ];
-			                  const _canFitExtraQuickLog = (()=>{try{return !(document.body&&document.body.hasAttribute("data-screen-compact"));}catch{return true;}})();
-			                  const _defaultQuickLogExtras = _canFitExtraQuickLog ? _extraQuickLogActions.slice(0,1) : [];
-			                  const _quickLogActions = [..._mainQuickLogActions, ..._defaultQuickLogExtras];
+			                  const _extraQuickLogActions = [
+				                    {icon:"pump",label:"Pump",longAction:()=>openLogPanel("pump"),action:()=>(logForAll?quickAddLogForAll:quickAddLog)("feed",{type:"feed",time:nowTime(),feedType:"pump",pumpL:0,pumpR:0,amount:0,pumpDuration:0,night:false,note:""})},
+				                    {icon:"crying",label:"Crying",action:()=>{haptic();setShowCryingHelper(true);}},
+				                    {icon:"sounds",label:soundPlaying?"Playing":"Sounds",action:()=>{haptic();setShowSoundMachine(true);}},
+				                  ];
+				                  const _defaultQuickLogExtras = _extraQuickLogActions;
+				                  const _quickLogActions = [..._mainQuickLogActions, ..._defaultQuickLogExtras];
 		                  return _quickLogActions.map(({icon,displayIcon,label,action,longAction})=>{
 	                  return (
 	                  <button key={label}
@@ -47097,8 +47210,10 @@ function App(){
                     // Also suppress notes that just describe the nappy type
                     subDetail=null;
                   }
-                  if(e.note&&!subDetail&&e.type!=="poop") subDetail=e.note;
-                  else if(e.note&&subDetail&&e.type!=="nap") subDetail+=` · ${e.note}`;
+                  const noteDetail = String(e.note||"").trim();
+                  const subDetailText = String(subDetail||"").trim();
+                  if(noteDetail&&!subDetail&&e.type!=="poop") subDetail=noteDetail;
+                  else if(noteDetail&&subDetail&&e.type!=="nap"&&normaliseWeaningName(noteDetail)!==normaliseWeaningName(subDetailText)) subDetail+=` · ${noteDetail}`;
 
                   // Badge chip value (right side). show key metric only, no time duplication
                   let badgeVal = null;
@@ -53050,34 +53165,6 @@ function App(){
                         )}
                       </div>
                     </div>
-
-                    <div style={{marginTop:16}}>
-                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                        <div style={{fontSize:12,fontFamily:_fM,color:C.mid,textTransform:"uppercase",letterSpacing:_ls1,fontWeight:800}}>Logged teeth</div>
-                      </div>
-                      {teething.length === 0 ? (
-                        <div style={{background:"var(--card-bg-alt)",border:`1px dashed ${C.blush}`,borderRadius:14,padding:"16px",textAlign:"center"}}>
-                          <div style={{fontSize:24,marginBottom:6}}>🦷</div>
-                          <div style={{fontSize:13,color:C.mid,fontWeight:700}}>No teeth logged yet</div>
-                          <div style={{fontSize:12,color:C.mid,marginTop:2}}>Tap + Log tooth or tap a tooth on the chart above.</div>
-                        </div>
-                      ) : (
-                        <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,borderRadius:14,padding:"14px 16px",overflow:"hidden",boxSizing:_bBB}}>
-                          <div style={{fontSize:13,fontWeight:800,color:C.deep,marginBottom:8}}>🦷 {teething.length} {teething.length===1?"tooth":"teeth"} logged</div>
-                          <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                            {[...teething].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5).map((t,i)=>(
-                              <div key={t.id || `${t.tooth}-${t.date}-${i}`} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) 36px",alignItems:"center",columnGap:10,padding:"8px 0",borderTop:i?`1px solid ${C.blush}`:"none"}}>
-                                <div style={{minWidth:0,paddingRight:4}}>
-                                  <div style={{fontSize:13,fontWeight:700,color:C.deep,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{toothLabel(t.tooth)||"Tooth "+(i+1)}</div>
-                                  <div style={{fontSize:12,color:C.mid,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{fmtDate(t.date)}{t.symptoms&&t.symptoms.length?`. ${t.symptoms.join(", ")}`:""}</div>
-                                </div>
-                                <button onClick={()=>setTeething(prev=>prev.filter(x=>x.id ? x.id!==t.id : x!==t))} aria-label={`Delete ${toothLabel(t.tooth)||"tooth"}`} style={{width:32,height:32,minWidth:32,justifySelf:"end",display:"inline-flex",alignItems:"center",justifyContent:"center",borderRadius:"50%",border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",boxSizing:_bBB,fontSize:16,lineHeight:1,color:C.mid,cursor:_cP,padding:0,appearance:"none",WebkitAppearance:"none",touchAction:"manipulation"}}>×</button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
                     </>
                   );
                 })()}
@@ -53285,7 +53372,7 @@ function App(){
 	            <div className="ob-premium-kicker" style={{margin:0,minWidth:0}}>Family & sharing</div>
 	            <div style={{fontSize:10,color:C.lt,fontFamily:_fM,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:"44%",minWidth:0,textAlign:"right"}}>sync, carers</div>
 	          </div>
-	          <div className="glass-card" style={{padding:"14px",marginBottom:12}}>
+          <div className="glass-card" data-tour-id="family-hub" style={{padding:"14px",marginBottom:12}}>
 	            <div className="ob-premium-kicker" style={{marginBottom:10}}>Family hub</div>
             <div style={_S.grid2}>
               <button onClick={()=>setShowFamilyModal(true)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"14px 8px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"center"}}>
@@ -53298,6 +53385,19 @@ function App(){
                 <div style={{fontSize:12,fontWeight:700,color:C.deep}}>Bubba Care</div>
                 <div style={{fontSize:10,color:C.lt}}>Share routine</div>
               </button>
+              {backupCode && (!carerSessionEnded ? (
+                <button onClick={()=>{haptic();showConfirm("Lock Bubba Care Session","This will lock the Bubba Care portal. Your carer won't be able to log any more entries.",()=>{endCarerSession();setConfirmDialog(null);},"Lock session");}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"14px 8px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"center"}}>
+                  <span style={{fontSize:24,lineHeight:1}}>🔒</span>
+                  <div style={{fontSize:11.5,fontWeight:700,color:C.deep,lineHeight:1.15}}>Lock Bubba Care session</div>
+                  <div style={{fontSize:10,color:C.lt}}>Lock portal</div>
+                </button>
+              ) : (
+                <button onClick={()=>{haptic();restartCarerSession();}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"14px 8px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"center"}}>
+                  <span style={{fontSize:24,lineHeight:1}}>🔓</span>
+                  <div style={{fontSize:12,fontWeight:700,color:C.deep}}>Reopen Session</div>
+                  <div style={{fontSize:10,color:C.lt}}>Open portal</div>
+                </button>
+              ))}
               {backupCode && (
                 <button onClick={()=>{
                   const tot=Object.values(children).reduce((s,c)=>s+Object.values(c.days||{}).reduce((s2,arr)=>s2+(arr||[]).length,0),0);
@@ -53326,27 +53426,6 @@ function App(){
                 </button>
               )}
             </div>
-            {backupCode&&(
-              <div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${C.blush}`,display:"grid",gap:8}}>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
-                  <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,whiteSpace:"nowrap"}}>Bubba Care session</div>
-                  <div style={{fontSize:10,color:carerSessionEnded?C.gold:C.mint,fontWeight:800}}>{carerSessionEnded?"Locked":"Open"}</div>
-                </div>
-                <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr)",gap:8,width:"100%"}}>
-                  {!carerSessionEnded ? (
-                    <button onClick={()=>{haptic();showConfirm("End Carer Session","This will lock the Bubba Care portal. Your carer won't be able to log any more entries.",()=>{endCarerSession();setConfirmDialog(null);},"End Session");}} style={{minWidth:0,display:"inline-flex",alignItems:"center",justifyContent:"center",gap:6,padding:"8px 10px",borderRadius:99,border:"1px solid rgba(224,96,112,0.18)",background:"rgba(224,96,112,0.04)",color:C.deep,cursor:_cP,fontFamily:_fI,fontSize:11,fontWeight:700,whiteSpace:"nowrap",lineHeight:1.1}}>
-                      <BubbaIcon name="check" size={15}/>
-                      End session
-                    </button>
-                  ) : (
-                    <button onClick={()=>{haptic();restartCarerSession();}} style={{minWidth:0,display:"inline-flex",alignItems:"center",justifyContent:"center",gap:6,padding:"8px 10px",borderRadius:99,border:"1px solid rgba(155,184,168,0.24)",background:"rgba(155,184,168,0.06)",color:C.deep,cursor:_cP,fontFamily:_fI,fontSize:11,fontWeight:700,whiteSpace:"nowrap",lineHeight:1.1}}>
-                      <span style={{fontSize:13}}>🔓</span>
-                      Reopen session
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
 
 	          {/* ═══ 3. GUIDES ═══ */}
@@ -56639,7 +56718,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               if(!weaningStarted){try{localStorage.setItem("weaning_started_"+resolvedActiveId,"1");}catch{}setWeaningStarted(true);}
               // Also add to today's log as a solids feed entry (only if logging for today, not historical catch-up)
               if (!_editId && _wDate === todayStr()) {
-                quickAddLog("feed",{type:"feed",feedType:"solids",time:_wTime,note:_foodTrim,skipWeaningMirror:true});
+                quickAddLog("feed",{type:"feed",feedType:"solids",time:_wTime,...normaliseSolidFoodLog(_foodTrim),skipWeaningMirror:true});
               }
               if (_recognisedBrandFood) {
 	                setWeanWeekRecipes(prev => {

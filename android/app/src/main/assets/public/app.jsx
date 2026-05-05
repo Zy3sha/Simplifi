@@ -1070,6 +1070,7 @@ function appointmentSortKey(appt) {
   return safeAppt ? safeAppt.date + (safeAppt.time || "00:00") : "9999-99-9999:99";
 }
 const DAILY_LOG_REMINDER_KEY = "ob_daily_log_reminder_v1";
+const DAILY_LOG_REMINDER_PROMPT_KEY = "ob_daily_log_reminder_prompt_v1";
 const DAILY_LOG_REMINDER_DEFAULT_TIME = "08:00";
 const DAILY_LOG_REMINDER_DEFAULT_MESSAGE = "Good morning, don't forget to start your day with OBubba.";
 function normaliseDailyLogReminder(value) {
@@ -1662,6 +1663,216 @@ var findBedtime = function(entries) {
   return best;
 };
 
+// SleepTransitionInsight:
+// { type, title, body, why, confidence, primaryAction, secondaryAction, payload }
+function detectSleepTransitionInsight(opts = {}) {
+  const days = opts.days || {};
+  const dayKey = safeDateKey(opts.dayKey);
+  if (!dayKey) return null;
+  const entries = Array.isArray(days[dayKey]) ? days[dayKey].filter(Boolean) : [];
+  if (!entries.length) return null;
+  const sorted = entries.slice().sort((a,b)=>entryClockSortMins(a, 1440) - entryClockSortMins(b, 1440));
+  const morningWake = findMorningWake(sorted);
+  if (!morningWake || !morningWake.time) return null;
+  const wakeMins = clockMins(morningWake.time);
+  if (wakeMins === null) return null;
+  const firstNap = sorted.find(e => {
+    if (!isValidCompletedNap(e)) return false;
+    const startMins = clockMins(e.start);
+    return startMins !== null && startMins > wakeMins;
+  });
+  if (!firstNap || !firstNap.start || !firstNap.end) return null;
+  const napStartMins = clockMins(firstNap.start);
+  const napEndMins = clockMins(firstNap.end);
+  if (napStartMins === null || napEndMins === null) return null;
+  const gapMin = napStartMins - wakeMins;
+  if (gapMin < 10 || gapMin > 60) return null;
+  const priorNaps = sorted.filter(e => isValidCompletedNap(e) && clockMins(e.start) !== null && clockMins(e.start) < napStartMins);
+  if (priorNaps.length) return null;
+  const _ww = opts.wakeWindow || getBaseWakeWindow(opts.ageWeeks);
+  if (_ww && gapMin >= Math.max(75, _ww.min - 15)) return null;
+  const careTypes = {feed:true, poop:true, solids:true, meal:true, medicine:true, med:true, temp:true, activity:true, activities:true, tummy:true, crying:true, voice:true};
+  const hasCareBetween = sorted.some(e => {
+    if (!e || e.id === morningWake.id || e.id === firstNap.id) return false;
+    if (!careTypes[e.type]) return false;
+    const mins = clockMins(e.time || e.start);
+    return mins !== null && mins > wakeMins && mins < napStartMins;
+  });
+  const prevDay = prevDayStr(dayKey);
+  const hadBedtimeAnchor = !!(prevDay && findBedtime(days[prevDay] || []));
+  const napDurationMin = minDiff(firstNap.start, firstNap.end);
+  if (!Number.isFinite(napDurationMin) || napDurationMin < 10) return null;
+  const name = safeChildName(opts.babyName) || "Baby";
+  const dismissKey = "ob_sleep_transition_seen_" + safeStorageToken(opts.childId, "child") + "_" + dayKey + "_" + safeStorageToken(morningWake.id || morningWake.time, "wake") + "_" + safeStorageToken(firstNap.id || firstNap.start, "nap");
+  const basePayload = {
+    dayKey,
+    wakeId: morningWake.id || "",
+    napId: firstNap.id || "",
+    wakeTime: morningWake.time,
+    napStart: firstNap.start,
+    finalWakeTime: firstNap.end,
+    gapMin,
+    napDurationMin,
+    hasCareBetween,
+    hadBedtimeAnchor
+  };
+  if (hasCareBetween) {
+    return {
+      type: "short_first_wake_window",
+      title: "That first wake window was tiny",
+      body: name + " was awake for about " + gapMin + " min before sleeping again. Because there was a feed, nappy or activity in between, OBubba will keep this as Nap 1 for now and just watch the pattern.",
+      why: "If this happens again without much care in between, it may be a morning resettle rather than a daytime nap.",
+      confidence: "medium",
+      primaryAction: null,
+      secondaryAction: {label:"Got it"},
+      payload: basePayload,
+      dismissKey
+    };
+  }
+  return {
+    type: "morning_resettle",
+    title: "Looks like a little morning resettle",
+    body: name + " woke happily, stayed calm, then drifted back off after " + gapMin + " min. That can happen when there is still sleep pressure or sleep debt from the night. This may be the end of night sleep, not Nap 1.",
+    why: "OBubba can move morning wake to " + fmt12(firstNap.end) + " and keep that first stretch out of daytime nap totals.",
+    confidence: hadBedtimeAnchor ? "high" : "medium",
+    primaryAction: {label:"Treat as final morning wake"},
+    secondaryAction: {label:"Keep as nap"},
+    payload: basePayload,
+    dismissKey
+  };
+}
+
+function sleepInterpreterDaySleepTarget(ageWeeks) {
+  const months = typeof ageWeeks === "number" && Number.isFinite(ageWeeks) ? ageWeeks / 4.33 : 6;
+  if (months < 3) return 300;
+  if (months < 5) return 255;
+  if (months < 8) return 210;
+  if (months < 12) return 180;
+  if (months < 18) return 150;
+  return 120;
+}
+
+function sleepInterpreterDismissKey(type, childId, dayKey, extra) {
+  return "ob_sleep_interpreter_seen_" + safeStorageToken(childId, "child") + "_" + safeStorageToken(type, "sleep") + "_" + safeDateKey(dayKey) + (extra ? "_" + safeStorageToken(extra, "x", 48) : "");
+}
+
+function clampInsightCopy(text, max = 230) {
+  const raw = String(text || "").replace(/\s+/g, " ").trim();
+  return raw.length > max ? raw.slice(0, max - 1).trim() + "…" : raw;
+}
+
+// OBubba sleep interpreter layer. This sits above the maths engine: it reads
+// wake windows, naps and night patterns, then offers one gentle next step.
+function detectSleepInterpreterInsight(opts = {}) {
+  const days = opts.days || {};
+  const dayKey = safeDateKey(opts.dayKey);
+  if (!dayKey) return null;
+  const entries = Array.isArray(days[dayKey]) ? days[dayKey].filter(Boolean) : [];
+  if (!entries.length) return null;
+  if (opts.sleepActive) return null;
+  const ageWeeks = Number.isFinite(opts.ageWeeks) ? opts.ageWeeks : null;
+  const ww = opts.wakeWindow || getBaseWakeWindow(ageWeeks);
+  const name = safeChildName(opts.babyName) || "Baby";
+  const nowMins = Number.isFinite(opts.nowMins) ? opts.nowMins : clockMins(nowTime());
+  if (nowMins === null) return null;
+  const sorted = entries.slice().sort((a,b)=>entryClockSortMins(a, 1440) - entryClockSortMins(b, 1440));
+  const bedtimeLogged = !!findBedtime(sorted);
+  const wake = findMorningWake(sorted);
+  const wakeMins = wake ? clockMins(wake.time) : null;
+  const naps = sorted.filter(isValidCompletedNap).sort((a,b)=>clockMins(a.start) - clockMins(b.start));
+  const daySleepMins = naps.reduce((s,n)=>s + minDiff(n.start, n.end), 0);
+  const shortNaps = naps.filter(n => minDiff(n.start, n.end) < (ageWeeks !== null && ageWeeks >= 16 ? 40 : 30));
+  const lastNap = naps[naps.length - 1] || null;
+  const lastNapEndMins = lastNap ? clockMins(lastNap.end) : null;
+  const anchorMins = lastNapEndMins !== null ? lastNapEndMins : wakeMins;
+  const awakeMins = anchorMins !== null ? nowMins - anchorMins : null;
+  const mk = (type, extra, data) => ({
+    type,
+    confidence: data.confidence || "medium",
+    title: data.title,
+    body: data.body,
+    why: data.why || "",
+    primaryAction: data.primaryAction || null,
+    secondaryAction: data.secondaryAction || {label:"Got it"},
+    payload: data.payload || {},
+    dismissKey: sleepInterpreterDismissKey(type, opts.childId, dayKey, extra || "")
+  });
+  if (!bedtimeLogged && wake && naps.length === 0 && awakeMins !== null && awakeMins > ww.max + 35 && nowMins >= 9 * 60 && nowMins < 17 * 60) {
+    return mk("nap_overdue", wake.id || wake.time, {
+      title: "Nap may have slipped past the window",
+      body: name + " has been awake about " + hm(awakeMins) + ". For this age, the usual comfortable window is around " + ww.label + ".",
+      why: "A rescue nap now can protect the rest of the day. If sleep is not happening, Schedule Builder can make bedtime kinder.",
+      confidence: awakeMins > ww.max + 60 ? "high" : "medium",
+      primaryAction: {label:"Start nap", action:"start_nap"},
+      secondaryAction: {label:"Adjust today", action:"open_schedule"},
+      payload: {awakeMins, ageMax:ww.max}
+    });
+  }
+  if (!bedtimeLogged && shortNaps.length >= 2 && nowMins < 18 * 60 + 30) {
+    return mk("short_nap_stack", shortNaps.map(n=>n.id || n.start).join("_"), {
+      title: "Sleep pressure is building",
+      body: name + " has had " + shortNaps.length + " short naps today. That can make the day feel bumpy because the sleep debt keeps adding up.",
+      why: "OBubba can help protect the next sleep or pull bedtime earlier without changing every part of the day.",
+      confidence: "high",
+      primaryAction: {label:"Adjust today", action:"open_schedule"},
+      secondaryAction: {label:"Keep watching"},
+      payload: {shortNapCount:shortNaps.length, daySleepMins}
+    });
+  }
+  if (!bedtimeLogged && awakeMins !== null && naps.length > 0 && awakeMins > ww.max + 45 && nowMins < 18 * 60) {
+    return mk("next_sleep_overdue", (lastNap && (lastNap.id || lastNap.end)) || "", {
+      title: "Next sleep is getting overdue",
+      body: "Since the last nap ended at " + fmt12(lastNap.end) + ", " + name + " has been awake about " + hm(awakeMins) + ". That is longer than the usual " + ww.label + " window.",
+      why: "A nap now, or a planned early bedtime if the nap is refused, can stop the day snowballing.",
+      confidence: awakeMins > ww.max + 75 ? "high" : "medium",
+      primaryAction: {label:"Start nap", action:"start_nap"},
+      secondaryAction: {label:"Adjust today", action:"open_schedule"},
+      payload: {awakeMins, ageMax:ww.max}
+    });
+  }
+  const targetDaySleep = sleepInterpreterDaySleepTarget(ageWeeks);
+  if (!bedtimeLogged && daySleepMins > targetDaySleep + 45 && nowMins >= 14 * 60) {
+    return mk("high_day_sleep", String(daySleepMins), {
+      title: "Plenty of day sleep already",
+      body: name + " has had " + hm(daySleepMins) + " of daytime sleep. That is already a full day for this stage, so bedtime may naturally drift later.",
+      why: "This is not bad. It just means the next sleep decision should protect night sleep rather than chase another long nap.",
+      confidence: "medium",
+      primaryAction: {label:"Plan bedtime", action:"open_schedule"},
+      secondaryAction: {label:"Got it"},
+      payload: {daySleepMins, targetDaySleep}
+    });
+  }
+  if (!bedtimeLogged && lastNap && lastNapEndMins !== null && lastNapEndMins >= 16 * 60 && nowMins < 20 * 60) {
+    const earliestBedMins = lastNapEndMins + Math.max(ww.min, 60);
+    return mk("late_nap_bedtime_risk", lastNap.id || lastNap.end, {
+      title: "Late nap may move bedtime",
+      body: "That last nap ended at " + fmt12(lastNap.end) + ". " + name + " may need enough gentle awake time before bed, so bedtime might sit closer to " + fmt12(mtp24h(earliestBedMins)) + ".",
+      why: "If bedtime needs to stay earlier for family life, Schedule Builder can turn the rest of tonight into the kinder path.",
+      confidence: "medium",
+      primaryAction: {label:"Plan bedtime", action:"open_schedule"},
+      secondaryAction: {label:"Got it"},
+      payload: {lastNapEnd:lastNap.end, earliestBedtime:mtp24h(earliestBedMins)}
+    });
+  }
+  if (nowMins < 13 * 60) {
+    const prevDay = prevDayStr(dayKey);
+    const lastNight = prevDay ? analyzeLastNight(days, prevDay, dayKey) : null;
+    const diagnosis = diagnoseNightPattern(lastNight, {ageWeeks, ageMaxWW:ww.max});
+    if (diagnosis && ["overtired","undertired","habit","hunger","developmental_disruption"].includes(diagnosis.type)) {
+      return mk("last_night_" + diagnosis.type, prevDay || dayKey, {
+        title: diagnosis.title,
+        body: clampInsightCopy(diagnosis.detail, 210),
+        why: "OBubba will keep today's guide gentle and cross-check naps, feeds and bedtime before suggesting a big change.",
+        confidence: diagnosis.confidence || "medium",
+        primaryAction: {label:"Open sleep insight", action:"open_sleep_insight"},
+        secondaryAction: {label:"Keep watching"},
+        payload: {diagnosisType:diagnosis.type, wakeCount:lastNight ? lastNight.wakeCount : 0}
+      });
+    }
+  }
+  return null;
+}
+
 // ═══ Day Model ══════════════════════════════════════════════════════
 // Entries stored directly on calendar day key. Night flag set at write time.
 // Night wakes past midnight route to bedTimerDay (the day bedtime was logged on).
@@ -1923,8 +2134,9 @@ window._obShare=function(){try{var el=document.getElementById("print-overlay");i
 // Global print function. native iOS print dialog or browser window.print()
 window._obPrint=function(){try{var el=document.getElementById("print-overlay");if(!el)return;var html=el.innerHTML;var fullHtml="<!DOCTYPE html><html><head><meta charset=utf-8><meta name=viewport content='width=device-width,initial-scale=1'><style>*{box-sizing:border-box;margin:0}body{font-family:-apple-system,system-ui,sans-serif;max-width:100%;margin:0;padding:20px;font-size:14px;line-height:1.5}.no-print{display:none!important}@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:1cm;size:A4 portrait}}</style></head><body>"+html+"</body></html>";if(window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.OBCareCard){window.Capacitor.Plugins.OBCareCard.printHTML({html:fullHtml,jobName:"OBubba Bubba Care"}).catch(function(){});}else{window.print();}}catch(e){console.warn("_obPrint error",e)}};
 // ── Keyboard handling: scroll focused input into view when keyboard appears ──
-// Note: Capacitor Keyboard resize:"body" handles shrinking the viewport.
-// Keep sheets synced to the visible viewport and keyboard-safe area.
+// Capacitor Keyboard resize is disabled for this app, so JS owns the keyboard
+// safe area. Keep sheets synced to the visible viewport and never clear the
+// keyboard state while a text field is still focused.
 (function(){
   if(typeof window==="undefined") return;
   function _readViewportMetrics(){
@@ -1936,8 +2148,10 @@ window._obPrint=function(){try{var el=document.getElementById("print-overlay");i
     // small phones, browser chrome changes, display zoom, and split-screen must
     // shrink the app rather than pushing the whole document sideways.
     var w=Math.max(1,Math.min(layoutW||390,visualW||390,innerW||390));
-    var h=Math.round((vv&&vv.height)||window.innerHeight||844);
-    h=Math.max(480,h);
+    var rawH=Math.round((vv&&vv.height)||window.innerHeight||844);
+    var keyboardActive=false;
+    try{ keyboardActive=!!(window.__obKeyboardHeight>0 || (document.body&&document.body.getAttribute("data-kb-open")==="1") || _isKeyboardField(document.activeElement)); }catch{}
+    var h=keyboardActive?Math.max(260,rawH):Math.max(480,rawH);
     var compact=w<370;
     var short=h<700;
     var tablet=w>=768;
@@ -2076,7 +2290,7 @@ window._obPrint=function(){try{var el=document.getElementById("print-overlay");i
     var innerH=window.innerHeight||844;
     var vvH=(vv&&vv.height)||innerH;
     var viewportAlreadyShrunk=h>0 && vv && (innerH-vvH)>80;
-    var bottomOffset=viewportAlreadyShrunk?0:h;
+    var bottomOffset=h>0?h:0;
     var visibleH=viewportAlreadyShrunk?vvH:(innerH-h);
     var sheetMax=Math.max(260,Math.round(visibleH-8));
     root.style.setProperty("--kb-height",h+"px");
@@ -2110,7 +2324,12 @@ window._obPrint=function(){try{var el=document.getElementById("print-overlay");i
         _setKbHeight(kbH);
         _scrollToFocused(100);
       } else {
-        _setKbHeight(0);
+        if(_isKeyboardField(document.activeElement)&&_shouldUseKeyboardFallback()){
+          _setKbHeight(_kbHeight||_estimateKeyboardHeight());
+          _scrollToFocused(100);
+        } else {
+          _setKbHeight(0);
+        }
       }
     });
     window.visualViewport.addEventListener("scroll",function(){
@@ -2128,7 +2347,12 @@ window._obPrint=function(){try{var el=document.getElementById("print-overlay");i
       _setKbHeight(diff);
       _scrollToFocused(100);
     } else if(diff<50){
-      _setKbHeight(0);
+      if(_isKeyboardField(document.activeElement)&&_shouldUseKeyboardFallback()){
+        _setKbHeight(_kbHeight||_estimateKeyboardHeight());
+        _scrollToFocused(100);
+      } else {
+        _setKbHeight(0);
+      }
       _origH=window.innerHeight;
     }
   });
@@ -2941,6 +3165,15 @@ function allergensForWeaningEntry(entry) {
     });
   }
   return [...detected];
+}
+
+function normaliseSolidFoodLog(foodText) {
+  const food = safeTextPayload(foodText, "", 100).replace(/\s+/g, " ").trim();
+  return {
+    food,
+    note: food,
+    allergens: detectAllergens(food)
+  };
 }
 
 function getWeaningEvidenceFromLogs(weaningLog, daysObj) {
@@ -7841,6 +8074,21 @@ function ChildSyncCard({ child, cid, code, isShared, participants, myUid, create
   const [showRegen, setShowRegen] = React.useState(false);
   const [regenCode, setRegenCode] = React.useState("");
   const [regenError, setRegenError] = React.useState("");
+  const childLabel = child.name || "your baby";
+  const inviteUrl = code ? buildChildSyncInviteUrl(code) : "";
+  const inviteQrUrl = inviteUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=190x190&data=${encodeURIComponent(inviteUrl)}&bgcolor=FFFCF9` : "";
+  const inviteText = code ? `I'm using OBubba to track ${child.name||"baby"}'s feeds, nappies and sleep.\n\nTap this invite link to join ${child.name||"baby"}'s tracker:\n${inviteUrl}\n\nIf OBubba asks for a code, use: ${code}` : "";
+
+  async function shareChildInvite() {
+    try{trackEvent&&trackEvent("partner_invite_tapped",{method:"native_share"});}catch{}
+    try {
+      if(window.Capacitor?.Plugins?.Share) {
+        await safeCapacitorShare(window.Capacitor.Plugins.Share, {title:`Track ${child.name||"baby"} with me`,text:inviteText,url:inviteUrl});
+      } else if(navigator.share) {
+        await safeNavigatorShare({title:`OBubba. join ${child.name||"baby"}'s tracker`,text:inviteText,url:inviteUrl});
+      } else if (safeCopyText) await safeCopyText(inviteText,"Copied to clipboard ✓");
+    } catch(_){}
+  }
 
   async function handleCreate() {
     setError("");
@@ -7888,6 +8136,32 @@ function ChildSyncCard({ child, cid, code, isShared, participants, myUid, create
       {/* ── Shared: show code + actions ── */}
       {isShared && (
         <>
+          <div data-testid="child-sync-invite-profile-card" style={{position:"relative",overflow:"hidden",background:"linear-gradient(145deg,#15132F 0%,#121B31 48%,#07101F 100%)",border:"1px solid rgba(225,158,132,0.36)",borderRadius:22,padding:"18px 16px 16px",marginBottom:10,boxShadow:"0 18px 46px rgba(7,12,28,0.34), inset 0 1px 0 rgba(255,255,255,0.08)",color:"#FFF8F1"}}>
+            <div aria-hidden="true" style={{position:"absolute",inset:"-35% -20% auto",height:180,background:"radial-gradient(circle at 50% 45%, rgba(159,137,255,0.28), transparent 62%)",pointerEvents:"none"}}/>
+            <div aria-hidden="true" style={{position:"absolute",left:22,top:18,width:4,height:26,borderRadius:99,background:"rgba(210,206,255,0.72)"}}/>
+            <div style={{position:"relative",display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
+              <OBubbaMascot type="happy" size={78} alt="OBubba" style={{flexShrink:0}}/>
+              <div style={{minWidth:0}}>
+                <div style={{fontSize:10,fontFamily:_fM,color:"rgba(202,237,255,0.78)",textTransform:"uppercase",letterSpacing:_ls08,fontWeight:800,marginBottom:4}}>Family invite</div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:800,lineHeight:1.08,color:"#FFF8F1",letterSpacing:0}}>Share {childLabel}'s OBubba profile</div>
+              </div>
+            </div>
+            <div style={{position:"relative",fontSize:13,color:"rgba(237,244,255,0.78)",lineHeight:1.48,marginBottom:14,fontWeight:650}}>Invite someone you trust to co-log feeds, naps, nappies and soothing notes for this child only.</div>
+            <div style={{position:"relative",display:"grid",gridTemplateColumns:"minmax(116px, 154px) 1fr",gap:14,alignItems:"center"}}>
+              <div style={{background:"#FFFCF9",borderRadius:18,padding:10,border:"1px solid rgba(255,255,255,0.75)",boxShadow:"0 0 0 7px rgba(129,118,215,0.16), 0 16px 34px rgba(0,0,0,0.26)"}}>
+                {inviteQrUrl ? (
+                  <img src={inviteQrUrl} alt="" style={{display:"block",width:"100%",aspectRatio:"1 / 1",objectFit:"cover",borderRadius:10}}/>
+                ) : (
+                  <div style={{width:"100%",aspectRatio:"1 / 1",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",color:C.lt,fontSize:12,fontWeight:800}}>QR</div>
+                )}
+              </div>
+              <div style={{minWidth:0}}>
+                <div style={{fontSize:11,color:"rgba(202,237,255,0.76)",fontFamily:_fM,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Scan or send</div>
+                <div style={{fontFamily:_fM,fontSize:21,fontWeight:800,color:"#F3C49E",letterSpacing:"0.16em",marginBottom:12,wordBreak:"break-word"}}>{code}</div>
+                <button onClick={shareChildInvite} style={{width:"100%",minHeight:42,borderRadius:99,border:"1px solid rgba(205,229,255,0.44)",background:"linear-gradient(135deg,#CDE9FF,#A798FF)",color:"#15132F",fontSize:14,fontWeight:900,fontFamily:_fI,cursor:_cP,boxShadow:"0 0 22px rgba(157,210,255,0.28)"}}>Send invite</button>
+              </div>
+            </div>
+          </div>
           <div style={{background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:10,padding:"10px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6,border:"1px solid var(--card-border)",boxShadow:"var(--card-shadow)"}}>
             <div>
               <div style={{fontSize:11,fontFamily:_fM,color:"var(--mint)",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>Sync code</div>
@@ -7907,16 +8181,7 @@ function ChildSyncCard({ child, cid, code, isShared, participants, myUid, create
                 ✉ Email
               </button>
               <button onClick={async()=>{
-                try{trackEvent&&trackEvent("partner_invite_tapped",{method:"native_share"});}catch{}
-                const inviteUrl = buildChildSyncInviteUrl(code);
-                const msg = `I'm using OBubba to track ${child.name||"baby"}'s feeds, nappies and sleep.\n\nTap this invite link to join ${child.name||"baby"}'s tracker:\n${inviteUrl}\n\nIf OBubba asks for a code, use: ${code}`;
-	                try {
-	                  if(window.Capacitor?.Plugins?.Share) {
-	                    await safeCapacitorShare(window.Capacitor.Plugins.Share, {title:`Track ${child.name||"baby"} with me`,text:msg,url:inviteUrl});
-	                  } else if(navigator.share) {
-	                    await safeNavigatorShare({title:`OBubba. join ${child.name||"baby"}'s tracker`,text:msg,url:inviteUrl});
-	                  } else if (safeCopyText) await safeCopyText(msg,"Copied to clipboard ✓");
-                } catch(_){}
+                await shareChildInvite();
               }} style={{padding:"6px 12px",borderRadius:99,border:`1px solid ${C.mint}`,background:"rgba(155,184,168,0.12)",fontSize:12,fontWeight:600,color:C.mint,cursor:_cP,fontFamily:_fI}}>
                 Share ↗
               </button>
@@ -10285,7 +10550,7 @@ function App(){
   }, []);
 
   const[tab,setTab]=useState("day");
-  // Day tab sub-screens: null = dashboard, "log" = Today's Log, "notes" = Notes & Reminders, "news" = Today's Insight
+  // Day tab sub-screens: null = dashboard, "log" = Today's Log, "notes" = Reminders & Appointments, "news" = Today's Play
   const[daySubScreen,setDaySubScreen]=useState(null);
   useEffect(()=>{
     if(!daySubScreen) return;
@@ -10297,7 +10562,6 @@ function App(){
 	  const[todayPanel,setTodayPanel]=useState("log"); // "log" | "plan". used inside the unified Today sub-screen
 	  const[showShareFamily,setShowShareFamily]=useState(false);
 	  const[dayToolsOpen,setDayToolsOpen]=useState(false);
-	  const[quickLogMoreOpen,setQuickLogMoreOpen]=useState(false);
 	  const[heroMoreOpen,setHeroMoreOpen]=useState(false);
 	  const heroMoreRef=useRef(null);
 	  useEffect(()=>{setHeroMoreOpen(false);},[tab, daySubScreen, selDay, todayPanel]);
@@ -10474,6 +10738,29 @@ function App(){
     try{const a=normaliseAppointmentsPayload(safeJsonArray(localStorage.getItem("appointments_v1")));return a.some(apt=>isUpcomingAppointment(apt));}catch{return false;}
   });
   const[detailLogOpen,setDetailLogOpen]=useState(true);
+  const detailLogRef=useRef(null);
+  useEffect(()=>{
+    if(!detailLogOpen) return;
+    const closeDetailLog = (ev) => {
+      try {
+        const root = detailLogRef.current;
+        if(root && ev && ev.target && root.contains(ev.target)) return;
+      } catch {}
+      setDetailLogOpen(false);
+    };
+    const onDetailLogKey = (ev) => {
+      if(ev && ev.key === "Escape") setDetailLogOpen(false);
+    };
+    const pointerEvent = typeof window !== "undefined" && "PointerEvent" in window ? "pointerdown" : "mousedown";
+    try { document.addEventListener(pointerEvent, closeDetailLog, true); } catch {}
+    try { if(pointerEvent !== "pointerdown") document.addEventListener("touchstart", closeDetailLog, true); } catch {}
+    try { document.addEventListener("keydown", onDetailLogKey, true); } catch {}
+    return () => {
+      try { document.removeEventListener(pointerEvent, closeDetailLog, true); } catch {}
+      try { if(pointerEvent !== "pointerdown") document.removeEventListener("touchstart", closeDetailLog, true); } catch {}
+      try { document.removeEventListener("keydown", onDetailLogKey, true); } catch {}
+    };
+  },[detailLogOpen]);
   const[showNapStartPicker,setShowNapStartPicker]=useState(false);
   const[showPaywall,setShowPaywall]=useState(false);
   const[paywallContext,setPaywallContext]=useState(""); // which trigger
@@ -10985,6 +11272,11 @@ function App(){
   });
   const[dailyLogReminder,setDailyLogReminder]=useState(()=>{
     try{return normaliseDailyLogReminder(safeJsonObject(localStorage.getItem(DAILY_LOG_REMINDER_KEY), {}));}catch{return normaliseDailyLogReminder({});}
+  });
+  const[showDailyLogReminderPrompt,setShowDailyLogReminderPrompt]=useState(false);
+  const[dailyLogReminderPromptStep,setDailyLogReminderPromptStep]=useState("ask");
+  const[dailyLogReminderPromptTime,setDailyLogReminderPromptTime]=useState(()=>{
+    try{return normaliseDailyLogReminder(safeJsonObject(localStorage.getItem(DAILY_LOG_REMINDER_KEY), {})).time;}catch{return DAILY_LOG_REMINDER_DEFAULT_TIME;}
   });
   const[pinForm,setPinForm]=useState("");
   const[editNoteId,setEditNoteId]=useState(null);
@@ -11978,6 +12270,24 @@ function App(){
     return null;
   });
   const[napEntryId,setNapEntryId]=useState(()=>{try{return localStorage.getItem("nap_entry_id")||null;}catch{return null;}});
+  const[napSettlingDismissedId,setNapSettlingDismissedId]=useState("");
+  const[recentStoppedNap,setRecentStoppedNap]=useState(()=>{
+    try {
+      return normaliseRecentStoppedNapPayload(localStorage.getItem("ob_recent_stopped_nap_v1"));
+    } catch { return null; }
+  });
+  const[sleepTransitionDismissTick,setSleepTransitionDismissTick]=useState(0);
+  const[sleepInterpreterDismissTick,setSleepInterpreterDismissTick]=useState(0);
+  useEffect(()=>{
+    const p = normaliseRecentStoppedNapPayload(recentStoppedNap);
+    if (!p) {
+      if (recentStoppedNap) clearRecentStoppedNap();
+      return;
+    }
+    const remaining = Math.max(0, (p.stoppedAt + 15 * 60 * 1000) - Date.now());
+    const t = setTimeout(()=>clearRecentStoppedNap(), remaining + 250);
+    return ()=>clearTimeout(t);
+  },[recentStoppedNap]);
   // Keep napStartMs in sync with napStartT, clears when timer stops, stamps if missing when timer starts
   React.useEffect(()=>{
     if (!napStartT) {
@@ -12096,7 +12406,7 @@ function App(){
           const wakeEntry = findMorningWake((child?.days?.[wakeDay] || []));
           const bedClosed = !!(bedEntry && wakeEntry && (wakeDay !== bedDay || timeVal(wakeEntry) > timeVal(bedEntry)));
           if (bedClosed) {
-            try{["bed_timer_day","bed_total_paused_sec","bed_paused","bed_paused_sec","bed_pause_start"].forEach(k=>localStorage.removeItem(k));}catch{}
+            try{["bed_timer_day","bed_timer_start","bed_total_paused_sec","bed_paused","bed_paused_sec","bed_pause_start"].forEach(k=>localStorage.removeItem(k));}catch{}
             setBedTimerDay(null); setBedPaused(false); setBedPauseStart(null); setBedPausedAtSec(0); setBedTotalPausedSec(0);
             clearTimerNotification();
             return;
@@ -12122,6 +12432,53 @@ function App(){
       setBedRoutineCompletedAt(null);
     }
   }, [bedRoutineCompletedAt, days, bedTimerDay]);
+  // Bedtime routine should feel like it "arrives" in-app, not only as a
+  // notification or a button the parent has to notice. Open it once when the
+  // predicted bedtime is about 20 minutes away on the Track surface.
+  React.useEffect(() => {
+    const _checkBedtimeRoutineTrigger = () => {
+      try {
+        const _today = todayStr();
+        const _isTrackSurface = tab === "day" && (!daySubScreen || daySubScreen === "today" || daySubScreen === "log" || daySubScreen === "plan");
+        if (!_isTrackSurface || selDay !== _today) return;
+        if (typeof document !== "undefined" && document.visibilityState && document.visibilityState !== "visible") return;
+        if (showBedRoutine || bedRoutineCompletedAt || bedTimerDay || napOn) return;
+        if (showPaywall || modal || logPanel || showMedForm || showWeaningForm || showBfHub || showCalendar || showBedtimeResistanceSheet) return;
+        const _todayEntries = days[_today] || [];
+        if (_todayEntries.some(e => e && e.type === "sleep" && !e.night && !e.nightLocked)) return;
+        const _td = tickDataRef.current || {};
+        const _bedMins = typeof _td.bedMins === "number"
+          ? _td.bedMins
+          : (_td.nextEvent && _td.nextEvent.type === "bed" && typeof _td.nextEvent.timeMins === "number")
+            ? _td.nextEvent.timeMins
+            : (_td.bed && _td.bed.time ? clockMins(_td.bed.time) : null);
+        if (typeof _bedMins !== "number" || !Number.isFinite(_bedMins)) return;
+        const _now = new Date();
+        const _nowMins = _now.getHours() * 60 + _now.getMinutes();
+        const _minsToBed = _bedMins - _nowMins;
+        const _routineBedCandidate = !!(
+          _td.napsComplete ||
+          _td.napBedConflict ||
+          (_td.nextEvent && _td.nextEvent.type === "bed") ||
+          (_minsToBed <= 45 && _minsToBed > -15)
+        );
+        if (!_routineBedCandidate || _minsToBed > 22 || _minsToBed < -2) return;
+        const _key = "ob_bed_routine_auto_" + _today + "_" + safeStorageToken(resolvedActiveId || babyName || "baby", "baby", 48);
+        if (localStorage.getItem(_key) === "1") return;
+        localStorage.setItem(_key, "1");
+        setShowBedRoutine(true);
+        setBedRoutineStep(0);
+        setBedRoutineStart(null);
+        showToast("🌙 Bedtime routine time", 2600, 2);
+      } catch {}
+    };
+    const _first = setTimeout(_checkBedtimeRoutineTrigger, 900);
+    const _interval = setInterval(_checkBedtimeRoutineTrigger, 30000);
+    return () => {
+      clearTimeout(_first);
+      clearInterval(_interval);
+    };
+  }, [tab, daySubScreen, selDay, days, resolvedActiveId, babyName, showBedRoutine, bedRoutineCompletedAt, bedTimerDay, napOn, showPaywall, modal, logPanel, showMedForm, showWeaningForm, showBfHub, showCalendar, showBedtimeResistanceSheet]);
   // Auto-stop stale bed timer: if bedTimerDay is from YESTERDAY (or earlier)
   // and today has a morning wake, the overnight bed timer is stale, clear it.
   // CRITICAL: only fire when bedTimerDay !== today. If bedTimerDay === today,
@@ -12164,7 +12521,7 @@ function App(){
       if (_hasWake) {
         console.log("[OBubba] Morning wake found. auto-stopping stale bed timer from", bedTimerDay);
         setBedTimerDay(null); setBedPaused(false); setBedPauseStart(null); setBedPausedAtSec(0); setBedTotalPausedSec(0);
-        try{["bed_timer_day","bed_total_paused_sec","bed_paused","bed_paused_sec","bed_pause_start"].forEach(k=>localStorage.removeItem(k));}catch{}
+        try{["bed_timer_day","bed_timer_start","bed_total_paused_sec","bed_paused","bed_paused_sec","bed_pause_start"].forEach(k=>localStorage.removeItem(k));}catch{}
         clearTimerNotification(); // Android: clear lock screen notification
         if(window.Capacitor?.Plugins?.OBLiveActivity) {
           window.Capacitor.Plugins.OBLiveActivity.stop?.().catch(()=>{});
@@ -12920,16 +13277,23 @@ function App(){
       if (markDone) localStorage.setItem("tut_v2", "1");
     } catch {}
   }
-	  const APP_TOUR_TARGETS = [
-	    ["simple-actions", "quick-log-row"],
-	    ["simple-detailed-log", "tile-track"],
-	    ["tile-schedule", "nav-settings"]
-	  ];
-	  const DAY_TOUR_TARGETS = [
-	    ["today-hero"],
-	    ["quick-log-row", "simple-actions"],
-	    ["tile-track", "tile-schedule"]
-	  ];
+		  const APP_TOUR_TARGETS = [
+		    ["simple-actions", "quick-log-row"],
+		    ["simple-detailed-log", "detail-log-grid"],
+		    ["tile-schedule", "nav-settings"],
+		    ["family-hub", "nav-settings"]
+		  ];
+		  const DAY_TOUR_TARGETS = [
+		    ["today-hero"],
+		    ["quick-log-row", "simple-actions"],
+		    ["detail-log-grid", "tile-schedule"]
+		  ];
+		  const OB_APP_TOUR_JOURNEY = [
+		    { chapter:"Chapter 1", iconName:"sparkle", target:"One-tap log", title:"Log the moment", body:"Feed, breast, nappy, nap, crying and soothing sounds stay close to your thumb.\n\nTap now; tidy later." },
+		    { chapter:"Chapter 2", iconName:"log", target:"Detailed log", title:"See today clearly", body:"Your daily log, plans and tiny wins sit together, so the day feels less scattered." },
+		    { chapter:"Chapter 3", iconName:"timer", target:"Schedule Builder", title:"Shape the rhythm", body:"Schedule Builder helps you plan around real life without fighting your baby's cues." },
+		    { chapter:"Chapter 4", iconName:"care", target:"Family Hub", title:"Share the care", body:"Family Hub holds Share & Sync, Bubba Care, Save to Cloud, and Lock Bubba Care session when you need to close the carer portal." }
+		  ];
 
   const[childSyncCodes,setChildSyncCodes]=useState(()=>{
     try{const s=localStorage.getItem("child_sync_codes_v1");return s?JSON.parse(s):{};}catch{return {};}
@@ -14708,13 +15072,14 @@ function App(){
   }
 
   async function restoreFromBackup(code) {
-    if(!window._fb) return false;
-    const {db, doc, getDoc} = window._fb;
-    const clean = code.trim().toUpperCase();
+    const clean = String(code || "").trim().toUpperCase();
+    if(!/^BK[A-Z0-9]{6,10}$/.test(clean)) return false;
     try {
+      await ensureFirebaseUid(5000);
       const snap = await fsGet("families", clean);
       if(!snap.exists()) return false;
       const d = snap.data();
+      if(d.deleted) return false;
       if(d.children) {
         let cloud;
         cloud = normaliseChildrenPayload(safeObjectPayload(d.children));
@@ -14940,6 +15305,23 @@ function App(){
     } catch {}
   }, [onboarded, needsChildSetup, authScreen, showTutPrompt, tutStep, dayTutStep, tab, daySubScreen]);
   useEffect(()=>{
+    if(!onboarded || needsChildSetup || authScreen || showDailyLogReminderPrompt) return;
+    if(normaliseDailyLogReminder(dailyLogReminder).enabled) return;
+    if(showTutPrompt || showClaimPrompt || showFamilyModal || showPwaMovePrompt || showReviewPrompt || modal || tutStep !== -1 || dayTutStep !== -1) return;
+    try{
+      if(localStorage.getItem(DAILY_LOG_REMINDER_PROMPT_KEY)) return;
+      const pendingTour = localStorage.getItem("ob_app_tour_pending_v1") || localStorage.getItem("ob_tutorial_deferred_simple_start_v1");
+      if(pendingTour && !localStorage.getItem("tut_v2")) return;
+    }catch{}
+    const t = setTimeout(()=>{
+      const safeDaily = normaliseDailyLogReminder(dailyLogReminder);
+      setDailyLogReminderPromptTime(safeDaily.time || DAILY_LOG_REMINDER_DEFAULT_TIME);
+      setDailyLogReminderPromptStep("ask");
+      setShowDailyLogReminderPrompt(true);
+    },1900);
+    return ()=>clearTimeout(t);
+  },[onboarded, needsChildSetup, authScreen, showDailyLogReminderPrompt, dailyLogReminder, showTutPrompt, showClaimPrompt, showFamilyModal, showPwaMovePrompt, showReviewPrompt, modal, tutStep, dayTutStep]);
+  useEffect(()=>{
     const targets = tutStep >= 0 ? APP_TOUR_TARGETS[tutStep] : dayTutStep >= 0 ? DAY_TOUR_TARGETS[dayTutStep] : null;
     if (!targets || !targets.length) { setTourSpotlight(null); return; }
     let cancelled = false;
@@ -14994,6 +15376,21 @@ function App(){
     const _uid = window._fbUid || window._fb?.auth?.currentUser?.uid || "";
     return _uid ? {uid: _uid, authorizedUids: {[_uid]: true}} : {};
   };
+  async function waitForFirebaseModule(timeoutMs = 5000) {
+    if (window._fb) return true;
+    await new Promise(r => {
+      let waited = 0;
+      const step = 200;
+      const p = setInterval(() => {
+        waited += step;
+        if (window._fb || waited >= timeoutMs) {
+          clearInterval(p);
+          r();
+        }
+      }, step);
+    });
+    return !!window._fb;
+  }
   async function ensureFirebaseUid(timeoutMs = 5000) {
     const current = window._fbUid || window._fb?.auth?.currentUser?.uid || "";
     if (current) { window._fbUid = current; return current; }
@@ -15005,17 +15402,85 @@ function App(){
     if (afterRest) { window._fbUid = afterRest; return afterRest; }
     return "";
   }
-  async function callAccountFunction(name, payload) {
+  function _nativeAccountFunctionRuntime() {
     try {
-      if(window._fbAuthReady) await Promise.race([window._fbAuthReady, new Promise(r=>setTimeout(r,3000))]);
-      if(!window._fb?.functions || !window._fb?.httpsCallable) return null;
-      const fn = window._fb.httpsCallable(window._fb.functions, name);
-      const res = await fn(payload || {});
-      return res && res.data ? res.data : null;
+      if(window.Capacitor?.isNativePlatform?.()) return true;
+      const platform = window.Capacitor?.getPlatform?.();
+      return !!platform && platform !== "web";
+    } catch { return false; }
+  }
+  function _parseCallableFunctionResponse(raw) {
+    let data = raw;
+    if(typeof data === "string") { try { data = JSON.parse(data); } catch {} }
+    if(data && typeof data === "object" && data.result !== undefined) return data.result;
+    if(data && typeof data === "object" && data.data !== undefined) return data.data;
+    if(data && typeof data === "object" && data.error) {
+      return {ok:false, error:data.error.message || data.error.status || "Could not reach account"};
+    }
+    return data || null;
+  }
+  async function callAccountFunctionViaRest(name, payload) {
+    try {
+      const safeName = String(name || "").replace(/[^A-Za-z0-9_-]/g, "");
+      if(!safeName) return null;
+      if(window._fbAuthReady) {
+        await Promise.race([window._fbAuthReady, new Promise(r=>setTimeout(r,2500))]);
+      }
+      const token = await _ensureAuthToken();
+      if(!token) return null;
+      const url = `https://us-central1-obubba-d9ccc.cloudfunctions.net/${safeName}`;
+      const body = JSON.stringify({data: payload || {}});
+      const capHttp = window.Capacitor?.Plugins?.CapacitorHttp;
+      const requestOnce = async (idToken) => {
+        const headers = {
+          "Content-Type":"application/json",
+          "Authorization":`Bearer ${idToken}`
+        };
+        if(capHttp) {
+          const res = await capHttp.post({url, headers, data:body}).catch(()=>null);
+          return {status:res?.status || 0, data:res?.data};
+        }
+        const res = await fetch(url, {method:"POST", headers, body}).catch(()=>null);
+        return {status:res?.status || 0, data:res ? await res.json().catch(()=>null) : null};
+      };
+      let res = await requestOnce(token);
+      if((res.status === 401 || res.status === 403) && token) {
+        const fresh = await _forceRefreshAuthToken();
+        if(fresh) res = await requestOnce(fresh);
+      }
+      if(res.status >= 200 && res.status < 300) return _parseCallableFunctionResponse(res.data);
+      const parsed = _parseCallableFunctionResponse(res.data);
+      if(parsed && parsed.error) return parsed;
+      return null;
     } catch(e) {
-      console.warn("OBubba account function failed", name, e?.message || e);
+      console.warn("OBubba account REST function failed", name, e?.message || e);
       return null;
     }
+  }
+  async function callAccountFunction(name, payload) {
+    const nativeRuntime = _nativeAccountFunctionRuntime();
+    if(nativeRuntime) {
+      const rest = await callAccountFunctionViaRest(name, payload);
+      if(rest) return rest;
+    }
+    try {
+      if(window._fbAuthReady) await Promise.race([window._fbAuthReady, new Promise(r=>setTimeout(r,3000))]);
+      if(window._fb?.functions && window._fb?.httpsCallable) {
+        const fn = window._fb.httpsCallable(window._fb.functions, name);
+        const res = await Promise.race([
+          fn(payload || {}),
+          new Promise((_, reject)=>setTimeout(()=>reject(new Error("callable timeout")), 8000))
+        ]);
+        if(res && res.data) return res.data;
+      }
+    } catch(e) {
+      console.warn("OBubba account function failed", name, e?.message || e);
+    }
+    if(!nativeRuntime) {
+      const rest = await callAccountFunctionViaRest(name, payload);
+      if(rest) return rest;
+    }
+    return null;
   }
   const hashPin = (pin) => { let h=5381; for(let i=0;i<pin.length;i++) h=((h<<5)+h)+pin.charCodeAt(i); return (h>>>0).toString(16); };
   const _pinHashIterations = 120000;
@@ -15188,15 +15653,16 @@ function App(){
     } catch { return {}; }
   }
 	  async function verifyLogin(username, pin, preHashed) {
-	    if(!window._fb) { setAuthError("Not connected. check your internet"); return false; }
-	    const {db, doc, getDoc} = window._fb;
+	    await waitForFirebaseModule(2500);
 	    const key = normaliseUsername(username);
+	    const loginPin = String(pin || "");
 	    if(!key) { setAuthError("Enter a username"); return false; }
-	    if(!preHashed && pin.length !== 4) { setAuthError("PIN must be 4 digits"); return false; }
+	    if(!preHashed && loginPin.length !== 4) { setAuthError("PIN must be 4 digits"); return false; }
 	    try {
+	      await ensureFirebaseUid(5000);
 	      let data = null;
 	      let _secureLoginVerified = false;
-	      const _serverLogin = await callAccountFunction("accountLogin", {username:key, pin, preHashed:!!preHashed});
+	      const _serverLogin = await callAccountFunction("accountLogin", {username:key, pin:loginPin, preHashed:!!preHashed});
 	      if (_serverLogin && _serverLogin.ok && _serverLogin.account) {
 	        data = _serverLogin.account;
 	        _secureLoginVerified = true;
@@ -15228,10 +15694,10 @@ function App(){
 	        const storedPinHash = String(data.pinHash || "");
 	        let _pinOk = false;
 	        if(preHashed) {
-	          _pinOk = storedPinHash === pin;
+	          _pinOk = storedPinHash === loginPin;
 	        } else {
-	          const _legacyHash = hashPin(pin);
-	          const _v2Hash = await hashAccountPin(pin, key);
+	          const _legacyHash = hashPin(loginPin);
+	          const _v2Hash = await hashAccountPin(loginPin, key);
 	          _pinOk = storedPinHash === _v2Hash || storedPinHash === _legacyHash;
 	          if(storedPinHash === _legacyHash) _pinUpgradeHash = _v2Hash;
 	        }
@@ -17853,7 +18319,7 @@ function App(){
     }
   },[ napStartT]);
   useEffect(()=>{try{if(napEntryId)localStorage.setItem("nap_entry_id",napEntryId);else localStorage.removeItem("nap_entry_id");}catch{}},[ napEntryId]);
-  useEffect(()=>{try{if(bedTimerDay)localStorage.setItem("bed_timer_day",bedTimerDay);else localStorage.removeItem("bed_timer_day");}catch{}},[bedTimerDay]);
+  useEffect(()=>{try{if(bedTimerDay)localStorage.setItem("bed_timer_day",bedTimerDay);else{localStorage.removeItem("bed_timer_day");localStorage.removeItem("bed_timer_start");}}catch{}},[bedTimerDay]);
   useEffect(()=>{try{localStorage.setItem("bed_paused",bedPaused?"1":"0");if(bedPauseStart)localStorage.setItem("bed_pause_start",String(bedPauseStart));else localStorage.removeItem("bed_pause_start");}catch{}},[bedPaused,bedPauseStart]);
   useEffect(()=>{try{localStorage.setItem("bed_total_paused_sec",String(bedTotalPausedSec||0));}catch{}},[bedTotalPausedSec]);
   useEffect(()=>{try{localStorage.setItem("nap_sec",String(napSec));}catch{}},[napSec]);
@@ -18240,6 +18706,9 @@ function App(){
       else if (activeTimer === "bed") timerLabel = bedPaused ? "Night wake" : "Sleeping";
       else if (activeTimer === "feed") timerLabel = activeSide ? "Nursing " + (activeSide === "left" ? "L" : "R") : "Nursing";
 
+      var widgetTheme = "auto";
+      try { widgetTheme = localStorage.getItem("ob_widget_theme") || "auto"; } catch(ex4) {}
+
       // Shape matches Swift WidgetData struct
 	      var _wetNappyCount = (nappies||[]).filter(function(n){return n && n.type === "poop" && isWetPoopType(n.poopType);}).length;
       var widgetData = {
@@ -18259,7 +18728,7 @@ function App(){
         nextPrediction: nextPrediction ? String(nextPrediction) : null,
         nextPredictionMs: nextPredictionMs ? parseFloat(nextPredictionMs) : null,
         nextPredictionLabel: nextPredictionLabel ? String(nextPredictionLabel) : null,
-        theme: "light",
+        theme: widgetTheme,
         updatedAt: Date.now(),
         // When bed timer is paused, don't show elapsed timer on widget (it would be wrong)
         activeTimer: (activeTimer && !(activeTimer === "bed" && bedPausedRef.current)) ? String(activeTimer) : null,
@@ -18340,7 +18809,7 @@ function App(){
         kicker:"Day 1 pattern",
         title:"OBubba will watch whether feeds are driving wakes",
         body:"The first useful clue is whether wake-ups cluster around feeds, short feeds, or unsettled bottle/breast sessions.",
-        next:["Log night wakes and feeds in the order they happen.", "After a few entries, Today's Insight can separate hunger, timing and comfort."]
+        next:["Log night wakes and feeds in the order they happen.", "After a few entries, Understand can separate hunger, timing and comfort."]
       };
     }
     if(hasConcern("sleep") || hasSleep("short_naps") || hasSleep("frequent_wakes")) {
@@ -20419,25 +20888,37 @@ function App(){
 	    })();
 	    const _heroDisruptionMode = normaliseDisruptionModePayload(disruptionMode);
 	    const _heroAutoContext = (()=>{try{return engineAutoContext();}catch{return {active:false,reasons:[],multiplier:1};}})();
-	    const _heroWhyLine = _heroTrim(
-	      napOn
-	        ? _name + " is sleeping now. OBubba is tracking this nap and will update the next wake window, feed timing and bedtime when the nap ends."
-	        : ((_whyLines && _whyLines[0]) || ("Based on " + (_guide.sleepSource || "age guidance") + " and today's logs.")),
-	      132
-	    );
-	    return (
-	      <React.Fragment>
-	      <div ref={heroMoreRef} className="glass-card prio-glow ob-hero ob-hero-daily-guide ob-hero-mini" data-testid="today-hero" style={{marginBottom:12}}>
-	        <div className="ob-hero-mini-head">
-	          <div className="ob-hero-mini-title">Your daily guide</div>
-	          <div className="ob-hero-mini-actions">
-	            <div className="ob-hero-mini-status" style={{"--ob-hero-status":_dot}}>
-	              <span aria-hidden="true"/>
-	              <em>{_heroTrim(_label, 38)}</em>
-	            </div>
-	            <button type="button" className="ob-hero-mini-more" aria-expanded={heroMoreOpen?"true":"false"} onClick={()=>{haptic();setHeroMoreOpen(v=>!v);}}>
-	              {heroMoreOpen?"Less":"More"}
-	            </button>
+		    const _heroWhyLine = _heroTrim(
+		      napOn
+		        ? _name + " is sleeping now. OBubba is tracking this nap and will update the next wake window, feed timing and bedtime when the nap ends."
+		        : ((_whyLines && _whyLines[0]) || ("Based on " + (_guide.sleepSource || "age guidance") + " and today's logs.")),
+		      132
+		    );
+		    const _heroStatusExplainsBedtime = _label === "Bedtime is the kinder path";
+		    const _heroStatusNode = (
+		      <>
+		        <span aria-hidden="true"/>
+		        <em>{_heroTrim(_label, 38)}</em>
+		      </>
+		    );
+		    return (
+		      <React.Fragment>
+		      <div ref={heroMoreRef} className="glass-card prio-glow ob-hero ob-hero-daily-guide ob-hero-mini" data-testid="today-hero" style={{marginBottom:12}}>
+		        <div className="ob-hero-mini-head">
+		          <div className="ob-hero-mini-title">Your daily guide</div>
+		          <div className="ob-hero-mini-actions">
+		            {_heroStatusExplainsBedtime ? (
+		              <button type="button" className="ob-hero-mini-status is-tappable" style={{"--ob-hero-status":_dot}} aria-label="Why bedtime is the kinder path" onClick={()=>{haptic();setHelpTip({title:"Why bedtime is the kinder path",body:"A late nap would probably push bedtime too late or make the first stretch of night harder. In this moment, a calm early bedtime is usually kinder than forcing a nap that no longer fits. Keep lights low, do a short predictable routine, and settle now if " + (_name||"baby") + " is upset or very tired."});}}>
+		                {_heroStatusNode}
+		              </button>
+		            ) : (
+		              <div className="ob-hero-mini-status" style={{"--ob-hero-status":_dot}}>
+		                {_heroStatusNode}
+		              </div>
+		            )}
+		            <button type="button" className="ob-hero-mini-more" aria-expanded={heroMoreOpen?"true":"false"} onClick={()=>{haptic();setHeroMoreOpen(v=>!v);}}>
+		              {heroMoreOpen?"Less":"More"}
+		            </button>
 	          </div>
 	        </div>
 	        <div className="ob-hero-mini-lines">
@@ -24295,8 +24776,8 @@ function App(){
       const bedMins = clockMins(bed.time);
       if (bedMins === null) return null;
       const minsUntilBed = bedMins - nowMins;
-      if (minsUntilBed > 0 && minsUntilBed <= 10) return { emoji: "🌙", text: `Bedtime in ~${minsUntilBed} minutes. ${name} should be in the cot soon.`, priority: "high", why: `Melatonin (the sleep hormone) peaks between 7–7:30pm for most babies. Putting baby down during this window means they'll fall asleep faster. Missing it triggers cortisol, which fights sleep.` };
-      if (minsUntilBed > 10 && minsUntilBed <= 30) return { emoji: "🛁", text: `Wind-down time. bedtime in ~${minsUntilBed} minutes. A calm, dim space helps.`, priority: "med", why: `A consistent wind-down routine (15–20 min) signals the brain to release melatonin. Dim lights suppress cortisol. Starting the routine now means ${name} will be relaxed and ready when the sleep window opens.` };
+      if (minsUntilBed > 0 && minsUntilBed <= 10) return { kind:"bedtime_now", placement:"coming_up", emoji: "🌙", title:"Bedtime soon", text: `Bedtime in ~${minsUntilBed} minutes. ${name} should be in the cot soon.`, priority: "high", why: `Melatonin (the sleep hormone) peaks between 7–7:30pm for most babies. Putting baby down during this window means they'll fall asleep faster. Missing it triggers cortisol, which fights sleep.` };
+      if (minsUntilBed > 10 && minsUntilBed <= 30) return { kind:"bedtime_winddown", placement:"coming_up", emoji: "🛁", title:"Start wind-down", text: `Bedtime in ~${minsUntilBed} minutes. A calm, dim space helps.`, priority: "med", why: `A consistent wind-down routine (15–20 min) signals the brain to release melatonin. Dim lights suppress cortisol. Starting the routine now means ${name} will be relaxed and ready when the sleep window opens.` };
     }
 
     return null;
@@ -28973,9 +29454,9 @@ function App(){
     setLogPanel(panel);
   }
 
-  function syncBrandSolidFood(foodText, dateKey, opts) {
-    const _food = (foodText || "").trim();
-    if (!_food) return null;
+	  function syncBrandSolidFood(foodText, dateKey, opts) {
+	    const _food = (foodText || "").trim();
+	    if (!_food) return null;
     const _brandInfo = recogniseBabyFoodProduct(_food);
     if (!_brandInfo) return null;
     const _key = normaliseWeaningName(_brandInfo.displayName || _food);
@@ -29056,10 +29537,30 @@ function App(){
       source: "day_solids"
     }}));
 
-    return _brandInfo;
-  }
+	    return _brandInfo;
+	  }
 
-  // ── SECTION 6: NIGHT CLASSIFICATION ENGINE ──────────────────────────
+	  function startAllergenWatchFromSolidLog(entry) {
+	    if (!entry || entry.feedType !== "solids") return [];
+	    const _food = safeTextPayload(entry.food || entry.note, "", 100).replace(/\s+/g, " ").trim();
+	    if (!_food) return [];
+	    const _allergens = [
+	      ...new Set((Array.isArray(entry.allergens) && entry.allergens.length ? entry.allergens : detectAllergens(_food))
+	        .map(a => normaliseAllergenId(a))
+	        .filter(Boolean))
+	    ];
+	    if (!_allergens.length) return [];
+	    const _newAllergens = _allergens.filter(a => !allergenIntroduced(weaningEvidence || weaning || [], a));
+	    if (_newAllergens.length) {
+	      try {
+	        const _allergenTimer = normaliseAllergenTimerPayload({allergens:_newAllergens, food:_food, startMs:Date.now()});
+	        if (_allergenTimer) localStorage.setItem("ob_allergen_timer", JSON.stringify(_allergenTimer));
+	      } catch {}
+	    }
+	    return _newAllergens;
+	  }
+
+	  // ── SECTION 6: NIGHT CLASSIFICATION ENGINE ──────────────────────────
   // THE RULE. absolute, no exceptions:
   // Only feed and wake entries can ever be night:true.
   // An entry is night if and only if:
@@ -30408,7 +30909,7 @@ function App(){
     edgeGrad.addColorStop(1, "rgba(255,255,255,0.72)");
     ctx.strokeStyle = edgeGrad; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.roundRect(cardX + 8, cardY + 8, cardW - 16, cardH - 16, cardR - 8); ctx.stroke();
 
-    const _profilePhotoSrc = safeAppImageSrc(activeChild && activeChild.photo, "");
+    const _profilePhotoSrc = safeAppImageSrc(activeChild && activeChild.photo, "obubba-celebration.png");
     let profileImg = null, heroImg = null;
     try { if (_profilePhotoSrc) profileImg = await _loadImage(_profilePhotoSrc); } catch {}
     try { if (details.extraPhoto) heroImg = await _loadImage(safeAppImageSrc(details.extraPhoto, "")); } catch {}
@@ -30941,6 +31442,36 @@ function App(){
     }catch(e){ console.warn("[OBubba] Notification request failed:",e); showToast("Error: "+e.message,3000); return false; }
   }
 
+  function markDailyLogReminderPromptAnswer(answer){
+    try{localStorage.setItem(DAILY_LOG_REMINDER_PROMPT_KEY,JSON.stringify({answer:String(answer||"later"),at:Date.now()}));}catch{}
+  }
+  function declineDailyLogReminderPrompt(){
+    haptic();
+    markDailyLogReminderPromptAnswer("no");
+    setShowDailyLogReminderPrompt(false);
+    setDailyLogReminderPromptStep("ask");
+    showToast("No problem. You can change your mind in Account preferences.",3500,1);
+  }
+  async function confirmDailyLogReminderPrompt(){
+    haptic();
+    const next = normaliseDailyLogReminder({
+      ...normaliseDailyLogReminder(dailyLogReminder),
+      enabled:true,
+      time:dailyLogReminderPromptTime || DAILY_LOG_REMINDER_DEFAULT_TIME
+    });
+    setDailyLogReminder(next);
+    const ok = await requestNotifications();
+    markDailyLogReminderPromptAnswer(ok===false?"blocked":"yes");
+    setShowDailyLogReminderPrompt(false);
+    setDailyLogReminderPromptStep("ask");
+    if(ok===false){
+      setDailyLogReminder(prev=>normaliseDailyLogReminder({...normaliseDailyLogReminder(prev),enabled:false}));
+      showToast("Notifications are blocked. You can enable the reminder later in Account preferences.",4200,2);
+      return;
+    }
+    showToast("Daily log reminder set for "+fmt12(next.time),2200,1);
+  }
+
         // Log same entry for ALL children (twins/multiples)
         const _logAllTsRef = React.useRef(0);
         function quickAddLogForAll(type, data) {
@@ -31125,10 +31656,13 @@ function App(){
       const _prev = parseInt(localStorage.getItem(_dLogKey) || "0", 10) || 0;
       localStorage.setItem(_dLogKey, String(_prev + 1));
     } catch {}
-    const _brandSolidInfo = (type === "feed" && data.feedType === "solids" && data.note && !data.skipWeaningMirror)
-      ? syncBrandSolidFood(data.note, _targetDay, {sourceEntryId: entryId, note: "Logged from Day solids"})
-      : null;
-    setDays(d=>{
+	    const _brandSolidInfo = (type === "feed" && data.feedType === "solids" && data.note && !data.skipWeaningMirror)
+	      ? syncBrandSolidFood(data.note, _targetDay, {sourceEntryId: entryId, note: "Logged from Day solids"})
+	      : null;
+	    const _newSolidAllergens = (type === "feed" && data.feedType === "solids" && !data.skipWeaningMirror)
+	      ? startAllergenWatchFromSolidLog(data)
+	      : [];
+	    setDays(d=>{
       const _dayArr = d[_targetDay]||[];
       // Auto-detect night mode: only flag as night if ENTRY TIME is after bedtime.
       // Strict filter: the "bedtime" must be a real bedtime (PM, h >= 12), not a
@@ -31184,10 +31718,11 @@ function App(){
     } catch {}
     setLogPanel(null);
     haptic("medium")
-    const label = type==="feed"?(data.feedType==="breast"?"🤱 Logged":data.feedType==="solids"?"🥣 Logged":"🍼 Logged"):type==="poop"?"💧💩 Logged":type==="wake"?"☀️ Logged":type==="nap"?"😴 Started":"✓ Logged";
-    const timeLabel = data.time ? " at "+fmt12(data.time) : "";
-    const _brandSolidMsg = _brandSolidInfo && _brandSolidInfo.cat !== "milk" ? " · added to Weaning" : "";
-	    showToast(label+timeLabel+_brandSolidMsg,5200,1,{label:"Undo",onClick:()=>undoLoggedAction(_undoAction)});
+	    const label = type==="feed"?(data.feedType==="breast"?"🤱 Logged":data.feedType==="pump"?"🥛 Pump logged":data.feedType==="solids"?"🥣 Logged":"🍼 Logged"):type==="poop"?"💧💩 Logged":type==="wake"?"☀️ Logged":type==="nap"?"😴 Started":"✓ Logged";
+	    const timeLabel = data.time ? " at "+fmt12(data.time) : "";
+	    const _brandSolidMsg = _brandSolidInfo && _brandSolidInfo.cat !== "milk" ? " · added to Weaning" : "";
+	    const _solidAllergenMsg = _newSolidAllergens.length ? " · allergen watch" : "";
+		    showToast(label+timeLabel+_brandSolidMsg+_solidAllergenMsg,5200,1,{label:"Undo",onClick:()=>undoLoggedAction(_undoAction)});
 
     // ═══ REAL-TIME NIGHT-WAKE ATTRIBUTION ═══
     // When a parent logs a night wake, immediately surface the likely cause
@@ -31400,7 +31935,7 @@ function App(){
       const pL=displayToMl(f.pumpL,FU), pR=displayToMl(f.pumpR,FU);
       quickAddLog("feed",{type:"feed",time:t,feedType:"pump",pumpL:pL,pumpR:pR,amount:pL+pR,note:f.note||""});
     } else {
-      quickAddLog("feed",{type:"feed",time:t,feedType:"solids",amount:0,note:f.note||""});
+      quickAddLog("feed",{type:"feed",time:t,feedType:"solids",amount:0,...normaliseSolidFoodLog(f.note)});
     }
   }
 
@@ -31549,6 +32084,8 @@ function App(){
       } else if(feedType==="pump"){
         const pL=Math.max(0,parseInt(form.pumpL)||0), pR=Math.max(0,parseInt(form.pumpR)||0);
         e={...e,type:"feed",time:formTime,amount:pL+pR,feedType:"pump",pumpL:pL,pumpR:pR,night:form.night==="yes"};
+      } else if(feedType==="solids"){
+        e={...e,type:"feed",time:formTime,amount:0,night:form.night==="yes",feedType:"solids",...normaliseSolidFoodLog(form.note)};
       } else {
         e={...e,type:"feed",time:formTime,amount:Math.max(0,displayToMl(form.amount,FU)),night:form.night==="yes",feedType:feedType};
       }
@@ -31666,12 +32203,15 @@ function App(){
     if (eType === "sleep" && !e.night && !editEntry && selDay === todayStr() && !_wakeEntry) {
       _postBedtimeFlow();
     }
-    if (eType === "feed" && e.feedType === "solids" && e.note) {
-      syncBrandSolidFood(e.note, selDay, {sourceEntryId: e.id, note: editEntry ? "Updated from Day solids" : "Logged from Day solids"});
-    }
-    setModal(null);setEditEntry(null);
-    showToast(editEntry ? "✓ Updated" : "✓ Logged", 1200, 1);
-  }
+	    if (eType === "feed" && e.feedType === "solids" && e.note) {
+	      syncBrandSolidFood(e.note, selDay, {sourceEntryId: e.id, note: editEntry ? "Updated from Day solids" : "Logged from Day solids"});
+	    }
+	    const _newEntrySolidAllergens = (!editEntry && eType === "feed" && e.feedType === "solids")
+	      ? startAllergenWatchFromSolidLog(e)
+	      : [];
+	    setModal(null);setEditEntry(null);
+	    showToast(_newEntrySolidAllergens.length ? "🛡️ Allergen logged. Watch for 2 hours" : (editEntry ? "✓ Updated" : "✓ Logged"), _newEntrySolidAllergens.length ? 4200 : 1200, _newEntrySolidAllergens.length ? 2 : 1);
+	  }
 
   // ═══ WHY IS MY BABY CRYING. helper ═══
   function getCryingAnalysis() {
@@ -32316,7 +32856,7 @@ function App(){
     setBedPauseStart(null);
     setBedPausedAtSec(0);
     setBedTotalPausedSec(0);
-    try{localStorage.removeItem("bed_total_paused_sec");localStorage.removeItem("bed_paused");localStorage.removeItem("bed_paused_sec");localStorage.removeItem("bed_pause_start");}catch{}
+    try{localStorage.removeItem("bed_timer_start");localStorage.removeItem("bed_total_paused_sec");localStorage.removeItem("bed_paused");localStorage.removeItem("bed_paused_sec");localStorage.removeItem("bed_pause_start");}catch{}
     // Always stop Live Activity on morning wake. bedtime Live Activity runs without napOn
     // Multiple attempts because iOS ActivityKit can be flaky
     if(_isNative) {
@@ -32330,7 +32870,7 @@ function App(){
       }
     }
     // Also clear the bed_timer_day from localStorage immediately
-    try { localStorage.removeItem("bed_timer_day"); } catch {}
+    try { localStorage.removeItem("bed_timer_day"); localStorage.removeItem("bed_timer_start"); } catch {}
     // Reset timer mode
     setTimerMode("prediction");
     try { localStorage.setItem("timer_mode_v1","prediction"); } catch{}
@@ -32463,14 +33003,98 @@ function App(){
       const _pick = _morningMsgs[_dayOfYear % _morningMsgs.length];
       setMorningMsg(_pick);
       setTimeout(()=>setMorningMsg(null), 5000);
-    }, 2000);
+	    }, 2000);
+	  }
+
+  function normaliseRecentStoppedNapPayload(raw) {
+    const source = typeof raw === "string" ? safeJsonObject(raw) : normaliseObjectPayload(raw);
+    const napId = String(source.napId || "").trim();
+    const dayKey = safeDateKey(source.dayKey || todayStr());
+    const start = String(source.start || "").trim();
+    const end = String(source.end || "").trim();
+    if (!napId || !dayKey || clockMins(start) === null || clockMins(end) === null) return null;
+    const stoppedAt = Number(source.stoppedAt || 0);
+    if (!Number.isFinite(stoppedAt) || stoppedAt <= 0 || Date.now() - stoppedAt > 15 * 60 * 1000) return null;
+    const startMsRaw = Number(source.startMs || 0);
+    const startMs = Number.isFinite(startMsRaw) && startMsRaw > 1000000000000
+      ? startMsRaw
+      : clockDateMs(dayKey, start, Date.now());
+    const durMinsRaw = Number(source.durMins || minDiff(start, end) || 0);
+    const durMins = Number.isFinite(durMinsRaw) ? Math.max(1, Math.min(24 * 60, Math.round(durMinsRaw))) : 1;
+    return {kind:"nap", napId, dayKey, start, end, startMs, durMins, stoppedAt};
   }
 
-  function startNap(){
-    if (napOn) return;
-    // Prevent accidental nap start during active bed timer (night mode)
-    if (bedTimerDay && !bedPaused) { showToast("Bed timer is running. end bedtime first or log a night wake.",3000,2); return; }
-    try { trackEvent("timer_started", { type: "nap" }); } catch {}
+  function clearRecentStoppedNap() {
+    setRecentStoppedNap(null);
+    try { localStorage.removeItem("ob_recent_stopped_nap_v1"); } catch {}
+  }
+
+  function rememberRecentStoppedNap(payload) {
+    const p = normaliseRecentStoppedNapPayload({...normaliseObjectPayload(payload), stoppedAt:Date.now()});
+    if (!p) return;
+    setRecentStoppedNap(p);
+    try { localStorage.setItem("ob_recent_stopped_nap_v1", JSON.stringify(p)); } catch {}
+  }
+
+  function resumeRecentStoppedNap(payload) {
+    const p = normaliseRecentStoppedNapPayload(payload || recentStoppedNap);
+    if (!p) { clearRecentStoppedNap(); return; }
+    if (napOn) { clearRecentStoppedNap(); return; }
+    if (bedTimerDay && !bedPaused) {
+      showToast("Bed timer is running. end bedtime first or log a night wake.",3000,2);
+      return;
+    }
+    const startMs = Number.isFinite(p.startMs) && p.startMs > 1000000000000 ? p.startMs : clockDateMs(p.dayKey, p.start, Date.now());
+    const elapsed = Math.max(0, Math.min(23 * 3600, Math.floor((Date.now() - startMs) / 1000)));
+    setDays(d=>{
+      const existing = Array.isArray(d[p.dayKey]) ? d[p.dayKey] : [];
+      const hasEntry = existing.some(e => e && e.id === p.napId);
+      const updated = hasEntry
+        ? existing.map(e => e && e.id === p.napId ? {...e,type:"nap",start:p.start,startMs,end:p.start,duration:0,night:false,_active:true,modifiedAt:Date.now()} : e)
+        : [...existing,{id:p.napId,type:"nap",start:p.start,startMs,end:p.start,duration:0,night:false,note:"",_active:true,modifiedAt:Date.now()}];
+      const _pd = prevDayStr(p.dayKey);
+      return {...d,[p.dayKey]:autoClassifyNight(updated,d[_pd]||null)};
+    });
+    setNapOn(true);
+    setNapPaused(false);
+    setNapPausedAtSec(0);
+    setNapStartT(p.start);
+    setNapStartMs(startMs);
+    setNapSec(elapsed);
+    setNapEntryId(p.napId);
+    setNapSettlingDismissedId(p.napId);
+    setTimerMode("activeSleep");
+    try {
+      localStorage.setItem("nap_on","1");
+      localStorage.setItem("nap_startT",p.start);
+      localStorage.setItem("nap_startMs",String(startMs));
+      localStorage.setItem("nap_sec",String(elapsed));
+      localStorage.setItem("nap_entry_id",p.napId);
+      localStorage.setItem("nap_start_day",p.dayKey);
+      localStorage.setItem("timer_mode_v1","activeSleep");
+      localStorage.removeItem("nap_paused");
+      localStorage.removeItem("nap_paused_sec");
+      localStorage.removeItem("ob_nap_stopped_at");
+    } catch {}
+    clearRecentStoppedNap();
+    try {
+      const _napNum = ((tickDataRef.current||{}).napsDone || 0) + 1;
+      _startLA({type:"sleep",babyName:babyName||"Baby",startTime:startMs,nextNap:"Nap "+_napNum});
+      showTimerNotification("😴 Nap resumed", (babyName||"Baby") + " is still sleeping from " + fmt12(p.start));
+      _androidTimerStart({type:"nap",startTime:startMs,babyName:babyName||"Baby"});
+      window.Capacitor?.Plugins?.OBWidgetBridge?.reloadAll?.().catch(()=>{});
+    } catch {}
+    haptic("medium");
+    showToast("Nap resumed. timer is back on.",2200,1);
+  }
+
+	  function startNap(){
+	    if (napOn) return;
+	    // Prevent accidental nap start during active bed timer (night mode)
+	    if (bedTimerDay && !bedPaused) { showToast("Bed timer is running. end bedtime first or log a night wake.",3000,2); return; }
+    clearRecentStoppedNap();
+    setNapSettlingDismissedId("");
+	    try { trackEvent("timer_started", { type: "nap" }); } catch {}
     // Save current prediction for accuracy tracking
     try { lastPredRef.current = tickDataRef.current.pred; } catch { lastPredRef.current = null; }
     // Stamp the authoritative epoch-ms start time. Widget, Live Activity, and
@@ -33422,6 +34046,7 @@ function App(){
     quickAddLog("sleep",{type:"sleep",time:bedTime,night:false,note:""});
     // Remember which day bedtime was logged on. night wakes past midnight route here
     setBedTimerDay(selDay);
+    try{localStorage.setItem("bed_timer_start",bedTime);}catch{}
     // Reset cumulative paused time for new night
     setBedTotalPausedSec(0);
     setBedPaused(false);
@@ -33656,10 +34281,12 @@ function App(){
   // with the wrong wake window. This is a separate flow from endNap (which
   // saves). Logs a "timer_cancelled" event so we can tune the "why cancelled?"
   // prompts later.
-  function cancelNap() {
-    if (!napOn) return;
-    clearTimerNotification();
-    try { trackEvent("timer_cancelled", { type: "nap", sec: napSec }); } catch {}
+	  function cancelNap() {
+	    if (!napOn) return;
+    clearRecentStoppedNap();
+    setNapSettlingDismissedId("");
+	    clearTimerNotification();
+	    try { trackEvent("timer_cancelled", { type: "nap", sec: napSec }); } catch {}
     const _napDay = localStorage.getItem("nap_start_day") || selDay;
     // Remove the in-progress nap entry entirely — don't save anything.
     if (napEntryId) {
@@ -33710,8 +34337,10 @@ function App(){
 	      durMins = minDiff(napStartT, end);
 	    }
     // Guard: if nap is less than 1 minute (e.g. accidental double-tap), remove the entry
-    if (durMins < 1) {
-      if (napEntryId) {
+	    if (durMins < 1) {
+      clearRecentStoppedNap();
+      setNapSettlingDismissedId("");
+	      if (napEntryId) {
         const _napDayShort = localStorage.getItem("nap_start_day") || selDay;
         setDays(d => {
           const updated = (d[_napDayShort] || []).filter(e => e.id !== napEntryId);
@@ -33748,8 +34377,10 @@ function App(){
         ).length + 1;
       } catch { return 1; }
     })();
-    if (durMins >= 240) {
-      // Nap running 4+ hours is almost certainly bedtime, not a nap. convert
+	    if (durMins >= 240) {
+      clearRecentStoppedNap();
+      setNapSettlingDismissedId("");
+	      // Nap running 4+ hours is almost certainly bedtime, not a nap. convert
       if(napEntryId){
         setDays(d=>{const updated=(d[_napDay]||[]).filter(e=>e.id!==napEntryId);return{...d,[_napDay]:updated};});
         // Stamp tombstone so partner sync doesn't resurrect the removed nap entry
@@ -33782,10 +34413,11 @@ function App(){
           const updated=[...(d[_napDay]||[]),{id:_reviewNapId,type:"nap",start:napStartT,end,duration:durMins,night:false,note:"",modifiedAt:Date.now()}];
           return{...d,[_napDay]:autoClassifyNight(updated,d[_napPd]||null)};
         });
-      }
-      // Show nap review prompt (wake mood + settling time + location)
-      openNapReviewAfterStop({napId:_reviewNapId, start:napStartT, end, durMins, dayKey:_napDay, source:"app"});
-      // Show next nap/bedtime prediction after a short delay
+	      }
+	      // Show nap review prompt (wake mood + settling time + location)
+	      openNapReviewAfterStop({napId:_reviewNapId, start:napStartT, end, durMins, dayKey:_napDay, source:"app"});
+      rememberRecentStoppedNap({napId:_reviewNapId, start:napStartT, startMs:napStartMs || parseInt(localStorage.getItem("nap_startMs"), 10), end, durMins, dayKey:_napDay});
+	      // Show next nap/bedtime prediction after a short delay
       setTimeout(()=>{
         try {
           const _td2 = tickDataRef.current;
@@ -37783,9 +38415,10 @@ function App(){
 
 	  const simpleStartLogCount = (()=>{try{return Object.values(days||{}).reduce((sum, arr)=>sum + ((arr||[]).filter(e=>e&&e.type).length), 0);}catch{return 0;}})();
 	  const simpleStartPartnerMode = (()=>{try{return localStorage.getItem("ob_simple_start_partner_v1")==="1";}catch{return false;}})();
-	  const simpleStartModePinned = dashboardMode === "simple";
-	  const simpleStartLegacyAllowed = dashboardMode !== "full" && !simpleStartDismissed && (simpleStartLogCount < 8 || simpleStartPartnerMode || simpleStartForced);
-	  const simpleStartActive = !!(tab==="day" && !daySubScreen && selDay===todayStr() && (simpleStartModePinned || simpleStartLegacyAllowed));
+		  const simpleStartModePinned = dashboardMode === "simple";
+		  const simpleStartLegacyAllowed = dashboardMode !== "full" && !simpleStartDismissed && (simpleStartLogCount < 8 || simpleStartPartnerMode || simpleStartForced);
+		  const simpleStartActive = !!(tab==="day" && !daySubScreen && selDay===todayStr() && (simpleStartModePinned || simpleStartLegacyAllowed));
+		  const isTrackDailySurface = !daySubScreen || daySubScreen==="today" || daySubScreen==="log" || daySubScreen==="plan";
   const activationStats = React.useMemo(()=>{
     void forceRender;
     const childKey = safeStorageToken(resolvedActiveId || "default", "default", 32);
@@ -37888,18 +38521,61 @@ function App(){
     setObDashboardModeChoice(next);
     setSimpleStartForced(next === "simple");
     setSimpleStartDismissed(next === "full");
-    if (opts.toast) showToast(next === "simple" ? "Track will open in No pressure mode" : "Track will open on the full dashboard", 2200, 1);
-	  }
-	  function dismissSimpleStart() {
-    setTrackModePreference("full");
-	  }
-  function returnToSimpleStart() {
+	    if (opts.toast) showToast(next === "simple" ? "Track will open in No pressure mode" : "Track will open on the daily log home", 2200, 1);
+		  }
+		  function dismissSimpleStart() {
+	    setTrackModePreference("full");
+	    setTab("day");
+	    setSelDay(todayStr());
+	    setDaySubScreen(null);
+	    setTodayPanel("log");
+		  }
+	  function openTrackHomeFromSimple() {
 	    haptic();
-    setTrackModePreference("simple");
-    setTab("day");
-    setSelDay(todayStr());
-    setDaySubScreen(null);
-  }
+	    dismissSimpleStart();
+	  }
+	  function returnToSimpleStart() {
+		    haptic();
+	    setTrackModePreference("simple");
+	    setTab("day");
+	    setSelDay(todayStr());
+	    setDaySubScreen(null);
+	  }
+	  function openTrackDayTool(screen) {
+	    haptic();
+	    setDaySubScreen(screen);
+	    if (screen === "today" || screen === "log" || screen === "plan") {
+	      setTodayPanel(screen === "plan" ? "plan" : "log");
+	      if (screen === "plan") setTodayPlanOpen(true);
+	    }
+	  }
+	  function openTrackScheduleBuilder() {
+	    haptic();
+	    setShowScheduleMaker(true);
+	  }
+	  function openTrackFamilyShare() {
+	    haptic();
+	    setShowShareFamily(true);
+	  }
+	  function openTrackWeaning() {
+	    haptic();
+	    const _aw = age ? (age.predictiveWeeks??age.totalWeeks) : 0;
+	    if (_aw >= 26 || weaningStarted) {
+	      setDaySubScreen("weaning");
+	      setDevFilter("weaning_hub");
+	      return;
+	    }
+	    if (_aw >= 17) {
+	      showConfirm(
+	        "Start weaning early?",
+	        "Has your " + _healthContact + " confirmed that " + (babyName||"baby") + " can start weaning early?\n\n" + _guide.weaningSource + " guidance is to wait until around 6 months. Only start earlier on professional medical advice.",
+	        ()=>{startWeaningEarly();setDaySubScreen("weaning");setDevFilter("weaning_hub");setConfirmDialog(null);showToast("🍎 Weaning unlocked!",2500,1);},
+	        "Advice confirmed"
+	      );
+	      return;
+	    }
+	    showToast("🍎 Weaning opens from 17 weeks. " + (babyName||"baby") + " isn't quite there yet!",3000,1);
+	  }
   function markActivationCardDismissed() {
     try { localStorage.setItem("ob_activation_card_dismissed_v1_" + activationStats.childKey, "1"); } catch {}
     try { trackEvent("activation_checklist_dismissed", { log_count: activationStats.totalLogs, progress: activationStats.progress }); } catch {}
@@ -38062,20 +38738,262 @@ function App(){
       (logForAll ? quickAddLogForAll : quickAddLog)("feed", {type:"feed",time:t,feedType:"milk",amount:0,night:isNightTap,note:""});
     } else if (type === "nappy") {
       (logForAll ? quickAddLogForAll : quickAddLog)("poop", {type:"poop",time:t,poopType:"wet",night:isNightTap,note:""});
-    } else if (type === "sleep") {
-      if (napOn) endNap();
-      else if (hour !== null && hour >= 17 && !bedTimerDay) logBedtimeNow();
-      else startNap();
-    } else if (type === "wake") {
-      if (isNightTap) simpleNightWake();
-      else handleSmartWake();
+	    } else if (type === "sleep") {
+	      if (napOn) endNap();
+	      else if (hour !== null && hour >= 17 && !bedTimerDay) logBedtimeNow();
+	      else startNap();
+	    } else if (type === "wake") {
+	      if (bedTimerDay) handleSmartWake();
+	      else if (isNightTap) simpleNightWake();
+	      else handleSmartWake();
+	    }
+	  }
+
+  function getSleepTransitionInsight() {
+    // Read the tick so dismiss/apply actions force this deterministic analyser
+    // to re-check localStorage without threading another state shape through it.
+    void sleepTransitionDismissTick;
+    try {
+      const _ageWeeks = age ? (age.predictiveWeeks ?? age.totalWeeks) : null;
+      const _insight = detectSleepTransitionInsight({
+        days,
+        dayKey: selDay,
+        ageWeeks: _ageWeeks,
+        wakeWindow: getWakeWindow(_ageWeeks),
+        babyName,
+        childId: resolvedActiveId
+      });
+      if (!_insight) return null;
+      if (_insight.dismissKey && localStorage.getItem(_insight.dismissKey) === "1") return null;
+      return _insight;
+    } catch {
+      return null;
     }
   }
-	  function renderSimpleStartHome() {
-	    const name = babyName || "Baby";
+
+  function dismissSleepTransitionInsight(insight, toastText, skipObservation = false) {
+    if (!insight) return;
+    haptic();
+    try {
+      if (insight.title && insight.body) {
+        if (!skipObservation) addObservation("🌙", insight.title, insight.body, "Kept the logs unchanged. You can revisit this from What we noticed or the Understand sleep tab later.", 2);
+      }
+    } catch {}
+    try { if (insight.dismissKey) localStorage.setItem(insight.dismissKey, "1"); } catch {}
+    setSleepTransitionDismissTick(t => t + 1);
+    if (toastText) showToast(toastText, 2200, 1);
+  }
+
+  function applySleepTransitionCorrection(insight) {
+    const p = insight && insight.payload;
+    if (!p || !p.dayKey || !p.wakeId || !p.napId || !p.finalWakeTime) return;
+    haptic();
+    const _name = babyName || "Baby";
+    const _note = "Brief morning stir. Resettled independently.";
+    const _currentArr = Array.isArray(days[p.dayKey]) ? days[p.dayKey] : [];
+    if (!_currentArr.some(e => e && e.id === p.wakeId) || !_currentArr.some(e => e && e.id === p.napId)) {
+      dismissSleepTransitionInsight(insight, "That log has changed, so I left it alone.");
+      return;
+    }
+    try {
+      deletedEntryIdsRef.current.add(p.wakeId);
+      deletedEntryIdsRef.current.add(p.napId);
+      _capAndPersistDeletedIds();
+    } catch {}
+    setDays(d => {
+      const arr = Array.isArray(d[p.dayKey]) ? d[p.dayKey] : [];
+      const wake = arr.find(e => e && e.id === p.wakeId);
+      const nap = arr.find(e => e && e.id === p.napId);
+      if (!wake || !nap || !nap.end || nap.end !== p.finalWakeTime) return d;
+      const finalWakeExists = arr.some(e => e && e.id !== p.wakeId && e.type === "wake" && e.time === p.finalWakeTime);
+      const next = arr.filter(e => e && e.id !== p.wakeId && e.id !== p.napId);
+      if (!finalWakeExists) {
+        next.push({
+          ...wake,
+          id: uid(),
+          type: "wake",
+          time: p.finalWakeTime,
+          night: false,
+          note: (wake.note ? wake.note + " · " : "") + "Brief morning stir at " + fmt12(p.wakeTime) + ". Resettled independently.",
+          correctedFrom: {type:"morning_resettle", wakeTime:p.wakeTime, napStart:p.napStart, napEnd:p.finalWakeTime},
+          modifiedAt: Date.now(),
+          _ts: Date.now()
+        });
+      }
+      return {...d, [p.dayKey]: autoClassifyNight(next, d[prevDayStr(p.dayKey)] || null)};
+    });
+    addObservation(
+      "🌙",
+      "Morning resettle adjusted",
+      _name + "'s first wake was treated as a brief morning stir. The day now starts at " + fmt12(p.finalWakeTime) + ".",
+      "Removed the mistaken Nap 1 from daytime nap totals and kept a note: " + _note,
+      2
+    );
+    try { trackEvent("sleep_transition_corrected", { transition_type:"morning_resettle", gap_minutes:p.gapMin || 0 }); } catch {}
+    dismissSleepTransitionInsight(insight, "Updated. Morning wake moved to " + fmt12(p.finalWakeTime) + ".", true);
+  }
+
+  function renderSleepTransitionInsight(opts = {}) {
+    if (selDay !== todayStr() && !opts.allowPast) return null;
+    const insight = getSleepTransitionInsight();
+    if (!insight) return null;
+    return (
+      <section data-testid="sleep-transition-insight-card" className={"ob-soft-sleep-card ob-sleep-transition-card"+(opts.compact?" is-compact":"")}>
+        <div className="ob-soft-sleep-icon"><BubbaIcon name="moon" size={22} animate/></div>
+        <div className="ob-soft-sleep-copy">
+          <div className="ob-soft-sleep-title">{insight.title}</div>
+          <div className="ob-soft-sleep-sub">{insight.body}</div>
+          {insight.why && <div className="ob-sleep-transition-why"><strong>Why?</strong> {insight.why}</div>}
+        </div>
+        <div className={"ob-soft-sleep-actions"+(!insight.primaryAction?" is-single":"")}>
+          {insight.primaryAction && <button type="button" onClick={()=>applySleepTransitionCorrection(insight)}>{insight.primaryAction.label}</button>}
+          <button type="button" className="is-secondary" onClick={()=>dismissSleepTransitionInsight(insight, insight.primaryAction ? "Okay. kept as Nap 1." : "Okay. OBubba will keep watching.")}>{(insight.secondaryAction && insight.secondaryAction.label) || "Got it"}</button>
+        </div>
+      </section>
+    );
+  }
+
+  function getSleepInterpreterInsight() {
+    void sleepInterpreterDismissTick;
+    try {
+      if (getSleepTransitionInsight()) return null;
+      const _now = new Date();
+      const _ageWeeks = age ? (age.predictiveWeeks ?? age.totalWeeks) : null;
+      const _insight = detectSleepInterpreterInsight({
+        days,
+        dayKey: selDay,
+        ageWeeks: _ageWeeks,
+        wakeWindow: getWakeWindow(_ageWeeks),
+        babyName,
+        childId: resolvedActiveId,
+        nowMins: _now.getHours() * 60 + _now.getMinutes(),
+        sleepActive: !!(napOn || bedTimerDay)
+      });
+      if (!_insight) return null;
+      if (_insight.dismissKey && localStorage.getItem(_insight.dismissKey) === "1") return null;
+      return _insight;
+    } catch {
+      return null;
+    }
+  }
+
+  function dismissSleepInterpreterInsight(insight, toastText, skipObservation = false) {
+    if (!insight) return;
+    haptic();
+    try {
+      if (!skipObservation && insight.title && insight.body) {
+        addObservation("🌙", insight.title, insight.body, insight.why || "Kept watching the pattern without changing any logs.", 3);
+      }
+    } catch {}
+    try { if (insight.dismissKey) localStorage.setItem(insight.dismissKey, "1"); } catch {}
+    setSleepInterpreterDismissTick(t => t + 1);
+    if (toastText) showToast(toastText, 2200, 1);
+  }
+
+  function handleSleepInterpreterAction(insight, action) {
+    const a = action || (insight && insight.primaryAction && insight.primaryAction.action);
+    if (!insight || !a) return;
+    haptic();
+    if (a === "start_nap") {
+      try { startNap(); } catch {}
+      try { trackEvent("sleep_interpreter_action", { insight_type:insight.type, action:"start_nap" }); } catch {}
+      dismissSleepInterpreterInsight(insight, "Nap timer started.", false);
+      return;
+    }
+    if (a === "open_schedule") {
+      try { openTrackScheduleBuilder(); } catch {}
+      try { trackEvent("sleep_interpreter_action", { insight_type:insight.type, action:"open_schedule" }); } catch {}
+      dismissSleepInterpreterInsight(insight, "Opened Schedule Builder.", false);
+      return;
+    }
+    if (a === "open_sleep_insight") {
+      try { setInsightFilter("sleep"); setTab("insights"); } catch {}
+      try { trackEvent("sleep_interpreter_action", { insight_type:insight.type, action:"open_sleep_insight" }); } catch {}
+      dismissSleepInterpreterInsight(insight, "Opened Understand > Sleep.", true);
+      return;
+    }
+    dismissSleepInterpreterInsight(insight, "Okay. OBubba will keep watching.");
+  }
+
+  function renderSleepInterpreterInsight(opts = {}) {
+    if (selDay !== todayStr() && !opts.allowPast) return null;
+    const insight = getSleepInterpreterInsight();
+    if (!insight) return null;
+    const _secondary = insight.secondaryAction || {label:"Got it"};
+    return (
+      <section data-testid="sleep-interpreter-insight-card" className={"ob-soft-sleep-card ob-sleep-interpreter-card"+(opts.compact?" is-compact":"")}>
+        <div className="ob-soft-sleep-icon"><BubbaIcon name="sparkle" size={22} animate/></div>
+        <div className="ob-soft-sleep-copy">
+          <div className="ob-soft-sleep-title">{insight.title}</div>
+          <div className="ob-soft-sleep-sub">{insight.body}</div>
+          {insight.why && <div className="ob-sleep-transition-why"><strong>What OBubba noticed</strong> {insight.why}</div>}
+        </div>
+        <div className={"ob-soft-sleep-actions"+(!insight.primaryAction?" is-single":"")}>
+          {insight.primaryAction && <button type="button" onClick={()=>handleSleepInterpreterAction(insight)}>{insight.primaryAction.label}</button>}
+          <button type="button" className="is-secondary" onClick={()=>_secondary.action ? handleSleepInterpreterAction(insight, _secondary.action) : dismissSleepInterpreterInsight(insight, "Okay. OBubba will keep watching.")}>{_secondary.label || "Got it"}</button>
+        </div>
+      </section>
+    );
+  }
+
+  function renderSoftSleepRecovery(opts = {}) {
+    if (daySubScreen && !opts.allowSubscreen) return null;
+    const _name = babyName || "Baby";
+    const _recent = normaliseRecentStoppedNapPayload(recentStoppedNap);
+    const _showSettling = !!(napOn && !napPaused && napEntryId && napSec < 10 * 60 && napSettlingDismissedId !== napEntryId);
+    const _showBedPaused = !!(bedTimerDay && bedPaused);
+    if (!_showSettling && !_showBedPaused && !_recent) return null;
+    if (_showBedPaused) {
+      return (
+        <section data-testid="soft-sleep-bed-resume-card" className={"ob-soft-sleep-card"+(opts.compact?" is-compact":"")}>
+          <div className="ob-soft-sleep-icon"><BubbaIcon name="moon" size={22} animate/></div>
+          <div className="ob-soft-sleep-copy">
+            <div className="ob-soft-sleep-title">Still asleep?</div>
+            <div className="ob-soft-sleep-sub">If that wake tap was too soon, put the bedtime timer straight back on.</div>
+          </div>
+          <div className="ob-soft-sleep-actions">
+            <button type="button" onClick={()=>{haptic();resumeBedTimer("self");}}>Resume sleep</button>
+            <button type="button" className="is-secondary" onClick={()=>{haptic();setShowNightWake(true);}}>Add details</button>
+          </div>
+        </section>
+      );
+    }
+    if (_showSettling) {
+      return (
+        <section data-testid="soft-sleep-settling-card" className={"ob-soft-sleep-card"+(opts.compact?" is-compact":"")}>
+          <div className="ob-soft-sleep-icon"><BubbaIcon name="nap" size={22} animate/></div>
+          <div className="ob-soft-sleep-copy">
+            <div className="ob-soft-sleep-title">Settling for sleep</div>
+            <div className="ob-soft-sleep-sub">If {_name} did not actually settle, discard this attempt so the day stays clean.</div>
+          </div>
+          <div className="ob-soft-sleep-actions">
+            <button type="button" onClick={()=>{haptic();setNapSettlingDismissedId(napEntryId||"current");showToast("Timer keeps running. end it when " + _name + " wakes.",2200,1);}}>Asleep now</button>
+            <button type="button" className="is-secondary" onClick={()=>{haptic();cancelNap();}}>Didn't settle</button>
+          </div>
+        </section>
+      );
+    }
+    return (
+      <section data-testid="soft-sleep-resume-card" className={"ob-soft-sleep-card"+(opts.compact?" is-compact":"")}>
+        <div className="ob-soft-sleep-icon"><BubbaIcon name="timer" size={22}/></div>
+        <div className="ob-soft-sleep-copy">
+          <div className="ob-soft-sleep-title">Still asleep?</div>
+          <div className="ob-soft-sleep-sub">If that end-nap tap was too soon, resume the nap from {fmt12(_recent.start)}.</div>
+        </div>
+        <div className="ob-soft-sleep-actions">
+          <button type="button" onClick={()=>resumeRecentStoppedNap(_recent)}>Resume sleep</button>
+          <button type="button" className="is-secondary" onClick={()=>{haptic();clearRecentStoppedNap();showToast("Okay. nap saved as awake.",1500,1);}}>All awake</button>
+        </div>
+      </section>
+    );
+  }
+
+		  function renderSimpleStartHome() {
+		    const name = babyName || "Baby";
 	    const now = new Date();
 	    const h = now.getHours();
-	    const isNight = h < 6 || h >= 21 || !!bedTimerDay;
+	    const activeBedTimerDay = (()=>{try{return bedTimerDay || localStorage.getItem("bed_timer_day") || "";}catch{return bedTimerDay || "";}})();
+	    const isNight = h < 6 || h >= 21 || !!activeBedTimerDay;
 	    const todayKey = todayStr();
 	    const todayEntries = days[todayKey] || [];
 	    const dayEntries = todayEntries.filter(e=>e && !e.night);
@@ -38122,22 +39040,16 @@ function App(){
 	    const lastWake = recentEntries.find(e=>e && e.type==="wake" && !e.night && (e.time || e.start));
 	    const noPressureStatus = (lastFeed ? "Last feed " + fmt12(lastFeed.time) + ". " : "No feed logged yet. ")
 	      + (lastNappy ? "Last nappy " + fmt12(lastNappy.time) + "." : "No nappy logged yet.");
-		    const sleepLabel = napOn ? "End nap" : (h >= 17 && !bedTimerDay ? "Bedtime" : "Sleep");
+		    const sleepLabel = napOn ? "End nap" : (h >= 17 && !activeBedTimerDay ? "Bedtime" : "Sleep");
 		    const wakeLabel = isNight ? "Night wake" : "Wake";
 	    const td = tickDataRef.current || {};
-	    const nextEvent = td.nextEvent || null;
-	    const bedStart = (()=>{try{return localStorage.getItem("bed_timer_start") || napStartT || "";}catch{return napStartT || "";}})();
-	    const statusTitle = bedTimerDay ? "Sleeping" : napOn ? "Napping" : breastActive ? "Feeding" : lastWake ? "Awake" : "Ready to track";
-	    const statusMeta = bedTimerDay && bedStart ? "since " + fmt12(bedStart) : napOn ? fmtSec(napSec) + " so far" : breastActive ? "feed timer running" : lastWake ? "since " + fmt12(lastWake.time || lastWake.start) : "tap once when something happens";
-	    const statusIcon = bedTimerDay ? "moon" : napOn ? "nap" : breastActive ? "feed" : isNight ? "moon" : "sun";
-	    const statusTimer = (bedTimerDay || napOn) ? fmtSec(napSec) : "";
-	    const nextLabel = nextEvent ? (nextEvent.type === "bed" ? "Bedtime" : (nextEvent.label || (nextEvent.type === "nap" ? "Next nap" : "Next"))) : "Next rhythm";
-	    const nextWhen = nextEvent && nextEvent.timeStr ? nextEvent.timeStr : nextEvent && typeof nextEvent.targetMs === "number" ? (()=>{try{const d=new Date(nextEvent.targetMs);return fmt12(String(d.getHours()).padStart(2,"0")+":"+String(d.getMinutes()).padStart(2,"0"));}catch{return "";}})() : "";
-	    const rhythmCopy = nextEvent && nextEvent.text
-	      ? nextEvent.text
-	      : nextWhen
-	        ? nextLabel + " around " + nextWhen + ". Schedule Builder can adjust the day if plans change."
-	        : "Use Schedule Builder to map wake, naps and bedtime around what actually happened today.";
+		    const nextEvent = td.nextEvent || null;
+		    const bedStart = (()=>{try{const stored=localStorage.getItem("bed_timer_start");if(clockMins(stored)!==null)return stored;const bedEntry=activeBedTimerDay?findBedtime(days[activeBedTimerDay]||[]):null;return bedEntry&&bedEntry.time?bedEntry.time:"";}catch{return "";}})();
+		    const settlingNapActive = napOn && !napPaused && napSec < 10 * 60;
+		    const statusTitle = activeBedTimerDay ? (bedPaused ? "Settling" : "Sleeping") : settlingNapActive ? "Settling" : napOn ? "Napping" : breastActive ? "Feeding" : lastWake ? "Awake" : "Ready to track";
+		    const statusMeta = activeBedTimerDay && bedPaused ? "wake paused. resume sleep if they settle" : activeBedTimerDay ? "" : settlingNapActive ? fmtSec(napSec) + " trying to settle" : napOn ? fmtSec(napSec) + " so far" : breastActive ? "feed timer running" : lastWake ? "since " + fmt12(lastWake.time || lastWake.start) : "tap once when something happens";
+	    const statusIcon = activeBedTimerDay ? "moon" : napOn ? "nap" : breastActive ? "feed" : isNight ? "moon" : "sun";
+	    const statusTimer = activeBedTimerDay ? (!bedPaused && bedStart ? "since " + fmt12(bedStart) : "") : napOn ? fmtSec(napSec) : "";
 	    const oneInsight = recentEntries.length
 	      ? (nextEvent && nextEvent.text ? nextEvent.text : "OBubba has today's basics. Keep logging only what feels useful.")
 	      : "One feed, nappy, sleep or wake is enough to start. You can add amounts and notes later.";
@@ -38189,78 +39101,67 @@ function App(){
 	              {statusTimer && <strong>{statusTimer}</strong>}
 	            </div>
 	          </div>
-	          <div className="ob-track-status-meta">{statusMeta}</div>
-	          <div className="ob-track-status-line">{noPressureStatus}</div>
+		          {statusMeta && <div className="ob-track-status-meta">{statusMeta}</div>}
+		          <div className="ob-track-status-line">{noPressureStatus}</div>
+		        </section>
+            {renderSoftSleepRecovery({compact:true})}
+            {renderSleepTransitionInsight({compact:true})}
+            {renderSleepInterpreterInsight({compact:true})}
+
+	        <section data-testid="track-v3-actions-card" className="glass-card ob-track-actions-card">
+	          <div className="ob-track-section-head is-card-head">
+	            <div>
+	              <div className="ob-track-section-title">One tap log</div>
+	              <div className="ob-track-section-sub">Tap what happened. Add details later.</div>
+	            </div>
+	            <button data-tour-id="simple-detailed-log" onClick={openTrackHomeFromSimple} className="ob-track-text-btn">
+	              Detailed log
+	            </button>
+	          </div>
+		          <div data-tour-id="simple-actions" className="ob-track-actions-grid">
+		            <button className={"ob-simple-action"+(simplePressedAction==="feed"?" is-pressed":"")} onPointerDown={()=>showSimpleActionGlow("feed")} onClick={()=>simpleTapAction("feed","feed")} style={actionStyle(C.sky)}>
+		              <BubbaIcon name="feed" size={34}/>
+		              <span style={{fontSize:15,fontWeight:850}}>Feed</span>
+		            </button>
+		            <button className={"ob-simple-action"+(simplePressedAction==="nappy"?" is-pressed":"")} onPointerDown={()=>showSimpleActionGlow("nappy")} onClick={()=>simpleTapAction("nappy","nappy")} style={actionStyle(C.mint)}>
+		              <BubbaIcon name="nappy" size={34}/>
+		              <span style={{fontSize:15,fontWeight:850}}>Nappy</span>
+		            </button>
+		            <button className={"ob-simple-action"+(simplePressedAction==="sleep"?" is-pressed":"")} onPointerDown={()=>showSimpleActionGlow("sleep")} onClick={()=>simpleTapAction("sleep","sleep")} style={actionStyle(C.gold)}>
+		              <BubbaIcon name={napOn?"timer":(h >= 17 && !bedTimerDay ? "moon" : "nap")} size={34} animate={napOn}/>
+		              <span style={{fontSize:15,fontWeight:850}}>{sleepLabel}</span>
+		            </button>
+		            <button className={"ob-simple-action"+(simplePressedAction==="wake"?" is-pressed":"")} onPointerDown={()=>showSimpleActionGlow("wake")} onClick={()=>simpleTapAction("wake","wake")} style={actionStyle(C.ter)}>
+		              <BubbaIcon name={isNight?"moon":"sun"} size={34}/>
+		              <span style={{fontSize:15,fontWeight:850}}>{wakeLabel}</span>
+		            </button>
+		          </div>
 	        </section>
 
-	        <div className="ob-track-section-head">
-	          <div>
-	            <div className="ob-track-section-title">One tap log</div>
-	            <div className="ob-track-section-sub">Tap now. Add amounts, notes or edits later.</div>
-	          </div>
-	          <button data-tour-id="simple-detailed-log" onClick={()=>{haptic();setDaySubScreen("today");setTodayPanel("log");}} className="ob-track-text-btn">
-	            Detailed log
-	          </button>
-	        </div>
-		        <div data-tour-id="simple-actions" className="ob-track-actions-grid">
-			          <button className={"ob-simple-action"+(simplePressedAction==="feed"?" is-pressed":"")} onPointerDown={()=>showSimpleActionGlow("feed")} onClick={()=>simpleTapAction("feed","feed")} style={actionStyle(C.sky)}>
-			            <BubbaIcon name="feed" size={34}/>
-			            <span style={{fontSize:15,fontWeight:850}}>Feed</span>
-		          </button>
-		          <button className={"ob-simple-action"+(simplePressedAction==="nappy"?" is-pressed":"")} onPointerDown={()=>showSimpleActionGlow("nappy")} onClick={()=>simpleTapAction("nappy","nappy")} style={actionStyle(C.mint)}>
-		            <BubbaIcon name="nappy" size={34}/>
-		            <span style={{fontSize:15,fontWeight:850}}>Nappy</span>
-		          </button>
-		          <button className={"ob-simple-action"+(simplePressedAction==="sleep"?" is-pressed":"")} onPointerDown={()=>showSimpleActionGlow("sleep")} onClick={()=>simpleTapAction("sleep","sleep")} style={actionStyle(C.gold)}>
-		            <BubbaIcon name={napOn?"timer":(h >= 17 && !bedTimerDay ? "moon" : "nap")} size={34} animate={napOn}/>
-		            <span style={{fontSize:15,fontWeight:850}}>{sleepLabel}</span>
-		          </button>
-		          <button className={"ob-simple-action"+(simplePressedAction==="wake"?" is-pressed":"")} onPointerDown={()=>showSimpleActionGlow("wake")} onClick={()=>simpleTapAction("wake","wake")} style={actionStyle(C.ter)}>
-			            <BubbaIcon name={isNight?"moon":"sun"} size={34}/>
-			            <span style={{fontSize:15,fontWeight:850}}>{wakeLabel}</span>
-			          </button>
-	        </div>
-
-	        <section data-testid="track-v3-glance" className="ob-track-glance-card">
+	        <section data-testid="track-v3-today-card" className="glass-card ob-track-today-card">
 	          <div className="ob-track-section-head is-tight">
 	            <div>
-	              <div className="ob-track-section-title">Today at a glance</div>
-	              <div className="ob-track-section-sub">Milk, nappies and sleep without digging.</div>
+	              <div className="ob-track-section-title">Today</div>
+	              <div className="ob-track-section-sub">At a glance, then the latest logs.</div>
 	            </div>
+		            <button onClick={openTrackHomeFromSimple} className="ob-track-text-btn">View all</button>
 	          </div>
-	          {renderTodaySummaryTiles({marginBottom:0,gap:6})}
-	        </section>
-
-	        <section data-testid="track-v3-rhythm" className="glass-card ob-track-rhythm-card">
-	          <div className="ob-track-rhythm-icon"><BubbaIcon name={nextEvent && nextEvent.type === "bed" ? "moon" : "timer"} size={24}/></div>
-	          <div className="ob-track-rhythm-copy">
-	            <div className="ob-track-rhythm-kicker">Rhythm</div>
-	            <div className="ob-track-rhythm-title">{nextWhen ? nextLabel + " · " + nextWhen : "Schedule Builder"}</div>
-	            <div className="ob-track-rhythm-sub">{rhythmCopy}</div>
+	          <div data-testid="track-v3-glance" className="ob-track-glance-card">
+	            {renderTodaySummaryTiles({marginBottom:0,gap:6})}
 	          </div>
-	          <button data-testid="track-v3-schedule-builder" data-tour-id="tile-schedule" onClick={()=>{haptic();setShowScheduleMaker(true);}} className="ob-track-rhythm-btn">
-	            Schedule Builder
-	          </button>
-	        </section>
-
-	        <section data-testid="track-v3-recent-logs" className="glass-card ob-track-recent-card">
-	          <div className="ob-track-section-head is-tight">
-	            <div>
-	              <div className="ob-track-section-title">Recent logs</div>
-	              <div className="ob-track-section-sub">{feedCount} feed{feedCount!==1?"s":""} · {nappyCount} nappy{nappyCount!==1?"ies":"y"} · {napCount} nap{napCount!==1?"s":""} today</div>
+	          <div data-testid="track-v3-recent-logs" className="ob-track-recent-card">
+	            <div className="ob-track-log-count">{feedCount} feed{feedCount!==1?"s":""} · {nappyCount} nappy{nappyCount!==1?"ies":"y"} · {napCount} nap{napCount!==1?"s":""} today</div>
+	            <div className="ob-track-log-list">
+	              {recentLogRows.length ? recentLogRows.map((entry,idx)=>(
+	                <div key={(entry.id || entry._wallMs || idx)+"-"+idx} className="ob-track-log-row">
+	                  <span className="ob-track-log-icon"><BubbaIcon name={entryIcon(entry)} size={18}/></span>
+	                  <span className="ob-track-log-label">{entryLabel(entry)}</span>
+	                  <span className="ob-track-log-time">{fmt12(entry.time || entry.start)}</span>
+	                </div>
+	              )) : (
+	                <div className="ob-track-empty-log">No logs yet today. Start with one tap above.</div>
+	              )}
 	            </div>
-	            <button onClick={()=>{haptic();setDaySubScreen("today");setTodayPanel("log");}} className="ob-track-text-btn">View all</button>
-	          </div>
-	          <div className="ob-track-log-list">
-	            {recentLogRows.length ? recentLogRows.map((entry,idx)=>(
-	              <div key={(entry.id || entry._wallMs || idx)+"-"+idx} className="ob-track-log-row">
-	                <span className="ob-track-log-icon"><BubbaIcon name={entryIcon(entry)} size={18}/></span>
-	                <span className="ob-track-log-label">{entryLabel(entry)}</span>
-	                <span className="ob-track-log-time">{fmt12(entry.time || entry.start)}</span>
-	              </div>
-	            )) : (
-	              <div className="ob-track-empty-log">No logs yet today. Start with one tap above.</div>
-	            )}
 	          </div>
 	        </section>
 
@@ -38273,9 +39174,9 @@ function App(){
 	        </section>
 
 	        <div className="ob-track-footer-actions">
-		          <button data-testid="switch-to-full-dashboard" data-tour-id="simple-full-dashboard" onClick={dismissSimpleStart} className="ob-track-dashboard-btn">
-		            Full dashboard
-		          </button>
+			          <button data-testid="switch-to-full-dashboard" data-tour-id="simple-full-dashboard" onClick={openTrackHomeFromSimple} className="ob-track-dashboard-btn">
+			            Daily log home
+			          </button>
 	          <button onClick={()=>{haptic();setTab("settings");}} className="ob-track-share-btn">
 	            Partner or carer helping? Set up sharing from Account.
 	          </button>
@@ -38740,7 +39641,7 @@ function App(){
       setTab("day");
       setSelDay(_obToday);
       // Keep the first landing calm. Quick-start catch-up can wait until the
-      // parent opens the full dashboard instead of interrupting the first log.
+      // parent opens the daily log home instead of interrupting the first log.
       try{ localStorage.setItem("ob_quickstart_offered", "1"); }catch{}
       // Day explainer disabled by user request.
     };
@@ -38955,11 +39856,11 @@ function App(){
 	        sub:"Pick what feels calmer for right now. Both modes save to the same baby log, and you can switch from the Track screen anytime.",
 	        action: (
 	          <div style={{width:"100%",marginTop:16}}>
-	            <div style={{fontSize:12,color:C.lt,lineHeight:1.5,marginBottom:12,textAlign:"center"}}>Not sure? Start simple. Full dashboard is still one tap away.</div>
+	            <div style={{fontSize:12,color:C.lt,lineHeight:1.5,marginBottom:12,textAlign:"center"}}>Not sure? Start simple. Daily log home is still one tap away.</div>
 	            <div data-testid="onboarding-dashboard-mode-choice" style={{display:"flex",flexDirection:"column",gap:10,marginBottom:16}}>
 	              {[
 	                ["simple","\u2728","No pressure mode","Best if you mostly need to tap fast at 3am. Feed, nappy, sleep and wake are big buttons first; amounts and notes can be added later."],
-	                ["full","\u{1F9ED}","Full dashboard","Best if you want the whole day visible. You see logs, schedule builder, notes, insights and all the extra tools straight away."]
+	                ["full","\u{1F9ED}","Daily log home","Best if you want the whole day visible. You see logs, schedule builder, notes, insights and all the extra tools in one place."]
 	              ].map(([val,emoji,label,sub2])=>(
 	                <button key={val} onClick={()=>setObDashboardModeChoice(val)}
 	                  style={{width:"100%",display:"flex",alignItems:"center",gap:14,padding:"15px 16px",borderRadius:16,border:`2px solid ${obDashboardModeChoice===val?C.mint:C.blush}`,background:obDashboardModeChoice===val?"rgba(111,168,152,0.12)":"var(--card-bg-solid)",cursor:_cP,textAlign:"left",fontFamily:_fI}}>
@@ -39159,11 +40060,11 @@ function App(){
               </div>
 	              <div data-testid="child-setup-dashboard-mode-choice" style={{marginBottom:14,textAlign:"left"}}>
 	                <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:8}}>Track opens in</div>
-	                <div style={{fontSize:11,color:C.lt,lineHeight:1.4,marginBottom:8}}>No pressure keeps logging big and simple. Full dashboard shows the whole day straight away.</div>
+		                <div style={{fontSize:11,color:C.lt,lineHeight:1.4,marginBottom:8}}>No pressure keeps logging big and simple. Daily log home shows the whole day straight away.</div>
 	                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
 	                  {[
 	                    ["simple","✨","No pressure"],
-	                    ["full","🧭","Full dashboard"]
+		                    ["full","🧭","Daily log"]
 	                  ].map(([val,emoji,label])=>(
 	                    <button key={val} onClick={()=>setObDashboardModeChoice(val)}
 	                      style={{padding:"11px 8px",borderRadius:14,border:`2px solid ${obDashboardModeChoice===val?C.mint:C.blush}`,background:obDashboardModeChoice===val?"rgba(111,168,152,0.12)":"var(--card-bg-solid)",color:obDashboardModeChoice===val?C.mint:C.mid,fontSize:12,fontWeight:850,cursor:_cP,fontFamily:_fI,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
@@ -39239,18 +40140,80 @@ function App(){
 	        .ob-tour-card>*{position:relative!important;z-index:1!important;}
 	        body.dark-mode .ob-tour-card{background:#111D31!important;background-color:#111D31!important;background-image:none!important;}
 	        body.dark-mode .ob-tour-card::before{background:#111D31!important;}
+	        .ob-tour-journey-sheet{position:relative;width:min(420px,calc(var(--ob-vw,100vw) - 24px));max-height:min(760px,calc(var(--ob-vh,100vh) - 32px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)));overflow:auto;-webkit-overflow-scrolling:touch;box-sizing:border-box;border-radius:30px;padding:18px 18px 16px;background:linear-gradient(152deg,#211D43 0%,#141B32 48%,#09101F 100%);border:1px solid rgba(224,158,132,.36);box-shadow:0 28px 80px rgba(3,8,18,.64),inset 0 1px 0 rgba(255,255,255,.08);color:#FFF8F1;text-align:left;}
+	        .ob-tour-journey-sheet::before{content:"";position:absolute;inset:-26% -18% auto;height:230px;background:radial-gradient(circle at 50% 42%,rgba(155,139,248,.34),transparent 64%);pointer-events:none;}
+	        .ob-tour-journey-handle{position:relative;width:58px;height:6px;border-radius:99px;background:rgba(211,208,255,.74);margin:0 auto 18px;box-shadow:0 0 20px rgba(178,171,255,.32);}
+	        .ob-tour-journey-hero{position:relative;text-align:center;margin-bottom:16px;}
+	        .ob-tour-journey-title{font-family:Georgia,serif;font-size:28px;font-weight:800;line-height:1.04;letter-spacing:0;color:#FFF8F1;margin:8px 0 8px;}
+	        .ob-tour-journey-copy{font-size:14px;line-height:1.5;color:rgba(235,243,255,.78);font-weight:650;margin:0 auto;max-width:330px;}
+	        .ob-tour-journey-list{position:relative;display:grid;gap:10px;margin:16px 0 14px;padding-left:20px;}
+	        .ob-tour-journey-list::before{content:"";position:absolute;left:8px;top:14px;bottom:14px;width:2px;border-radius:99px;background:linear-gradient(to bottom,#8B87FF,#8DD4FF 52%,rgba(243,196,158,.72));box-shadow:0 0 14px rgba(136,198,255,.34);}
+	        .ob-tour-journey-card{position:relative;display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;border-radius:20px;padding:12px 12px;background:rgba(18,31,53,.76);border:1px solid rgba(149,184,221,.18);box-shadow:inset 0 1px 0 rgba(255,255,255,.05);}
+	        .ob-tour-journey-dot{position:absolute;left:-18px;top:17px;width:13px;height:13px;border-radius:50%;background:#121B32;border:2px solid #91C9FF;box-shadow:0 0 0 4px rgba(137,130,255,.16),0 0 16px rgba(145,201,255,.35);}
+	        .ob-tour-journey-icon{width:38px;height:38px;border-radius:15px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.09);box-shadow:inset 0 1px 0 rgba(255,255,255,.08);flex-shrink:0;}
+	        .ob-tour-journey-pill{display:inline-flex;align-items:center;border-radius:99px;padding:4px 10px;background:rgba(147,211,255,.12);color:#CDEEFF;font-size:11px;font-family:'DM Mono',monospace;font-weight:800;letter-spacing:.03em;margin-bottom:5px;}
+	        .ob-tour-journey-name{font-family:Georgia,serif;font-size:17px;font-weight:800;line-height:1.12;color:#FFF8F1;margin-bottom:3px;letter-spacing:0;}
+	        .ob-tour-journey-desc{font-size:12px;line-height:1.35;color:rgba(225,236,250,.72);font-weight:650;}
+	        .ob-tour-journey-chevron{color:rgba(255,248,241,.72);font-size:23px;line-height:1;}
+	        .ob-tour-journey-primary{width:100%;min-height:48px;border-radius:999px;border:1px solid rgba(205,229,255,.52);background:linear-gradient(135deg,#CDE9FF,#A798FF);color:#15132F;font-size:15px;font-weight:900;font-family:'DM Sans',sans-serif;box-shadow:0 0 24px rgba(157,210,255,.3);cursor:pointer;}
+	        .ob-tour-journey-secondary{width:100%;min-height:42px;margin-top:8px;border-radius:999px;border:1px solid rgba(255,248,241,.14);background:rgba(255,255,255,.06);color:rgba(255,248,241,.68);font-size:13px;font-weight:800;font-family:'DM Sans',sans-serif;cursor:pointer;}
+	        @media (max-width:390px){.ob-tour-journey-sheet{padding:16px 14px 14px;border-radius:26px}.ob-tour-journey-title{font-size:24px}.ob-tour-journey-card{grid-template-columns:1fr auto;padding:11px}.ob-tour-journey-icon{display:none}}
 	      `}</style>
 	      {showTutPrompt && (
-	        <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}} onClick={()=>{setShowTutPrompt(false);clearPendingAppTour(true);}}>
-	          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(30px) saturate(1.6)",WebkitBackdropFilter:"blur(30px) saturate(1.6)",borderRadius:24,padding:"28px 24px",maxWidth:340,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,0.4)",border:"1px solid var(--card-border)"}}>
-	            <div style={{fontSize:36,marginBottom:12}}>✨</div>
-	            <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:8}}>Want the quick tour?</div>
-		            <div style={{fontSize:14,color:C.mid,lineHeight:1.6,marginBottom:20}}>It highlights the buttons you need first: one-tap logging, Detailed log, Schedule Builder and Account for sharing.</div>
-	            <button onClick={()=>{setShowTutPrompt(false);clearPendingAppTour(false);setTab("day");setDaySubScreen(null);setTutStep(0);}} style={{width:"100%",padding:"13px",borderRadius:14,border:"none",background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:15,fontWeight:700,cursor:_cP,marginBottom:8,fontFamily:_fI}}>Show me around →</button>
-	            <button onClick={()=>{setShowTutPrompt(false);clearPendingAppTour(true);}} style={{width:"100%",padding:"11px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.lt,fontSize:13,fontWeight:600,cursor:_cP,fontFamily:_fI}}>Maybe later</button>
+	        <div style={{position:"fixed",inset:0,zIndex:9990,background:"rgba(3,7,18,0.78)",backdropFilter:"blur(10px)",WebkitBackdropFilter:"blur(10px)",display:"flex",alignItems:"center",justifyContent:"center",padding:"calc(env(safe-area-inset-top,0px) + 16px) 12px calc(env(safe-area-inset-bottom,0px) + 16px)"}} onClick={()=>{setShowTutPrompt(false);clearPendingAppTour(true);}}>
+	          <div className="ob-tour-journey-sheet" role="dialog" aria-modal="true" aria-label="OBubba app tour" onClick={e=>e.stopPropagation()}>
+	            <div className="ob-tour-journey-handle"/>
+	            <div className="ob-tour-journey-hero">
+	              <OBubbaMascot type="happy" size={96} alt="OBubba" style={{margin:"0 auto"}}/>
+	              <div className="ob-tour-journey-title">Your OBubba care journey</div>
+	              <p className="ob-tour-journey-copy">A quick tour of the bits that help when your hands are full, your brain is tired, and the day still needs a little shape.</p>
+	            </div>
+	            <div className="ob-tour-journey-list">
+	              {OB_APP_TOUR_JOURNEY.map((item,i)=>(
+	                <div className="ob-tour-journey-card" key={item.chapter}>
+	                  <span className="ob-tour-journey-dot" aria-hidden="true"/>
+	                  <div className="ob-tour-journey-icon"><BubbaIcon name={item.iconName} size={22}/></div>
+	                  <div>
+	                    <div className="ob-tour-journey-pill">{item.chapter}</div>
+	                    <div className="ob-tour-journey-name">{item.title}</div>
+	                    <div className="ob-tour-journey-desc">{item.target}</div>
+	                  </div>
+	                  <div className="ob-tour-journey-chevron" aria-hidden="true">›</div>
+	                </div>
+	              ))}
+	            </div>
+	            <button className="ob-tour-journey-primary" onClick={()=>{setShowTutPrompt(false);clearPendingAppTour(false);setTab("day");setDaySubScreen(null);setTutStep(0);}}>Start OBubba tour</button>
+	            <button className="ob-tour-journey-secondary" onClick={()=>{setShowTutPrompt(false);clearPendingAppTour(true);}}>Maybe later</button>
 	          </div>
 	        </div>
 	      )}
+      {showDailyLogReminderPrompt && (
+        <div data-testid="daily-log-reminder-prompt" role="dialog" aria-modal="true" aria-label="Daily log reminder" style={{position:"fixed",inset:0,zIndex:9992,background:"var(--sheet-overlay)",backdropFilter:"blur(8px)",WebkitBackdropFilter:"blur(8px)",display:"flex",alignItems:"center",justifyContent:"center",padding:"calc(env(safe-area-inset-top,0px) + 20px) 20px calc(env(safe-area-inset-bottom,0px) + 20px)"}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(30px) saturate(1.6)",WebkitBackdropFilter:"blur(30px) saturate(1.6)",borderRadius:26,padding:"26px 22px",maxWidth:356,width:"100%",textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,0.36)",border:"1px solid var(--card-border)"}}>
+            <div style={{fontSize:34,marginBottom:10}}>🔔</div>
+            {dailyLogReminderPromptStep==="time" ? (
+              <>
+                <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:8}}>What time works best?</div>
+                <div style={{fontSize:14,color:C.mid,lineHeight:1.55,marginBottom:16}}>Choose one daily nudge. You can change it later in Account preferences.</div>
+                <label style={{display:"block",textAlign:"left",marginBottom:16}}>
+                  <span style={{display:"block",fontSize:10,color:C.lt,fontFamily:_fM,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Reminder time</span>
+                  <input data-testid="daily-log-reminder-prompt-time" type="time" value={dailyLogReminderPromptTime} onChange={e=>setDailyLogReminderPromptTime(e.target.value)} style={{width:"100%",boxSizing:"border-box",fontSize:18,padding:"12px 14px",borderRadius:14,border:"1px solid var(--card-border)",background:"var(--input-bg)",color:C.deep,fontFamily:_fM,textAlign:"center"}}/>
+                </label>
+                <button onClick={confirmDailyLogReminderPrompt} style={{width:"100%",padding:"13px",borderRadius:14,border:"none",background:`linear-gradient(135deg,${C.mint},#3a8870)`,color:"white",fontSize:15,fontWeight:800,cursor:_cP,marginBottom:8,fontFamily:_fI}}>Set reminder</button>
+                <button onClick={declineDailyLogReminderPrompt} style={{width:"100%",padding:"11px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.lt,fontSize:13,fontWeight:650,cursor:_cP,fontFamily:_fI}}>Not now</button>
+              </>
+            ) : (
+              <>
+                <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:8}}>Would you like a daily reminder to log?</div>
+                <div style={{fontSize:14,color:C.mid,lineHeight:1.55,marginBottom:20}}>OBubba can remind you once a day at a time you choose, so tracking does not have to live in your head.</div>
+                <button onClick={()=>{haptic();setDailyLogReminderPromptStep("time");}} style={{width:"100%",padding:"13px",borderRadius:14,border:"none",background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:15,fontWeight:800,cursor:_cP,marginBottom:8,fontFamily:_fI}}>Yes, choose a time</button>
+                <button onClick={declineDailyLogReminderPrompt} style={{width:"100%",padding:"11px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg)",color:C.lt,fontSize:13,fontWeight:650,cursor:_cP,fontFamily:_fI}}>No thanks</button>
+                <div style={{fontSize:11,color:C.lt,lineHeight:1.5,marginTop:12}}>You can change your mind in Account preferences.</div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
       {/* ── In-app account creation prompt ── */}
       {showClaimPrompt && !familyUsername && (
         <div style={{position:"fixed",inset:0,zIndex:9991,background:"var(--sheet-overlay)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}} onClick={()=>{setShowClaimPrompt(false);try{localStorage.setItem("ob_claim_dismissed","1");}catch{}}}>
@@ -39297,11 +40260,7 @@ function App(){
 
             {tutStep >= 0 && (()=>{
 	        const _bn2 = babyName || "your baby";
-		        const TUT_STEPS = [
-		          { icon:"✨", title:"Start simple", body:"These are your no-pressure buttons.\n\nTap once to save. Add amounts, notes or edits later." },
-		          { icon:"📋", title:"Details stay tucked away", body:"Detailed log is where amounts, sides, notes, reminders and edits live.\n\nUse it only when a quick tap is not enough." },
-		          { icon:"⏰", title:"Shape the day", body:"Schedule Builder helps when wake, naps or bedtime change.\n\nSharing and settings live in Account when another grown-up needs access." },
-		        ];
+		        const TUT_STEPS = OB_APP_TOUR_JOURNEY;
 
         const dismissTutorial = () => {
           try{localStorage.setItem("tut_v2","1");}catch{}
@@ -39311,20 +40270,21 @@ function App(){
 	        const nextStep = () => {
 	          if (tutStep >= TUT_STEPS.length - 1) { dismissTutorial(); return; }
 	          const next = tutStep + 1;
-	          if (next >= 3) {
-	            try { setTab("day"); setDaySubScreen(null); } catch {}
-	            if (simpleStartActive) dismissSimpleStart();
-	          }
-	          setTutStep(next);
+	          goTourStep(next);
 	        };
-	        const jumpStep = (i) => {
+	        const goTourStep = (i) => {
 	          if (i >= 3) {
-	            try { setTab("day"); setDaySubScreen(null); } catch {}
+	            try { setTab("settings"); setDaySubScreen(null); } catch {}
 	            if (simpleStartActive) dismissSimpleStart();
+	          } else {
+	            try { setTab("day"); setDaySubScreen(null); } catch {}
 	          }
 	          setTutStep(i);
 	        };
-	        const prevStep = () => { if (tutStep > 0) setTutStep(s => s-1); };
+	        const jumpStep = (i) => {
+	          goTourStep(i);
+	        };
+	        const prevStep = () => { if (tutStep > 0) goTourStep(tutStep - 1); };
 
         const step = TUT_STEPS[tutStep];
         const isLast = tutStep === TUT_STEPS.length - 1;
@@ -39333,10 +40293,15 @@ function App(){
 	        const cardText = isDark ? "#FFF8F1" : C.deep;
 	        const cardSub = isDark ? "rgba(255,248,240,0.88)" : "#4C4045";
 	        const locBg = isDark ? "rgba(255,255,255,0.10)" : "#F6ECE4";
-	        const locText = isDark ? "rgba(255,248,240,0.80)" : C.lt;
-	        const tourBorder = isDark ? "1.5px solid rgba(255,255,255,0.18)" : "1.5px solid rgba(91,64,54,0.12)";
-	        const iconBg = isDark ? "rgba(255,255,255,0.12)" : "#F8EFE7";
-	        const tourCardDock = tourSpotlight ? (tourSpotlight.top < (tourSpotlight.viewportH||844)*0.50 ? "bottom" : "top") : "center";
+		        const locText = isDark ? "rgba(255,248,240,0.80)" : C.lt;
+		        const tourBorder = isDark ? "1.5px solid rgba(255,255,255,0.18)" : "1.5px solid rgba(91,64,54,0.12)";
+		        const iconBg = isDark ? "rgba(255,255,255,0.12)" : "#F8EFE7";
+		        const tourSpotlightBorder = isDark ? "3px solid rgba(255,255,255,0.98)" : "3px solid rgba(157,224,255,0.98)";
+		        const tourSpotlightShadow = isDark
+		          ? "0 0 0 9999px rgba(16,8,4,0.66), 0 0 0 8px rgba(255,255,255,0.30), 0 0 0 12px rgba(201,112,90,0.24), 0 0 36px rgba(255,238,205,0.82), inset 0 0 0 2px rgba(255,255,255,0.65)"
+		          : "0 0 0 9999px rgba(13,24,34,0.52), 0 0 0 5px rgba(255,255,255,0.78), 0 0 0 11px rgba(139,222,255,0.62), 0 0 0 16px rgba(120,210,255,0.20), 0 0 34px rgba(77,196,255,0.70), 0 0 58px rgba(163,229,255,0.42), inset 0 0 0 2px rgba(255,255,255,0.78), inset 0 0 18px rgba(121,210,255,0.26)";
+		        const tourSpotlightFill = isDark ? "transparent" : "rgba(202,238,255,0.10)";
+		        const tourCardDock = tourSpotlight ? (tourSpotlight.top < (tourSpotlight.viewportH||844)*0.50 ? "bottom" : "top") : "center";
 	        const tourCardPosition = tourCardDock === "bottom"
 	          ? {bottom:"calc(14px + env(safe-area-inset-bottom, 0px))", transform:"translateX(-50%)"}
 	          : tourCardDock === "top"
@@ -39345,11 +40310,11 @@ function App(){
 
 	        return (
 	          <div style={{position:"fixed",inset:0,zIndex:10020,pointerEvents:"auto"}}>
-	            <div data-testid="tour-backdrop" style={{position:"absolute",inset:0,background:tourSpotlight?"transparent":"rgba(16,8,4,0.85)",backdropFilter:tourSpotlight?"none":"blur(2px)",WebkitBackdropFilter:tourSpotlight?"none":"blur(2px)"}}
-	              onClick={nextStep}/>
-	            {tourSpotlight && (
-	              <div aria-hidden="true" className="ob-tour-spotlight" style={{position:"fixed",left:tourSpotlight.left,top:tourSpotlight.top,width:tourSpotlight.width,height:tourSpotlight.height,borderRadius:tourSpotlight.radius,border:"3px solid rgba(255,255,255,0.98)",boxShadow:"0 0 0 9999px rgba(16,8,4,0.66), 0 0 0 8px rgba(255,255,255,0.30), 0 0 0 12px rgba(201,112,90,0.24), 0 0 36px rgba(255,238,205,0.82), inset 0 0 0 2px rgba(255,255,255,0.65)",pointerEvents:"none",zIndex:10021,animation:"tourGlow 1.15s ease-in-out infinite"}}/>
-	            )}
+		            <div data-testid="tour-backdrop" style={{position:"absolute",inset:0,background:tourSpotlight?"transparent":"rgba(16,8,4,0.85)",backdropFilter:tourSpotlight?"none":"blur(2px)",WebkitBackdropFilter:tourSpotlight?"none":"blur(2px)"}}
+		              onClick={nextStep}/>
+		            {tourSpotlight && (
+		              <div aria-hidden="true" className="ob-tour-spotlight" style={{position:"fixed",left:tourSpotlight.left,top:tourSpotlight.top,width:tourSpotlight.width,height:tourSpotlight.height,borderRadius:tourSpotlight.radius,border:tourSpotlightBorder,background:tourSpotlightFill,boxShadow:tourSpotlightShadow,pointerEvents:"none",zIndex:10021,animation:"tourGlow 1.15s ease-in-out infinite"}}/>
+		            )}
 	            <div className="ob-tour-card" style={{
 	              position:"fixed",
 	              left:"50%",
@@ -39371,19 +40336,19 @@ function App(){
             }}>
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
                 <div data-testid="tour-step-label" style={{display:"inline-flex",alignItems:"center",gap:6,borderRadius:99,padding:"5px 10px",background:locBg,color:locText,fontSize:12,fontWeight:800,fontFamily:_fI}}>
-                  Step {tutStep + 1} of {TUT_STEPS.length}
+                  {step.chapter} · Step {tutStep + 1} of {TUT_STEPS.length}
                 </div>
                 <button onClick={dismissTutorial} aria-label="Close" style={{background:_bN,border:_bN,color:locText,fontSize:19,cursor:_cP,padding:"10px 12px",lineHeight:1,flexShrink:0,minWidth:44,minHeight:44,display:"flex",alignItems:"center",justifyContent:"center",boxSizing:"border-box"}}>✕</button>
               </div>
               <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",marginBottom:12}}>
                 <div style={_S.flexCenter10}>
-                  <div style={{width:40,height:40,borderRadius:14,background:iconBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:21,flexShrink:0}}>{step.icon}</div>
+                  <div style={{width:40,height:40,borderRadius:14,background:iconBg,display:"flex",alignItems:"center",justifyContent:"center",fontSize:21,flexShrink:0}}>{step.iconName ? <BubbaIcon name={step.iconName} size={22}/> : step.icon}</div>
                   <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:800,color:cardText,lineHeight:1.15,letterSpacing:0}}>{step.title}</div>
                 </div>
               </div>
-              {step.location && (
+              {(step.location || step.target) && (
                 <div style={{display:"inline-flex",alignItems:"center",gap:5,background:locBg,borderRadius:99,padding:"4px 12px",marginBottom:10,fontSize:12,color:locText,fontFamily:_fM}}>
-                  📍 {step.location}
+                  {step.location || step.target}
                 </div>
               )}
 
@@ -39404,7 +40369,7 @@ function App(){
                   </button>
                 )}
                 <button onClick={nextStep} style={{flex:2,minHeight:44,padding:"10px",borderRadius:14,border:"1.5px solid rgba(201,112,90,0.35)",background:"var(--card-bg)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",color:C.ter,fontSize:16,fontWeight:900,cursor:_cP,fontFamily:_fI,boxShadow:"inset 0 0 8px rgba(201,112,90,0.15), inset 0 1px 0 rgba(255,255,255,0.25), 0 0 6px rgba(201,112,90,0.20), 0 0 14px rgba(201,112,90,0.12)"}}>
-                  {isLast ? "🎉 Start Tracking!" : "Next →"}
+                  {isLast ? "All set" : "Next →"}
                 </button>
               </div>
 
@@ -39456,10 +40421,15 @@ function App(){
 	        const dCardText = isDark ? "#FFF8F1" : C.deep;
 	        const dCardSub = isDark ? "rgba(255,248,240,0.88)" : "#4C4045";
 	        const dLocBg = isDark ? "rgba(255,255,255,0.10)" : "#F6ECE4";
-	        const dLocText = isDark ? "rgba(255,248,240,0.80)" : C.lt;
-	        const dTourBorder = isDark ? "1.5px solid rgba(255,255,255,0.18)" : "1.5px solid rgba(91,64,54,0.12)";
-	        const dIconBg = isDark ? "rgba(255,255,255,0.12)" : "#F8EFE7";
-	        const dTourCardDock = tourSpotlight ? (tourSpotlight.top < (tourSpotlight.viewportH||844)*0.50 ? "bottom" : "top") : "center";
+		        const dLocText = isDark ? "rgba(255,248,240,0.80)" : C.lt;
+		        const dTourBorder = isDark ? "1.5px solid rgba(255,255,255,0.18)" : "1.5px solid rgba(91,64,54,0.12)";
+		        const dIconBg = isDark ? "rgba(255,255,255,0.12)" : "#F8EFE7";
+		        const dTourSpotlightBorder = isDark ? "3px solid rgba(255,255,255,0.98)" : "3px solid rgba(157,224,255,0.98)";
+		        const dTourSpotlightShadow = isDark
+		          ? "0 0 0 9999px rgba(16,8,4,0.66), 0 0 0 8px rgba(255,255,255,0.30), 0 0 0 12px rgba(201,112,90,0.24), 0 0 36px rgba(255,238,205,0.82), inset 0 0 0 2px rgba(255,255,255,0.65)"
+		          : "0 0 0 9999px rgba(13,24,34,0.52), 0 0 0 5px rgba(255,255,255,0.78), 0 0 0 11px rgba(139,222,255,0.62), 0 0 0 16px rgba(120,210,255,0.20), 0 0 34px rgba(77,196,255,0.70), 0 0 58px rgba(163,229,255,0.42), inset 0 0 0 2px rgba(255,255,255,0.78), inset 0 0 18px rgba(121,210,255,0.26)";
+		        const dTourSpotlightFill = isDark ? "transparent" : "rgba(202,238,255,0.10)";
+		        const dTourCardDock = tourSpotlight ? (tourSpotlight.top < (tourSpotlight.viewportH||844)*0.50 ? "bottom" : "top") : "center";
 	        const dTourCardPosition = dTourCardDock === "bottom"
 	          ? {bottom:"calc(14px + env(safe-area-inset-bottom, 0px))", transform:"translateX(-50%)"}
 	          : dTourCardDock === "top"
@@ -39468,11 +40438,11 @@ function App(){
 
 	        return (
 	          <div style={{position:"fixed",inset:0,zIndex:10020,pointerEvents:"auto"}}>
-	            <div data-testid="tour-backdrop" style={{position:"absolute",inset:0,background:tourSpotlight?"transparent":"rgba(16,8,4,0.85)",backdropFilter:tourSpotlight?"none":"blur(2px)",WebkitBackdropFilter:tourSpotlight?"none":"blur(2px)"}}
-	              onClick={nextDayStep}/>
-	            {tourSpotlight && (
-	              <div aria-hidden="true" className="ob-tour-spotlight" style={{position:"fixed",left:tourSpotlight.left,top:tourSpotlight.top,width:tourSpotlight.width,height:tourSpotlight.height,borderRadius:tourSpotlight.radius,border:"3px solid rgba(255,255,255,0.98)",boxShadow:"0 0 0 9999px rgba(16,8,4,0.66), 0 0 0 8px rgba(255,255,255,0.30), 0 0 0 12px rgba(201,112,90,0.24), 0 0 36px rgba(255,238,205,0.82), inset 0 0 0 2px rgba(255,255,255,0.65)",pointerEvents:"none",zIndex:10021,animation:"tourGlow 1.15s ease-in-out infinite"}}/>
-	            )}
+		            <div data-testid="tour-backdrop" style={{position:"absolute",inset:0,background:tourSpotlight?"transparent":"rgba(16,8,4,0.85)",backdropFilter:tourSpotlight?"none":"blur(2px)",WebkitBackdropFilter:tourSpotlight?"none":"blur(2px)"}}
+		              onClick={nextDayStep}/>
+		            {tourSpotlight && (
+		              <div aria-hidden="true" className="ob-tour-spotlight" style={{position:"fixed",left:tourSpotlight.left,top:tourSpotlight.top,width:tourSpotlight.width,height:tourSpotlight.height,borderRadius:tourSpotlight.radius,border:dTourSpotlightBorder,background:dTourSpotlightFill,boxShadow:dTourSpotlightShadow,pointerEvents:"none",zIndex:10021,animation:"tourGlow 1.15s ease-in-out infinite"}}/>
+		            )}
 	            <div className="ob-tour-card" style={{
 	              position:"fixed",
 	              left:"50%",
@@ -39549,25 +40519,25 @@ function App(){
         borderRadius:"22px",
         border:"1px solid rgba(255,255,255,0.35)",
         boxShadow:"0 4px 18px rgba(201,112,90,0.08), inset 0 1px 0 rgba(255,255,255,0.4)",
-        padding:"12px 14px 10px",
+        padding:"4px 12px 3px",
         backdropFilter:"blur(var(--glass-blur)) saturate(var(--glass-saturate))",
         WebkitBackdropFilter:"blur(var(--glass-blur)) saturate(var(--glass-saturate))"
       }}>
         {!nameEdit ? (
           <div style={{marginBottom:6}}>
-            {/* Compact header: photo+name·age left · OBubba right */}
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:6,width:"100%"}}>
-              {/* Left: avatar + name · age inline */}
-              <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}>
-                <div onClick={e=>{e.stopPropagation();if(childPhotoInputRef.current)childPhotoInputRef.current.click();}} onTouchEnd={e=>{e.stopPropagation();e.preventDefault();if(childPhotoInputRef.current)childPhotoInputRef.current.click();}} aria-label="Change baby photo" style={{width:36,height:36,borderRadius:"50%",overflow:"hidden",flexShrink:0,border:"2px solid rgba(255,255,255,0.7)",boxShadow:"0 2px 8px rgba(0,0,0,0.1)",cursor:_cP}}>
+            {/* Compact header: OBubba left · baby centred · Add child right. */}
+            <div data-testid="ob-header-compact-layout" style={{display:"grid",gridTemplateColumns:"minmax(70px,0.74fr) minmax(0,1.2fr) minmax(86px,0.86fr)",alignItems:"center",gap:6,width:"100%"}}>
+              <div className="ob-brand-title" data-testid="ob-header-brand-left" style={{fontSize:20,color:C.deep,justifySelf:"start",lineHeight:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:"100%"}}>OBubba</div>
+              <div data-testid="ob-header-child-center" style={{display:"flex",alignItems:"center",justifyContent:"center",gap:7,minWidth:0,cursor:_cP}} onClick={()=>{setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsDueDate(activeChild.dueDate||"");setCsConfirmDelete(false);setShowChildSettings(true);}}>
+                <div onClick={e=>{e.stopPropagation();if(childPhotoInputRef.current)childPhotoInputRef.current.click();}} onTouchEnd={e=>{e.stopPropagation();e.preventDefault();if(childPhotoInputRef.current)childPhotoInputRef.current.click();}} aria-label="Change baby photo" style={{width:48,height:48,borderRadius:"50%",overflow:"hidden",flexShrink:0,border:"2px solid rgba(255,255,255,0.78)",boxShadow:"0 2px 9px rgba(0,0,0,0.10)",cursor:_cP}}>
                   <img src={safeAppImageSrc(activeChild.photo,"obubba-happy.png")} alt="" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}}
                     onError={e=>{e.target.src="obubba-happy.png";}}/>
                 </div>
-                <div style={{cursor:_cP,minWidth:0,overflow:"hidden"}} onClick={()=>{setCsName(babyName||"");setCsDob(activeChild.dob||"");setCsSex(activeChild.sex||"");setCsDueDate(activeChild.dueDate||"");setCsConfirmDelete(false);setShowChildSettings(true);}}>
+                <div style={{minWidth:0,overflow:"hidden"}}>
                   <div style={{fontSize:15,color:C.deep,fontWeight:700,lineHeight:1.2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
                     {babyName || "Baby"}
-                    {age && <span style={{fontSize:11,color:C.mid,fontFamily:_fM,fontWeight:500,marginLeft:6}}>{fmtAge(age)}</span>}
                   </div>
+                  {age && <div style={{fontSize:10.5,color:C.mid,fontFamily:_fM,fontWeight:650,lineHeight:1.18,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{fmtAge(age)}</div>}
                   {!age && babyUnborn && babyDob && (()=>{
                     const dueMs = dateKeyMs(babyDob, NaN);
                     if (!Number.isFinite(dueMs)) return null;
@@ -39577,9 +40547,7 @@ function App(){
                   {!age && !babyUnborn && <div style={{fontSize:10,color:C.mid,fontFamily:_fM,fontStyle:"italic"}}>Tap to set DOB</div>}
                 </div>
               </div>
-              {/* Right: OBubba wordmark + actions */}
-              <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-                <div className="ob-brand-title" style={{fontSize:20,color:C.deep}}>OBubba</div>
+              <div data-testid="ob-header-add-child-right" style={{display:"flex",alignItems:"center",justifyContent:"flex-end",gap:5,minWidth:0}}>
                 {childIds.length > 1 && <button aria-label="Compare children" onClick={e=>{e.stopPropagation();haptic();setShowCompareKids(true);}}
                   style={{width:26,height:26,borderRadius:"50%",border:"1px solid rgba(255,255,255,0.3)",background:"rgba(255,255,255,0.15)",color:C.lt,cursor:_cP,fontSize:11,display:"flex",alignItems:"center",justifyContent:"center",padding:0}}>⇄</button>}
                 <button aria-label="Add child" onClick={e=>{
@@ -39587,7 +40555,10 @@ function App(){
                   const childCount = Object.keys(childrenRef.current || {}).length;
                   if (!hasAccess() && childCount >= 1) { triggerPaywall("multi_baby", true); return; }
                   setShowAddChild(true);
-                }} style={{width:26,height:26,borderRadius:"50%",border:"1px dashed rgba(255,255,255,0.3)",background:"rgba(255,255,255,0.1)",color:C.lt,cursor:_cP,fontSize:14,fontWeight:300,display:"flex",alignItems:"center",justifyContent:"center",padding:0,lineHeight:1}}>+</button>
+                }} style={{height:28,borderRadius:99,border:"1px dashed rgba(255,255,255,0.38)",background:"rgba(255,255,255,0.12)",color:C.mid,cursor:_cP,fontSize:10.5,fontWeight:800,display:"inline-flex",alignItems:"center",justifyContent:"center",gap:4,padding:"3px 4px 3px 7px",lineHeight:1,whiteSpace:"nowrap",fontFamily:_fI,maxWidth:"100%"}}>
+                  <span style={{overflow:"hidden",textOverflow:"ellipsis"}}>Add child</span>
+                  <span aria-hidden="true" style={{width:20,height:20,borderRadius:"50%",display:"inline-flex",alignItems:"center",justifyContent:"center",background:"rgba(255,255,255,0.28)",color:C.lt,fontSize:14,fontWeight:500,flexShrink:0,lineHeight:1}}>+</span>
+                </button>
               </div>
             </div>
             {/* Swipe header to switch children — no dots needed */}
@@ -39857,12 +40828,17 @@ function App(){
                 );
               }
               // STATE 2: routine available, show the starter pill
-              if (!bedEntry && !bedTimerDay && _tdPill.napsComplete) {
+              const _routineBedCandidate = !!(
+                _tdPill.napsComplete ||
+                _tdPill.napBedConflict ||
+                (_tdPill.nextEvent && _tdPill.nextEvent.type === "bed")
+              );
+              if (!bedEntry && !bedTimerDay && _routineBedCandidate) {
                 try {
                   const _bp = _tdPill.bed || null;
-                  if (_bp && _bp.time) {
-                    const _predBed = clockMins(_bp.time);
-                    if (_predBed === null) return null;
+                  if ((_bp && _bp.time) || (_tdPill.nextEvent && _tdPill.nextEvent.type === "bed")) {
+                    const _predBed = _bp && _bp.time ? clockMins(_bp.time) : _tdPill.nextEvent.timeMins;
+                    if (typeof _predBed !== "number" || !Number.isFinite(_predBed)) return null;
                     const _minsToBed = _predBed - _nowMins;
                     if (_minsToBed > 0 && _minsToBed <= 45) {
                       return (
@@ -40254,10 +41230,27 @@ function App(){
           ):(
             <div>
               {/* ═══ HERO CARD. Tour replay lives in Account guides now, not on top of the card. ═══ */}
-              {!daySubScreen && (
-                renderHeroCard()
-              )}
-		              {/* ═══ DISRUPTION DIAGNOSTIC. moved to News sub-screen ═══ */}
+		              {!daySubScreen && (
+		                renderHeroCard()
+		              )}
+	              {/* Daily totals sit directly under hero, before Log / Plan / Easy mode. */}
+	              {!daySubScreen && renderTodaySummaryTiles({marginTop:-2,marginBottom:12})}
+	              {!daySubScreen && renderSoftSleepRecovery()}
+	              {!daySubScreen && todayPanel==="log" && renderSleepTransitionInsight()}
+	              {!daySubScreen && todayPanel==="log" && renderSleepInterpreterInsight()}
+	              {!daySubScreen && (
+	                <div data-testid="track-daily-root-header" className="ob-track-daily-root-header">
+	                  <div style={{display:"flex",background:"var(--card-bg-alt)",borderRadius:12,padding:3,marginBottom:16,border:"1px solid var(--card-border)"}}>
+	                    {[{id:"log",label:"📋 Log"},{id:"plan",label:"🗓️ Plan"},{id:"easy",label:"✨ Easy mode"}].map(tab=>(
+	                      <button key={tab.id} data-testid={tab.id==="easy"?"switch-to-no-pressure":undefined} onClick={()=>{haptic();if(tab.id==="easy"){returnToSimpleStart();return;}setTodayPanel(tab.id);if(tab.id==="plan")setTodayPlanOpen(true);}}
+	                        style={{flex:tab.id==="easy"?0.92:1,padding:"9px 0",borderRadius:10,border:"none",background:tab.id!=="easy"&&todayPanel===tab.id?"var(--card-bg)":"transparent",color:tab.id==="easy"?C.ter:todayPanel===tab.id?C.deep:C.lt,fontSize:tab.id==="easy"?12:14,fontWeight:tab.id==="easy"?800:todayPanel===tab.id?700:500,cursor:_cP,fontFamily:_fI,boxShadow:tab.id!=="easy"&&todayPanel===tab.id?"0 1px 4px rgba(0,0,0,0.08)":"none",transition:"all 0.2s ease",whiteSpace:"nowrap"}}>
+	                        {tab.label}
+	                      </button>
+	                    ))}
+	                  </div>
+	                </div>
+	              )}
+				              {/* ═══ DISRUPTION DIAGNOSTIC. moved to News sub-screen ═══ */}
 
               {/* Smart time-of-day prompt.
                   Single card slot that changes content by time window — never
@@ -40657,41 +41650,33 @@ function App(){
                   targets ≥ 48px (iOS HIG). */}
 				              {!daySubScreen && <div className={"ob-quick-log-shell"+(quickLogScroll.left?" has-left":"")+(quickLogScroll.right?" has-right":"")} style={{position:"relative",marginBottom:14,zIndex:2}}>
 				                <div className="ob-quick-log-heading">
+				                  <div className="ob-quick-log-badge">
+				                    <BubbaIcon name="sparkle" size={18}/>
+				                  </div>
 				                  <div className="ob-quick-log-copy">
 				                    <div className="ob-quick-log-title">One tap log</div>
-				                    <div className="ob-quick-log-subtitle">for when you're functioning with one eye open and a baby hanging off you...</div>
+				                    <div className="ob-quick-log-subtitle">for when you're functioning with one eye open and a baby hanging off you. Add the details later, or click Detail log for more.</div>
 				                  </div>
-				                  <button data-testid="switch-to-no-pressure" className="ob-quick-log-simple-chip" onClick={returnToSimpleStart}>
-				                    <BubbaIcon name="sparkle" size={14}/>
-				                    Simple
-				                  </button>
 				                </div>
 			                {quickLogScroll.left && (
 		                  <button type="button" className="ob-carousel-nav ob-carousel-nav-left" aria-label="Show previous quick log actions" onTouchStart={e=>e.stopPropagation()} onClick={(e)=>{e.stopPropagation();scrollQuickLog(-1);}}>‹</button>
 		                )}
-		                <div ref={quickLogRef} data-testid="quick-log-row" className={"ob-quick-log-row"+(quickLogMoreOpen?" is-expanded":" is-compact")} onScroll={updateQuickLogScroll} onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{display:"flex",flexWrap:"nowrap",alignItems:"center",justifyContent:"flex-start",overflowX:"auto",overflowY:"hidden",WebkitOverflowScrolling:"touch",scrollSnapType:"x proximity",background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:18,padding:"10px 6px",marginBottom:0,gap:2,boxShadow:"var(--card-shadow)",position:"relative",zIndex:2}}>
+		                <div ref={quickLogRef} data-testid="quick-log-row" className="ob-quick-log-row is-compact" onScroll={updateQuickLogScroll} onTouchStart={e=>e.stopPropagation()} onTouchEnd={e=>e.stopPropagation()} style={{display:"flex",flexWrap:"nowrap",alignItems:"center",justifyContent:"flex-start",overflowX:"auto",overflowY:"hidden",WebkitOverflowScrolling:"touch",scrollSnapType:"x proximity",background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:18,padding:"10px 6px",marginBottom:0,gap:2,boxShadow:"var(--card-shadow)",position:"relative",zIndex:2}}>
 		                {(()=>{
 		                  const _mainQuickLogActions = [
 		                    {icon:"feed",label:"Feed",longAction:()=>openLogPanel("feed"),action:()=>{if(breastActive)cancelBreastTimer();(logForAll?quickAddLogForAll:quickAddLog)("feed",{type:"feed",time:nowTime(),feedType:"milk",amount:0,night:false,note:""});}},
 		                    {icon:"breast",label:"Breast",longAction:()=>{if(breastActive){openLogPanel("feed");}else{setShowBreastStartPicker(true);setBreastCustomStart(nowTime());}},action:()=>{haptic();startBreastTimer("L");}},
-		                    {icon:"nappy",label:"Nappy",longAction:()=>openLogPanel("nappy"),action:()=>(logForAll?quickAddLogForAll:quickAddLog)("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""})},
+		                    {icon:"nappy",displayIcon:"💩",label:"Nappy",longAction:()=>openLogPanel("nappy"),action:()=>(logForAll?quickAddLogForAll:quickAddLog)("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""})},
 		                    {icon:"nap",label:napOn?"Stop":"Nap",longAction:napOn?()=>{showConfirm("Discard nap attempt?",(babyName||"Baby")+" didn't actually settle? Discarding won't save any nap minutes, so today's predictions stay clean.",()=>{cancelNap();setConfirmDialog(null);},"Discard");}:()=>{setShowNapStartPicker(true);setNapCustomStart(nowTime());},action:()=>{if(napOn){endNap();}else{startNap();}}},
 		                  ];
-		                  const _extraQuickLogActions = [
-		                    {icon:"pump",label:"Pump",longAction:()=>openLogPanel("pump"),action:()=>openLogPanel("pump")},
-		                    {icon:"crying",label:"Crying?",action:()=>setShowCryingHelper(true)},
-		                    {icon:"sounds",label:soundPlaying?"Playing":"Sounds",action:()=>{haptic();setShowSoundMachine(true);}},
-		                    ...(ageWeeks >= 26 ? [{icon:"meal",label:"Meal",action:()=>{haptic();setShowMealPicker(true);}}] : []),
-		                    // Voice log. Only shown where Web Speech is available so
-			                    // parents on unsupported browsers aren't given a dead button.
-			                    ...(((typeof window!=="undefined") && (window.SpeechRecognition||window.webkitSpeechRecognition)) ? [{icon:"voice",label:"Voice",action:()=>{haptic();setShowVoiceLog(true);setVoiceTranscript("");}}] : []),
-			                  ];
-			                  const _canFitExtraQuickLog = (()=>{try{return !(document.body&&document.body.hasAttribute("data-screen-compact"));}catch{return true;}})();
-			                  const _defaultQuickLogExtras = _canFitExtraQuickLog ? _extraQuickLogActions.slice(0,1) : [];
-			                  const _quickLogActions = quickLogMoreOpen
-			                    ? [..._mainQuickLogActions, ..._extraQuickLogActions, {icon:"sparkle",label:"Less",action:()=>{haptic();setQuickLogMoreOpen(false);}}]
-			                    : [..._mainQuickLogActions, ..._defaultQuickLogExtras, {icon:"sparkle",label:"More",action:()=>{haptic();setQuickLogMoreOpen(true);}}];
-		                  return _quickLogActions.map(({icon,label,action,longAction})=>{
+			                  const _extraQuickLogActions = [
+				                    {icon:"pump",label:"Pump",longAction:()=>openLogPanel("pump"),action:()=>(logForAll?quickAddLogForAll:quickAddLog)("feed",{type:"feed",time:nowTime(),feedType:"pump",pumpL:0,pumpR:0,amount:0,pumpDuration:0,night:false,note:""})},
+				                    {icon:"crying",label:"Crying",action:()=>{haptic();setShowCryingHelper(true);}},
+				                    {icon:"sounds",label:soundPlaying?"Playing":"Sounds",action:()=>{haptic();setShowSoundMachine(true);}},
+				                  ];
+				                  const _defaultQuickLogExtras = _extraQuickLogActions;
+				                  const _quickLogActions = [..._mainQuickLogActions, ..._defaultQuickLogExtras];
+		                  return _quickLogActions.map(({icon,displayIcon,label,action,longAction})=>{
 	                  return (
 	                  <button key={label}
                     className="ob-quick-log-btn"
@@ -40736,7 +41721,7 @@ function App(){
                     onTouchEndCapture={(e)=>{ try { const el=e.currentTarget; setTimeout(()=>{ if(el){el.style.transform=""; el.style.background="transparent";} },140); } catch{} }}
                     onTouchCancelCapture={(e)=>{ try { e.currentTarget.style.transform=""; e.currentTarget.style.background="transparent"; } catch{} }}
                   >
-                    <span className="ob-quick-log-icon" style={{lineHeight:1}}><BubbaIcon name={icon} size={_rs(25)} animate={napOn&&label==="Stop"}/></span>
+                    <span className="ob-quick-log-icon" style={{lineHeight:1}}><BubbaIcon name={displayIcon||icon} size={_rs(25)} animate={napOn&&label==="Stop"}/></span>
                     <span className="ob-quick-log-label" style={{fontSize:_rf(11),fontWeight:600,color:napOn&&label==="Stop"?C.ter:C.mid,fontFamily:_fM,letterSpacing:"0.01em"}}>{label}</span>
                     {longAction && <div className="ob-quick-log-dot" style={{width:4,height:4,borderRadius:"50%",background:C.blush,marginTop:2,opacity:0.6}}/>}
                   </button>
@@ -40758,10 +41743,12 @@ function App(){
                   <div style={{fontSize:13,fontWeight:700,color:C.deep,marginBottom:8,display:"flex",alignItems:"center",gap:7}}><BubbaIcon name="nap" size={18}/>When did the nap start?</div>
                   <div style={_S.flexCenter10}>
                     <TimeInput value={napCustomStart} onChange={t=>setNapCustomStart(t)} style={_S.flex1} inputStyle={{fontSize:16,padding:"10px 12px",borderRadius:12,textAlign:"center"}}/>
-                    <button onClick={()=>{
-                      haptic();
-                      const t = napCustomStart || nowTime();
-                      // Start nap with backdated time
+		                    <button onClick={()=>{
+	                      haptic();
+	                      const t = napCustomStart || nowTime();
+                      clearRecentStoppedNap();
+                      setNapSettlingDismissedId("");
+	                      // Start nap with backdated time
 	                      const startMins = clockMins(t);
 	                      if(startMins === null) return;
 	                      const now = new Date();
@@ -40859,8 +41846,8 @@ function App(){
 
               {/* Pending bottle snaps banner */}
 
-	              {/* ═══ NAVIGATION CARDS. Dashboard (2-col grid, only when no sub-screen) ═══ */}
-	              {!daySubScreen && (()=>{
+		              {/* ═══ RETIRED DASHBOARD TOOL TILES. Track now lands on the daily log grid. ═══ */}
+		              {false && !daySubScreen && (()=>{
 	                const _hasNote = !!(dayNote || localStorage.getItem("ob_day_note_"+selDay));
 	                const _reminderCount = nappyReminderMins ? 1 : 0;
 	                const _pinnedCount = pinnedNotes.length;
@@ -40917,8 +41904,8 @@ function App(){
 		                  {id:"schedule", onClick:()=>{haptic();setShowScheduleMaker(true);}, icon:"timer", title:"Schedule Builder", sub:"Adjust wake, naps and bedtime"}
 		                ];
 		                const _secondaryDayTools = [
-		                  {id:"news", onClick:()=>_openDayTool("news"), icon:"sparkle", title:"Today's Insight", sub:"Story, patterns & tiny next step"},
-		                  {id:"notes", onClick:()=>_openDayTool("notes"), icon:"notes", title:"Notes & Reminders", sub:_notesSub},
+		                  {id:"news", onClick:()=>_openDayTool("news"), icon:"sparkle", title:"Today's Play", sub:"Activities & development"},
+		                  {id:"notes", onClick:()=>_openDayTool("notes"), icon:"notes", title:"Reminders & Appointments", sub:_notesSub},
 		                  ...(_weanUnlocked ? [{id:"weaning", onClick:_openWeaning, icon:"weaning", title:"Weaning", sub:_weanSub}] : []),
 		                  {id:"wellbeing", onClick:()=>_openDayTool("wellbeing"), icon:"wellbeing", title:"Parent Room", sub:"You matter too"},
 		                  {id:"family", onClick:()=>{haptic();setShowShareFamily(true);}, icon:"account", title:"Send to Family", sub:"Share "+(babyName||"baby")+"'s day"}
@@ -40983,20 +41970,20 @@ function App(){
                   <button className="ob-subscreen-back" onClick={()=>{haptic();setDaySubScreen(null);}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:_cP,padding:"4px 0",marginBottom:12,color:C.ter,fontSize:14,fontWeight:600}}>
                     <span style={_S.f16}>‹</span> Back
                   </button>
+                  {renderTodaySummaryTiles({marginTop:0,marginBottom:12})}
                   {/* Segmented control */}
                   <div style={{display:"flex",background:"var(--card-bg-alt)",borderRadius:12,padding:3,marginBottom:16,border:"1px solid var(--card-border)"}}>
-                    {[{id:"log",label:"📋 Log"},{id:"plan",label:"🗓️ Plan"}].map(tab=>(
-                      <button key={tab.id} onClick={()=>{haptic();setTodayPanel(tab.id);if(tab.id==="plan")setTodayPlanOpen(true);}}
-                        style={{flex:1,padding:"9px 0",borderRadius:10,border:"none",background:todayPanel===tab.id?"var(--card-bg)":"transparent",color:todayPanel===tab.id?C.deep:C.lt,fontSize:14,fontWeight:todayPanel===tab.id?700:500,cursor:_cP,fontFamily:_fI,boxShadow:todayPanel===tab.id?"0 1px 4px rgba(0,0,0,0.08)":"none",transition:"all 0.2s ease"}}>
+                    {[{id:"log",label:"📋 Log"},{id:"plan",label:"🗓️ Plan"},{id:"easy",label:"✨ Easy mode"}].map(tab=>(
+                      <button key={tab.id} data-testid={tab.id==="easy"?"switch-to-no-pressure":undefined} onClick={()=>{haptic();if(tab.id==="easy"){returnToSimpleStart();return;}setTodayPanel(tab.id);if(tab.id==="plan")setTodayPlanOpen(true);}}
+                        style={{flex:tab.id==="easy"?0.92:1,padding:"9px 0",borderRadius:10,border:"none",background:tab.id!=="easy"&&todayPanel===tab.id?"var(--card-bg)":"transparent",color:tab.id==="easy"?C.ter:todayPanel===tab.id?C.deep:C.lt,fontSize:tab.id==="easy"?12:14,fontWeight:tab.id==="easy"?800:todayPanel===tab.id?700:500,cursor:_cP,fontFamily:_fI,boxShadow:tab.id!=="easy"&&todayPanel===tab.id?"0 1px 4px rgba(0,0,0,0.08)":"none",transition:"all 0.2s ease",whiteSpace:"nowrap"}}>
                         {tab.label}
                       </button>
                     ))}
                   </div>
-                  {renderTodaySummaryTiles({marginTop:-6,marginBottom:14})}
                 </div>
               )}
 
-              {/* ═══ SUB-SCREEN: Notes & Reminders ═══ */}
+              {/* ═══ SUB-SCREEN: Reminders & Appointments ═══ */}
               {daySubScreen==="notes" && (
                 <div>
                   <button className="ob-subscreen-back" onClick={()=>{haptic();setDaySubScreen(null);}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:_cP,padding:"4px 0",marginBottom:12,color:C.ter,fontSize:14,fontWeight:600}}>
@@ -41017,7 +42004,7 @@ function App(){
                         <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12,marginBottom:14}}>
                           <div style={{minWidth:0}}>
                             <div className="ob-premium-kicker" style={{marginBottom:6}}>Care notes</div>
-                            <div className="ob-premium-title" style={{fontSize:_rf(21)}}>Notes & Reminders</div>
+                            <div className="ob-premium-title" style={{fontSize:_rf(21)}}>Reminders & Appointments</div>
                             <div className="ob-premium-copy" style={{marginTop:5}}>Appointments, pinned notes, and gentle prompts in one place.</div>
                           </div>
                           <div style={{width:42,height:42,borderRadius:16,display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,rgba(255,255,255,0.34),rgba(255,255,255,0.08))",border:"1px solid var(--card-border)",boxShadow:"inset 0 1px 0 rgba(255,255,255,0.28)",fontSize:20,flexShrink:0}}>📝</div>
@@ -41215,22 +42202,22 @@ function App(){
                 </div>
               )}
 
-              {/* ═══ SUB-SCREEN: Today's Insight ═══ */}
+              {/* ═══ SUB-SCREEN: Today's Play ═══ */}
               {daySubScreen==="news" && (
                 <div>
                   <button className="ob-subscreen-back" onClick={()=>{haptic();setDaySubScreen(null);}} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",cursor:_cP,padding:"4px 0",marginBottom:12,color:C.ter,fontSize:14,fontWeight:600}}>
                     <span style={_S.f16}>‹</span> Back
                   </button>
                   <div className="glass-card ob-premium-hero" style={{marginBottom:14}}>
-                    <div className="ob-premium-kicker" style={{marginBottom:8}}>Today's insight</div>
-                    <div className="ob-premium-title" style={{fontSize:_rf(22),marginBottom:6}}>{babyName||"Baby"}, in context</div>
-                    <div className="ob-premium-copy">One useful read first. Deeper patterns are tucked away so this stays calm.</div>
+                    <div className="ob-premium-kicker" style={{marginBottom:8}}>Today's Play</div>
+                    <div className="ob-premium-title" style={{fontSize:_rf(22),marginBottom:6}}>A small thing for {babyName||"baby"} today</div>
+                    <div className="ob-premium-copy">Tiny play ideas and this week's development context. No pattern analysis here.</div>
                   </div>
-                  {renderDay1InsightCard()}
+                  {false && renderDay1InsightCard()}
 
 	                  {/* At a glance. Insight-style metrics moved out of Plan so
 	                      Plan stays focused on what is coming up next. */}
-	                  {(()=>{
+	                  {false && (()=>{
                     try {
                       const _ent = days[selDay] || [];
                       const _naps = _ent.filter(e=>{
@@ -41340,7 +42327,7 @@ function App(){
 	                      );
 	                    } catch { return null; }
 		                  })()}
-	                  <details className="ob-today-insight-extra" data-testid="today-insight-extra-context">
+	                  {false && (<details className="ob-today-insight-extra" data-testid="today-insight-extra-context">
 	                    <summary>
 	                      <span>More context</span>
 	                      <em>sleep review, patterns, development and wins</em>
@@ -41618,7 +42605,44 @@ function App(){
                     } catch { return null; }
                   })()}
 	                    </div>
-	                  </details>
+	                  </details>)}
+	                  {/* This week's development. visible by default now that Today's Play is a low-load activities surface. */}
+	                  {age && (()=>{
+	                    const w = age.predictiveWeeks ?? age.totalWeeks;
+	                    const _name = babyName || "Baby";
+	                    const _currentPhase = DEV_PHASES.slice().reverse().find(p => w >= p.windowStart);
+	                    const _suitable = DEV_ACTIVITIES.filter(a => w >= a.weeks[0] && w <= a.weeks[1]);
+	                    const _doy = Math.floor((new Date() - new Date(new Date().getFullYear(),0,0)) / 86400000);
+	                    const _todayActs = _suitable.length >= 2 ? [_suitable[_doy%_suitable.length],_suitable[(_doy+7)%_suitable.length]] : _suitable.slice(0,2);
+	                    const _phaseWeeks = [5,8,12,19,26,37,46,55,64,75];
+	                    const _nearPhase = _phaseWeeks.some(pw => Math.abs(w - pw) <= 2);
+
+	                    return (
+	                      <div className="glass-card ob-today-development-card" data-testid="today-activities-development" style={_S.card18}>
+	                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+	                          <div style={{fontSize:14,fontWeight:700,color:C.deep}}>🧠 This Week's Development</div>
+	                          <button onClick={()=>{haptic();setTab("develop");setDevFilter("phases");}} style={{background:"none",border:"none",fontSize:11,fontWeight:600,color:C.ter,cursor:_cP,fontFamily:_fI,padding:0}}>Waves →</button>
+	                        </div>
+	                        {_currentPhase && <div style={{fontSize:13,color:C.mid,marginBottom:6,lineHeight:1.5}}>{_currentPhase.name}. {_currentPhase.summary || _currentPhase.reframe}</div>}
+	                        {_nearPhase && <div style={{fontSize:12,color:C.ter,fontWeight:600,marginBottom:6,lineHeight:1.5}}>A development wave may be showing up around now. {_name} might need more reassurance, simpler routines or extra chances to practise.</div>}
+	                        {_todayActs.length > 0 && (
+	                          <div style={{borderTop:"1px solid "+C.blush,paddingTop:10,marginTop:4}}>
+	                            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+	                              <div style={{fontSize:12,fontWeight:700,color:C.ter}}>🎨 Try today</div>
+	                              <button onClick={()=>{haptic();setTab("develop");setDevFilter("activities");}} style={{background:"none",border:"none",fontSize:11,fontWeight:600,color:C.ter,cursor:_cP,fontFamily:_fI,padding:0}}>All activities →</button>
+	                            </div>
+	                            {_todayActs.map((act,i)=>(
+	                              <div key={i} onClick={()=>{haptic();setTab("develop");setDevFilter("activities");}} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 8px",borderRadius:10,border:"1px solid "+C.blush,background:"var(--card-bg-alt)",cursor:_cP,marginBottom:i<_todayActs.length-1?6:0}}>
+	                                <span style={{fontSize:15,flexShrink:0}}>{act.cat==="visual"?"👀":act.cat==="motor"?"🤸":act.cat==="language"?"🗣️":act.cat==="sensory"?"🖐️":"🎵"}</span>
+	                                <span style={{fontSize:13,fontWeight:600,color:C.deep,flex:1}}>{act.title}</span>
+	                                <span style={{fontSize:10,color:C.lt}}>›</span>
+	                              </div>
+	                            ))}
+	                          </div>
+	                        )}
+	                      </div>
+	                    );
+	                  })()}
                 </div>
               )}
 
@@ -41644,7 +42668,10 @@ function App(){
                     const _showPlanGuide = _guide.mode === "plan" && _recipeGuide;
                     const _loggedFoodsTodayGuide = Array.isArray(_guide.loggedFoodsToday) ? _guide.loggedFoodsToday.filter(Boolean) : [];
                     const _hasLoggedFoodToday = _showPlanGuide && _loggedFoodsTodayGuide.length > 0;
-                    const _loggedFoodText = _loggedFoodsTodayGuide.join(" · ");
+                    const _loggedFoodCount = _loggedFoodsTodayGuide.length;
+                    const _loggedFoodText = _loggedFoodCount > 2
+                      ? _loggedFoodsTodayGuide.slice(0,2).join(" · ") + " +" + (_loggedFoodCount - 2) + " more"
+                      : _loggedFoodsTodayGuide.join(" · ");
                     const _loggedFoodForForm = _loggedFoodsTodayGuide[0] || "";
                     const _loggedEditId = _guide.loggedWeaningEntryToday && _guide.loggedWeaningEntryToday.id ? _guide.loggedWeaningEntryToday.id : null;
                     const _logOtherFood = () => {
@@ -41655,6 +42682,7 @@ function App(){
                       if (_guide.mode === "empty") { setDaySubScreen("weaning_this_week"); return; }
                       if (_guide.mode === "ready" || _guide.mode === "before") { setDaySubScreen("weaning_before"); setDevFilter("weaning"); return; }
                       if (_hasLoggedFoodToday) {
+                        if (_loggedFoodCount > 1 || !_loggedEditId) { setDaySubScreen("weaning_journal"); return; }
                         const _loggedEntry = _guide.loggedWeaningEntryToday || {};
                         setWeaningForm({
                           food:_loggedFoodForForm,
@@ -41679,7 +42707,7 @@ function App(){
                           <div style={{flex:1,minWidth:0}}>
                             <div style={{fontSize:10,fontWeight:900,color:C.gold,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:2}}>Weaning today</div>
                             <div style={{fontFamily:"Georgia,serif",fontSize:19,fontWeight:800,color:C.deep,lineHeight:1.15}}>
-                              {_hasLoggedFoodToday ? "Food logged today" : (_showPlanGuide ? "One calm food step" : _guide.title)}
+                              {_hasLoggedFoodToday ? (_loggedFoodCount > 1 ? _loggedFoodCount + " foods logged today" : "Food logged today") : (_showPlanGuide ? "One calm food step" : _guide.title)}
                             </div>
                             <div style={{fontSize:11,color:C.lt,marginTop:3}}>
                               {_showPlanGuide ? (_stageGuide.name + " · " + _stageGuide.ageRange) : "OBubba will keep this slow and clear"}
@@ -41693,9 +42721,9 @@ function App(){
                               <div data-testid="weaning-step-what" style={{display:"grid",gridTemplateColumns:"28px minmax(0,1fr)",gap:9,padding:"10px 11px",borderRadius:14,background:"rgba(255,255,255,0.42)",border:"1px solid var(--card-border)"}}>
                                 <div style={{width:24,height:24,borderRadius:99,background:C.ter,color:"white",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:900}}>1</div>
                                 <div>
-                                  <div style={{fontSize:10,fontWeight:900,color:C.lt,textTransform:"uppercase",letterSpacing:"0.06em"}}>Offer</div>
+                                  <div style={{fontSize:10,fontWeight:900,color:C.lt,textTransform:"uppercase",letterSpacing:"0.06em"}}>{_hasLoggedFoodToday ? "Logged" : "Offer"}</div>
                                   <div style={{fontSize:14,fontWeight:850,color:C.deep,lineHeight:1.25}}>{_hasLoggedFoodToday ? _loggedFoodText : (_recipeGuide.name || _recipeGuide.food)}</div>
-                                  <div style={{fontSize:11.5,color:C.mid,lineHeight:1.45,marginTop:2}}>{_hasLoggedFoodToday ? "That counts for today. Add a reaction or note if you want." : getWeaningWhyHint(_recipeGuide, _guide)}</div>
+                                  <div style={{fontSize:11.5,color:C.mid,lineHeight:1.45,marginTop:2}}>{_hasLoggedFoodToday ? (_loggedFoodCount > 1 ? "These are already in today's food journal. Open the journal to edit reactions or notes." : "This is already in today's food journal. Add a reaction or note if you want.") : getWeaningWhyHint(_recipeGuide, _guide)}</div>
                                 </div>
                               </div>
                               <div data-testid="weaning-step-when" style={{display:"grid",gridTemplateColumns:"28px minmax(0,1fr)",gap:9,padding:"10px 11px",borderRadius:14,background:"rgba(255,255,255,0.34)",border:"1px solid var(--card-border)"}}>
@@ -41709,7 +42737,7 @@ function App(){
                                 <div style={{width:24,height:24,borderRadius:99,background:"rgba(111,168,152,0.16)",color:C.mint,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:900}}>3</div>
                                 <div>
                                   <div style={{fontSize:10,fontWeight:900,color:C.lt,textTransform:"uppercase",letterSpacing:"0.06em"}}>How</div>
-                                  <div style={{fontSize:12.5,color:C.mid,lineHeight:1.45}}>{_hasLoggedFoodToday ? "No need to force another new food. OBubba will build from what actually happened." : getWeaningServingHint(_recipeGuide, _awGuide)}</div>
+                                  <div style={{fontSize:12.5,color:C.mid,lineHeight:1.45}}>{_hasLoggedFoodToday ? "No need to add another new food just to satisfy the plan. OBubba will build from what actually happened." : getWeaningServingHint(_recipeGuide, _awGuide)}</div>
                                 </div>
                               </div>
                               <div data-testid="weaning-step-after" style={{display:"grid",gridTemplateColumns:"28px minmax(0,1fr)",gap:9,padding:"10px 11px",borderRadius:14,background:"rgba(255,255,255,0.34)",border:"1px solid var(--card-border)"}}>
@@ -41722,7 +42750,7 @@ function App(){
                             </div>
                             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:10}}>
                               <button onClick={()=>{haptic(15);_primaryAction();}} style={{padding:"12px 10px",borderRadius:14,border:"none",background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:13,fontWeight:850,cursor:_cP,fontFamily:_fI}}>
-                                {_hasLoggedFoodToday ? (_loggedEditId ? "Edit reaction / notes" : "Add reaction / notes") : (_guide.logged || _guide.done ? "Add note" : "Log this taste")}
+                                {_hasLoggedFoodToday ? ((_loggedFoodCount > 1 || !_loggedEditId) ? "Open food journal" : "Edit reaction / notes") : (_guide.logged || _guide.done ? "Add note" : "Log this taste")}
                               </button>
                               <button data-testid="weaning-log-other-food" onClick={()=>{haptic(8);_logOtherFood();}} style={{padding:"12px 10px",borderRadius:14,border:"1.5px solid var(--card-border)",background:"var(--card-bg-alt)",color:C.mid,fontSize:13,fontWeight:850,cursor:_cP,fontFamily:_fI}}>
                                 {_hasLoggedFoodToday ? "Log another food" : "Had something else"}
@@ -43303,8 +44331,8 @@ function App(){
                 </div>
               )}
 
-              {/* ═══ Detailed Log + Timeline (only in today sub-screen) ═══ */}
-              {(daySubScreen==="today" || daySubScreen==="log" || daySubScreen==="plan") && (
+	              {/* ═══ Detailed Log + Timeline. Track's full landing lives here. ═══ */}
+	              {isTrackDailySurface && (
               <div onTouchStart={e=>{
                 const t=e.touches[0]; window._todaySwipe={x:t.clientX,y:t.clientY};
               }} onTouchEnd={e=>{
@@ -43443,37 +44471,54 @@ function App(){
               })()}
 
               {/* ═══ Detailed Log. brought back per user request (gives access to Med/Temp, Tummy Time, Activities beyond the dashboard quick-log) ═══ */}
-              {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="log" && (<>
+	              {isTrackDailySurface && todayPanel==="log" && (<div ref={detailLogRef}>
               <button onClick={()=>{haptic();setDetailLogOpen(!detailLogOpen);if(!detailLogOpen){setTodayPlanOpen(false);setNotesOpen(false);}}} style={{width:"100%",display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderRadius:detailLogOpen?"14px 14px 0 0":14,border:"1px solid var(--card-border)",background:"var(--card-bg)",boxShadow:"var(--card-shadow)",cursor:_cP,marginBottom:detailLogOpen?0:10}}>
                 <div style={{display:"flex",alignItems:"center",gap:6}}>
-                  <span style={{fontSize:13,fontWeight:700,color:C.deep}}>📝 Detailed Log</span>
+                  <span style={{fontSize:13,fontWeight:700,color:C.deep}}>📝 Detail log buttons and more...</span>
                 </div>
                 <span style={{fontSize:10,color:C.lt,transform:detailLogOpen?"rotate(180deg)":"rotate(0deg)",transition:"transform 0.2s"}}>▼</span>
               </button>
               <div style={{display:detailLogOpen?"block":"none",border:"1px solid var(--card-border)",borderTop:"none",borderRadius:"0 0 14px 14px",padding:"10px 14px 2px",marginBottom:10,background:"var(--card-bg-solid)"}}>
-              <div data-actions-grid="true" id="detail-log-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:14}}>
-                {[
-                  {id:"feed",  icon:"🍼", label:"Feed"},
-                  {id:"nappy", icon:"💧💩", label:"Nappy"},
-                  {id:"sleep", icon:"😴", label:"Sleep"},
-                  {id:"pump",  icon:"pump", label:"Pump"},
-                  {id:"wake",  icon:"☀️", label:"Wake Up"},
-                  {id:"med",   icon:"💊", label:"Med/Temp"},
-                  {id:"activities", icon:"🎨", label:"Activities"},
-                  {id:"paste", icon:"📋", label:"Notes"},
-                ].map(({id,icon,label})=>(
-                  <button key={id} onClick={()=>{haptic();
-                    if(id==="paste") openPaste();
-                    else if(id==="photo") capturePhoto(null);
-                    else if(id==="med"){ setMedForm({name:"",dose:"",time:nowTime(),temp:"",note:""});setShowMedForm(true); }
-                    else if(id==="activities"){ setShowActivities(true); }
-                    else openLogPanel(id);
-                  }}
-                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"10px 4px",borderRadius:14,border:`2px solid ${logPanel===id?"var(--ter)":(id==="tummy"&&tummyOn)?C.mint+"80":"rgba(255,255,255,0.45)"}`,background:logPanel===id?"var(--chip-bg-active)":(id==="tummy"&&tummyOn)?"rgba(111,168,152,0.12)":"var(--card-bg)",cursor:_cP,fontFamily:_fI,transition:"all 0.15s, transform 0.1s",boxShadow:logPanel===id?"0 0 12px rgba(192,112,136,0.30), inset 0 1px 0 rgba(255,255,255,0.60)":"inset 0 0 5px rgba(246,221,227,0.35), inset 0 1px 0 rgba(255,255,255,0.50)"}}>
-                    <span style={{fontSize:22,lineHeight:1,display:"inline-flex",alignItems:"center",justifyContent:"center"}}>{id==="pump"?<BubbaIcon name="pump" size={28}/>:icon}</span>
-                    <span style={{fontSize:11,fontWeight:700,color:logPanel===id?C.ter:(id==="tummy"&&tummyOn)?C.mint:C.mid,letterSpacing:"0.01em",textAlign:"center",lineHeight:1.2}}>{id==="tummy"&&tummyOn?fmtSec(tummySec):label}</span>
-                  </button>
-                ))}
+	              <div data-actions-grid="true" data-testid="detail-log-grid" data-tour-id="detail-log-grid" id="detail-log-grid" style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:8,marginBottom:14}}>
+	                {[
+	                  {id:"feed",  icon:"🍼", label:"Feed"},
+	                  {id:"nappy", icon:"💧💩", label:"Nappy"},
+	                  {id:"sleep", icon:"😴", label:"Sleep"},
+	                  {id:"pump",  icon:"pump", label:"Pump"},
+	                  {id:"wake",  icon:"☀️", label:"Wake Up"},
+	                  {id:"med",   icon:"💊", label:"Med/Temp"},
+	                  {id:"activities", icon:"🎨", label:"Activities"},
+	                  {id:"paste", icon:"📋", label:"Quick Note"},
+	                  {id:"cryingHelper", icon:"crying", label:"Crying"},
+	                  {id:"soundMachine", icon:"sounds", label:soundPlaying?"Playing":"Sounds"},
+	                  ...(((typeof window!=="undefined") && (window.SpeechRecognition||window.webkitSpeechRecognition)) ? [{id:"voiceLog", icon:"voice", label:"Voice"}] : []),
+	                  {id:"schedule", icon:"timer", label:"Schedule", tourId:"tile-schedule"},
+	                  {id:"weaningHub", icon:"weaning", label:"Weaning", tourId:"tile-weaning"},
+	                  {id:"parentRoom", icon:"wellbeing", label:"Parent Room", tourId:"tile-wellbeing"},
+	                  {id:"insight", icon:"sparkle", label:"Today's Play", tourId:"tile-news"},
+	                  {id:"notesHub", icon:"notes", label:"Reminders & Appointments", tourId:"tile-notes"},
+	                ].map(({id,icon,label,tourId})=>(
+	                  <button key={id} data-tour-id={tourId} onClick={()=>{
+	                    if(id==="schedule") { openTrackScheduleBuilder(); return; }
+	                    if(id==="weaningHub") { openTrackWeaning(); return; }
+	                    if(id==="parentRoom") { openTrackDayTool("wellbeing"); return; }
+	                    if(id==="insight") { openTrackDayTool("news"); return; }
+	                    if(id==="notesHub") { openTrackDayTool("notes"); return; }
+	                    if(id==="cryingHelper") { haptic(); setShowCryingHelper(true); return; }
+	                    if(id==="soundMachine") { haptic(); setShowSoundMachine(true); return; }
+	                    if(id==="voiceLog") { haptic(); setShowVoiceLog(true); setVoiceTranscript(""); return; }
+	                    haptic();
+	                    if(id==="paste") openPaste();
+	                    else if(id==="photo") capturePhoto(null);
+	                    else if(id==="med"){ setMedForm({name:"",dose:"",time:nowTime(),temp:"",note:""});setShowMedForm(true); }
+	                    else if(id==="activities"){ setShowActivities(true); }
+	                    else openLogPanel(id);
+	                  }}
+	                    style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"10px 4px",borderRadius:14,border:`2px solid ${logPanel===id?"var(--ter)":(id==="tummy"&&tummyOn)?C.mint+"80":"rgba(255,255,255,0.45)"}`,background:logPanel===id?"var(--chip-bg-active)":(id==="tummy"&&tummyOn)?"rgba(111,168,152,0.12)":"var(--card-bg)",cursor:_cP,fontFamily:_fI,transition:"all 0.15s, transform 0.1s",boxShadow:logPanel===id?"0 0 12px rgba(192,112,136,0.30), inset 0 1px 0 rgba(255,255,255,0.60)":"inset 0 0 5px rgba(246,221,227,0.35), inset 0 1px 0 rgba(255,255,255,0.50)",minWidth:0,boxSizing:_bBB}}>
+	                    <span style={{fontSize:22,lineHeight:1,display:"inline-flex",alignItems:"center",justifyContent:"center"}}>{["pump","timer","weaning","wellbeing","sparkle","notes","crying","sounds","voice"].includes(icon)?<BubbaIcon name={icon} size={id==="pump"?28:26}/>:icon}</span>
+	                    <span style={{fontSize:11,fontWeight:700,color:logPanel===id?C.ter:(id==="tummy"&&tummyOn)?C.mint:C.mid,letterSpacing:"0.01em",textAlign:"center",lineHeight:1.2,overflowWrap:"anywhere"}}>{id==="tummy"&&tummyOn?fmtSec(tummySec):label}</span>
+	                  </button>
+	                ))}
               </div>
               {/* Medicine, Tummy Time & Activity entries */}
               {(()=>{
@@ -43545,9 +44590,9 @@ function App(){
                 );
               })()}
               </div>{/* ── end Detailed Log collapsible ── */}
-              </>)}{/* end Detailed Log (log-only) */}
+              </div>)}{/* end Detailed Log (log-only) */}
 
-              {/* ═══ Notes & Reminders. moved to sub-screen ═══ */}
+              {/* ═══ Reminders & Appointments. moved to sub-screen ═══ */}
               <div style={{display:notesOpen?"block":"none",border:"1px solid var(--card-border)",borderTop:"none",borderRadius:"0 0 14px 14px",padding:"10px 0 2px",marginBottom:10,background:"var(--card-bg-solid)"}}>
 
               {/* ═══ Planner ═══ */}
@@ -43650,13 +44695,13 @@ function App(){
                 </div>
               )}
 
-              </div>{/* ── end Notes & Reminders collapsible ── */}
+              </div>{/* ── end Reminders & Appointments collapsible ── */}
 
               {/* ── Priority Action (hydration alert etc). LOG-ONLY to avoid duplication ── */}
-              {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="log" && (()=>{
-                const action = getPriorityAction();
-                if (!action) return null;
-                const bg = action.priority === "high" ? "rgba(201,112,90,0.08)" : "rgba(111,168,152,0.08)";
+		              {isTrackDailySurface && todayPanel==="log" && (()=>{
+	                const action = getPriorityAction();
+	                if (!action || action.placement === "coming_up") return null;
+	                const bg = action.priority === "high" ? "rgba(201,112,90,0.08)" : "rgba(111,168,152,0.08)";
                 const border = action.priority === "high" ? C.ter + "40" : C.mint + "40";
                 return (
                   <div style={{background:bg,border:`1.5px solid ${border}`,borderRadius:16,padding:"12px 14px",marginBottom:12}}>
@@ -43678,7 +44723,7 @@ function App(){
 
               {/* ═══ COMPACT "COMING UP". moved above timeline for visibility ═══ */}
               {/* Hidden for 0-4 week newborns (sleep is chaotic, predictions are inappropriate) */}
-              {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="log" && selDay===todayStr() && !(age && age.totalWeeks < 4) && (()=>{
+	              {isTrackDailySurface && todayPanel==="log" && selDay===todayStr() && !(age && age.totalWeeks < 4) && (()=>{
                 const _td = tickDataRef.current || {};
                 if (_td.hasBedtime) return null;
                 // Hide when nap is actively running, timer pill already shows baby is sleeping
@@ -43686,10 +44731,12 @@ function App(){
                 if (napOn) return null;
                 const _hasActiveNap = (days[selDay]||[]).some(isActiveNapStub);
                 if (_hasActiveNap) return null;
-                const _ne = _td.nextEvent;
-                if (!_ne) return null;
-                const _isGentleAge = age && age.totalWeeks < 8;
-                const _items = [];
+	                const _ne = _td.nextEvent;
+	                if (!_ne) return null;
+	                const _isGentleAge = age && age.totalWeeks < 8;
+	                const _priorityAction = getPriorityAction();
+	                const _comingUpAction = _priorityAction && _priorityAction.placement === "coming_up" ? _priorityAction : null;
+	                const _items = [];
                 if (_ne.type === "nap") {
                   _items.push({icon:"😴", label:_ne.label, time:(_isGentleAge?"around ":"")+_ne.timeStr});
                 }
@@ -43710,13 +44757,23 @@ function App(){
                         <span style={{fontSize:13,color:C.mid,fontFamily:_fM}}>{item.time}</span>
                       </div>
                     ))}
-                    {_isGentleAge && <div style={{fontSize:10,color:C.lt,fontStyle:"italic",marginTop:4}}>Always follow sleepy cues at this age</div>}
-                  </div>
+	                    {_isGentleAge && <div style={{fontSize:10,color:C.lt,fontStyle:"italic",marginTop:4}}>Always follow sleepy cues at this age</div>}
+	                    {_comingUpAction && (
+	                      <details className="ob-coming-up-note">
+	                        <summary>
+	                          <span>{_comingUpAction.emoji}</span>
+	                          <strong>{_comingUpAction.title || "Right now"}</strong>
+	                          <em>{_comingUpAction.text}</em>
+	                        </summary>
+	                        {_comingUpAction.why && <div><b>Why?</b> {_comingUpAction.why}</div>}
+	                      </details>
+	                    )}
+	                  </div>
                 );
               })()}
 
               {/* 5. Today's summary stats. LOG-ONLY (avoid duplication with Today's Log totals) */}
-              {false && (daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="log" && (<>
+	              {false && isTrackDailySurface && todayPanel==="log" && (<>
               <div style={{display:"flex",alignItems:"center",justifyContent:"flex-end",marginBottom:4,display:"none"}}>
                 <HelpBtn title="Today's Summary" body={(()=>{
                   const _w = age ? (age.predictiveWeeks ?? age.totalWeeks) : 0;
@@ -43837,7 +44894,7 @@ function App(){
                   Once per week, Sunday morning only, shows a 7-night
                   summary with best/worst night + a correlation insight
                   (e.g. "Thursday's hardest night had a late last nap"). */}
-              {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="log" && (()=>{
+	              {isTrackDailySurface && todayPanel==="log" && (()=>{
                 try {
                   const _now = new Date();
                   // Sunday only (day 0) + morning (before 2pm)
@@ -43959,7 +45016,7 @@ function App(){
                   Shows after morning wake is logged, so parents see an honest
                   summary of how the night actually went the moment they wake
                   up. Uses analyzeLastNight + diagnoseNightPattern helpers. */}
-              {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="log" && (()=>{
+	              {isTrackDailySurface && todayPanel==="log" && (()=>{
                 try {
                   // Only render when morning is reasonable time (before 2pm) and
                   // a morning wake has been logged today
@@ -44149,7 +45206,7 @@ function App(){
               })()}
 
 	              {/* ═══ Today's Plan. PLAN-ONLY sub-screen ═══ */}
-	              {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="plan" && (<div className="ob-plan-screen-order is-simple-plan">
+		              {isTrackDailySurface && todayPanel==="plan" && (<div className="ob-plan-screen-order is-simple-plan ob-plan-unified-card">
               {(()=>{
                 const _todayKey = todayStr();
                 const _items = [...(getPlanItemsForDay(_todayKey) || [])].sort((a,b)=>_planTimeToMins(a.time)-_planTimeToMins(b.time) || (a.createdAt||0)-(b.createdAt||0));
@@ -44179,7 +45236,6 @@ function App(){
                     ) : (
                       <div className="ob-plan-simple-empty">No extra planned moments yet. Today's schedule is below.</div>
                     )}
-                    <button className="ob-plan-primary-btn ob-plan-simple-add" onClick={()=>openPlanWindow(_todayKey)}>Add to today's plan</button>
                   </div>
                 );
               })()}
@@ -45530,11 +46586,13 @@ function App(){
               </>}{/* end newborn gate. moved from later */}
               </div>{/* end Today's Plan collapsible */}
 
+              <button className="ob-plan-primary-btn ob-plan-simple-add ob-plan-simple-add-after" onClick={()=>openPlanWindow(todayStr())}>Add to today's plan</button>
+
               <div className="glass-card ob-plan-insight-link" style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",marginBottom:12,border:"1.5px solid var(--card-border)"}}>
                 <span style={{fontSize:22,flexShrink:0}}>✨</span>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{fontSize:13,fontWeight:800,color:C.deep}}>Need the wider read?</div>
-                  <div style={{fontSize:11,color:C.lt,lineHeight:1.45}}>Sleep debt, milk, hydration and daily patterns live in Today's Insight.</div>
+                  <div style={{fontSize:13,fontWeight:800,color:C.deep}}>Want a small play idea?</div>
+                  <div style={{fontSize:11,color:C.lt,lineHeight:1.45}}>Today's Play keeps activities and this week's development in one calm place.</div>
                 </div>
                 <button onClick={()=>{haptic();setTodayPanel("log");setDaySubScreen("news");try{window.scrollTo({top:0,behavior:"smooth"});}catch{}}} style={{padding:"8px 12px",borderRadius:99,border:"1px solid var(--card-border)",background:"var(--card-bg-alt)",color:C.ter,fontSize:12,fontWeight:800,cursor:_cP,whiteSpace:"nowrap"}}>Open</button>
               </div>
@@ -45937,7 +46995,7 @@ function App(){
               })()}
 
               {/* ═══ Timeline + Night Wakes. LOG-ONLY ═══ */}
-              {(daySubScreen==="today"||daySubScreen==="log"||daySubScreen==="plan") && todayPanel==="log" && (<>
+	              {isTrackDailySurface && todayPanel==="log" && (<>
 
               {/* ═══ Welcome Back card — shown when 2+ days since last logged data ═══ */}
               {selDay===todayStr() && (()=>{
@@ -46152,8 +47210,10 @@ function App(){
                     // Also suppress notes that just describe the nappy type
                     subDetail=null;
                   }
-                  if(e.note&&!subDetail&&e.type!=="poop") subDetail=e.note;
-                  else if(e.note&&subDetail&&e.type!=="nap") subDetail+=` · ${e.note}`;
+                  const noteDetail = String(e.note||"").trim();
+                  const subDetailText = String(subDetail||"").trim();
+                  if(noteDetail&&!subDetail&&e.type!=="poop") subDetail=noteDetail;
+                  else if(noteDetail&&subDetail&&e.type!=="nap"&&normaliseWeaningName(noteDetail)!==normaliseWeaningName(subDetailText)) subDetail+=` · ${noteDetail}`;
 
                   // Badge chip value (right side). show key metric only, no time duplication
                   let badgeVal = null;
@@ -49926,8 +50986,10 @@ function App(){
                   <div className="ob-premium-copy">
                     {(()=>{
                       try {
-                        const _phase = DEV_PHASES.slice().reverse().find(p => ageWeeks !== null && ageWeeks >= p.windowStart);
-                        if (_phase) return _phase.name + " may be showing up around now. Take it gently; development shows up in small repeated moments.";
+                        const _activePhase = DEV_PHASES.find(p => ageWeeks !== null && ageWeeks >= p.windowStart && ageWeeks < p.windowEnd);
+                        const _nextPhase = DEV_PHASES.find(p => ageWeeks !== null && p.windowStart > ageWeeks);
+                        if (_activePhase) return _activePhase.name + " may be showing up around now. Take it gently; development shows up in small repeated moments.";
+                        if (_nextPhase && (_nextPhase.windowStart - ageWeeks) <= 8) return "Next wave: " + _nextPhase.name + " is coming up. Nothing to chase; just keep play warm and simple.";
                         if (todayActivities && todayActivities[0]) return todayActivities[0].title + " is a good little moment to try today.";
                       } catch {}
                       return "Tiny repetitions count. A few warm minutes of play are enough for today.";
@@ -49937,12 +50999,12 @@ function App(){
 	              )}
 
 	              {tab==="develop" && !devFilter && (()=>{
-	                const _phase = DEV_PHASES.slice().reverse().find(p => ageWeeks !== null && ageWeeks >= p.windowStart);
-	                const _nextPhase = DEV_PHASES.find(p => ageWeeks !== null && ageWeeks < p.windowStart);
+	                const _activePhase = DEV_PHASES.find(p => ageWeeks !== null && ageWeeks >= p.windowStart && ageWeeks < p.windowEnd);
+	                const _nextPhase = DEV_PHASES.find(p => ageWeeks !== null && p.windowStart > (_activePhase ? _activePhase.windowEnd : ageWeeks));
 	                const _act = (todayActivities && todayActivities[0]) || (DEV_ACTIVITIES||[]).find(a=>ageWeeks!==null && ageWeeks>=a.weeks[0] && ageWeeks<=a.weeks[1]);
 	                const _memory = pastMs && pastMs.length ? pastMs[pastMs.length-1] : null;
 	                const _chips = [
-	                  _phase && {label:"Now",value:_phase.name,icon:"🧠",tone:"#8567A8"},
+	                  _activePhase && {label:"Now",value:_activePhase.name,icon:"🧠",tone:"#8567A8"},
 	                  _act && {label:"Try today",value:_act.title,icon:"🎯",tone:C.ter},
 		                  _nextPhase && {label:"Coming",value:"Wave "+_nextPhase.phase+" in ~"+Math.max(1,_nextPhase.windowStart-(ageWeeks||0))+"w",icon:"🌱",tone:C.mint},
 	                ].filter(Boolean);
@@ -50292,7 +51354,7 @@ function App(){
                   const ed = fmtD2(wkToDate2(p.windowEnd));
                   return p.peakWeek >= p.windowEnd ? "from " + pd + " onward" : pd + " → " + ed;
                 };
-                const activePhase = DEV_PHASES.find(l => ageWeeks >= l.windowStart && ageWeeks <= l.windowEnd);
+                const activePhase = DEV_PHASES.find(l => ageWeeks >= l.windowStart && ageWeeks < l.windowEnd);
                 const nextPhase2 = DEV_PHASES.find(l => l.windowStart > (activePhase ? activePhase.windowEnd : ageWeeks));
                 const isPrePhase = !activePhase && nextPhase2 && ageWeeks >= nextPhase2.windowStart - 1;
                 const isFussy2 = activePhase && ageWeeks < activePhase.peakWeek;
@@ -50303,7 +51365,7 @@ function App(){
                 const _willShowUpcoming = !isPrePhase && nextPhase2 && (nextPhase2.windowStart - ageWeeks) <= 8;
                 const _headerTitle = activePhase
                   ? (_willShowUpcoming ? "Now & Next" : "Current Wave")
-                  : "Coming Up";
+                  : "Upcoming Wave";
                 const _renderDates = (p, a, b) => (
                   <div style={{display:"flex",gap:5,flexWrap:"wrap",marginBottom:10}}>
                     {[["Support window",a],["Practice window",b]].map(([lbl,val])=>(
@@ -52103,34 +53165,6 @@ function App(){
                         )}
                       </div>
                     </div>
-
-                    <div style={{marginTop:16}}>
-                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
-                        <div style={{fontSize:12,fontFamily:_fM,color:C.mid,textTransform:"uppercase",letterSpacing:_ls1,fontWeight:800}}>Logged teeth</div>
-                      </div>
-                      {teething.length === 0 ? (
-                        <div style={{background:"var(--card-bg-alt)",border:`1px dashed ${C.blush}`,borderRadius:14,padding:"16px",textAlign:"center"}}>
-                          <div style={{fontSize:24,marginBottom:6}}>🦷</div>
-                          <div style={{fontSize:13,color:C.mid,fontWeight:700}}>No teeth logged yet</div>
-                          <div style={{fontSize:12,color:C.mid,marginTop:2}}>Tap + Log tooth or tap a tooth on the chart above.</div>
-                        </div>
-                      ) : (
-                        <div style={{background:"var(--card-bg-alt)",border:`1px solid ${C.blush}`,borderRadius:14,padding:"14px 16px",overflow:"hidden",boxSizing:_bBB}}>
-                          <div style={{fontSize:13,fontWeight:800,color:C.deep,marginBottom:8}}>🦷 {teething.length} {teething.length===1?"tooth":"teeth"} logged</div>
-                          <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                            {[...teething].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,5).map((t,i)=>(
-                              <div key={t.id || `${t.tooth}-${t.date}-${i}`} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr) 36px",alignItems:"center",columnGap:10,padding:"8px 0",borderTop:i?`1px solid ${C.blush}`:"none"}}>
-                                <div style={{minWidth:0,paddingRight:4}}>
-                                  <div style={{fontSize:13,fontWeight:700,color:C.deep,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{toothLabel(t.tooth)||"Tooth "+(i+1)}</div>
-                                  <div style={{fontSize:12,color:C.mid,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{fmtDate(t.date)}{t.symptoms&&t.symptoms.length?`. ${t.symptoms.join(", ")}`:""}</div>
-                                </div>
-                                <button onClick={()=>setTeething(prev=>prev.filter(x=>x.id ? x.id!==t.id : x!==t))} aria-label={`Delete ${toothLabel(t.tooth)||"tooth"}`} style={{width:32,height:32,minWidth:32,justifySelf:"end",display:"inline-flex",alignItems:"center",justifyContent:"center",borderRadius:"50%",border:`1.5px solid ${C.blush}`,background:"var(--card-bg)",boxSizing:_bBB,fontSize:16,lineHeight:1,color:C.mid,cursor:_cP,padding:0,appearance:"none",WebkitAppearance:"none",touchAction:"manipulation"}}>×</button>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
                     </>
                   );
                 })()}
@@ -52338,7 +53372,7 @@ function App(){
 	            <div className="ob-premium-kicker" style={{margin:0,minWidth:0}}>Family & sharing</div>
 	            <div style={{fontSize:10,color:C.lt,fontFamily:_fM,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",maxWidth:"44%",minWidth:0,textAlign:"right"}}>sync, carers</div>
 	          </div>
-	          <div className="glass-card" style={{padding:"14px",marginBottom:12}}>
+          <div className="glass-card" data-tour-id="family-hub" style={{padding:"14px",marginBottom:12}}>
 	            <div className="ob-premium-kicker" style={{marginBottom:10}}>Family hub</div>
             <div style={_S.grid2}>
               <button onClick={()=>setShowFamilyModal(true)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"14px 8px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"center"}}>
@@ -52351,6 +53385,19 @@ function App(){
                 <div style={{fontSize:12,fontWeight:700,color:C.deep}}>Bubba Care</div>
                 <div style={{fontSize:10,color:C.lt}}>Share routine</div>
               </button>
+              {backupCode && (!carerSessionEnded ? (
+                <button onClick={()=>{haptic();showConfirm("Lock Bubba Care Session","This will lock the Bubba Care portal. Your carer won't be able to log any more entries.",()=>{endCarerSession();setConfirmDialog(null);},"Lock session");}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"14px 8px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"center"}}>
+                  <span style={{fontSize:24,lineHeight:1}}>🔒</span>
+                  <div style={{fontSize:11.5,fontWeight:700,color:C.deep,lineHeight:1.15}}>Lock Bubba Care session</div>
+                  <div style={{fontSize:10,color:C.lt}}>Lock portal</div>
+                </button>
+              ) : (
+                <button onClick={()=>{haptic();restartCarerSession();}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:6,padding:"14px 8px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"center"}}>
+                  <span style={{fontSize:24,lineHeight:1}}>🔓</span>
+                  <div style={{fontSize:12,fontWeight:700,color:C.deep}}>Reopen Session</div>
+                  <div style={{fontSize:10,color:C.lt}}>Open portal</div>
+                </button>
+              ))}
               {backupCode && (
                 <button onClick={()=>{
                   const tot=Object.values(children).reduce((s,c)=>s+Object.values(c.days||{}).reduce((s2,arr)=>s2+(arr||[]).length,0),0);
@@ -52379,27 +53426,6 @@ function App(){
                 </button>
               )}
             </div>
-            {backupCode&&(
-              <div style={{marginTop:10,paddingTop:10,borderTop:`1px solid ${C.blush}`,display:"grid",gap:8}}>
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
-                  <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,whiteSpace:"nowrap"}}>Bubba Care session</div>
-                  <div style={{fontSize:10,color:carerSessionEnded?C.gold:C.mint,fontWeight:800}}>{carerSessionEnded?"Locked":"Open"}</div>
-                </div>
-                <div style={{display:"grid",gridTemplateColumns:"minmax(0,1fr)",gap:8,width:"100%"}}>
-                  {!carerSessionEnded ? (
-                    <button onClick={()=>{haptic();showConfirm("End Carer Session","This will lock the Bubba Care portal. Your carer won't be able to log any more entries.",()=>{endCarerSession();setConfirmDialog(null);},"End Session");}} style={{minWidth:0,display:"inline-flex",alignItems:"center",justifyContent:"center",gap:6,padding:"8px 10px",borderRadius:99,border:"1px solid rgba(224,96,112,0.18)",background:"rgba(224,96,112,0.04)",color:C.deep,cursor:_cP,fontFamily:_fI,fontSize:11,fontWeight:700,whiteSpace:"nowrap",lineHeight:1.1}}>
-                      <BubbaIcon name="check" size={15}/>
-                      End session
-                    </button>
-                  ) : (
-                    <button onClick={()=>{haptic();restartCarerSession();}} style={{minWidth:0,display:"inline-flex",alignItems:"center",justifyContent:"center",gap:6,padding:"8px 10px",borderRadius:99,border:"1px solid rgba(155,184,168,0.24)",background:"rgba(155,184,168,0.06)",color:C.deep,cursor:_cP,fontFamily:_fI,fontSize:11,fontWeight:700,whiteSpace:"nowrap",lineHeight:1.1}}>
-                      <span style={{fontSize:13}}>🔓</span>
-                      Reopen session
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
 
 	          {/* ═══ 3. GUIDES ═══ */}
@@ -52506,6 +53532,34 @@ function App(){
 	                {gentleMode?"💛 On":"Off"}
 	              </button>
 	            </div>
+
+	            {/* Daily log reminder */}
+	            {(()=>{
+              const _daily = normaliseDailyLogReminder(dailyLogReminder);
+              const _setDaily = patch => setDailyLogReminder(prev=>normaliseDailyLogReminder({...normaliseDailyLogReminder(prev),...patch}));
+              return (
+                <div data-testid="account-daily-log-reminder-preference" style={{padding:"12px 0",borderBottom:`1px solid ${C.blush}`}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+                    <div style={_S.flexCenter10}>
+                      <span style={_S.f18}>🔔</span>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Daily log reminder</div>
+                        <div style={{fontSize:10,color:C.lt}}>{_daily.enabled?"Every day at "+fmt12(_daily.time):"Off. choose a gentle daily nudge"}</div>
+                      </div>
+                    </div>
+                    <button data-testid="account-daily-log-reminder-toggle" aria-pressed={_daily.enabled} onClick={async()=>{haptic();const next=!_daily.enabled;_setDaily({enabled:next});if(next){const ok=await requestNotifications();if(ok===false){_setDaily({enabled:false});return;}}showToast(next?"Daily reminder on":"Daily reminder off",1600,1);}} style={{background:_daily.enabled?`linear-gradient(135deg,${C.mint},#3a8870)`:"var(--card-bg-alt)",border:_daily.enabled?"none":`1px solid ${C.blush}`,borderRadius:99,padding:"6px 14px",color:_daily.enabled?"white":C.mid,fontSize:12,fontWeight:700,cursor:_cP}}>
+                      {_daily.enabled?"On":"Off"}
+                    </button>
+                  </div>
+                  {_daily.enabled && (
+                    <label style={{display:"grid",gridTemplateColumns:"86px minmax(0,1fr)",alignItems:"center",gap:10,marginTop:10}}>
+                      <span style={{fontSize:10,color:C.lt,fontFamily:_fM,textTransform:"uppercase",letterSpacing:_ls08}}>Time</span>
+                      <input data-testid="account-daily-log-reminder-time" type="time" value={_daily.time} onChange={e=>_setDaily({time:e.target.value})} style={{width:"100%",boxSizing:"border-box",fontSize:15,padding:"9px 10px",borderRadius:12,border:"1px solid var(--card-border)",background:"var(--input-bg)",color:C.deep,fontFamily:_fM}}/>
+                    </label>
+                  )}
+                </div>
+              );
+            })()}
 
 	            {/* Nursery / childcare */}
 	            {(()=>{
@@ -53166,7 +54220,7 @@ function App(){
 
       <div role="navigation" aria-label="Main navigation" style={{position:"fixed",bottom:0,left:0,right:0,zIndex:100,background:"var(--nav-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderTop:"1px solid var(--nav-border)",display:"flex",justifyContent:"space-evenly",alignItems:"center",boxShadow:"var(--nav-shadow)",maxWidth:_maxW,margin:"0 auto",borderRadius:"22px 22px 0 0",padding:"4px 8px calc(env(safe-area-inset-bottom,0px) + 8px)",willChange:"transform",WebkitTransform:"translateZ(0)",transform:"translateZ(0)"}}>
 	        {["day","insights","develop","settings"].map(t=>(
-	          <button key={t} data-tour-id={"nav-"+t} className="ob-main-tab-btn" aria-label={tabLabels[t]+" tab"} aria-current={tab===t?"page":undefined} onClick={()=>{haptic();setTab(t);setDaySubScreen(null);setLogPanel(null);setTodayPlanOpen(false);setNotesOpen(false);setHeroWhyOpen(false);setInsightSection({trends:false,sleep:false,feeding:false,reports:false});setMsShowPastMs(false);setInsightFilter(null);setDevFilter(null);try{window.scrollTo({top:0,behavior:"smooth"});}catch{}}} style={tabSt(t)}>
+	          <button key={t} data-tour-id={"nav-"+t} className="ob-main-tab-btn" aria-label={tabLabels[t]+" tab"} aria-current={tab===t?"page":undefined} onClick={()=>{haptic();setTab(t);setDaySubScreen(null);if(t==="day")setTodayPanel("log");setLogPanel(null);setTodayPlanOpen(false);setNotesOpen(false);setHeroWhyOpen(false);setInsightSection({trends:false,sleep:false,feeding:false,reports:false});setMsShowPastMs(false);setInsightFilter(null);setDevFilter(null);try{window.scrollTo({top:0,behavior:"smooth"});}catch{}}} style={tabSt(t)}>
             <span className="ob-main-tab-icon" aria-hidden="true" style={{lineHeight:1,transition:"transform 0.15s",transform:tab===t?"scale(1.1)":"scale(1)"}}><BubbaIcon name={tabIcons[t]} size={20}/></span>
             <span className="ob-main-tab-label">{tabLabels[t]}</span>
             {tab===t&&<div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:24,height:2.5,borderRadius:99,background:C.ter}}/>}
@@ -55664,7 +56718,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               if(!weaningStarted){try{localStorage.setItem("weaning_started_"+resolvedActiveId,"1");}catch{}setWeaningStarted(true);}
               // Also add to today's log as a solids feed entry (only if logging for today, not historical catch-up)
               if (!_editId && _wDate === todayStr()) {
-                quickAddLog("feed",{type:"feed",feedType:"solids",time:_wTime,note:_foodTrim,skipWeaningMirror:true});
+                quickAddLog("feed",{type:"feed",feedType:"solids",time:_wTime,...normaliseSolidFoodLog(_foodTrim),skipWeaningMirror:true});
               }
               if (_recognisedBrandFood) {
 	                setWeanWeekRecipes(prev => {
