@@ -89,6 +89,22 @@ assert(
 );
 
 assert(
+  "child sync codes recover after native reinstall before partner pushes resume",
+  app.includes("const mirrorSyncCodes = _parseChildSyncCodes(mirror && mirror.childSyncCodes);") &&
+    app.includes('localStorage.setItem("child_sync_codes_v1", JSON.stringify({...mirrorSyncCodes, ...storedCodes}))') &&
+    app.includes("const childSyncRestoreAttemptRef = React.useRef(false);") &&
+    app.includes("restoreChildSyncCodesFromCloud(childIds, childMap).catch(()=>{ childSyncRestoreAttemptRef.current = false; });")
+);
+
+assert(
+  "family cloud push self-heals child sync codes instead of overwriting with empty map",
+  app.includes("await restoreChildSyncCodesFromCloud(Object.keys(cleanForCloud || {}), cleanForCloud);") &&
+    app.includes("_syncCodesForCloud = _parseChildSyncCodes(localStorage.getItem(\"child_sync_codes_v1\"));") &&
+    app.includes("if (!Object.keys(_syncCodesForCloud).length && _cloudData.childSyncCodes)") &&
+    app.includes("Object.entries(_cloudSyncCodes).forEach(([cid, sc]) => subscribeToChildSync(cid, sc));")
+);
+
+assert(
   "firestore rules allow only the new v2 shadow collections",
   rules.includes("match /family_sync_v2/{code}") &&
     rules.includes("match /child_sync_v2/{code}") &&
