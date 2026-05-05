@@ -13794,7 +13794,8 @@ function App(){
     try {
       // Default off for the first billing-safe rollout. Enable only on
       // known test devices until Firestore transfer and write volume look calm.
-      return localStorage.getItem("ob_sync_v2_shadow_enabled") === "1"
+      const buildShadowEnabled = "__OB_SYNC_V2_SHADOW_BUILD__" === "1";
+      return (buildShadowEnabled || localStorage.getItem("ob_sync_v2_shadow_enabled") === "1")
         && localStorage.getItem("ob_sync_v2_shadow_disabled") !== "1";
     } catch {
       return false;
@@ -39376,6 +39377,7 @@ function App(){
         </section>
       );
     }
+    if (!_recent) return null;
     return (
       <section data-testid="soft-sleep-resume-card" className={"ob-soft-sleep-card"+(opts.compact?" is-compact":"")}>
         <div className="ob-soft-sleep-icon"><BubbaIcon name="timer" size={22}/></div>
