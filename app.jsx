@@ -14651,11 +14651,12 @@ function App(){
       // Belt-and-braces: also push to ALL child sync docs alongside main cloud push
       try {
         const _csc = _parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1"));
-        Object.entries(_csc).forEach(([cid, syncCode]) => {
+        await Promise.all(Object.entries(_csc).map(([cid, syncCode]) => {
           if(syncCode && allChildren[cid]) {
-            pushChildSync(cid, syncCode, allChildren[cid]);
+            return pushChildSync(cid, syncCode, allChildren[cid]);
           }
-        });
+          return null;
+        }));
       } catch(_csErr) { console.warn("child sync push alongside cloud:", _csErr); }
       // Our push IS the new cloud state — keep the floor-check reference in sync and
       // reset the session delete counter. Without this, a burst of local deletes would
@@ -16137,6 +16138,7 @@ function App(){
         localStorage.setItem("ob_auth_username", localUser);
         localStorage.setItem("ob_auth_backup_code", localBackup);
       } catch {}
+      await rebindChildSyncIdentityForCurrentUser(_parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1")));
     } catch(e) { console.warn("OBubba account identity repair skipped", e?.message || e); }
     return false;
   }
@@ -18250,7 +18252,7 @@ function App(){
 	    const {db, doc, setDoc, getDoc, serverTimestamp} = window._fb;
 	    const child = childData || children[childId];
 	    if(!child) return;
-	    const writerUid = await ensureFirebaseUid(5000);
+	    let writerUid = await ensureFirebaseUid(5000);
 	    if(!writerUid) return;
 	    try {
       let childForCloud = child;
@@ -18262,6 +18264,12 @@ function App(){
 	        if (existing.exists()) {
 	          const existingData = existing.data() || {};
 	          _absorbChildSyncTombstones(existingData);
+	          const localUsername = normaliseUsername((familyUsername || localStorage.getItem("family_username") || "").toString());
+	          const ownerUsername = normaliseUsername((existingData.ownerUsername || "").toString());
+	          if(existingData.ownerUid === writerUid && localUsername && ownerUsername && localUsername !== ownerUsername) {
+	            const resetUid = await resetFirebaseIdentityForAccountSwitch("child-sync-owner-uid-mismatch");
+	            if(resetUid) writerUid = resetUid;
+	          }
 	          if (existingData.ownerUid !== writerUid && !(Array.isArray(existingData.participantUids) && existingData.participantUids.includes(writerUid))) {
 	            const claimedOwner = await claimChildSyncBackupOwner(childId, code, existingData);
 	            if(!claimedOwner) {

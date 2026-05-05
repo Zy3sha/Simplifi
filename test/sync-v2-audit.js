@@ -82,8 +82,22 @@ assert(
   app.includes("async function repairFirebaseIdentityForLocalAccount") &&
     app.includes('repairFirebaseIdentityForLocalAccount("restore-existing-account")') &&
     app.includes("async function rebindChildSyncIdentityForCurrentUser") &&
+    app.includes('await rebindChildSyncIdentityForCurrentUser(_parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1")))') &&
     app.includes('await fsSet("child_syncs", cleanCode, {') &&
     app.includes("participantUids: nextUids")
+);
+
+assert(
+  "child sync pushes repair wrong owner UID before writing as a participant",
+  app.includes('resetFirebaseIdentityForAccountSwitch("child-sync-owner-uid-mismatch")') &&
+    app.includes("localUsername !== ownerUsername") &&
+    app.includes("if(resetUid) writerUid = resetUid;")
+);
+
+assert(
+  "family cloud push waits for child sync mirrors to finish",
+  app.includes("await Promise.all(Object.entries(_csc).map(([cid, syncCode]) => {") &&
+    app.includes("return pushChildSync(cid, syncCode, allChildren[cid]);")
 );
 
 assert(
