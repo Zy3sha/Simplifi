@@ -194,6 +194,12 @@ function _nativePrefRemove(key) {
   } catch {}
   return Promise.resolve();
 }
+const OB_NATIVE_DATA_MIRROR_KEY = "ob_native_data_mirror_v1";
+const OB_NATIVE_DELETE_TOMBSTONE_KEY = "ob_native_delete_tombstone_v1";
+function _nativeDeleteTombstoneIsFresh(value) {
+  const ts = Number(value || 0);
+  return Number.isFinite(ts) && ts > 0 && Date.now() - ts < 14 * 24 * 60 * 60 * 1000;
+}
 // Native trials are anchored to first install, not first log. Keep the legacy
 // trial key in step so older builds and restored data keep one consistent date.
 (function(){
@@ -13542,7 +13548,13 @@ function App(){
     (async()=>{
       try {
         if (!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) return;
-        const raw = await _nativePrefGet("ob_native_data_mirror_v1");
+        const justDeleted = (()=>{try{return localStorage.getItem("_just_deleted")==="1";}catch{return false;}})();
+        const nativeDeletedAt = await _nativePrefGet(OB_NATIVE_DELETE_TOMBSTONE_KEY);
+        if (justDeleted || _nativeDeleteTombstoneIsFresh(nativeDeletedAt)) {
+          try { await _nativePrefRemove(OB_NATIVE_DATA_MIRROR_KEY); } catch {}
+          return;
+        }
+        const raw = await _nativePrefGet(OB_NATIVE_DATA_MIRROR_KEY);
         if (!alive || !raw) return;
         let mirror = null;
         try { mirror = JSON.parse(raw); } catch { return; }
@@ -13639,6 +13651,10 @@ function App(){
       if(onboarded)try{localStorage.setItem("onboarded_v2","1");}catch{}
       if (nativeDataRestoreDoneRef.current) {
         try {
+          if (window._deletingAccount || localStorage.getItem("_just_deleted")==="1") {
+            _nativePrefRemove(OB_NATIVE_DATA_MIRROR_KEY).catch(()=>{});
+            return;
+          }
           const mirrorChildren = _stripNativeMirrorChildren(_cleanForStorage);
           const mirrorPayload = {
             version: 1,
@@ -13652,7 +13668,10 @@ function App(){
             onboarded: !!onboarded
           };
           const mirrorJson = JSON.stringify(mirrorPayload);
-	          if (mirrorJson.length < 3000000) _nativePrefSet("ob_native_data_mirror_v1", mirrorJson).catch(()=>{});
+	          if (mirrorJson.length < 3000000) {
+	            _nativePrefSet(OB_NATIVE_DATA_MIRROR_KEY, mirrorJson).catch(()=>{});
+	            if (backupCodeRef.current || familyUsername) _nativePrefRemove(OB_NATIVE_DELETE_TOMBSTONE_KEY).catch(()=>{});
+	          }
 	          else console.warn("OBubba: native data mirror skipped because core log payload is too large.");
         } catch {}
       }
@@ -14662,9 +14681,7 @@ function App(){
       if(!snap.exists()){ cloudSyncedRef.current = true; return; }
       const d = snap.data();
 
-      const myUid = window._fbUid;
       if(d.writeToken && d.writeToken === writeTokenRef.current) return;
-      if(myUid && d.updatedBy === myUid) return;
       try{
         if(d.children) {
           // Tolerate corrupted cloud children payload — silently drop
@@ -14910,8 +14927,8 @@ function App(){
         }
         // Restore carer card data from cloud (survives reinstall)
         if(d.carerInfo) {
-          // NOTE: we only reach this code if writeToken/updatedBy checks above
-          // confirmed this snapshot came from ANOTHER device, not ourselves.
+          // NOTE: we only reach this code if the writeToken check above
+          // confirmed this snapshot came from another app session.
           // Cloud is authoritative → REPLACE, don't merge (merging caused
           // duplicates on edits/deletes since additive merges never removed).
           try {
@@ -15632,7 +15649,8 @@ function App(){
         if (!keep && isOBubba) { try { localStorage.removeItem(k); } catch {} }
       });
     } catch {}
-    try { _nativePrefRemove("ob_native_data_mirror_v1").catch(()=>{}); } catch {}
+    try { _nativePrefRemove(OB_NATIVE_DATA_MIRROR_KEY).catch(()=>{}); } catch {}
+    try { ["bio_user","bio_pin","bio_enabled"].forEach(k => _nativePrefRemove(k).catch(()=>{})); } catch {}
 
     // ═══ RESET ALL REACT STATE ═══
     const blankChild = {id:uid(),name:"",dob:"",sex:"",unborn:false,days:{},weights:[],heights:[],photos:[],milestones:{}};
@@ -18205,7 +18223,6 @@ function App(){
       } catch {}
 
       if(d.writeToken && d.writeToken === writeTokenRef.current) return;
-      if(d.updatedBy && window._fbUid && d.updatedBy === window._fbUid) return;
       try {
         if(d.child) {
           // Tolerate a corrupted or partial cloud field: if JSON.parse
@@ -54959,6 +54976,15 @@ function App(){
                         // 4. Wipe all local storage
                         console.log("[DELETE] Step 4: Wiping localStorage");
                         try{ trackEvent("delete_account_success", { server_deleted: _serverDeleted }); }catch(e){}
+                        try{
+                          await Promise.allSettled([
+                            _nativePrefSet(OB_NATIVE_DELETE_TOMBSTONE_KEY, String(Date.now())),
+                            _nativePrefRemove(OB_NATIVE_DATA_MIRROR_KEY),
+                            _nativePrefRemove("bio_user"),
+                            _nativePrefRemove("bio_pin"),
+                            _nativePrefRemove("bio_enabled")
+                          ]);
+                        }catch(e){console.warn("[DELETE] Native preference wipe error",e);}
                         try{localStorage.clear();}catch(e){}
                         // Mark that we just deleted. so sign-in page renders cleanly after reload
                         try{localStorage.setItem("_just_deleted","1");}catch(e){}

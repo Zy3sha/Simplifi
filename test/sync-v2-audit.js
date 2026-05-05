@@ -64,6 +64,13 @@ assert(
 );
 
 assert(
+  "same-account device sync uses writeToken, not UID, to suppress local echo",
+  app.includes("if(d.writeToken && d.writeToken === writeTokenRef.current) return;") &&
+    !app.includes("if(myUid && d.updatedBy === myUid) return;") &&
+    !app.includes("if(d.updatedBy && window._fbUid && d.updatedBy === window._fbUid) return;")
+);
+
+assert(
   "shadow writes are queued after legacy writes rather than replacing them",
   app.includes("queueSyncV2FamilyShadow(code, cleanForCloud") &&
     app.includes("queueSyncV2ChildShadow(code, childId, childForCloud")
