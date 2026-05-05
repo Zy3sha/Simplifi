@@ -22,6 +22,16 @@ assert(
 );
 
 assert(
+  "sync v2 read-shadow audit is separately gated and build-toggleable",
+  app.includes('function syncV2ReadShadowEnabled()') &&
+    app.includes('__OB_SYNC_V2_READ_SHADOW_BUILD__') &&
+    app.includes('localStorage.getItem("ob_sync_v2_read_shadow_enabled") === "1"') &&
+    app.includes('localStorage.getItem("ob_sync_v2_read_shadow_disabled") !== "1"') &&
+    app.includes('const OB_SYNC_V2_READ_SHADOW_PREFIX = "ob_sync_v2_read_shadow_last_"') &&
+    fs.readFileSync(path.join(root, "build-pwa.sh"), "utf8").includes("VITE_OB_SYNC_V2_READ_SHADOW")
+);
+
+assert(
   "family sync v2 writes smaller profile, shared and per-day documents",
   app.includes('fsSet("family_sync_v2", safeCode') &&
     app.includes('"/children", childId') &&
@@ -78,6 +88,21 @@ assert(
   "sync v2 docs are bounded to keep payloads below Firestore document limits",
   rules.includes("boundedString(request.resource.data.payload, 900000)") &&
     app.includes("if(payload.length > 850000)")
+);
+
+assert(
+  "sync v2 read-shadow reconstructs and compares v2 without replacing legacy UI",
+  app.includes("async function readSyncV2ChildForAudit") &&
+    app.includes('await fsGet("child_sync_v2", safeCode)') &&
+    app.includes('await fsGet("child_sync_v2/" + safeCode + "/profile", "core")') &&
+    app.includes('await fsGet("child_sync_v2/" + safeCode + "/extras", "core")') &&
+    app.includes('await fsGet("child_sync_v2/" + safeCode + "/days", dayKey)') &&
+    app.includes("function syncV2CompareChildRead") &&
+    app.includes("syncV2Hash(syncV2ChildProfile(legacy, safeChildId))") &&
+    app.includes("const expectedHash = syncV2Hash(expectedPayload)") &&
+    app.includes('queueSyncV2ChildReadShadowAudit(code, childId, child, "after-child-sync-write")') &&
+    app.includes('queueSyncV2ChildReadShadowAudit(code, childId, shadowChild, "child-sync-snapshot")') &&
+    !app.includes("setChildren(syncV2")
 );
 
 assert(

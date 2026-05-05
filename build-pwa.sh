@@ -20,6 +20,8 @@ const r=b.transformSync(f.readFileSync('app.jsx','utf8'),{
 });
 const syncV2ShadowBuildFlag = process.env.VITE_OB_SYNC_V2_SHADOW === '1' ? '1' : '0';
 r.code = r.code.replaceAll('__OB_SYNC_V2_SHADOW_BUILD__', syncV2ShadowBuildFlag);
+const syncV2ReadShadowBuildFlag = process.env.VITE_OB_SYNC_V2_READ_SHADOW === '1' ? '1' : '0';
+r.code = r.code.replaceAll('__OB_SYNC_V2_READ_SHADOW_BUILD__', syncV2ReadShadowBuildFlag);
 f.writeFileSync('app.js', r.code);
 console.log('Compiled: app.js written (' + r.code.length + ' chars)');
 "
