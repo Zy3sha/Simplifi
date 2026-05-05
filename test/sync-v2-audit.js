@@ -78,6 +78,15 @@ assert(
 );
 
 assert(
+  "account identity repair rebinds current UID to existing child sync codes",
+  app.includes("async function repairFirebaseIdentityForLocalAccount") &&
+    app.includes('repairFirebaseIdentityForLocalAccount("restore-existing-account")') &&
+    app.includes("async function rebindChildSyncIdentityForCurrentUser") &&
+    app.includes('await fsSet("child_syncs", cleanCode, {') &&
+    app.includes("participantUids: nextUids")
+);
+
+assert(
   "shadow writes are queued after legacy writes rather than replacing them",
   app.includes("queueSyncV2FamilyShadow(code, cleanForCloud") &&
     app.includes("queueSyncV2ChildShadow(code, childId, childForCloud")

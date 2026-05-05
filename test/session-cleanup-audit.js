@@ -17,6 +17,7 @@ function assert(name, ok) {
 }
 
 assert("logout tears down family, child and carer listeners", logoutBlock.includes("unsubscribeRef.current") && logoutBlock.includes("childSubsRef.current") && logoutBlock.includes("carerUnsubRef.current"));
+assert("logout resets Firebase auth identity as well as local account state", logoutBlock.includes('resetFirebaseIdentityForAccountSwitch("logout")'));
 assert("logout clears biometric account credentials", logoutBlock.includes('"bio_pin"') && logoutBlock.includes('"bio_user"') && logoutBlock.includes('"bio_enabled"'));
 assert("logout clears legacy baby profile keys", ["bn_v2", "bw_v2", "dob_v1", "sex_v1", "unborn_v1", "ms_v1"].every(k => logoutBlock.includes('"' + k + '"')));
 assert("logout clears old plaintext recovery email cache", logoutBlock.includes('"recovery_email_v1"'));

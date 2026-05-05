@@ -15318,6 +15318,9 @@ function App(){
           }
         }
         if(code) {
+          try { await repairFirebaseIdentityForLocalAccount("restore-existing-account"); } catch(e) { console.warn("OBubba restore identity repair error", e); }
+        }
+        if(code) {
           try {
             const snap = await fsGet("families", code);
             if(snap.exists()) {
@@ -15632,6 +15635,7 @@ function App(){
     clearTimeout(cloudPushRef.current);
     try { clearTimeout(syncTimerRef?.current); } catch {}
     cloudSyncedRef.current = false;
+    try { resetFirebaseIdentityForAccountSwitch("logout").catch(()=>{}); } catch {}
 
     // ═══ CLEAR ALL localStorage — comprehensive wipe ═══
     // Instead of maintaining an incomplete key list, clear everything that starts
@@ -16025,6 +16029,117 @@ function App(){
     if (afterRest) { window._fbUid = afterRest; return afterRest; }
     return "";
   }
+  function clearRestAuthCache() {
+    try {
+      window._obRestToken = null;
+      window._obRestTokenExp = 0;
+      window._obRestRefreshToken = null;
+      localStorage.removeItem("ob_rest_token");
+      localStorage.removeItem("ob_rest_token_exp");
+      localStorage.removeItem("ob_rest_refresh_token");
+      localStorage.removeItem("ob_rest_uid");
+    } catch {}
+  }
+  async function resetFirebaseIdentityForAccountSwitch(reason) {
+    clearRestAuthCache();
+    try { window._fbUid = ""; } catch {}
+    try {
+      const auth = window._fb?.auth;
+      if(auth && window._fb?.signOut) await window._fb.signOut(auth).catch(()=>{});
+    } catch(e) { console.warn("OBubba auth sign-out during account switch failed", reason || "", e?.message || e); }
+    try {
+      const auth = window._fb?.auth;
+      if(auth && window._fb?.signInAnonymously) {
+        const cred = await window._fb.signInAnonymously(auth).catch(()=>null);
+        const uid2 = cred?.user?.uid || window._fb?.auth?.currentUser?.uid || "";
+        if(uid2) { window._fbUid = uid2; return uid2; }
+      }
+    } catch(e) { console.warn("OBubba auth sign-in after account switch failed", reason || "", e?.message || e); }
+    try { await _ensureAuthToken(); } catch {}
+    return window._fbUid || window._fb?.auth?.currentUser?.uid || "";
+  }
+  async function rebindChildSyncIdentityForCurrentUser(codesOverride) {
+    try {
+      const uid2 = await ensureFirebaseUid(5000);
+      if(!uid2) return false;
+      const codes = codesOverride && typeof codesOverride === "object"
+        ? codesOverride
+        : _parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1"));
+      const entries = Object.entries(codes || {}).filter(([, code]) => isValidChildSyncCode(String(code || "").trim().toUpperCase()));
+      if(!entries.length) return false;
+      let changed = false;
+      for(const [childId, rawCode] of entries) {
+        const cleanCode = String(rawCode || "").trim().toUpperCase();
+        try {
+          const snap = await fsGet("child_syncs", cleanCode);
+          if(!snap.exists()) continue;
+          const data = snap.data() || {};
+          if(data.isActive === false) continue;
+          const currentParticipants = Array.isArray(data.participants) ? data.participants : [];
+          const currentUids = Array.isArray(data.participantUids)
+            ? data.participantUids.filter(Boolean)
+            : currentParticipants.map(p=>p&&p.uid).filter(Boolean);
+          if(currentUids.includes(uid2)) continue;
+          const username2 = familyUsername || localStorage.getItem("family_username") || "";
+          const participant = {uid: uid2, username: username2, joinedAt: new Date().toISOString()};
+          const nextParticipants = [...currentParticipants.filter(p=>p && p.uid !== uid2), participant].slice(-25);
+          const nextUids = [...new Set([...currentUids, uid2])].slice(-25);
+          const ok = await fsSet("child_syncs", cleanCode, {
+            participants: nextParticipants,
+            participantUids: nextUids
+          }, true);
+          if(ok) {
+            changed = true;
+            _rememberChildSyncMeta(childId || data.childId || "", cleanCode, {
+              ...data,
+              participants: nextParticipants,
+              participantUids: nextUids
+            });
+          }
+        } catch(e) { console.warn("OBubba child sync identity rebind error", cleanCode, e?.message || e); }
+      }
+      return changed;
+    } catch(e) {
+      console.warn("OBubba child sync identity rebind failed", e?.message || e);
+      return false;
+    }
+  }
+  async function repairFirebaseIdentityForLocalAccount(reason) {
+    try {
+      const localUser = normaliseUsername((familyUsername || localStorage.getItem("family_username") || "").toString());
+      const localBackup = String(backupCodeRef.current || localStorage.getItem("backup_code") || "").trim().toUpperCase();
+      if(!window._fb || !localUser || !localBackup) return false;
+      const uid2 = await ensureFirebaseUid(5000);
+      if(!uid2) return false;
+      const snap = await fsGet("uid_to_backup", uid2);
+      const mappedBackup = snap.exists() ? String((snap.data() || {}).backupCode || "").trim().toUpperCase() : "";
+      if(mappedBackup && mappedBackup !== localBackup) {
+        cloudSyncedRef.current = false;
+        clearTimeout(cloudPushRef.current);
+        const newUid = await resetFirebaseIdentityForAccountSwitch(reason || "local-account-mismatch");
+        if(newUid) {
+          const codes = _parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1"));
+          const {serverTimestamp} = window._fb || {};
+          await fsSet("uid_to_backup", newUid, {
+            backupCode: localBackup,
+            childSyncCodes: codes,
+            updatedAt: serverTimestamp ? serverTimestamp() : Date.now()
+          }, true).catch(()=>{});
+          await rebindChildSyncIdentityForCurrentUser(codes);
+          try {
+            localStorage.setItem("ob_auth_username", localUser);
+            localStorage.setItem("ob_auth_backup_code", localBackup);
+          } catch {}
+          return true;
+        }
+      }
+      try {
+        localStorage.setItem("ob_auth_username", localUser);
+        localStorage.setItem("ob_auth_backup_code", localBackup);
+      } catch {}
+    } catch(e) { console.warn("OBubba account identity repair skipped", e?.message || e); }
+    return false;
+  }
   function _nativeAccountFunctionRuntime() {
     try {
       if(window.Capacitor?.isNativePlatform?.()) return true;
@@ -16282,10 +16397,17 @@ function App(){
 	    if(!key) { setAuthError("Enter a username"); return false; }
 	    if(!preHashed && loginPin.length !== 4) { setAuthError("PIN must be 4 digits"); return false; }
 	    try {
+	      let _accountIdentityReset = false;
+	      const _previousUsername = normaliseUsername((familyUsername || localStorage.getItem("family_username") || "").toString());
+	      if(_previousUsername && _previousUsername !== key) {
+	        await resetFirebaseIdentityForAccountSwitch("username-switch");
+	        _accountIdentityReset = true;
+	      }
 	      await ensureFirebaseUid(5000);
 	      let data = null;
 	      let _secureLoginVerified = false;
-	      const _serverLogin = await callAccountFunction("accountLogin", {username:key, pin:loginPin, preHashed:!!preHashed});
+	      const _loginPayload = {username:key, pin:loginPin, preHashed:!!preHashed};
+	      let _serverLogin = await callAccountFunction("accountLogin", _loginPayload);
 	      if (_serverLogin && _serverLogin.ok && _serverLogin.account) {
 	        data = _serverLogin.account;
 	        _secureLoginVerified = true;
@@ -16352,14 +16474,27 @@ function App(){
       // him into her own local cache. Treat a backup-code change as an
       // account switch and clean-slate everything device-scoped.
       let _isAccountSwitch = false;
-      try {
-        const _existingCode = backupCodeRef.current || localStorage.getItem("backup_code") || null;
-        if (_existingCode && resolvedBackup && _existingCode !== resolvedBackup) {
-          _isAccountSwitch = true;
-        }
-      } catch {}
+	      try {
+	        const _existingCode = backupCodeRef.current || localStorage.getItem("backup_code") || null;
+	        if (_existingCode && resolvedBackup && _existingCode !== resolvedBackup) {
+	          _isAccountSwitch = true;
+	        }
+	      } catch {}
+	      if(_isAccountSwitch && !_accountIdentityReset) {
+	        await resetFirebaseIdentityForAccountSwitch("backup-code-switch");
+	        _accountIdentityReset = true;
+	        await ensureFirebaseUid(5000);
+	        _serverLogin = await callAccountFunction("accountLogin", _loginPayload);
+	        if (_serverLogin && _serverLogin.ok && _serverLogin.account) {
+	          data = _serverLogin.account;
+	          _secureLoginVerified = true;
+	        } else if (_serverLogin && _serverLogin.error) {
+	          setAuthError(_serverLogin.error);
+	          return false;
+	        }
+	      }
 
-      if (_isAccountSwitch) {
+	      if (_isAccountSwitch) {
         // Gate pushes until the new account has hydrated from cloud.
         // Without this, the auto-push effect could fire with the OLD
         // account's state still in memory and clobber the new account's
@@ -16471,6 +16606,11 @@ function App(){
       setFamilyUsername(data.displayName || username.trim());
       try{ localStorage.setItem("family_username", data.displayName || username.trim()); }catch{}
       try{ localStorage.setItem("auth_verified","1"); }catch{}
+      try {
+        localStorage.setItem("ob_auth_username", key);
+        if(resolvedBackup) localStorage.setItem("ob_auth_backup_code", resolvedBackup);
+      } catch {}
+      try { await rebindChildSyncIdentityForCurrentUser(_parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1"))); } catch {}
 
       // Stamp the owner of the newly-hydrated children state. Once this is
       // set, pushToCloud's ownership guard will only allow writes when the
@@ -16604,10 +16744,7 @@ function App(){
       }
     } catch(e) {}
     try {
-      window._obRestToken = null;
-      window._obRestTokenExp = 0;
-      localStorage.removeItem("ob_rest_token");
-      localStorage.removeItem("ob_rest_token_exp");
+      clearRestAuthCache();
     } catch(e) {}
     return await _ensureAuthToken();
   }

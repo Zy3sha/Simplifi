@@ -2,7 +2,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, doc, setDoc, getDoc, onSnapshot, serverTimestamp, collection, addDoc, getDocs, deleteDoc, query, orderBy, limit }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { getAuth, signInAnonymously, onAuthStateChanged, indexedDBLocalPersistence, initializeAuth }
+import { getAuth, signInAnonymously, signOut, onAuthStateChanged, indexedDBLocalPersistence, initializeAuth }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 import { getAnalytics, logEvent }
   from "https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics.js";
@@ -54,4 +54,4 @@ window._fbAuthReady = new Promise((resolve) => {
   setTimeout(() => resolve(null), 5000);
 });
 
-window._fb = { db, auth, analytics, functions, httpsCallable, doc, setDoc, getDoc, onSnapshot, serverTimestamp, signInAnonymously, onAuthStateChanged, logEvent, collection, addDoc, getDocs, deleteDoc, query, orderBy, limit };
+window._fb = { db, auth, analytics, functions, httpsCallable, doc, setDoc, getDoc, onSnapshot, serverTimestamp, signInAnonymously, signOut, onAuthStateChanged, logEvent, collection, addDoc, getDocs, deleteDoc, query, orderBy, limit };

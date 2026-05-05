@@ -3,6 +3,7 @@ const path = require("path");
 
 const root = path.resolve(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "app.jsx"), "utf8");
+const firebase = fs.readFileSync(path.join(root, "firebase.js"), "utf8");
 const rules = fs.readFileSync(path.join(root, "firestore.rules"), "utf8");
 const deleteBlock = app.slice(
   app.indexOf("Delete Account confirmation modal"),
@@ -34,6 +35,8 @@ assert("username records are stamped with Firebase uid when available", app.incl
 assert("login and PIN reset can verify server-side before username docs are readable", app.includes('callAccountFunction("accountLogin"') && app.includes('callAccountFunction("resetAccountPin"'));
 assert("native account login has an authenticated REST callable fallback", app.includes("function _nativeAccountFunctionRuntime()") && app.includes("async function callAccountFunctionViaRest") && app.includes("cloudfunctions.net/${safeName}") && app.includes('"Authorization":`Bearer ${idToken}`') && app.includes("if(nativeRuntime)") && app.includes("const rest = await callAccountFunctionViaRest(name, payload);"));
 assert("native sign-in does not hard-block before the REST fallback can run", verifyLoginBlock.includes("await waitForFirebaseModule(2500)") && verifyLoginBlock.includes("await ensureFirebaseUid(5000)") && !verifyLoginBlock.includes('if(!window._fb) { setAuthError("Not connected. check your internet"); return false; }'));
+assert("Firebase auth exposes signOut for account identity switches", firebase.includes("signInAnonymously, signOut, onAuthStateChanged") && firebase.includes("signInAnonymously, signOut, onAuthStateChanged, logEvent"));
+assert("account switches reset Firebase identity before authorising the new username", verifyLoginBlock.includes('resetFirebaseIdentityForAccountSwitch("username-switch")') && verifyLoginBlock.indexOf('resetFirebaseIdentityForAccountSwitch("username-switch")') < verifyLoginBlock.indexOf('callAccountFunction("accountLogin"') && verifyLoginBlock.includes('resetFirebaseIdentityForAccountSwitch("backup-code-switch")') && verifyLoginBlock.includes('_serverLogin = await callAccountFunction("accountLogin", _loginPayload);'));
 assert("manual backup restore can use authenticated REST when Firebase JS is late", restoreFromBackupBlock.includes("await ensureFirebaseUid(5000)") && restoreFromBackupBlock.includes('const snap = await fsGet("families", clean);') && restoreFromBackupBlock.includes("if(d.deleted) return false;") && !restoreFromBackupBlock.includes("if(!window._fb) return false;"));
 assert("account repair and recovery email save use callable owner checks first", app.includes('callAccountFunction("accountSignInStatus"') && app.includes('callAccountFunction("repairAccountSignIn"') && app.includes('callAccountFunction("saveRecoveryEmail"'));
 assert("manual login upgrades legacy PIN hashes", app.includes("if(storedPinHash === _legacyHash) _pinUpgradeHash = _v2Hash;"));
