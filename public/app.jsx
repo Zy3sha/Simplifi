@@ -17740,6 +17740,53 @@ function App(){
 	    }
 	    return ok;
 	  }
+	  async function claimChildSyncBackupOwner(childId, code, data) {
+	    const uid = await ensureFirebaseUid(5000).catch(()=>"");
+	    if(!uid || !code || !data || data.ownerUid === uid) return data && data.ownerUid === uid;
+	    const existingUids = Array.isArray(data.participantUids)
+	      ? data.participantUids.filter(Boolean)
+	      : (Array.isArray(data.participants) ? data.participants.map(p=>p&&p.uid).filter(Boolean) : []);
+	    const ownerUsername = familyUsername || localStorage.getItem("family_username") || data.ownerUsername || "";
+	    const participantEntry = {
+	      uid,
+	      username: ownerUsername,
+	      joinedAt: new Date().toISOString()
+	    };
+	    const currentParticipants = Array.isArray(data.participants) ? data.participants : [];
+	    const nextParticipants = currentParticipants.some(p=>p && p.uid === uid)
+	      ? currentParticipants
+	      : [...currentParticipants, participantEntry].slice(-25);
+	    const nextUids = [...new Set([uid, ...existingUids])].slice(-25);
+	    const {serverTimestamp} = window._fb || {};
+	    const ok = await fsSet("child_syncs", code, {
+	      ownerUid: uid,
+	      ownerUsername,
+	      updatedAt: serverTimestamp ? serverTimestamp() : Date.now(),
+	      updatedBy: uid,
+	      participants: nextParticipants,
+	      participantUids: nextUids
+	    }, true);
+	    if(ok) {
+	      _rememberChildSyncMeta(childId || data.childId || "", code, {
+	        ...data,
+	        ownerUid: uid,
+	        ownerUsername,
+	        participants: nextParticipants,
+	        participantUids: nextUids,
+	        isActive: data.isActive !== false
+	      });
+	      setChildSyncParticipants(prev => {
+	        const next = {...prev};
+	        try {
+	          const cid = childId || data.childId || "";
+	          if(cid) next[cid] = nextParticipants;
+	          next[code] = nextParticipants;
+	        } catch {}
+	        return next;
+	      });
+	    }
+	    return ok;
+	  }
 	  async function claimLegacyChildSyncOwner(code, data) {
 	    const uid = await ensureFirebaseUid(5000).catch(()=>"");
 	    if(!uid || !code || !data) return false;
@@ -18061,8 +18108,11 @@ function App(){
 	          const existingData = existing.data() || {};
 	          _absorbChildSyncTombstones(existingData);
 	          if (existingData.ownerUid !== writerUid && !(Array.isArray(existingData.participantUids) && existingData.participantUids.includes(writerUid))) {
-	            const joined = await ensureChildSyncParticipant(code, existingData);
-	            if(!joined) return;
+	            const claimedOwner = await claimChildSyncBackupOwner(childId, code, existingData);
+	            if(!claimedOwner) {
+	              const joined = await ensureChildSyncParticipant(code, existingData);
+	              if(!joined) return;
+	            }
 	          }
 	          const cloudChild = normaliseChildrenPayload({[childId]: safeObjectPayload(existingData.child)})[childId] || {};
           const cloudEntryCount = Object.values(cloudChild.days || {}).reduce((s, d) => s + (d ? d.length : 0), 0);
