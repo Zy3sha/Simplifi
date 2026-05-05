@@ -6,6 +6,8 @@ const path = require("path");
 const root = path.resolve(__dirname, "..");
 const careFiles = [
   "care.html",
+  "public/care.html",
+  "dist/care.html",
   "hosting-care/care.html",
   "hosting-care/index.html",
 ];
@@ -83,5 +85,7 @@ assert("parent app dedupes Bubba Care auto-merged entries by source id",
 
 assert("root and hosted carer portals are identical", read("care.html") === read("hosting-care/care.html"));
 assert("hosted carer portal entrypoints are identical", read("hosting-care/care.html") === read("hosting-care/index.html"));
+assert("public carer portal is deployed with the app shell", read("care.html") === read("public/care.html"));
+assert("dist carer portal is deployed with the app shell", read("care.html") === read("dist/care.html"));
 
 console.log("Carer portal audit passed.");

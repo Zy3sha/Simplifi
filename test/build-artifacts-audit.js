@@ -10,6 +10,8 @@ const generatedDirs = [
   "android/app/src/main/assets/public",
 ];
 const hostedRequiredFiles = [
+  "public/care.html",
+  "dist/care.html",
   "hosting-care/privacy.html",
   "hosting-care/terms.html",
 ];
@@ -160,6 +162,11 @@ if (missingHostedFiles.length) {
 
 if (!firebaseConfig.includes('"cleanUrls": true')) {
   console.error("Firebase hosting must serve clean legal URLs such as /privacy and /terms.");
+  process.exit(1);
+}
+
+if (!firebaseConfig.includes('"public": "public"')) {
+  console.error("Firebase hosting must deploy the live app output so Bubba Care does not replace the app root.");
   process.exit(1);
 }
 

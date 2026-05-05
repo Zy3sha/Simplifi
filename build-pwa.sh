@@ -34,6 +34,7 @@ cp -f i18n.js public/i18n.js
 cp -f loader.js public/loader.js
 cp -f native-plugins.js public/native-plugins.js
 cp -f firebase.js public/firebase.js
+cp -f care.html public/care.html
 
 echo "Copying vendored runtime..."
 mkdir -p public/vendor dist/vendor
@@ -55,6 +56,7 @@ cp -f i18n.js dist/i18n.js
 cp -f loader.js dist/loader.js
 cp -f native-plugins.js dist/native-plugins.js
 cp -f firebase.js dist/firebase.js
+cp -f care.html dist/care.html
 # Ensure font is in dist so cap copy includes it
 cp -f public/Parisienne-Regular.ttf dist/Parisienne-Regular.ttf 2>/dev/null || true
 
