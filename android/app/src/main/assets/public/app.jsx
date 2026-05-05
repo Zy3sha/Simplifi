@@ -13478,6 +13478,7 @@ function App(){
     return ()=>{ alive = false; };
   }, [STORE_READY, fbReady, familyUsername, trialStart, firstInstallAt]);
   const syncRef = React.useRef(null);
+  const childSyncRestoreAttemptRef = React.useRef(false);
 
   const possessive = (n) => {
     if (!n) return "";
@@ -13545,6 +13546,14 @@ function App(){
         if (!alive || !raw) return;
         let mirror = null;
         try { mirror = JSON.parse(raw); } catch { return; }
+        const mirrorSyncCodes = _parseChildSyncCodes(mirror && mirror.childSyncCodes);
+        if (Object.keys(mirrorSyncCodes).length) {
+          setChildSyncCodes(prev => ({...mirrorSyncCodes, ..._parseChildSyncCodes(prev)}));
+          try {
+            const storedCodes = _parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1"));
+            localStorage.setItem("child_sync_codes_v1", JSON.stringify({...mirrorSyncCodes, ...storedCodes}));
+          } catch {}
+        }
         const nativeChildren = normaliseChildrenPayload(mirror && mirror.children);
         if (!nativeChildren || typeof nativeChildren !== "object" || !_hasRecoverableChild(nativeChildren)) return;
 
@@ -14460,6 +14469,12 @@ function App(){
       // Include child sync codes so they survive UID changes + new device restores
       let _syncCodesForCloud = {};
       try { _syncCodesForCloud = _parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1")); } catch {}
+      if (!Object.keys(_syncCodesForCloud).length) {
+        try {
+          await restoreChildSyncCodesFromCloud(Object.keys(cleanForCloud || {}), cleanForCloud);
+          _syncCodesForCloud = _parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1"));
+        } catch {}
+      }
       // Entry-level merge: read cloud state, merge entries by ID, then write
       // This prevents two parents logging simultaneously from overwriting each other.
       //
@@ -14478,6 +14493,17 @@ function App(){
         const _cloudSnap = await fsGet("families", code);
         if (_cloudSnap.exists()) {
           const _cloudData = _cloudSnap.data();
+          if (!Object.keys(_syncCodesForCloud).length && _cloudData.childSyncCodes) {
+            try {
+              const _cloudSyncCodes = _parseChildSyncCodes(_cloudData.childSyncCodes);
+              if (Object.keys(_cloudSyncCodes).length) {
+                _syncCodesForCloud = _cloudSyncCodes;
+                setChildSyncCodes(_cloudSyncCodes);
+                try { localStorage.setItem("child_sync_codes_v1", JSON.stringify(_cloudSyncCodes)); } catch {}
+                Object.entries(_cloudSyncCodes).forEach(([cid, sc]) => subscribeToChildSync(cid, sc));
+              }
+            } catch {}
+          }
           if (_cloudData.children) {
             const _cloudChildren = JSON.parse(_cloudData.children);
             // Merge: for each child, for each day, merge entries by ID (keep both, dedupe)
@@ -17714,6 +17740,53 @@ function App(){
 	    }
 	    return ok;
 	  }
+	  async function claimChildSyncBackupOwner(childId, code, data) {
+	    const uid = await ensureFirebaseUid(5000).catch(()=>"");
+	    if(!uid || !code || !data || data.ownerUid === uid) return data && data.ownerUid === uid;
+	    const existingUids = Array.isArray(data.participantUids)
+	      ? data.participantUids.filter(Boolean)
+	      : (Array.isArray(data.participants) ? data.participants.map(p=>p&&p.uid).filter(Boolean) : []);
+	    const ownerUsername = familyUsername || localStorage.getItem("family_username") || data.ownerUsername || "";
+	    const participantEntry = {
+	      uid,
+	      username: ownerUsername,
+	      joinedAt: new Date().toISOString()
+	    };
+	    const currentParticipants = Array.isArray(data.participants) ? data.participants : [];
+	    const nextParticipants = currentParticipants.some(p=>p && p.uid === uid)
+	      ? currentParticipants
+	      : [...currentParticipants, participantEntry].slice(-25);
+	    const nextUids = [...new Set([uid, ...existingUids])].slice(-25);
+	    const {serverTimestamp} = window._fb || {};
+	    const ok = await fsSet("child_syncs", code, {
+	      ownerUid: uid,
+	      ownerUsername,
+	      updatedAt: serverTimestamp ? serverTimestamp() : Date.now(),
+	      updatedBy: uid,
+	      participants: nextParticipants,
+	      participantUids: nextUids
+	    }, true);
+	    if(ok) {
+	      _rememberChildSyncMeta(childId || data.childId || "", code, {
+	        ...data,
+	        ownerUid: uid,
+	        ownerUsername,
+	        participants: nextParticipants,
+	        participantUids: nextUids,
+	        isActive: data.isActive !== false
+	      });
+	      setChildSyncParticipants(prev => {
+	        const next = {...prev};
+	        try {
+	          const cid = childId || data.childId || "";
+	          if(cid) next[cid] = nextParticipants;
+	          next[code] = nextParticipants;
+	        } catch {}
+	        return next;
+	      });
+	    }
+	    return ok;
+	  }
 	  async function claimLegacyChildSyncOwner(code, data) {
 	    const uid = await ensureFirebaseUid(5000).catch(()=>"");
 	    if(!uid || !code || !data) return false;
@@ -18012,6 +18085,7 @@ function App(){
         await Promise.all(Object.entries(restored).map(([cid, code]) => _persistChildSyncCode(cid, code, childMap?.[cid] || childrenRef.current?.[cid] || children[cid])));
       } catch {}
     }
+    return restored;
   }
   // Child sync codes are now user-chosen and stored in uid_to_backup.childSyncCodes.
   // They are restored during login (see uid_to_backup restore logic above).
@@ -18034,8 +18108,11 @@ function App(){
 	          const existingData = existing.data() || {};
 	          _absorbChildSyncTombstones(existingData);
 	          if (existingData.ownerUid !== writerUid && !(Array.isArray(existingData.participantUids) && existingData.participantUids.includes(writerUid))) {
-	            const joined = await ensureChildSyncParticipant(code, existingData);
-	            if(!joined) return;
+	            const claimedOwner = await claimChildSyncBackupOwner(childId, code, existingData);
+	            if(!claimedOwner) {
+	              const joined = await ensureChildSyncParticipant(code, existingData);
+	              if(!joined) return;
+	            }
 	          }
 	          const cloudChild = normaliseChildrenPayload({[childId]: safeObjectPayload(existingData.child)})[childId] || {};
           const cloudEntryCount = Object.values(cloudChild.days || {}).reduce((s, d) => s + (d ? d.length : 0), 0);
@@ -18412,6 +18489,16 @@ function App(){
   }
   // Child sync codes restored from uid_to_backup.childSyncCodes during login.
   // No child_code_map backfill needed. user-chosen codes are memorable.
+  useEffect(()=>{
+    if(!fbReady || childSyncRestoreAttemptRef.current) return;
+    if(Object.keys(childSyncCodes || {}).length) return;
+    const childMap = childrenRef.current || children || {};
+    const childIds = Object.keys(childMap).filter(cid => _hasRecoverableChild({[cid]: childMap[cid]}));
+    if(!childIds.length) return;
+    childSyncRestoreAttemptRef.current = true;
+    restoreChildSyncCodesFromCloud(childIds, childMap).catch(()=>{ childSyncRestoreAttemptRef.current = false; });
+  },[fbReady, childSyncCodes, children]);
+
   useEffect(()=>{
     if(!fbReady) return;
     Object.entries(childSyncCodes).forEach(([childId, code]) => {
