@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OBubba</string>
+    <string name="title_activity_main">OBubba</string>
+    <string name="package_name">com.obubba.app</string>
+    <string name="custom_url_scheme">obubba</string>
+    <string name="widget_description">Consultez d’un coup d’œil les repas, le sommeil et les couches de votre bébé.</string>
+    <string name="shortcut_log_feed">Enregistrer un repas</string>
+    <string name="shortcut_log_feed_long">Enregistrer un repas pour bébé</string>
+    <string name="shortcut_log_sleep">Enregistrer le sommeil</string>
+    <string name="shortcut_log_sleep_long">Enregistrer le sommeil ou une sieste</string>
+    <string name="shortcut_log_nappy">Enregistrer une couche</string>
+    <string name="shortcut_log_nappy_long">Enregistrer un change</string>
+    <string name="shortcut_start_timer">Démarrer le minuteur</string>
+    <string name="shortcut_start_timer_long">Démarrer un minuteur de repas ou de sommeil</string>
+</resources>

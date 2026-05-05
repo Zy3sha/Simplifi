@@ -26,6 +26,7 @@ echo "Copying to public/app.js..."
 cp app.js public/app.js
 cp app.jsx public/app.jsx
 cp -f styles.css public/styles.css
+cp -f i18n.js public/i18n.js
 cp -f loader.js public/loader.js
 cp -f native-plugins.js public/native-plugins.js
 cp -f firebase.js public/firebase.js
@@ -46,6 +47,7 @@ cp -f public/icons/*.png dist/icons/ 2>/dev/null || true
 cp -f app.js dist/app.js
 cp -f app.jsx dist/app.jsx
 cp -f styles.css dist/styles.css
+cp -f i18n.js dist/i18n.js
 cp -f loader.js dist/loader.js
 cp -f native-plugins.js dist/native-plugins.js
 cp -f firebase.js dist/firebase.js
@@ -59,6 +61,11 @@ for f in index.html public/index.html dist/index.html; do
   if [ -f "$f" ]; then
     sed -i '' "s|/app\.js?v=[0-9]*\"|/app.js?v=${CACHE_V}\"|g" "$f"
     sed -i '' "s|/app\.js\"|/app.js?v=${CACHE_V}\"|g" "$f"
+    sed -i '' "s|/i18n\.js?v=[0-9]*\"|/i18n.js?v=${CACHE_V}\"|g" "$f"
+    sed -i '' "s|/i18n\.js\"|/i18n.js?v=${CACHE_V}\"|g" "$f"
+    if ! grep -q "i18n\.js" "$f"; then
+      perl -0pi -e "s|(\\n  <!-- Styles -->)|\\n  <!-- Localisation -->\\n  <script src=\"/i18n.js?v=${CACHE_V}\"></script>\\n\\1|" "$f"
+    fi
     sed -i '' "s|styles\.css?v=[0-9]*\"|styles.css?v=${CACHE_V}\"|g" "$f"
     sed -i '' "s|styles\.css\"|styles.css?v=${CACHE_V}\"|g" "$f"
   fi

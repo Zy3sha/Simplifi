@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OBubba</string>
+    <string name="title_activity_main">OBubba</string>
+    <string name="package_name">com.obubba.app</string>
+    <string name="custom_url_scheme">obubba</string>
+    <string name="widget_description">Sieh die täglichen Mahlzeiten, Schlafzeiten und Windeln deines Babys auf einen Blick.</string>
+    <string name="shortcut_log_feed">Füttern erfassen</string>
+    <string name="shortcut_log_feed_long">Eine Fütterung für Baby erfassen</string>
+    <string name="shortcut_log_sleep">Schlaf erfassen</string>
+    <string name="shortcut_log_sleep_long">Schlaf oder Nickerchen erfassen</string>
+    <string name="shortcut_log_nappy">Windel erfassen</string>
+    <string name="shortcut_log_nappy_long">Windelwechsel erfassen</string>
+    <string name="shortcut_start_timer">Timer starten</string>
+    <string name="shortcut_start_timer_long">Timer für Füttern oder Schlaf starten</string>
+</resources>

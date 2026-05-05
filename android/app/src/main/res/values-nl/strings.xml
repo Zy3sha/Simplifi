@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OBubba</string>
+    <string name="title_activity_main">OBubba</string>
+    <string name="package_name">com.obubba.app</string>
+    <string name="custom_url_scheme">obubba</string>
+    <string name="widget_description">Bekijk in één oogopslag de voedingen, slaap en luiers van je baby.</string>
+    <string name="shortcut_log_feed">Voeding bijhouden</string>
+    <string name="shortcut_log_feed_long">Voeding voor baby bijhouden</string>
+    <string name="shortcut_log_sleep">Slaap bijhouden</string>
+    <string name="shortcut_log_sleep_long">Slaap of dutje bijhouden</string>
+    <string name="shortcut_log_nappy">Luier bijhouden</string>
+    <string name="shortcut_log_nappy_long">Luierwissel bijhouden</string>
+    <string name="shortcut_start_timer">Timer starten</string>
+    <string name="shortcut_start_timer_long">Timer voor voeding of slaap starten</string>
+</resources>

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OBubba</string>
+    <string name="title_activity_main">OBubba</string>
+    <string name="package_name">com.obubba.app</string>
+    <string name="custom_url_scheme">obubba</string>
+    <string name="widget_description">Vedi a colpo d’occhio poppate, sonno e pannolini quotidiani del tuo bambino.</string>
+    <string name="shortcut_log_feed">Registra poppata</string>
+    <string name="shortcut_log_feed_long">Registra una poppata del bambino</string>
+    <string name="shortcut_log_sleep">Registra sonno</string>
+    <string name="shortcut_log_sleep_long">Registra sonno o pisolino</string>
+    <string name="shortcut_log_nappy">Registra pannolino</string>
+    <string name="shortcut_log_nappy_long">Registra cambio pannolino</string>
+    <string name="shortcut_start_timer">Avvia timer</string>
+    <string name="shortcut_start_timer_long">Avvia timer poppata o sonno</string>
+</resources>

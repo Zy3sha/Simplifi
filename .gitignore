@@ -10,6 +10,7 @@ ios/build/
 # iOS
 ios/App/Pods/
 ios/capacitor-cordova-ios-plugins/
+ios/DerivedData/
 *.xcuserstate
 xcuserdata/
 

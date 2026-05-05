@@ -126,6 +126,27 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/child_syncs/$(code)).data.ownerUid == request.auth.uid;
     }
 
+    function childSyncDocParticipant(code) {
+      return signedIn()
+        && childSyncCodeId(code)
+        && exists(/databases/$(database)/documents/child_syncs/$(code))
+        && (
+          get(/databases/$(database)/documents/child_syncs/$(code)).data.ownerUid == request.auth.uid
+          || (
+            get(/databases/$(database)/documents/child_syncs/$(code)).data.participantUids is list
+            && get(/databases/$(database)/documents/child_syncs/$(code)).data.participantUids.hasAny([request.auth.uid])
+          )
+        );
+    }
+
+    function syncV2DocId(docId) {
+      return docId.matches('^[A-Za-z0-9_-]{1,120}$');
+    }
+
+    function dayDocId(dayKey) {
+      return dayKey.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
     function validUidBackupWrite() {
       return request.resource.data.keys().hasOnly([
         'backupCode', 'childSyncCodes', 'updatedAt', 'deleted'
@@ -191,6 +212,93 @@ service cloud.firestore {
       && (!('writeToken' in request.resource.data) || request.resource.data.writeToken is string)
       && (!('participants' in request.resource.data) || (request.resource.data.participants is list && request.resource.data.participants.size() <= 25))
       && (!('participantUids' in request.resource.data) || (request.resource.data.participantUids is list && request.resource.data.participantUids.size() <= 25));
+    }
+
+    function validSyncV2FamilyRootWrite() {
+      return request.resource.data.keys().hasOnly([
+        'version', 'schema', 'source', 'legacyFamilyCode', 'childIds',
+        'childCount', 'readEnabled', 'updatedAt', 'updatedAtClient',
+        'updatedBy', 'writeToken'
+      ])
+      && request.resource.data.version is int
+      && boundedString(request.resource.data.schema, 80)
+      && boundedString(request.resource.data.source, 80)
+      && backupCodeId(request.resource.data.legacyFamilyCode)
+      && request.resource.data.childIds is list
+      && request.resource.data.childIds.size() <= 50
+      && (request.resource.data.childCount is int || request.resource.data.childCount is float)
+      && request.resource.data.readEnabled is bool
+      && (!('updatedAt' in request.resource.data) || clientTimestampValue(request.resource.data.updatedAt))
+      && boundedString(request.resource.data.updatedAtClient, 40)
+      && (!('updatedBy' in request.resource.data) || boundedString(request.resource.data.updatedBy, 128))
+      && (!('writeToken' in request.resource.data) || boundedString(request.resource.data.writeToken, 128));
+    }
+
+    function validSyncV2ChildProfileWrite() {
+      return request.resource.data.keys().hasOnly([
+        'version', 'schema', 'childId', 'name', 'dob', 'sex', 'dueDate',
+        'unborn', 'conditions', 'customDailyTarget', 'day1Profile',
+        'hasPhoto', 'dayCount', 'entryCount', 'hash',
+        'updatedAt', 'updatedAtClient', 'updatedBy'
+      ])
+      && request.resource.data.version is int
+      && boundedString(request.resource.data.schema, 80)
+      && boundedString(request.resource.data.childId, 120)
+      && boundedString(request.resource.data.name, 80)
+      && boundedString(request.resource.data.dob, 20)
+      && boundedString(request.resource.data.sex, 16)
+      && boundedString(request.resource.data.dueDate, 20)
+      && request.resource.data.unborn is bool
+      && request.resource.data.conditions is list
+      && request.resource.data.conditions.size() <= 8
+      && (!('customDailyTarget' in request.resource.data)
+        || request.resource.data.customDailyTarget == null
+        || request.resource.data.customDailyTarget is int
+        || request.resource.data.customDailyTarget is float)
+      && boundedString(request.resource.data.day1Profile, 12000)
+      && request.resource.data.hasPhoto is bool
+      && (request.resource.data.dayCount is int || request.resource.data.dayCount is float)
+      && (request.resource.data.entryCount is int || request.resource.data.entryCount is float)
+      && boundedString(request.resource.data.hash, 64)
+      && (!('updatedAt' in request.resource.data) || clientTimestampValue(request.resource.data.updatedAt))
+      && boundedString(request.resource.data.updatedAtClient, 40)
+      && (!('updatedBy' in request.resource.data) || boundedString(request.resource.data.updatedBy, 128));
+    }
+
+    function validSyncV2PayloadWrite() {
+      return request.resource.data.keys().hasOnly([
+        'version', 'schema', 'childId', 'dayKey', 'hash', 'count',
+        'entryIds', 'payload', 'updatedAt', 'updatedAtClient', 'updatedBy'
+      ])
+      && request.resource.data.version is int
+      && boundedString(request.resource.data.schema, 80)
+      && (!('childId' in request.resource.data) || boundedString(request.resource.data.childId, 120))
+      && (!('dayKey' in request.resource.data) || boundedString(request.resource.data.dayKey, 20))
+      && boundedString(request.resource.data.hash, 64)
+      && (!('count' in request.resource.data) || request.resource.data.count is int || request.resource.data.count is float)
+      && (!('entryIds' in request.resource.data) || (request.resource.data.entryIds is list && request.resource.data.entryIds.size() <= 500))
+      && boundedString(request.resource.data.payload, 900000)
+      && (!('updatedAt' in request.resource.data) || clientTimestampValue(request.resource.data.updatedAt))
+      && boundedString(request.resource.data.updatedAtClient, 40)
+      && (!('updatedBy' in request.resource.data) || boundedString(request.resource.data.updatedBy, 128));
+    }
+
+    function validSyncV2ChildRootWrite() {
+      return request.resource.data.keys().hasOnly([
+        'version', 'schema', 'source', 'childId', 'childName', 'ownerUid',
+        'readEnabled', 'updatedAt', 'updatedAtClient', 'updatedBy', 'writeToken'
+      ])
+      && request.resource.data.version is int
+      && boundedString(request.resource.data.schema, 80)
+      && boundedString(request.resource.data.source, 80)
+      && boundedString(request.resource.data.childId, 120)
+      && boundedString(request.resource.data.childName, 80)
+      && (!('ownerUid' in request.resource.data) || boundedString(request.resource.data.ownerUid, 128))
+      && request.resource.data.readEnabled is bool
+      && (!('updatedAt' in request.resource.data) || clientTimestampValue(request.resource.data.updatedAt))
+      && boundedString(request.resource.data.updatedAtClient, 40)
+      && (!('updatedBy' in request.resource.data) || boundedString(request.resource.data.updatedBy, 128))
+      && (!('writeToken' in request.resource.data) || boundedString(request.resource.data.writeToken, 128));
     }
 
     function childSyncUpdatedBySelf() {
@@ -308,6 +416,63 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── Reversible v2 family sync shadow ──
+    // Written beside the legacy families/{code} blob. Clients still read the
+    // legacy path unless a local/remote rollout flag enables v2 reads.
+    match /family_sync_v2/{code} {
+      allow get: if signedIn() && backupCodeId(code);
+      allow list: if false;
+      allow create, update: if signedIn()
+        && backupCodeId(code)
+        && validSyncV2FamilyRootWrite();
+      allow delete: if false;
+
+      match /shared/{docId} {
+        allow read: if signedIn() && backupCodeId(code) && syncV2DocId(docId);
+        allow create, update: if signedIn()
+          && backupCodeId(code)
+          && syncV2DocId(docId)
+          && validSyncV2PayloadWrite();
+        allow delete: if false;
+      }
+
+      match /children/{childId} {
+        allow read: if signedIn() && backupCodeId(code) && syncV2DocId(childId);
+        allow create, update: if signedIn()
+          && backupCodeId(code)
+          && syncV2DocId(childId)
+          && validSyncV2ChildProfileWrite();
+        allow delete: if false;
+
+        match /days/{dayKey} {
+          allow read: if signedIn() && backupCodeId(code) && dayDocId(dayKey);
+          allow create, update: if signedIn()
+            && backupCodeId(code)
+            && dayDocId(dayKey)
+            && validSyncV2PayloadWrite();
+          allow delete: if false;
+        }
+
+        match /extras/{docId} {
+          allow read: if signedIn() && backupCodeId(code) && syncV2DocId(docId);
+          allow create, update: if signedIn()
+            && backupCodeId(code)
+            && syncV2DocId(docId)
+            && validSyncV2PayloadWrite();
+          allow delete: if false;
+        }
+
+        match /live/{docId} {
+          allow read: if signedIn() && backupCodeId(code) && syncV2DocId(docId);
+          allow create, update: if signedIn()
+            && backupCodeId(code)
+            && syncV2DocId(docId)
+            && validSyncV2PayloadWrite();
+          allow delete: if false;
+        }
+      }
+    }
+
     // ── Carer Token Lookup ──
     // Maps CT tokens to backup codes. GET only (know token = access).
     match /carer_tokens/{token} {
@@ -417,6 +582,49 @@ service cloud.firestore {
         && validChildSyncWrite()
         && (childSyncOwnerWrite() || childSyncParticipantWrite() || childSyncLegacyOwnerClaimWrite() || childSyncJoinWrite());
       allow delete: if false;
+    }
+
+    // ── Reversible v2 child sync shadow ──
+    // Mirrors child_syncs/{code} into smaller profile/day docs. The existing
+    // child_syncs path remains the source of truth until v2 reads are enabled.
+    match /child_sync_v2/{code} {
+      allow get: if signedIn() && childSyncCodeId(code);
+      allow list: if false;
+      allow create, update: if childSyncDocParticipant(code)
+        && validSyncV2ChildRootWrite();
+      allow delete: if false;
+
+      match /profile/{docId} {
+        allow read: if signedIn() && childSyncCodeId(code) && syncV2DocId(docId);
+        allow create, update: if childSyncDocParticipant(code)
+          && syncV2DocId(docId)
+          && validSyncV2ChildProfileWrite();
+        allow delete: if false;
+      }
+
+      match /days/{dayKey} {
+        allow read: if signedIn() && childSyncCodeId(code) && dayDocId(dayKey);
+        allow create, update: if childSyncDocParticipant(code)
+          && dayDocId(dayKey)
+          && validSyncV2PayloadWrite();
+        allow delete: if false;
+      }
+
+      match /extras/{docId} {
+        allow read: if signedIn() && childSyncCodeId(code) && syncV2DocId(docId);
+        allow create, update: if childSyncDocParticipant(code)
+          && syncV2DocId(docId)
+          && validSyncV2PayloadWrite();
+        allow delete: if false;
+      }
+
+      match /live/{docId} {
+        allow read: if signedIn() && childSyncCodeId(code) && syncV2DocId(docId);
+        allow create, update: if childSyncDocParticipant(code)
+          && syncV2DocId(docId)
+          && validSyncV2PayloadWrite();
+        allow delete: if false;
+      }
     }
 
     // ── Child Code Map (legacy) ──

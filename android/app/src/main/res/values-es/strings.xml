@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OBubba</string>
+    <string name="title_activity_main">OBubba</string>
+    <string name="package_name">com.obubba.app</string>
+    <string name="custom_url_scheme">obubba</string>
+    <string name="widget_description">Consulta de un vistazo las tomas, el sueño y los pañales diarios de tu bebé.</string>
+    <string name="shortcut_log_feed">Registrar toma</string>
+    <string name="shortcut_log_feed_long">Registrar una toma del bebé</string>
+    <string name="shortcut_log_sleep">Registrar sueño</string>
+    <string name="shortcut_log_sleep_long">Registrar sueño o siesta</string>
+    <string name="shortcut_log_nappy">Registrar pañal</string>
+    <string name="shortcut_log_nappy_long">Registrar un cambio de pañal</string>
+    <string name="shortcut_start_timer">Iniciar temporizador</string>
+    <string name="shortcut_start_timer_long">Iniciar un temporizador de toma o sueño</string>
+</resources>

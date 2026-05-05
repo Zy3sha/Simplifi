@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OBubba</string>
+    <string name="title_activity_main">OBubba</string>
+    <string name="package_name">com.obubba.app</string>
+    <string name="custom_url_scheme">obubba</string>
+    <string name="widget_description">Zobacz w skrócie dzienne karmienia, sen i pieluchy dziecka.</string>
+    <string name="shortcut_log_feed">Zapisz karmienie</string>
+    <string name="shortcut_log_feed_long">Zapisz karmienie dziecka</string>
+    <string name="shortcut_log_sleep">Zapisz sen</string>
+    <string name="shortcut_log_sleep_long">Zapisz sen lub drzemkę</string>
+    <string name="shortcut_log_nappy">Zapisz pieluchę</string>
+    <string name="shortcut_log_nappy_long">Zapisz zmianę pieluchy</string>
+    <string name="shortcut_start_timer">Uruchom minutnik</string>
+    <string name="shortcut_start_timer_long">Uruchom minutnik karmienia lub snu</string>
+</resources>

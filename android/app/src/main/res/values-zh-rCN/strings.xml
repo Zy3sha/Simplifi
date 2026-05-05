@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">OBubba</string>
+    <string name="title_activity_main">OBubba</string>
+    <string name="package_name">com.obubba.app</string>
+    <string name="custom_url_scheme">obubba</string>
+    <string name="widget_description">一目了然查看宝宝每天的喂养、睡眠和尿布记录。</string>
+    <string name="shortcut_log_feed">记录喂养</string>
+    <string name="shortcut_log_feed_long">为宝宝记录一次喂养</string>
+    <string name="shortcut_log_sleep">记录睡眠</string>
+    <string name="shortcut_log_sleep_long">记录睡眠或小睡</string>
+    <string name="shortcut_log_nappy">记录尿布</string>
+    <string name="shortcut_log_nappy_long">记录一次换尿布</string>
+    <string name="shortcut_start_timer">开始计时</string>
+    <string name="shortcut_start_timer_long">开始喂养或睡眠计时</string>
+</resources>

@@ -8521,6 +8521,12 @@ function normaliseSleepCoachState(value) {
 
 function App(){
   const viewport=useResponsiveViewport();
+  const[,setLocaleTick]=useState(0);
+  const _i18n = (typeof window !== "undefined" && window.OBI18N) ? window.OBI18N : null;
+  const t = (key, vars)=>_i18n && typeof _i18n.t === "function" ? _i18n.t(key, vars) : String(key || "");
+  const localePreference = _i18n && typeof _i18n.getPreference === "function" ? _i18n.getPreference() : "system";
+  const currentLocale = _i18n && typeof _i18n.getLocale === "function" ? _i18n.getLocale() : "en-GB";
+  const localeOptions = _i18n && typeof _i18n.getSupportedLocales === "function" ? _i18n.getSupportedLocales() : [{code:"system",nativeName:"Use device language",englishName:"Use device language"},{code:"en-GB",nativeName:"English",englishName:"English"}];
   const _isTablet=viewport.tablet;
   const _isLargeTablet=viewport.largeTablet;
   const _maxW=viewport.maxW;
@@ -8531,6 +8537,11 @@ function App(){
   const timerRef = React.useRef(null);
   const[isDark,setIsDark]=useState(()=>document.body.classList.contains('dark-mode'));
   const[themeKey,setThemeKey]=useState(0);
+  useEffect(()=>{
+    const onLocaleChange=()=>setLocaleTick(k=>k+1);
+    window.addEventListener("ob-locale-change",onLocaleChange);
+    return()=>window.removeEventListener("ob-locale-change",onLocaleChange);
+  },[]);
   useEffect(()=>{
     // Dismiss splash screen once React has mounted. keep mascot visible
     // for at least 1.2s so it replaces the black screen gracefully
@@ -13760,7 +13771,12 @@ function App(){
   // Global throttle: prevent sync storms by enforcing minimum interval between cloud pushes
   const _lastPushTs = useRef(0);
   const _pushQueued = useRef(null);
+  const _syncV2FamilyShadowRef = useRef({running:false, pending:null});
+  const _syncV2ChildShadowRef = useRef({running:false, pending:null});
   const PUSH_MIN_INTERVAL = 10000; // 10 seconds minimum between pushes
+  const OB_SYNC_V2_SCHEMA = "sync-v2-shadow-2026-05";
+  const OB_SYNC_V2_FAMILY_HASH_PREFIX = "ob_sync_v2_family_hashes_";
+  const OB_SYNC_V2_CHILD_HASH_PREFIX = "ob_sync_v2_child_hashes_";
   const _readLocalJson = (key, fallback) => {
     try {
       const raw = localStorage.getItem(key);
@@ -13773,6 +13789,354 @@ function App(){
       return fallback;
     }
   };
+
+  function syncV2ShadowEnabled() {
+    try {
+      // Default off for the first billing-safe rollout. Enable only on
+      // known test devices until Firestore transfer and write volume look calm.
+      return localStorage.getItem("ob_sync_v2_shadow_enabled") === "1"
+        && localStorage.getItem("ob_sync_v2_shadow_disabled") !== "1";
+    } catch {
+      return false;
+    }
+  }
+
+  function syncV2ReadEnabled() {
+    try {
+      return localStorage.getItem("ob_sync_v2_read_enabled") === "1";
+    } catch {
+      return false;
+    }
+  }
+
+  function syncV2FirestoreId(value, fallback="doc") {
+    const raw = String(value || "").trim();
+    const clean = raw.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 120);
+    return clean || fallback;
+  }
+
+  function syncV2Hash(value) {
+    const str = typeof value === "string" ? value : JSON.stringify(value || "");
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return (h >>> 0).toString(36);
+  }
+
+  function syncV2HashMap(prefix, code) {
+    try {
+      return safeJsonObject(localStorage.getItem(prefix + syncV2FirestoreId(code, "code")));
+    } catch {
+      return {};
+    }
+  }
+
+  function syncV2SaveHashMap(prefix, code, map) {
+    try {
+      localStorage.setItem(prefix + syncV2FirestoreId(code, "code"), JSON.stringify(map || {}));
+    } catch {}
+  }
+
+  function syncV2ScrubValue(value, depth=0) {
+    if(value === null || value === undefined) return value;
+    if(typeof value === "string") {
+      if(/^data:image\//i.test(value)) return "";
+      return value.length > 4000 ? value.slice(0, 3995) + "..." : value;
+    }
+    if(typeof value === "number" || typeof value === "boolean") return value;
+    if(Array.isArray(value)) {
+      if(depth > 4) return [];
+      return value.slice(0, 300).map(item => syncV2ScrubValue(item, depth + 1));
+    }
+    if(typeof value === "object") {
+      if(depth > 4) return {};
+      const out = {};
+      Object.entries(value).slice(0, 120).forEach(([k,v]) => {
+        if(/photo|photos|image|images|blob|dataurl|dataUrl|screenshot|thumbnail/i.test(k)) return;
+        out[k] = syncV2ScrubValue(v, depth + 1);
+      });
+      return out;
+    }
+    return String(value);
+  }
+
+  function syncV2ChildProfile(child, childId) {
+    const ch = child || {};
+    return {
+      version: 1,
+      schema: OB_SYNC_V2_SCHEMA,
+      childId,
+      name: safeChildName(ch.name),
+      dob: safeChildDate(ch.dob),
+      sex: safeChildSex(ch.sex),
+      dueDate: safeChildDate(ch.dueDate) || "",
+      unborn: ch.unborn === true,
+      conditions: safeChildConditions(ch.conditions),
+      customDailyTarget: safeChildDailyTarget(ch.customDailyTarget),
+      day1Profile: JSON.stringify(syncV2ScrubValue(ch.day1Profile || {})),
+      hasPhoto: !!safeAppImageSrc(ch.photo, ""),
+      dayCount: Object.keys(ch.days || {}).length,
+      entryCount: Object.values(ch.days || {}).reduce((sum, entries) => sum + (Array.isArray(entries) ? entries.length : 0), 0)
+    };
+  }
+
+  function syncV2ChildExtrasPayload(child) {
+    const ch = child || {};
+    return JSON.stringify(syncV2ScrubValue({
+      weights: ch.weights || [],
+      heights: ch.heights || [],
+      headCircs: ch.headCircs || [],
+      teething: ch.teething || [],
+      weaning: ch.weaning || [],
+      observations: ch.observations || [],
+      milestones: ch.milestones || {},
+      dayPlans: ch.dayPlans || {},
+      cryingHelps: ch.cryingHelps || {}
+    }));
+  }
+
+  function syncV2EntryPayload(entries) {
+    return JSON.stringify(normaliseDayEntries(entries || [])
+      .filter(e => e && !e._deleted)
+      .map(e => syncV2ScrubValue(e)));
+  }
+
+  function syncV2Timestamp() {
+    try {
+      return window._fb?.serverTimestamp ? window._fb.serverTimestamp() : new Date().toISOString();
+    } catch {
+      return new Date().toISOString();
+    }
+  }
+
+  async function writeSyncV2FamilyShadowNow(code, allChildren, meta={}) {
+    if(!syncV2ShadowEnabled() || !window._fb || !code || window._deletingAccount) return false;
+    const safeCode = String(code || "").trim().toUpperCase();
+    if(!/^BK[A-Z0-9]{6,10}$/.test(safeCode)) return false;
+    const sourceChildren = normaliseChildrenPayload(allChildren || {});
+    const childIds = Object.keys(sourceChildren);
+    if(!childIds.length) return false;
+
+    const uid = window._fbUid || window._fb?.auth?.currentUser?.uid || "";
+    const nowIso = new Date().toISOString();
+    const hashes = syncV2HashMap(OB_SYNC_V2_FAMILY_HASH_PREFIX, safeCode);
+    const rootPayload = {
+      version: 1,
+      schema: OB_SYNC_V2_SCHEMA,
+      source: "legacy-dual-write",
+      legacyFamilyCode: safeCode,
+      childIds,
+      childCount: childIds.length,
+      readEnabled: syncV2ReadEnabled(),
+      updatedAt: syncV2Timestamp(),
+      updatedAtClient: nowIso,
+      updatedBy: uid,
+      writeToken: String(meta.writeToken || "")
+    };
+    await fsSet("family_sync_v2", safeCode, rootPayload, true);
+
+    const sharedPayload = JSON.stringify(syncV2ScrubValue({
+      carerInfo: meta.carerInfo || {},
+      sharedData: meta.sharedData || {},
+      childSyncCodes: meta.childSyncCodes || {},
+      prediction: meta.prediction || "{}",
+      todayMeds: meta.todayMeds || "[]"
+    }));
+    const sharedHash = syncV2Hash(sharedPayload);
+    if(hashes["shared:core"] !== sharedHash) {
+      await fsSet("family_sync_v2/" + safeCode + "/shared", "core", {
+        version: 1,
+        schema: OB_SYNC_V2_SCHEMA,
+        hash: sharedHash,
+        payload: sharedPayload,
+        updatedAt: syncV2Timestamp(),
+        updatedAtClient: nowIso,
+        updatedBy: uid
+      }, true);
+      hashes["shared:core"] = sharedHash;
+    }
+
+    for(const [rawChildId, child] of Object.entries(sourceChildren)) {
+      const childId = syncV2FirestoreId(rawChildId, "child");
+      const profile = syncV2ChildProfile(child, childId);
+      const profileHash = syncV2Hash(profile);
+      if(hashes["child:" + childId] !== profileHash) {
+        await fsSet("family_sync_v2/" + safeCode + "/children", childId, {
+          ...profile,
+          hash: profileHash,
+          updatedAt: syncV2Timestamp(),
+          updatedAtClient: nowIso,
+          updatedBy: uid
+        }, true);
+        hashes["child:" + childId] = profileHash;
+      }
+
+      const extrasPayload = syncV2ChildExtrasPayload(child);
+      const extrasHash = syncV2Hash(extrasPayload);
+      if(hashes["extras:" + childId] !== extrasHash) {
+        await fsSet("family_sync_v2/" + safeCode + "/children/" + childId + "/extras", "core", {
+          version: 1,
+          schema: OB_SYNC_V2_SCHEMA,
+          childId,
+          hash: extrasHash,
+          payload: extrasPayload,
+          updatedAt: syncV2Timestamp(),
+          updatedAtClient: nowIso,
+          updatedBy: uid
+        }, true);
+        hashes["extras:" + childId] = extrasHash;
+      }
+
+      const daysForChild = child.days || {};
+      for(const [rawDay, entries] of Object.entries(daysForChild)) {
+        const dayKey = safeDateKey(rawDay);
+        if(!dayKey) continue;
+        const payload = syncV2EntryPayload(entries);
+        if(payload.length > 850000) {
+          console.warn("[OBubba] sync v2 skipped oversized day", childId, dayKey);
+          continue;
+        }
+        const hashKey = "day:" + childId + ":" + dayKey;
+        const hash = syncV2Hash(payload);
+        if(hashes[hashKey] === hash) continue;
+        const parsedEntries = safeJsonArray(payload);
+        await fsSet("family_sync_v2/" + safeCode + "/children/" + childId + "/days", dayKey, {
+          version: 1,
+          schema: OB_SYNC_V2_SCHEMA,
+          childId,
+          dayKey,
+          hash,
+          count: parsedEntries.length,
+          entryIds: parsedEntries.map(e => syncV2FirestoreId(e && e.id, "")).filter(Boolean).slice(0, 500),
+          payload,
+          updatedAt: syncV2Timestamp(),
+          updatedAtClient: nowIso,
+          updatedBy: uid
+        }, true);
+        hashes[hashKey] = hash;
+      }
+    }
+
+    syncV2SaveHashMap(OB_SYNC_V2_FAMILY_HASH_PREFIX, safeCode, hashes);
+    return true;
+  }
+
+  function queueSyncV2FamilyShadow(code, allChildren, meta={}) {
+    if(!syncV2ShadowEnabled()) return;
+    _syncV2FamilyShadowRef.current.pending = {code, allChildren, meta};
+    if(_syncV2FamilyShadowRef.current.running) return;
+    _syncV2FamilyShadowRef.current.running = true;
+    setTimeout(async()=>{
+      try {
+        while(_syncV2FamilyShadowRef.current.pending) {
+          const job = _syncV2FamilyShadowRef.current.pending;
+          _syncV2FamilyShadowRef.current.pending = null;
+          try { await writeSyncV2FamilyShadowNow(job.code, job.allChildren, job.meta); }
+          catch(e) { console.warn("[OBubba] sync v2 family shadow failed", e); }
+        }
+      } finally {
+        _syncV2FamilyShadowRef.current.running = false;
+      }
+    }, 0);
+  }
+
+  async function writeSyncV2ChildShadowNow(code, childId, child, meta={}) {
+    if(!syncV2ShadowEnabled() || !window._fb || !code || !childId || window._deletingAccount) return false;
+    const safeCode = String(code || "").trim().toUpperCase();
+    if(!/^[A-Z0-9]{6,8}$/.test(safeCode)) return false;
+    const safeChildId = syncV2FirestoreId(childId, "child");
+    const uid = window._fbUid || window._fb?.auth?.currentUser?.uid || "";
+    const nowIso = new Date().toISOString();
+    const normalisedChild = normaliseChildrenPayload({[safeChildId]: {...(child || {}), id: safeChildId}})[safeChildId];
+    if(!normalisedChild) return false;
+    const hashes = syncV2HashMap(OB_SYNC_V2_CHILD_HASH_PREFIX, safeCode);
+    const profile = syncV2ChildProfile(normalisedChild, safeChildId);
+    const profileHash = syncV2Hash(profile);
+    await fsSet("child_sync_v2", safeCode, {
+      version: 1,
+      schema: OB_SYNC_V2_SCHEMA,
+      source: "legacy-child-sync-dual-write",
+      childId: safeChildId,
+      childName: safeChildName(normalisedChild.name),
+      ownerUid: String(meta.ownerUid || ""),
+      updatedAt: syncV2Timestamp(),
+      updatedAtClient: nowIso,
+      updatedBy: uid,
+      writeToken: String(meta.writeToken || ""),
+      readEnabled: syncV2ReadEnabled()
+    }, true);
+    if(hashes.profile !== profileHash) {
+      await fsSet("child_sync_v2/" + safeCode + "/profile", "core", {
+        ...profile,
+        hash: profileHash,
+        updatedAt: syncV2Timestamp(),
+        updatedAtClient: nowIso,
+        updatedBy: uid
+      }, true);
+      hashes.profile = profileHash;
+    }
+    const extrasPayload = syncV2ChildExtrasPayload(normalisedChild);
+    const extrasHash = syncV2Hash(extrasPayload);
+    if(hashes.extras !== extrasHash) {
+      await fsSet("child_sync_v2/" + safeCode + "/extras", "core", {
+        version: 1,
+        schema: OB_SYNC_V2_SCHEMA,
+        childId: safeChildId,
+        hash: extrasHash,
+        payload: extrasPayload,
+        updatedAt: syncV2Timestamp(),
+        updatedAtClient: nowIso,
+        updatedBy: uid
+      }, true);
+      hashes.extras = extrasHash;
+    }
+    for(const [rawDay, entries] of Object.entries(normalisedChild.days || {})) {
+      const dayKey = safeDateKey(rawDay);
+      if(!dayKey) continue;
+      const payload = syncV2EntryPayload(entries);
+      if(payload.length > 850000) continue;
+      const hash = syncV2Hash(payload);
+      if(hashes["day:" + dayKey] === hash) continue;
+      const parsedEntries = safeJsonArray(payload);
+      await fsSet("child_sync_v2/" + safeCode + "/days", dayKey, {
+        version: 1,
+        schema: OB_SYNC_V2_SCHEMA,
+        childId: safeChildId,
+        dayKey,
+        hash,
+        count: parsedEntries.length,
+        entryIds: parsedEntries.map(e => syncV2FirestoreId(e && e.id, "")).filter(Boolean).slice(0, 500),
+        payload,
+        updatedAt: syncV2Timestamp(),
+        updatedAtClient: nowIso,
+        updatedBy: uid
+      }, true);
+      hashes["day:" + dayKey] = hash;
+    }
+    syncV2SaveHashMap(OB_SYNC_V2_CHILD_HASH_PREFIX, safeCode, hashes);
+    return true;
+  }
+
+  function queueSyncV2ChildShadow(code, childId, child, meta={}) {
+    if(!syncV2ShadowEnabled()) return;
+    _syncV2ChildShadowRef.current.pending = {code, childId, child, meta};
+    if(_syncV2ChildShadowRef.current.running) return;
+    _syncV2ChildShadowRef.current.running = true;
+    setTimeout(async()=>{
+      try {
+        while(_syncV2ChildShadowRef.current.pending) {
+          const job = _syncV2ChildShadowRef.current.pending;
+          _syncV2ChildShadowRef.current.pending = null;
+          try { await writeSyncV2ChildShadowNow(job.code, job.childId, job.child, job.meta); }
+          catch(e) { console.warn("[OBubba] sync v2 child shadow failed", e); }
+        }
+      } finally {
+        _syncV2ChildShadowRef.current.running = false;
+      }
+    }, 0);
+  }
 
   const pushToCloud = React.useCallback(async(code, allChildren) => {
     if(!window._fb || !code || window._deletingAccount) return;
@@ -14036,10 +14400,10 @@ function App(){
         _todayMedsForCloud = JSON.stringify(_todayMeds2);
       } catch {}
 
-      await fsSet("families", code, {
-        children: JSON.stringify(cleanForCloud),
-        carerInfo: JSON.stringify(_carerInfoCloud),
-        sharedData: JSON.stringify(_sharedData),
+	      await fsSet("families", code, {
+	        children: JSON.stringify(cleanForCloud),
+	        carerInfo: JSON.stringify(_carerInfoCloud),
+	        sharedData: JSON.stringify(_sharedData),
         childSyncCodes: JSON.stringify(_syncCodesForCloud),
         deletedEntryIds: JSON.stringify(_deletedIdsForCloud),
         deletedDays: JSON.stringify(_deletedDaysForCloud),
@@ -14047,11 +14411,19 @@ function App(){
         todayMeds: _todayMedsForCloud,
         updatedAt: serverTimestamp(),
         updatedBy: myUid,
-        writeToken,
-        ...(_carerTokenForCloud ? {carerToken: _carerTokenForCloud} : {})
-      });
+	        writeToken,
+	        ...(_carerTokenForCloud ? {carerToken: _carerTokenForCloud} : {})
+	      });
+	      queueSyncV2FamilyShadow(code, cleanForCloud, {
+	        carerInfo: _carerInfoCloud,
+	        sharedData: _sharedData,
+	        childSyncCodes: _syncCodesForCloud,
+	        prediction: _predictionForCloud,
+	        todayMeds: _todayMedsForCloud,
+	        writeToken
+	      });
 
-      if(myUid && myUid !== "anon") {
+	      if(myUid && myUid !== "anon") {
         try{
           await fsSet("uid_to_backup", myUid, {backupCode: code, childSyncCodes: _syncCodesForCloud, updatedAt: serverTimestamp()}, true);
         }catch(e){ console.warn("uid_to_backup write error",e); }
@@ -17407,17 +17779,21 @@ function App(){
           }
         }
       } catch(e2) { /* proceed if check fails */ }
-      await fsSet("child_syncs", code, {
-        child: JSON.stringify(child),
-        childName: child.name || "",
-        isActive: true,
-	        updatedAt: serverTimestamp(),
-	        updatedBy: writerUid,
+	      await fsSet("child_syncs", code, {
+	        child: JSON.stringify(child),
+	        childName: child.name || "",
+	        isActive: true,
+		        updatedAt: serverTimestamp(),
+		        updatedBy: writerUid,
+		        writeToken: writeTokenRef.current
+		      }, true);
+	      queueSyncV2ChildShadow(code, childId, child, {
+	        ownerUid: writerUid,
 	        writeToken: writeTokenRef.current
-	      }, true);
-      try { await _persistChildSyncCode(childId, code, child); } catch {}
-    } catch(e) { console.warn("pushChildSync error", e); }
-  }
+	      });
+	      try { await _persistChildSyncCode(childId, code, child); } catch {}
+	    } catch(e) { console.warn("pushChildSync error", e); }
+	  }
   const subscribeToChildSync = React.useCallback((childId, code) => {
     if(!window._fb || !code) return;
     // SECURITY: Blacklist gate. If the user has explicitly removed this child
@@ -20888,34 +21264,48 @@ function App(){
 	    })();
 	    const _heroDisruptionMode = normaliseDisruptionModePayload(disruptionMode);
 	    const _heroAutoContext = (()=>{try{return engineAutoContext();}catch{return {active:false,reasons:[],multiplier:1};}})();
-		    const _heroWhyLine = _heroTrim(
-		      napOn
-		        ? _name + " is sleeping now. OBubba is tracking this nap and will update the next wake window, feed timing and bedtime when the nap ends."
-		        : ((_whyLines && _whyLines[0]) || ("Based on " + (_guide.sleepSource || "age guidance") + " and today's logs.")),
-		      132
-		    );
-		    const _heroStatusExplainsBedtime = _label === "Bedtime is the kinder path";
-		    const _heroStatusNode = (
-		      <>
-		        <span aria-hidden="true"/>
-		        <em>{_heroTrim(_label, 38)}</em>
-		      </>
-		    );
-		    return (
-		      <React.Fragment>
-		      <div ref={heroMoreRef} className="glass-card prio-glow ob-hero ob-hero-daily-guide ob-hero-mini" data-testid="today-hero" style={{marginBottom:12}}>
-		        <div className="ob-hero-mini-head">
-		          <div className="ob-hero-mini-title">Your daily guide</div>
-		          <div className="ob-hero-mini-actions">
-		            {_heroStatusExplainsBedtime ? (
-		              <button type="button" className="ob-hero-mini-status is-tappable" style={{"--ob-hero-status":_dot}} aria-label="Why bedtime is the kinder path" onClick={()=>{haptic();setHelpTip({title:"Why bedtime is the kinder path",body:"A late nap would probably push bedtime too late or make the first stretch of night harder. In this moment, a calm early bedtime is usually kinder than forcing a nap that no longer fits. Keep lights low, do a short predictable routine, and settle now if " + (_name||"baby") + " is upset or very tired."});}}>
-		                {_heroStatusNode}
-		              </button>
-		            ) : (
-		              <div className="ob-hero-mini-status" style={{"--ob-hero-status":_dot}}>
-		                {_heroStatusNode}
-		              </div>
-		            )}
+	    const _heroShowSettling = !!(napOn && !napPaused && napEntryId && napSec < 10 * 60 && napSettlingDismissedId !== napEntryId);
+			    const _heroWhyLine = napOn
+			      ? _name + " is sleeping now. OBubba is tracking this nap and will update the next wake window, feed timing and bedtime when the nap ends."
+			      : ((_whyLines && _whyLines[0]) || ("Based on " + (_guide.sleepSource || "age guidance") + " and today's logs."));
+			    const _heroStatusExplainsBedtime = _label === "Bedtime is the kinder path";
+			    const _heroComingUpStatus = (() => {
+			      try {
+			        const _td = tickDataRef.current || {};
+			        if (_heroStatusExplainsBedtime) return null;
+			        if (napOn || _td.hasBedtime || (age && age.totalWeeks < 4)) return null;
+			        const _hasActiveNap = (days[selDay]||[]).some(isActiveNapStub);
+			        if (_hasActiveNap) return null;
+			        const _ne = _td.nextEvent;
+			        if (!_ne || !_ne.timeStr) return null;
+			        const _time = String(_ne.timeStr || "").replace(/^~\s*/, "");
+			        if (_ne.type === "nap") return {dot:"#D4A855", text:_heroTrim((_ne.label || ("Nap " + (_napsDone + 1))) + " " + _time, 38)};
+			        if (_td.napsComplete && _td.bedMins && _td.bedMins >= 17*60) return {dot:"#6B5B95", text:_heroTrim("Bedtime " + fmt12(_td.bedMins), 38)};
+			        if (_ne.type === "bed" && _ne.timeMins && _ne.timeMins >= 17*60) return {dot:"#6B5B95", text:_heroTrim((_ne.label || "Bedtime") + " " + _time, 38)};
+			      } catch {}
+			      return null;
+			    })();
+			    const _heroStatusDot = (_heroComingUpStatus && _heroComingUpStatus.dot) || _dot;
+			    const _heroStatusNode = (
+			      <>
+			        <span aria-hidden="true"/>
+			        <em>{(_heroComingUpStatus && _heroComingUpStatus.text) || _heroTrim(_label, 38)}</em>
+			      </>
+			    );
+			    return (
+			      <React.Fragment>
+			      <div ref={heroMoreRef} className="glass-card prio-glow ob-hero ob-hero-daily-guide ob-hero-mini" data-testid="today-hero" style={{marginBottom:12}}>
+			        <div className="ob-hero-mini-head">
+			          <div className="ob-hero-mini-actions">
+			            {_heroStatusExplainsBedtime ? (
+			              <button type="button" className="ob-hero-mini-status is-tappable" style={{"--ob-hero-status":_heroStatusDot}} aria-label="Why bedtime is the kinder path" onClick={()=>{haptic();setHelpTip({title:"Why bedtime is the kinder path",body:"A late nap would probably push bedtime too late or make the first stretch of night harder. In this moment, a calm early bedtime is usually kinder than forcing a nap that no longer fits. Keep lights low, do a short predictable routine, and settle now if " + (_name||"baby") + " is upset or very tired."});}}>
+			                {_heroStatusNode}
+			              </button>
+			            ) : (
+			              <div className="ob-hero-mini-status" style={{"--ob-hero-status":_heroStatusDot}}>
+			                {_heroStatusNode}
+			              </div>
+			            )}
 		            <button type="button" className="ob-hero-mini-more" aria-expanded={heroMoreOpen?"true":"false"} onClick={()=>{haptic();setHeroMoreOpen(v=>!v);}}>
 		              {heroMoreOpen?"Less":"More"}
 		            </button>
@@ -20926,6 +21316,19 @@ function App(){
 	          <div><b>Next up</b><span>{_heroNextUpLine}</span></div>
 	          <div className="is-message"><span className="ob-hero-care-spark" aria-hidden="true">✨</span><span>{_heroCareMessage}</span></div>
 	        </div>
+	        {_heroShowSettling && (
+	          <div data-testid="hero-soft-sleep-settling" className="ob-hero-settling">
+	            <div className="ob-hero-settling-icon" aria-hidden="true"><BubbaIcon name="nap" size={18} animate/></div>
+	            <div className="ob-hero-settling-copy">
+	              <b>Settling for sleep</b>
+	              <span>If {_name} did not actually settle, discard this attempt so the day stays clean.</span>
+	            </div>
+	            <div className="ob-hero-settling-actions">
+	              <button type="button" onClick={()=>{haptic();setNapSettlingDismissedId(napEntryId||"current");showToast("Timer keeps running. end it when " + _name + " wakes.",2200,1);}}>Asleep now</button>
+	              <button type="button" className="is-secondary" onClick={()=>{haptic();cancelNap();}}>Didn't settle</button>
+	            </div>
+	          </div>
+	        )}
 	        {_wakeMissing && (
 	          <button onClick={()=>{haptic();handleSmartWake();}} className="ob-hero-guide-primary-action">
 	            <BubbaIcon name="sun" size={18}/>
@@ -21414,9 +21817,9 @@ function App(){
     ];
   };
   const renderTodaySummaryTiles = (styleArg={}) => (
-    <div data-testid="today-summary-strip" style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:8,marginBottom:14,...styleArg}}>
+    <div data-testid="today-summary-strip" style={{display:"grid",gridTemplateColumns:"repeat(4,minmax(0,1fr))",gap:8,marginBottom:14,width:"100%",maxWidth:"100%",boxSizing:"border-box",overflow:"hidden",...styleArg}}>
       {buildTodaySummaryTiles().map((s,i)=>(
-        <div key={i} style={{background:s.bg,backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:_rs(16),padding:`${_rs(10)}px ${_rs(4)}px`,textAlign:"center",boxShadow:"var(--card-shadow)",border:"1px solid var(--card-border)",minWidth:0}}>
+        <div key={i} style={{background:s.bg,backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:_rs(16),padding:`${_rs(10)}px ${_rs(4)}px`,textAlign:"center",boxShadow:"var(--card-shadow)",border:"1px solid var(--card-border)",minWidth:0,width:"100%",maxWidth:"100%",boxSizing:"border-box",overflow:"hidden"}}>
           <div style={{fontFamily:"Georgia,serif",fontSize:_rf(String(s.big).length>4?15:20),fontWeight:700,color:s.color,lineHeight:1.2,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{s.big}</div>
           {s.unit&&<div style={{fontSize:_rf(12),fontFamily:_fM,color:s.color,opacity:0.65,marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{s.unit}</div>}
           <div style={{fontSize:_rf(10),color:C.lt,marginTop:2,textTransform:"uppercase",letterSpacing:_ls08,fontFamily:_fM,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{s.label}</div>
@@ -36692,7 +37095,7 @@ function App(){
   const card={background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",border:"1px solid var(--card-border)",borderRadius:20,padding:"16px",marginBottom:14,boxShadow:"var(--card-shadow)",transition:"transform 0.2s cubic-bezier(.23,1,.32,1),box-shadow 0.25s ease"};
 
   const tabIcons={day:"today",insights:"understand",develop:"grow",settings:"account"};
-  const tabLabels={day:"Track",insights:"Understand",develop:"Grow",settings:"Account"};
+  const tabLabels={day:t("nav.track"),insights:t("nav.understand"),develop:t("nav.grow"),settings:t("nav.account")};
   const activeChildSyncCode = (childSyncCodes && resolvedActiveId) ? (childSyncCodes[resolvedActiveId] || "") : "";
   const activeChildSyncMeta = activeChildSyncCode ? (childSyncMeta[activeChildSyncCode] || childSyncMeta[resolvedActiveId] || null) : null;
   const activeChildSyncOwnerUid = activeChildSyncMeta ? (activeChildSyncMeta.ownerUid || "") : "";
@@ -38958,7 +39361,7 @@ function App(){
         </section>
       );
     }
-    if (_showSettling) {
+    if (_showSettling && !opts.skipSettling) {
       return (
         <section data-testid="soft-sleep-settling-card" className={"ob-soft-sleep-card"+(opts.compact?" is-compact":"")}>
           <div className="ob-soft-sleep-icon"><BubbaIcon name="nap" size={22} animate/></div>
@@ -41235,7 +41638,7 @@ function App(){
 		              )}
 	              {/* Daily totals sit directly under hero, before Log / Plan / Easy mode. */}
 	              {!daySubScreen && renderTodaySummaryTiles({marginTop:-2,marginBottom:12})}
-	              {!daySubScreen && renderSoftSleepRecovery()}
+	              {!daySubScreen && renderSoftSleepRecovery({skipSettling:true})}
 	              {!daySubScreen && todayPanel==="log" && renderSleepTransitionInsight()}
 	              {!daySubScreen && todayPanel==="log" && renderSleepInterpreterInsight()}
 	              {!daySubScreen && (
@@ -44721,9 +45124,9 @@ function App(){
               })()}
 
 
-              {/* ═══ COMPACT "COMING UP". moved above timeline for visibility ═══ */}
-              {/* Hidden for 0-4 week newborns (sleep is chaotic, predictions are inappropriate) */}
-	              {isTrackDailySurface && todayPanel==="log" && selDay===todayStr() && !(age && age.totalWeeks < 4) && (()=>{
+	              {/* Coming up moved into the hero status pill; keep this retired block for rollback. */}
+	              {/* Hidden for 0-4 week newborns (sleep is chaotic, predictions are inappropriate) */}
+		              {false && isTrackDailySurface && todayPanel==="log" && selDay===todayStr() && !(age && age.totalWeeks < 4) && (()=>{
                 const _td = tickDataRef.current || {};
                 if (_td.hasBedtime) return null;
                 // Hide when nap is actively running, timer pill already shows baby is sleeping
@@ -53498,8 +53901,8 @@ function App(){
             <summary className="ob-account-collapse-summary">
               <span style={_S.f18}>⚙️</span>
               <span className="ob-account-collapse-copy">
-                <span className="ob-premium-kicker" style={{margin:0}}>Preferences</span>
-	                <span>Theme, units, widget colour, reminders</span>
+                <span className="ob-premium-kicker" style={{margin:0}}>{t("account.preferences")}</span>
+	                <span>{t("account.preferences.subtitle")}</span>
               </span>
               <span className="ob-account-collapse-chevron" aria-hidden="true">›</span>
             </summary>
@@ -53510,13 +53913,46 @@ function App(){
               <div style={_S.flexCenter10}>
                 <span style={_S.f18}>{isDark?"🌙":"☀️"}</span>
                 <div>
-                  <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{isDark?"Night Mode":"Day Mode"}</div>
-                  <div style={{fontSize:10,color:C.lt}}>Auto-switches 7pm / 7am</div>
+                  <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{isDark?t("theme.night"):t("theme.day")}</div>
+                  <div style={{fontSize:10,color:C.lt}}>{t("theme.auto")}</div>
                 </div>
               </div>
               <button onClick={()=>{haptic();window.toggleTheme && window.toggleTheme();}} style={{background:`linear-gradient(135deg,${C.ter},#a85a44)`,border:_bN,borderRadius:99,padding:"6px 14px",color:"white",fontSize:12,fontWeight:700,cursor:_cP}}>
-                {isDark?"☀️ Day":"🌙 Night"}
+                {isDark?"☀️ "+t("theme.dayButton"):"🌙 "+t("theme.nightButton")}
               </button>
+            </div>
+
+            {/* Language */}
+            <div style={{padding:"12px 0",borderBottom:`1px solid ${C.blush}`}}>
+              <label style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+                <div style={_S.flexCenter10}>
+                  <span style={_S.f18}>🌐</span>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{t("language.title")}</div>
+                    <div style={{fontSize:10,color:C.lt}}>{t("language.subtitle")}</div>
+                  </div>
+                </div>
+                <select
+                  value={localePreference}
+                  aria-label={t("language.title")}
+                  onChange={e=>{
+                    const next=e.target.value;
+                    if(_i18n && typeof _i18n.setLocale==="function") _i18n.setLocale(next);
+                    else try{localStorage.setItem("ob_locale",next);}catch{}
+                    setLocaleTick(k=>k+1);
+                    try{trackEvent("setting_changed",{setting:"language",value:next,resolved:currentLocale});}catch{}
+                    showToast("🌐 "+t("language.updated"),1600,1);
+                  }}
+                  style={{maxWidth:150,minWidth:130,padding:"8px 10px",borderRadius:12,border:"1px solid var(--card-border)",background:"var(--input-bg)",color:C.deep,fontSize:12,fontWeight:700,fontFamily:_fM,outline:_oN}}
+                >
+                  {localeOptions.map(opt=>(
+                    <option key={opt.code} value={opt.code}>{opt.code==="system"?t("language.system"):opt.nativeName}</option>
+                  ))}
+                </select>
+              </label>
+              <div style={{fontSize:10,color:C.lt,lineHeight:1.45,marginTop:7,marginLeft:28}}>
+                {t("language.current")}: {currentLocale}. {t("language.reviewNote")}
+              </div>
             </div>
 
 	            {/* Gentle Mode. hides scores and targets for parents who find numbers stressful */}
@@ -53524,12 +53960,12 @@ function App(){
 	              <div style={_S.flexCenter10}>
                 <span style={_S.f18}>💛</span>
                 <div>
-                  <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Gentle Mode</div>
-                  <div style={{fontSize:10,color:C.lt}}>Hides scores, targets & numbers</div>
+                  <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{t("gentle.title")}</div>
+                  <div style={{fontSize:10,color:C.lt}}>{t("gentle.subtitle")}</div>
                 </div>
               </div>
-              <button onClick={()=>{haptic();setGentleMode(!gentleMode);try{localStorage.setItem("ob_gentle_mode",!gentleMode?"1":"0");}catch{};try{trackEvent("setting_changed",{setting:"gentle_mode",value:!gentleMode?"on":"off"});}catch{};showToast(gentleMode?"Scores visible again":"💛 Gentle Mode on. no scores, no pressure.",2500,1);}} style={{background:gentleMode?"linear-gradient(135deg,#7B68EE,#6B5B95)":"var(--card-bg-alt)",border:gentleMode?"none":`1px solid ${C.blush}`,borderRadius:99,padding:"6px 14px",color:gentleMode?"white":C.mid,fontSize:12,fontWeight:700,cursor:_cP}}>
-	                {gentleMode?"💛 On":"Off"}
+              <button onClick={()=>{haptic();setGentleMode(!gentleMode);try{localStorage.setItem("ob_gentle_mode",!gentleMode?"1":"0");}catch{};try{trackEvent("setting_changed",{setting:"gentle_mode",value:!gentleMode?"on":"off"});}catch{};showToast(gentleMode?t("gentle.toastOff"):"💛 "+t("gentle.toastOn"),2500,1);}} style={{background:gentleMode?"linear-gradient(135deg,#7B68EE,#6B5B95)":"var(--card-bg-alt)",border:gentleMode?"none":`1px solid ${C.blush}`,borderRadius:99,padding:"6px 14px",color:gentleMode?"white":C.mid,fontSize:12,fontWeight:700,cursor:_cP}}>
+	                {gentleMode?"💛 "+t("gentle.on"):t("gentle.off")}
 	              </button>
 	            </div>
 
@@ -53543,17 +53979,17 @@ function App(){
                     <div style={_S.flexCenter10}>
                       <span style={_S.f18}>🔔</span>
                       <div>
-                        <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Daily log reminder</div>
-                        <div style={{fontSize:10,color:C.lt}}>{_daily.enabled?"Every day at "+fmt12(_daily.time):"Off. choose a gentle daily nudge"}</div>
+                        <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{t("daily.title")}</div>
+                        <div style={{fontSize:10,color:C.lt}}>{_daily.enabled?t("daily.onAt",{time:fmt12(_daily.time)}):t("daily.off")}</div>
                       </div>
                     </div>
-                    <button data-testid="account-daily-log-reminder-toggle" aria-pressed={_daily.enabled} onClick={async()=>{haptic();const next=!_daily.enabled;_setDaily({enabled:next});if(next){const ok=await requestNotifications();if(ok===false){_setDaily({enabled:false});return;}}showToast(next?"Daily reminder on":"Daily reminder off",1600,1);}} style={{background:_daily.enabled?`linear-gradient(135deg,${C.mint},#3a8870)`:"var(--card-bg-alt)",border:_daily.enabled?"none":`1px solid ${C.blush}`,borderRadius:99,padding:"6px 14px",color:_daily.enabled?"white":C.mid,fontSize:12,fontWeight:700,cursor:_cP}}>
-                      {_daily.enabled?"On":"Off"}
+                    <button data-testid="account-daily-log-reminder-toggle" aria-pressed={_daily.enabled} onClick={async()=>{haptic();const next=!_daily.enabled;_setDaily({enabled:next});if(next){const ok=await requestNotifications();if(ok===false){_setDaily({enabled:false});return;}}showToast(next?t("daily.toastOn"):t("daily.toastOff"),1600,1);}} style={{background:_daily.enabled?`linear-gradient(135deg,${C.mint},#3a8870)`:"var(--card-bg-alt)",border:_daily.enabled?"none":`1px solid ${C.blush}`,borderRadius:99,padding:"6px 14px",color:_daily.enabled?"white":C.mid,fontSize:12,fontWeight:700,cursor:_cP}}>
+                      {_daily.enabled?t("gentle.on"):t("gentle.off")}
                     </button>
                   </div>
                   {_daily.enabled && (
                     <label style={{display:"grid",gridTemplateColumns:"86px minmax(0,1fr)",alignItems:"center",gap:10,marginTop:10}}>
-                      <span style={{fontSize:10,color:C.lt,fontFamily:_fM,textTransform:"uppercase",letterSpacing:_ls08}}>Time</span>
+                      <span style={{fontSize:10,color:C.lt,fontFamily:_fM,textTransform:"uppercase",letterSpacing:_ls08}}>{t("common.time")}</span>
                       <input data-testid="account-daily-log-reminder-time" type="time" value={_daily.time} onChange={e=>_setDaily({time:e.target.value})} style={{width:"100%",boxSizing:"border-box",fontSize:15,padding:"9px 10px",borderRadius:12,border:"1px solid var(--card-border)",background:"var(--input-bg)",color:C.deep,fontFamily:_fM}}/>
                     </label>
                   )}
