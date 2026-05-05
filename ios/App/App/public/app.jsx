@@ -14537,13 +14537,9 @@ function App(){
       // Sync deleted entry IDs so partner phones respect deletions.
       // Only keep IDs from the last 48h to prevent unbounded growth.
       let _deletedIdsForCloud = [];
-      try {
-        _deletedIdsForCloud = [...deletedEntryIdsRef.current].slice(-500);
-      } catch {}
+      try { _deletedIdsForCloud = _deletedEntryIdsArrayForCloud(500); } catch {}
       let _deletedDaysForCloud = [];
-      try {
-        _deletedDaysForCloud = [...deletedDaysRef.current].slice(-200);
-      } catch {}
+      try { _deletedDaysForCloud = _deletedDaysArrayForCloud("", 200); } catch {}
       // Include live prediction data so care portal can show the same next event
       let _predictionForCloud = "{}";
       try {
@@ -15413,6 +15409,42 @@ function App(){
       }
       localStorage.setItem("ob_deleted_days", JSON.stringify(arr));
     } catch {}
+  }
+  function _safeTombstoneArray(value) {
+    try {
+      if (Array.isArray(value)) return value.filter(Boolean);
+      if (typeof value === "string" && value.trim()) {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+      }
+    } catch {}
+    return [];
+  }
+  function _absorbChildSyncTombstones(data) {
+    const entryIds = _safeTombstoneArray(data && data.deletedEntryIds);
+    const dayKeys = _safeTombstoneArray(data && data.deletedDays);
+    let changedIds = false;
+    let changedDays = false;
+    entryIds.forEach(id => {
+      if (!deletedEntryIdsRef.current.has(id)) changedIds = true;
+      deletedEntryIdsRef.current.add(id);
+    });
+    dayKeys.forEach(dayKey => {
+      if (!deletedDaysRef.current.has(dayKey)) changedDays = true;
+      deletedDaysRef.current.add(dayKey);
+    });
+    if (changedIds) _capAndPersistDeletedIds();
+    if (changedDays) _capAndPersistDeletedDays();
+    return {entryIds:new Set(entryIds), dayKeys:new Set(dayKeys)};
+  }
+  function _deletedEntryIdsArrayForCloud(limit = 500) {
+    try { return [...deletedEntryIdsRef.current].slice(-limit); } catch { return []; }
+  }
+  function _deletedDaysArrayForCloud(childId = "", limit = 200) {
+    try {
+      const prefix = childId ? childId + ":" : "";
+      return [...deletedDaysRef.current].filter(dayKey => !prefix || String(dayKey).startsWith(prefix)).slice(-limit);
+    } catch { return []; }
   }
   const locallyCreatedIdsRef = React.useRef(new Set());
   const childrenRef = React.useRef(children);
@@ -17565,6 +17597,63 @@ function App(){
       });
     } catch {}
   }
+  function mergeChildSyncCloudChildForPush(childId, localChildRaw, cloudChildRaw) {
+    const local = normaliseChildrenPayload({[childId]: {...(localChildRaw || {}), id: childId}})[childId] || {};
+    const cloud = normaliseChildrenPayload({[childId]: {...(cloudChildRaw || {}), id: childId}})[childId] || {};
+    const localDays = local.days || {};
+    const cloudDays = cloud.days || {};
+    const now = Date.now();
+    const clampFuture = (t) => (typeof t === "number" && t > now + 60 * 60 * 1000) ? now : (t || 0);
+    const mergedDays = {};
+    const allDays = new Set([...Object.keys(cloudDays), ...Object.keys(localDays)]);
+
+    allDays.forEach(dayKey => {
+      if(deletedDaysRef.current.has(childId + ":" + dayKey)) return;
+      const byId = new Map();
+      const noIdEntries = [];
+      const addEntry = (entry) => {
+        if(!entry) return;
+        const id = entry.id || "";
+        if(id && deletedEntryIdsRef.current.has(id)) return;
+        if(!id) {
+          noIdEntries.push(entry);
+          return;
+        }
+        const previous = byId.get(id);
+        if(!previous || clampFuture(entry.modifiedAt) >= clampFuture(previous.modifiedAt)) byId.set(id, entry);
+      };
+      (Array.isArray(cloudDays[dayKey]) ? cloudDays[dayKey] : []).forEach(addEntry);
+      (Array.isArray(localDays[dayKey]) ? localDays[dayKey] : []).forEach(addEntry);
+      mergedDays[dayKey] = dedupEntries([...byId.values(), ...noIdEntries]);
+    });
+
+    const reclassifiedDays = {};
+    Object.keys(mergedDays).sort().forEach((dayKey, index, sortedDays) => {
+      const prevDay = index > 0 ? sortedDays[index - 1] : null;
+      reclassifiedDays[dayKey] = autoClassifyNight(mergedDays[dayKey], prevDay ? mergedDays[prevDay] : null);
+    });
+    const mergeArrayByKey = (localArr, cloudArr, keyFn) => {
+      const merged = [];
+      const seen = new Set();
+      [...(localArr || []), ...(cloudArr || [])].forEach(item => {
+        const key = keyFn(item);
+        if(key && seen.has(key)) return;
+        if(key) seen.add(key);
+        merged.push(item);
+      });
+      return merged;
+    };
+    return {
+      ...cloud,
+      ...local,
+      id: childId,
+      days: reclassifiedDays,
+      weights: mergeArrayByKey(local.weights, cloud.weights, w => w && (w.id || (w.date + "|" + w.kg))),
+      heights: mergeArrayByKey(local.heights, cloud.heights, h => h && (h.id || (h.date + "|" + h.cm))),
+      photos: mergeArrayByKey(local.photos, cloud.photos, p => p && (p.id || p.url || p.createdAt)),
+      milestones: {...(cloud.milestones || {}), ...(local.milestones || {})}
+    };
+  }
 	  async function _persistChildSyncCode(childId, code, childOverride) {
     const {serverTimestamp} = window._fb || {};
     const child = childOverride || childrenRef.current?.[childId] || children?.[childId] || {};
@@ -17935,6 +18024,7 @@ function App(){
 	    const writerUid = await ensureFirebaseUid(5000);
 	    if(!writerUid) return;
 	    try {
+      let childForCloud = child;
       // SAFETY: never overwrite cloud with fewer entries than it already has.
       // This prevents data loss from merge bugs, cache clears, or stale state.
       const localEntryCount = Object.values(child.days || {}).reduce((s, d) => s + (d ? d.length : 0), 0);
@@ -17942,6 +18032,7 @@ function App(){
 	        const existing = await fsGet("child_syncs", code);
 	        if (existing.exists()) {
 	          const existingData = existing.data() || {};
+	          _absorbChildSyncTombstones(existingData);
 	          if (existingData.ownerUid !== writerUid && !(Array.isArray(existingData.participantUids) && existingData.participantUids.includes(writerUid))) {
 	            const joined = await ensureChildSyncParticipant(code, existingData);
 	            if(!joined) return;
@@ -17952,22 +18043,25 @@ function App(){
             console.warn("[OBubba] pushChildSync BLOCKED: local has", localEntryCount, "entries vs cloud", cloudEntryCount, "— refusing to overwrite");
             return;
           }
+          childForCloud = mergeChildSyncCloudChildForPush(childId, childForCloud, cloudChild);
         }
       } catch(e2) { /* proceed if check fails */ }
 	      await fsSet("child_syncs", code, {
-	        child: JSON.stringify(child),
-	        childName: child.name || "",
+	        child: JSON.stringify(childForCloud),
+	        childName: childForCloud.name || child.name || "",
 	        isActive: true,
+	        deletedEntryIds: JSON.stringify(_deletedEntryIdsArrayForCloud(500)),
+	        deletedDays: JSON.stringify(_deletedDaysArrayForCloud(childId, 200)),
 		        updatedAt: serverTimestamp(),
 		        updatedBy: writerUid,
 		        writeToken: writeTokenRef.current
 		      }, true);
-	      queueSyncV2ChildShadow(code, childId, child, {
+	      queueSyncV2ChildShadow(code, childId, childForCloud, {
 	        ownerUid: writerUid,
 	        writeToken: writeTokenRef.current
 	      });
-	      queueSyncV2ChildReadShadowAudit(code, childId, child, "after-child-sync-write");
-	      try { await _persistChildSyncCode(childId, code, child); } catch {}
+	      queueSyncV2ChildReadShadowAudit(code, childId, childForCloud, "after-child-sync-write");
+	      try { await _persistChildSyncCode(childId, code, childForCloud); } catch {}
 	    } catch(e) { console.warn("pushChildSync error", e); }
 	  }
   const subscribeToChildSync = React.useCallback((childId, code) => {
@@ -17986,6 +18080,7 @@ function App(){
       if(!snap.exists()){ cloudSyncedRef.current = true; return; }
       const d = snap.data();
       _rememberChildSyncMeta(childId, code, d);
+      _absorbChildSyncTombstones(d);
 
       // SECURITY: If the code has been explicitly deactivated (via regenerate /
       // severing the link), unsubscribe immediately and clean up local state so
@@ -18121,6 +18216,15 @@ function App(){
               });
               const prevD3 = prevDayStr(date);
               mergedDays[date] = autoClassifyNight(dedupEntries(merged), mergedDays[prevD3]||null);
+            });
+            Object.keys(mergedDays).forEach(date => {
+              if (_isDayDeleted(date)) {
+                delete mergedDays[date];
+                return;
+              }
+              mergedDays[date] = normaliseDayEntries(mergedDays[date]).filter(e =>
+                e && (!e.id || !deletedEntryIdsRef.current.has(e.id))
+              );
             });
             // Also rebuild the top-level child with the cleaned days, so the
             // spread of remoteChild doesn't reintroduce deleted entries from
@@ -30286,7 +30390,15 @@ function App(){
       return result;
     });
 
-    setTimeout(()=>{ if(backupCodeRef.current) pushToCloud(backupCodeRef.current, childrenRef.current); }, 600);
+    setTimeout(()=>{
+      const _childrenNow = childrenRef.current;
+      if(backupCodeRef.current) pushToCloud(backupCodeRef.current, _childrenNow);
+      try {
+        Object.entries(childSyncCodes || {}).forEach(([cid, syncCode]) => {
+          if(syncCode && _childrenNow && _childrenNow[cid]) pushChildSync(cid, syncCode, _childrenNow[cid]);
+        });
+      } catch {}
+    }, 600);
   }
 
   const lastLogRef = React.useRef({time:0, key:""});
@@ -55935,17 +56047,7 @@ function App(){
             <button onClick={()=>{
               haptic();
               showConfirm("Delete this entry?", "This will remove the " + (NAMES[eType]||"entry").toLowerCase() + " at " + fmt12(editEntry.time||editEntry.start||"") + " from today's log.", ()=>{
-                // Search ALL days for the entry (not just selDay) — night entries may live on bedTimerDay
-                setDays(d=>{
-                  const result = {...d};
-                  Object.keys(result).forEach(dk=>{
-                    if((result[dk]||[]).some(x=>x.id===editEntry.id)){
-                      result[dk] = result[dk].filter(x=>x.id!==editEntry.id);
-                    }
-                  });
-                  return result;
-                });
-                try { deletedEntryIdsRef.current.add(editEntry.id); _capAndPersistDeletedIds(); } catch {}
+                delEntry(editEntry.id, true);
                 setModal(null);setEditEntry(null);
                 showToast("Entry deleted",1500,1);
               });

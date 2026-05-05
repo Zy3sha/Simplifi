@@ -78,6 +78,17 @@ assert(
 );
 
 assert(
+  "child sync legacy writes and reads deletion tombstones",
+  app.includes("function _absorbChildSyncTombstones(data)") &&
+    app.includes("_absorbChildSyncTombstones(existingData);") &&
+    app.includes("_absorbChildSyncTombstones(d);") &&
+    app.includes("deletedEntryIds: JSON.stringify(_deletedEntryIdsArrayForCloud(500))") &&
+    app.includes("deletedDays: JSON.stringify(_deletedDaysArrayForCloud(childId, 200))") &&
+    app.includes("mergedDays[date] = normaliseDayEntries(mergedDays[date]).filter(e =>") &&
+    app.includes("Object.entries(childSyncCodes || {}).forEach(([cid, syncCode])")
+);
+
+assert(
   "firestore rules allow only the new v2 shadow collections",
   rules.includes("match /family_sync_v2/{code}") &&
     rules.includes("match /child_sync_v2/{code}") &&
