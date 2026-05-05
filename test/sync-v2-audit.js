@@ -71,6 +71,13 @@ assert(
 );
 
 assert(
+  "child sync subscriptions refresh when codes restore after Firebase readiness",
+  app.includes("Object.entries(childSyncCodes).forEach(([childId, code]) => {") &&
+    app.includes("subscribeToChildSync(childId, code);") &&
+    app.includes("},[fbReady, childSyncCodes, subscribeToChildSync]);")
+);
+
+assert(
   "shadow writes are queued after legacy writes rather than replacing them",
   app.includes("queueSyncV2FamilyShadow(code, cleanForCloud") &&
     app.includes("queueSyncV2ChildShadow(code, childId, childForCloud")

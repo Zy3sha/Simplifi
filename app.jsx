@@ -18525,7 +18525,7 @@ function App(){
       Object.values(childSubsRef.current).forEach(unsub=>unsub());
       childSubsRef.current={};
     };
-  },[fbReady]);
+  },[fbReady, childSyncCodes, subscribeToChildSync]);
   useEffect(()=>{
     if(!fbReady) return;
     clearTimeout(syncRef.current);
