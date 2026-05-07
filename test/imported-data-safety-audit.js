@@ -34,6 +34,13 @@ function clockMins(t) {
   return p ? p[0] * 60 + p[1] : null;
 }
 
+function minDiff(start, end) {
+  const sm = clockMins(start);
+  const em = clockMins(end);
+  if (sm === null || em === null) return 0;
+  return em >= sm ? em - sm : em + 1440 - sm;
+}
+
 function normaliseLogEntryTime(entry) {
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) return entry;
   const next = {...entry};
@@ -51,6 +58,10 @@ function normaliseLogEntryTime(entry) {
   if (clockMins(next.time) === null) next.time = fallback;
   if (next.type === "nap" && clockMins(next.start) === null) next.start = fallback;
   if (next.type === "nap" && next.end && clockMins(next.end) === null) next.end = fallback;
+  if (next.type === "nap" && next.start && next.end && next.start !== next.end) {
+    const span = Math.round(minDiff(next.start, next.end));
+    if (span > 0) next.duration = span;
+  }
   return next;
 }
 
@@ -94,6 +105,7 @@ assert("main app surfaces import health in the import modal", app.includes("Impo
 assert("main app importer support copy has no Baby Tracker typo", !app.includes("nighp"));
 assert("main app import copy lists other baby apps, not OBubba as an external app", app.includes("Huckleberry · Baby Connect · Sprout Baby · Glow Baby") && app.includes("Baby Tracker") && !app.includes("Huckleberry · OBubba") && !app.includes("Import from a CSV exported by OBubba"));
 assert("main app drops malformed day entries during canonical normalisation", app.includes('return Array.isArray(entries) ? entries.slice(0, 500).map(normaliseLogEntryTime).filter(e => e && typeof e === "object" && !Array.isArray(e)) : [];'));
+assert("main app derives completed nap duration from saved start and end", app.includes('next.type === "nap" && hasCompletedNapSpan(next)') && app.includes("currentDuration !== span") && app.includes("next.duration = span;"));
 assert("main app drops malformed day keys during canonical normalisation", app.includes(".map(([dayKey, entries]) => [safeDateKey(dayKey), entries])") && app.includes(".filter(([safeDay]) => safeDay)") && app.includes("out[safeDay] = normaliseDayEntries(entries);"));
 assert("main app drops malformed child records during canonical normalisation", app.includes('if (!child || typeof child !== "object" || Array.isArray(child)) return null;') && app.includes("if (!normalisedChild) continue;"));
 assert("main app normalises child-level imported collection shapes", app.includes("function normaliseChildPayload(child)") && app.includes("weights: normaliseWeightPayload(child.weights)") && app.includes("heights: normaliseHeightPayload(child.heights)") && app.includes("headCircs: normaliseHeadCircPayload(child.headCircs)") && app.includes("photos: normalisePhotosPayload(child.photos)") && app.includes("observations: normaliseObservationsPayload(child.observations)") && app.includes("dayPlans: normaliseDayPlansPayload(child.dayPlans)"));
@@ -108,6 +120,8 @@ assert("main app bounds malformed Sprout sleep durations before import", app.inc
 
 const repairedNap = normaliseLogEntryTime({type:"nap", start:undefined, end:"2026-04-30T10:42:00"});
 assert("normaliseLogEntryTime repairs missing imported nap start from end timestamp", repairedNap.start === "10:42");
+const correctedNap = normaliseLogEntryTime({type:"nap", start:"10:29", end:"12:37", duration:360});
+assert("normaliseLogEntryTime corrects stale nap duration from real start/end", correctedNap.duration === 128);
 const repairedFeed = normaliseLogEntryTime({type:"feed", time:"not-a-time", createdAt:"2026-04-30T06:11:00"});
 assert("normaliseLogEntryTime repairs malformed imported feed time from createdAt", repairedFeed.time === "06:11");
 const fallbackPoop = normaliseLogEntryTime({type:"poop"});

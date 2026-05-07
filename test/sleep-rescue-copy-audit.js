@@ -18,7 +18,7 @@ assert("Bedtime rescue guard uses the bed target window, not any distant bedtime
 assert("Nap rescue tap redirects to bedtime rescue during bedtime window", /if \(isBedtimeRescueWindow\(\)\) \{\s*openBedtimeResistanceOptions\(\);\s*return;\s*\}/s.test(app));
 assert("Overdue fallback nap pill is hidden during bedtime rescue window", app.includes("!_td.napsComplete && !_td.napBedConflict && !isBedtimeRescueWindow() && !napRefusedChoice"));
 assert("Hero nap-not-happening secondary is hidden during bedtime rescue window", app.includes("if (!isBedtimeRescueWindow()) {\n            // Add \"Nap not happening?\" pill"));
-assert("Hero lower nap-not-happening button is hidden during bedtime rescue window", app.includes('!_bedtimeShouldLead && !isBedtimeRescueWindow() && (()=>'));
+assert("Hero lower nap-not-happening button is hidden during bedtime rescue window", app.includes('!isBedtimeRescueWindow() && (_showAsNap || ((isNapNow || isOverdue) && !isBed))'));
 assert("Main nap-not-happening card is hidden during bedtime rescue window", app.includes("!(tickDataRef.current||{}).napBedConflict && !isBedtimeRescueWindow() && (forceNapRefusedCard || napRefusedChoice==null)"));
 assert("Nap-not-happening sheet cannot render during bedtime rescue window", app.includes("showNapRefusedSheet && !isBedtimeRescueWindow()"));
 assert("Bedtime-not-happening chip waits for bedtime window", app.includes("isBed && !_showAsNap && !bedTimerDay && isBedtimeRescueWindow()"));

@@ -881,8 +881,8 @@ try {
 	if (!appSource.includes("personalDisruption") || !appSource.includes("baselineWasSleepingThrough") || !appSource.includes("recentTeethingCount")) {
 	  _sweepFail("nightDiagnosis", "night diagnosis must use baseline and teething context before calling wakes normal", {});
 	}
-	if (!appSource.includes("function buildSplitNightCrossLogWhy") || !appSource.includes("Looking across feeds, nappies, day sleep and development") || !appSource.includes("splitNightCrossLogSignals") || !appSource.includes("recent milestone logged")) {
-	  _sweepFail("nightDiagnosis", "split-night diagnosis must explain likely causes from feeds nappies day sleep development and milestones", {});
+	if (!appSource.includes("function buildSplitNightCrossLogWhy") || !appSource.includes("No clear correlation is strong enough yet") || !appSource.includes("The useful clues are:") || !appSource.includes("splitNightCrossLogSignals") || !appSource.includes("recent milestone logged") || appSource.includes("Looking across feeds, nappies, day sleep and development")) {
+	  _sweepFail("nightDiagnosis", "long-wake diagnosis should mention correlations only when the data has one", {});
 	}
 	if (!appSource.includes("can be age-typical, but") || !appSource.includes("_wakesUpFromBaseline") || !appSource.includes("_sixMonthAssessmentWindow")) {
 	  _sweepFail("weeklySleepAssessment", "weekly assessment must not dismiss 2-2.5 wakes as simply normal when baseline changed or baby is in the 6-month window", {});
