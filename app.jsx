@@ -51641,6 +51641,38 @@ function App(){
               {/* ── Proactive hard moment cards. moved to Wellbeing sub-screen ── */}
 
               {/* ── Partner check-in. moved to Wellbeing sub-screen ── */}
+
+              {/* ── Quick health summary strip at top of Care tab ── */}
+              {!insightFilter && (()=>{
+                try {
+                  const _td = days[todayStr()] || [];
+                  const _feedsToday = _td.filter(e => e.type === "feed" && !e.night).length;
+                  const _napsToday = _td.filter(e => e.type === "nap" && !e.night && e.start && e.end).length;
+                  const _napMins = _td.filter(e => e.type === "nap" && !e.night && e.start && e.end).reduce((s,n) => s + minDiff(n.start, n.end), 0);
+                  const _wetToday = _td.filter(e => e && e.type === "poop" && isWetPoopType(e.poopType)).length;
+                  const _lastNt = _lastNightMemo;
+                  const _lastNightLabel = _lastNt ? ((_lastNt.wakeCount || 0) + " wake" + ((_lastNt.wakeCount || 0) === 1 ? "" : "s")) : "—";
+                  const _daysLogged = Object.keys(days).filter(d => (days[d]||[]).length > 0).length;
+                  if (_daysLogged < 1) return null;
+                  return (
+                    <div style={{display:"flex",gap:6,marginBottom:12}}>
+                      {[
+                        {icon:"🍼",val:String(_feedsToday),label:"feeds"},
+                        {icon:"😴",val:_napsToday > 0 ? _napsToday + " (" + hm(_napMins) + ")" : "0",label:"naps"},
+                        {icon:"💧",val:String(_wetToday),label:"wet"},
+                        {icon:"🌙",val:_lastNightLabel,label:"last night"}
+                      ].map((s,i) => (
+                        <div key={i} style={{flex:1,padding:"10px 6px",borderRadius:12,background:"var(--card-bg-solid)",border:`1px solid ${C.blush}`,textAlign:"center"}}>
+                          <div style={{fontSize:14,marginBottom:2}}>{s.icon}</div>
+                          <div style={{fontSize:14,fontWeight:700,color:C.deep}}>{s.val}</div>
+                          <div style={{fontSize:9,color:C.lt,fontFamily:_fM,textTransform:"uppercase",letterSpacing:"0.04em"}}>{s.label}</div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                } catch { return null; }
+              })()}
+
               {!insightFilter && renderDay1InsightCard()}
 
               {/* Empty state for new users */}
@@ -51711,11 +51743,11 @@ function App(){
 	                  }
 	                };
 	                const _carePrimaryTools = [
-	                  {id:"bubbacare",label:"Bubba Care",icon:"👶"},
-	                  {id:"weaning",label:"Weaning",icon:"🍎"},
-	                  {id:"parentroom",label:"Parent Room",icon:"💜"},
-	                  {id:"sleepcoach",label:"Sleep Coach",icon:"🗓",modal:true,premium:true},
-	                  {id:"nightwean",label:"Night Weaning",icon:"🌙",premium:true}
+	                  {id:"bubbacare",label:"Bubba Care",icon:"👶",sub:"Share a live care guide with carers"},
+	                  {id:"weaning",label:"Weaning",icon:"🍎",sub:"Recipes, allergens, food journal"},
+	                  {id:"parentroom",label:"Parent Room",icon:"💜",sub:"Breathing, check-ins, your wellbeing"},
+	                  {id:"sleepcoach",label:"Sleep Coach",icon:"🗓",modal:true,premium:true,sub:"A personalised 14-day sleep plan built from your logs"},
+	                  {id:"nightwean",label:"Night Weaning",icon:"🌙",premium:true,sub:"Gentle plan to reduce night feeds when baby is ready"}
 	                ];
 	                const _careInsightTools = [
 	                  {id:"travel",label:"Travel",icon:"✈️"},
@@ -51733,6 +51765,7 @@ function App(){
 	                    <span className="ob-care-fast-copy">
 	                      <strong>{f.label}</strong>
 	                      {f.premium && <em>Premium</em>}
+	                      {f.sub && <span style={{display:"block",fontSize:10,color:C.lt,fontWeight:400,marginTop:2,lineHeight:1.3}}>{f.sub}</span>}
 	                    </span>
 	                  </button>
 	                );
@@ -51907,11 +51940,24 @@ function App(){
                     }
                     if (_wakeWindowPlan && _wakeWindowPlan.detail) _body.push(_wakeWindowPlan.detail);
                     if (_wakeTimingPattern) _body.push(_wakeTimingPattern);
-                    const _plan = _wakeWindowPlan && _wakeWindowPlan.action
+                    const _planH = new Date().getHours();
+                    const _planIsEvening = _planH >= 17 || _planH < 6;
+                    const _dayPlan = _wakeWindowPlan && _wakeWindowPlan.action
                       ? _wakeWindowPlan.action.replace(/^⏱\s*/, "")
                       : diagnosis && diagnosis.type === "split_night"
                         ? "Keep naps close to the planned shape, avoid a long late final nap, and keep overnight resettles boring."
                         : "Keep tonight simple and let the next logs confirm whether this is a one-off or a pattern.";
+                    // If it's evening/overnight, give tonight-specific guidance instead of next-day advice
+                    const _tonightPlan = diagnosis && diagnosis.type === "split_night"
+                      ? "Keep resettles dark, brief and boring. No talking, no eye contact. If a feed is needed, keep it short."
+                      : diagnosis && (diagnosis.type === "false_start" || diagnosis.type === "overtired_false_start")
+                        ? "If baby wakes within 2 hours of bedtime, resettle without a feed. Keep it dark and calm — this is likely overtiredness, not hunger."
+                        : diagnosis && diagnosis.type === "fragmented_night"
+                          ? "Tonight, keep every resettle the same: dim, quiet, brief. Don't change the approach between wakes — consistency helps the pattern settle."
+                          : diagnosis && diagnosis.type === "undertired"
+                            ? "If baby is hard to settle tonight, don't fight it — a slightly later bedtime tomorrow may be the real fix."
+                            : "Keep tonight calm and consistent. Dark room, boring resettles, same response each time.";
+                    const _plan = _planIsEvening ? _tonightPlan : _dayPlan;
                     return { headline:_headline, body:_body.join(" "), plan:_plan };
                   })();
                   return (
@@ -51960,17 +52006,25 @@ function App(){
                         ) : null;
                       })()}
 
-                      {_sleepConsultantSummary && (
+                      {_sleepConsultantSummary && (()=>{
+                        const _scBody = _sleepConsultantSummary.body || "";
+                        const _scShort = _scBody.length > 120 ? _scBody.slice(0, _scBody.indexOf(" ", 110)) + "…" : _scBody;
+                        const _scNeedsMore = _scBody.length > 120;
+                        const [_scExpanded, _setScExpanded] = React.useState(false);
+                        const _nowH = new Date().getHours();
+                        const _isEvening = _nowH >= 17 || _nowH < 6;
+                        return (
                         <div data-testid="sleep-consultant-summary" style={{padding:"11px 12px",borderRadius:12,background:"rgba(111,168,152,0.07)",border:"1px solid rgba(111,168,152,0.18)",marginBottom:10}}>
-                          <div style={{fontSize:10,fontFamily:_fM,color:C.mint,textTransform:"uppercase",letterSpacing:"0.08em",fontWeight:800,marginBottom:6}}>Sleep summary</div>
-                          <div style={{fontSize:13,fontWeight:800,color:C.deep,lineHeight:1.28,marginBottom:5}}>{_sleepConsultantSummary.headline}</div>
-                          <div style={{fontSize:11.8,color:C.mid,lineHeight:1.58,marginBottom:8}}>{_sleepConsultantSummary.body}</div>
-                          <div style={{fontSize:11.3,color:C.deep,lineHeight:1.5,padding:"8px 9px",borderRadius:10,background:"rgba(111,168,152,0.10)",border:"1px solid rgba(111,168,152,0.16)"}}>
-                            <strong style={{color:C.mint,fontFamily:_fM,textTransform:"uppercase",letterSpacing:"0.06em",fontSize:9.5,display:"block",marginBottom:3}}>Today</strong>
+                          <div style={{fontSize:15,fontWeight:800,color:C.deep,lineHeight:1.3,marginBottom:6}}>{_sleepConsultantSummary.headline}</div>
+                          <div style={{fontSize:12,color:C.mid,lineHeight:1.55,marginBottom:_scNeedsMore?4:8}}>{_scExpanded ? _scBody : _scShort}</div>
+                          {_scNeedsMore && <button onClick={()=>_setScExpanded(e=>!e)} style={{background:"none",border:"none",padding:0,fontSize:11,color:C.mint,fontWeight:700,cursor:_cP,marginBottom:8,fontFamily:_fI}}>{_scExpanded?"Show less":"Read more"}</button>}
+                          <div style={{fontSize:12,color:C.deep,lineHeight:1.5,padding:"10px 11px",borderRadius:10,background:"rgba(111,168,152,0.10)",border:"1px solid rgba(111,168,152,0.16)"}}>
+                            <strong style={{color:C.mint,fontFamily:_fM,textTransform:"uppercase",letterSpacing:"0.06em",fontSize:9.5,display:"block",marginBottom:3}}>{_isEvening ? "Tonight" : "Today"}</strong>
                             {_sleepConsultantSummary.plan}
                           </div>
                         </div>
-                      )}
+                        );
+                      })()}
 
                       <details data-testid="care-sleep-debrief-proof-drawer" className="ob-care-data-drawer" style={{padding:0,margin:"10px 0 0"}}>
                         <summary className="ob-care-data-summary">
