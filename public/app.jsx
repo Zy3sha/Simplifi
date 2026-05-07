@@ -4707,6 +4707,85 @@ function diagnoseNightPattern(lastNight, context) {
       confidence: "medium"
     };
   }
+  // ── Early morning waking (before 6am, can't resettle) ──
+  const _morningWakeMins = lastNight.morningWakeMins;
+  const _earlyMorning = typeof _morningWakeMins === "number" && _morningWakeMins < 360 && _morningWakeMins > 0;
+  const _earlyWakeHard = _earlyMorning && wakes.some(w => {
+    const absTime = (bedtimeMins + w.fromBedMin) % 1440;
+    return absTime >= 300 && absTime < 360 && w.durationMin >= 15;
+  });
+  if (_earlyWakeHard && wakeCount <= 2) {
+    const _ewCause = (_ctx.lastDaySleepMin || 0) < (_ctx.ageMinDaySleep || 0)
+      ? "Overtiredness — not enough day sleep builds cortisol, which triggers early waking"
+      : bedtimeMins > 21 * 60 ? "Late bedtime — melatonin wears off before morning"
+      : "Likely habitual — the body clock has anchored to this early wake time";
+    return {
+      type: "early_morning_waking", emoji: "🌅",
+      title: "Early morning waking",
+      detail: "Woke before 6am and couldn't resettle. " + _ewCause + ".",
+      actionTaken: bedtimeMins > 21 * 60 ? "Bringing bedtime earlier by 15 minutes." : "Keeping routine steady — treating early wake as night (dark, boring) until desired wake time.",
+      bedtimeShiftMin: bedtimeMins > 21 * 60 ? -15 : 0, confidence: "medium"
+    };
+  }
+  // ── Nap-to-bedtime gap analysis ──
+  const _lastNapEndMin = _ctx.lastNapEndMin;
+  const _bedGap = (typeof _lastNapEndMin === "number" && typeof bedtimeMins === "number") ? bedtimeMins - _lastNapEndMin : null;
+  const _wwMax = _ctx.ageMaxWW || 180;
+  if (_bedGap !== null && _bedGap > 0 && _bedGap > _wwMax + 30 && wakeCount >= 2 && !_earlyWakeHard) {
+    return {
+      type: "nap_bed_gap_long", emoji: "⏰",
+      title: "Too long between last nap and bedtime",
+      detail: hm(_bedGap) + " gap between last nap and bedtime (guideline max ~" + hm(_wwMax) + "). Baby likely arrived at bedtime overtired.",
+      actionTaken: "Bringing bedtime forward or adding a short bridge nap to close the gap.",
+      bedtimeShiftMin: -15, confidence: "medium"
+    };
+  }
+  if (_bedGap !== null && _bedGap > 0 && _bedGap < (_ctx.ageMinWW || 60) && wakeCount >= 1) {
+    return {
+      type: "nap_bed_gap_short", emoji: "⏰",
+      title: "Last nap too close to bedtime",
+      detail: "Only " + hm(_bedGap) + " between last nap and bedtime. Not enough sleep pressure built up, so overnight sleep is lighter.",
+      actionTaken: "Capping the last nap earlier or pushing bedtime back slightly.",
+      bedtimeShiftMin: 10, confidence: "medium"
+    };
+  }
+  // ── Comfort/prop dependency (same soothing method every wake) ──
+  const _sootheMethods = wakes.map(w => w.method || w.assistedType || "unknown").filter(m => m !== "unknown" && m !== "self");
+  const _sootheSet = new Set(_sootheMethods);
+  if (_sootheMethods.length >= 3 && _sootheSet.size === 1 && wakeCount >= 3) {
+    const _prop = _sootheMethods[0] === "milk" ? "feeding" : _sootheMethods[0] === "breast" ? "breastfeeding" : _sootheMethods[0] === "rock" ? "rocking" : _sootheMethods[0];
+    return {
+      type: "comfort_dependency", emoji: "🧸",
+      title: "Comfort association pattern",
+      detail: "Every wake was settled with " + _prop + ". When baby wakes between sleep cycles, they look for the same conditions to fall back asleep.",
+      actionTaken: "This isn't urgent — it's normal in young babies. If you want to change it, gradual reduction works better than stopping suddenly.",
+      bedtimeShiftMin: 0, confidence: wakeCount >= 4 ? "high" : "medium"
+    };
+  }
+  // ── Bedtime vs age guideline ──
+  const _ageBedMin = _ageWeeks !== null && _ageWeeks < 16 ? 19*60 : _ageWeeks !== null && _ageWeeks < 26 ? 18.5*60 : _ageWeeks !== null && _ageWeeks < 52 ? 18*60 : 19*60;
+  const _ageBedMax = _ageWeeks !== null && _ageWeeks < 16 ? 21*60 : _ageWeeks !== null && _ageWeeks < 26 ? 20*60 : _ageWeeks !== null && _ageWeeks < 52 ? 19.5*60 : 20.5*60;
+  if (bedtimeMins > _ageBedMax + 30 && wakeCount >= 2) {
+    return {
+      type: "late_bedtime", emoji: "🕙",
+      title: "Bedtime is running late",
+      detail: "Bedtime at " + fmt12(lastNight.bedtimeStr || "") + " is later than the typical window for this age (~" + fmt12(String(Math.floor(_ageBedMin/60)).padStart(2,"0")+":"+String(_ageBedMin%60).padStart(2,"0")) + "–" + fmt12(String(Math.floor(_ageBedMax/60)).padStart(2,"0")+":"+String(_ageBedMax%60).padStart(2,"0")) + "). Late bedtimes often backfire — overtiredness makes sleep lighter, not deeper.",
+      actionTaken: "Bringing bedtime forward by 15-20 minutes.",
+      bedtimeShiftMin: -20, confidence: "medium"
+    };
+  }
+  // ── Illness recovery (disruption cleared but wakes persist) ──
+  const _disruptionEnd = _ctx.disruptionEndMs;
+  const _daysSinceDisruption = typeof _disruptionEnd === "number" ? Math.round((Date.now() - _disruptionEnd) / 86400000) : null;
+  if (_daysSinceDisruption !== null && _daysSinceDisruption >= 2 && _daysSinceDisruption <= 10 && wakeCount >= 2) {
+    return {
+      type: "illness_recovery", emoji: "🤒",
+      title: "Post-illness sleep disruption",
+      detail: "Illness/teething ended " + _daysSinceDisruption + " days ago but wakes are still elevated. Habits formed during illness (extra feeds, co-sleeping, more holding) can linger after baby feels better.",
+      actionTaken: "Gently returning to the pre-illness routine. This usually resolves within a week of consistent response.",
+      bedtimeShiftMin: 0, confidence: "medium"
+    };
+  }
   const _maxWakeMin = wakes.reduce((max, w) => Math.max(max, w.durationMin || 0), 0);
   const _totalAwakeForDiagnosis = lastNight.totalAwakeMin || 0;
   if (wakeCount >= 3 || (wakeCount >= 2 && _totalAwakeForDiagnosis >= 25) || _maxWakeMin >= 25) {
@@ -50967,6 +51046,41 @@ function App(){
 	                      if (_regression) _wakeNotes.push(_regression.label + " — developmental regressions temporarily disrupt sleep, usually passes in 2-4 weeks");
 	                      if (_yNightFeeds.length >= 2) _wakeNotes.push(_yNightFeeds.length + " night feeds — if daytime intake is good, some may be comfort feeds");
 	                      if (_yFeedMl > 0 && _yFeedMl < 400 && age && (age.predictiveWeeks??age.totalWeeks) >= 12) _wakeNotes.push("Daytime intake was low (" + Math.round(_yFeedMl) + "ml) — some wakes may be genuine hunger");
+	                      // Reverse cycling check
+	                      const _yNightMl = _yNightFeeds.reduce((s,w) => s + (w.feedAmount || w.ml || 0), 0);
+	                      if (_yNightMl > 0 && _yFeedMl > 0 && _yNightMl > _yFeedMl * 0.6) _wakeNotes.push("More milk overnight than during the day — " + _name + " may be reverse cycling (tanking up at night instead of day)");
+	                      // Comfort dependency
+	                      const _wkMethods = (lastNight.wakes || []).map(w => w.method || w.assistedType || "").filter(Boolean);
+	                      const _wkMethodSet = new Set(_wkMethods);
+	                      if (_wkMethods.length >= 3 && _wkMethodSet.size === 1) _wakeNotes.push("Every wake settled with " + _wkMethods[0] + " — " + _name + " may rely on this to fall back asleep between cycles");
+	                      // Nap-to-bed gap
+	                      try {
+	                        const _lastNapE = _yNaps.length ? _yNaps[_yNaps.length - 1] : null;
+	                        if (_lastNapE && _lastNapE.end) {
+	                          const _napEndM = clockMins(_lastNapE.end);
+	                          const _bedM = lastNight.bedtimeMins || 0;
+	                          const _gap = _bedM > 0 && _napEndM !== null ? _bedM - _napEndM : null;
+	                          if (_gap !== null && _gap > 0 && _ww && _gap > (_ww.max || 180) + 30) _wakeNotes.push("Big gap between last nap and bedtime (" + hm(_gap) + ") — may have arrived at bed overtired");
+	                          if (_gap !== null && _gap > 0 && _ww && _gap < (_ww.min || 60)) _wakeNotes.push("Last nap finished close to bedtime (" + hm(_gap) + " gap) — not enough sleep pressure built");
+	                        }
+	                      } catch {}
+	                      // Late bedtime
+	                      if (lastNight.bedtimeMins && lastNight.bedtimeMins > 21 * 60) _wakeNotes.push("Late bedtime (" + fmt12(lastNight.bedtimeStr || "") + ") — overtired babies often sleep lighter, not deeper");
+	                      // Separation anxiety (8-10mo)
+	                      const _aw = age ? (age.predictiveWeeks ?? age.totalWeeks) : 0;
+	                      if (_aw >= 32 && _aw <= 44 && _nightCount >= 2 && !_yNightFeeds.length) _wakeNotes.push("At " + fmtAge(age) + " separation anxiety is common — wakes without hunger that settle with your presence are typical");
+	                      // Growth spurt windows
+	                      const _gsWindows = [3,6,12,19,26,36,52];
+	                      const _inGrowthSpurt = _gsWindows.some(gw => _aw >= gw - 1 && _aw <= gw + 1);
+	                      if (_inGrowthSpurt && _yNightFeeds.length >= 2) _wakeNotes.push("Growth spurt window — increased hunger wakes are normal and usually last 2-3 days");
+	                      // Illness recovery
+	                      try {
+	                        const _dm = disruptionMode;
+	                        if (_dm && typeof _dm === "object" && _dm.ts) {
+	                          const _daysOff = Math.round((Date.now() - _dm.ts) / 86400000);
+	                          if (_daysOff >= 3 && _daysOff <= 10) _wakeNotes.push("Recently unwell (" + _daysOff + " days ago) — habits from illness (extra feeds, more holding) can linger after baby feels better");
+	                        }
+	                      } catch {}
 	                      if (!_wakeNotes.length) _wakeNotes.push("No single cause stands out. If this repeats for 3+ nights, a clearer pattern will emerge");
 	                    }
 	                    // WHAT OBUBBA WILL DO
@@ -50987,6 +51101,11 @@ function App(){
 	                      if (_lastWW > 0 && _ww && _lastWW < (_ww.min||0)) _acts.push("Stretch the final wake window by 10-15min tonight");
 	                      if (_lastWW > 0 && _ww && _lastWW > (_ww.max||999)) _acts.push("Bring bedtime forward by 15min tonight");
 	                      if (_wakeWindowPlan) _acts.push(_wakeWindowPlan.action.replace(/^⏱\s*/, ""));
+	                      if (diagnosis && diagnosis.type === "early_morning_waking") _acts.push("Treat any wake before 6am as night — dark room, boring, no starting the day");
+	                      if (diagnosis && diagnosis.type === "comfort_dependency") _acts.push("Try putting " + _name + " down slightly more awake tonight — gradual change works better than cold turkey");
+	                      if (diagnosis && diagnosis.type === "late_bedtime") _acts.push("Move bedtime 15-20min earlier tonight");
+	                      if (diagnosis && diagnosis.type === "illness_recovery") _acts.push("Gently return to pre-illness routine — consistency for a week usually resets the pattern");
+	                      if (diagnosis && diagnosis.type === "nap_bed_gap_long") _acts.push("Consider a short bridge nap or earlier bedtime to close the gap");
 	                      if (!_acts.length) _acts.push("Keep today steady — OBubba will only adjust when the pattern repeats");
 	                      _action = _acts.join(". ") + ".";
 	                    }
