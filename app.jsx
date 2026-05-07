@@ -42598,6 +42598,19 @@ function App(){
                     </g>
                   );
                 }
+                // Night wakes: neon pink arc overlaid on the sleep band showing soothing duration
+                if (visualKind === "night-wake") {
+                  const nwColor = "#FF5C8A";
+                  const nwGlow = "rgba(255,92,138,0.54)";
+                  return (
+                    <g key={(item.entry.id || item.index)+"clock-night-wake-arc"} className="ob-clock-event-arc-group ob-clock-night-wake-arc-group" role="button" aria-label={clockLabLogAria(item)} tabIndex="0" onMouseEnter={()=>showClockLabTip(item)} onMouseLeave={()=>hideClockLabTip(item)} onFocus={()=>showClockLabTip(item)} onBlur={()=>hideClockLabTip(item)} onClick={(ev)=>showClockLabTipFromPress(item, ev)} onKeyDown={(ev)=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();showClockLabTipFromPress(item, ev);}}}>
+                      <path d={arcD} className="ob-clock-event-arc-hit" stroke="rgba(255,255,255,0.001)" strokeWidth="13" pointerEvents="stroke" aria-hidden="true"/>
+                      <path d={arcD} className={"ob-clock-event-arc is-night-wake"+(item.isNow?" is-now":"")} style={{"--ob-clock-event-glow":nwGlow}} stroke={nwColor} strokeWidth="4.5" strokeLinecap="round" aria-hidden="true">
+                        <title>{arcTitle}</title>
+                      </path>
+                    </g>
+                  );
+                }
                 return (
 	                  <g key={(item.entry.id || item.index)+"clock-arc"} className={"ob-clock-event-arc-group ob-clock-"+visualKind+"-arc-group"} role="button" aria-label={clockLabLogAria(item)} tabIndex="0" onMouseEnter={()=>showClockLabTip(item)} onMouseLeave={()=>hideClockLabTip(item)} onFocus={()=>showClockLabTip(item)} onBlur={()=>hideClockLabTip(item)} onClick={(ev)=>showClockLabTipFromPress(item, ev)} onKeyDown={(ev)=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();showClockLabTipFromPress(item, ev);}}}>
 	                    <path d={arcD} className="ob-clock-event-arc-hit" stroke="rgba(255,255,255,0.001)" strokeWidth="13" pointerEvents="stroke" aria-hidden="true"/>
@@ -42706,6 +42719,10 @@ function App(){
             <button type="button" onClick={clockDreamFeedAction}>
               <span aria-hidden="true">🍼</span>
               <b>Dream feed</b>
+            </button>
+            <button type="button" onClick={()=>{haptic();logMorningWakeNextDay();}}>
+              <span aria-hidden="true">☀️</span>
+              <b>Morning wake</b>
             </button>
           </section>
         )}
