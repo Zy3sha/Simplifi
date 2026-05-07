@@ -9585,8 +9585,22 @@ function App(){
   });
   const childIds = Object.keys(children).filter(id => !(children[id]||{}).archived);
   const archivedChildIds = Object.keys(children).filter(id => (children[id]||{}).archived);
-  const resolvedActiveId = (activeChildId && children[activeChildId]) ? activeChildId : childIds[0];
+  const resolvedActiveId = (activeChildId && children[activeChildId]) ? activeChildId : (childIds[0] || null);
   const activeChild = children[resolvedActiveId] || { id:"", name:"", dob:"", sex:"", unborn:false, days:{}, weights:[], heights:[], headCircs:[], photos:[], milestones:{}, teething:[], weaning:[], cryingHelps:{} };
+
+  // ── Stop timers when switching children so they don't leak to the wrong child ──
+  const _prevChildRef = React.useRef(resolvedActiveId);
+  React.useEffect(() => {
+    if (_prevChildRef.current && resolvedActiveId && _prevChildRef.current !== resolvedActiveId) {
+      try {
+        ["nap_on","nap_startT","nap_startMs","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_start_day",
+         "breast_active","breast_startTime","breast_side","breast_startMs",
+         "bed_timer_day","bed_timer_paused"
+        ].forEach(k => { try { localStorage.removeItem(k); } catch {} });
+      } catch {}
+    }
+    _prevChildRef.current = resolvedActiveId;
+  }, [resolvedActiveId]);
 
   const _legacyBabyDob = (()=>{ try { return localStorage.getItem("dob_v1") || ""; } catch { return ""; } })();
   const babyName    = activeChild.name;
@@ -39157,14 +39171,17 @@ function App(){
     // ── Crying helper usage. track if crying episodes are reducing ──
     try {
       const _cryingHelps = activeChild.cryingHelps || {};
-      const _cryDates = Object.keys(_cryingHelps).sort();
+      const _cryDates = Object.keys(_cryingHelps).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d) && !isNaN(new Date(d+"T12:00:00").getTime())).sort();
       if (_cryDates.length >= 5) {
         const _recent5 = _cryDates.slice(-5);
         const _older5 = _cryDates.slice(-10, -5);
         if (_older5.length >= 3) {
-          // Count crying events per day
-          const _recentPerDay = _recent5.length / Math.max(1, Math.round((new Date(_recent5[_recent5.length-1]) - new Date(_recent5[0])) / 86400000) + 1);
-          const _olderPerDay = _older5.length / Math.max(1, Math.round((new Date(_older5[_older5.length-1]) - new Date(_older5[0])) / 86400000) + 1);
+          // Count crying events per day — use T12:00 to avoid timezone parse issues
+          const _recentSpanMs = new Date(_recent5[_recent5.length-1]+"T12:00:00") - new Date(_recent5[0]+"T12:00:00");
+          const _olderSpanMs = new Date(_older5[_older5.length-1]+"T12:00:00") - new Date(_older5[0]+"T12:00:00");
+          if (!Number.isFinite(_recentSpanMs) || !Number.isFinite(_olderSpanMs)) throw new Error("bad date");
+          const _recentPerDay = _recent5.length / Math.max(1, Math.round(_recentSpanMs / 86400000) + 1);
+          const _olderPerDay = _older5.length / Math.max(1, Math.round(_olderSpanMs / 86400000) + 1);
           if (_recentPerDay < _olderPerDay * 0.6) {
             addObservation("💛", _name + "'s settling is improving",
               `You've used the crying helper ${_recentPerDay < 0.5 ? "much less" : "less"} often recently. ${_name} is developing self-regulation skills.`,
