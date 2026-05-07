@@ -122,6 +122,47 @@ body.dark-mode .ob-mascot-zzz{color:#F0C078;text-shadow:0 0 10px rgba(255,190,90
   .ob-bubbamoji-animate,.ob-mascot,.ob-mascot-shine,.ob-mascot-zzz,.ob-mascot-confetti{animation:none!important}
 }
 
+/* OBubba guide companion. A contextual mascot guide that explains what is
+   happening now without taking over the parent's workflow. */
+.ob-guide-companion{position:fixed;right:max(12px,calc((var(--ob-vw,100vw) - min(var(--ob-app-max-w,520px),var(--ob-vw,100vw)))/2 + 12px));bottom:max(88px,calc(82px + env(safe-area-inset-bottom,0px)));z-index:9994;display:flex;align-items:flex-end;justify-content:flex-end;gap:10px;max-width:calc(var(--ob-vw,100vw) - 24px);pointer-events:none}
+.ob-guide-companion.is-open{left:12px;right:12px;justify-content:center}
+.ob-guide-trigger{position:relative;pointer-events:auto;display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;width:78px;height:78px;border:1.5px solid rgba(255,255,255,0.72);border-radius:26px;background:linear-gradient(150deg,rgba(255,255,255,0.96),rgba(250,237,232,0.88));box-shadow:0 15px 34px rgba(91,64,54,0.20),inset 0 1px 0 rgba(255,255,255,0.86);cursor:pointer;overflow:visible;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.ob-guide-companion.is-closed .ob-guide-trigger{width:70px;height:70px;border-radius:24px;animation:obGuidePeek 5.2s ease-in-out infinite}
+.ob-guide-trigger .ob-mascot{overflow:visible}
+.ob-guide-trigger:active{transform:scale(0.97)}
+.ob-guide-pulse{position:absolute;inset:8px;border-radius:22px;border:1.5px solid rgba(192,112,136,0.34);box-shadow:0 0 0 0 rgba(192,112,136,0.22);animation:obGuidePulse 2.6s ease-out infinite;pointer-events:none}
+.ob-guide-bubble{position:relative;pointer-events:auto;width:min(292px,calc(var(--ob-vw,100vw) - 112px));padding:13px 14px 12px;border-radius:18px;background:linear-gradient(155deg,rgba(255,255,255,0.98),rgba(255,248,244,0.94));border:1.5px solid rgba(246,221,227,0.98);box-shadow:0 18px 42px rgba(91,64,54,0.20),0 4px 14px rgba(122,171,196,0.10),inset 0 1px 0 rgba(255,255,255,0.88);box-sizing:border-box;animation:obGuideBubbleIn 0.34s cubic-bezier(0.22,1,0.36,1) both}
+.ob-guide-bubble::after{content:"";position:absolute;right:-8px;bottom:24px;width:15px;height:15px;background:rgba(255,250,247,0.96);border-right:1.5px solid rgba(246,221,227,0.98);border-bottom:1.5px solid rgba(246,221,227,0.98);transform:rotate(-45deg);border-radius:3px}
+.ob-guide-kicker{font-family:var(--ob-font-meta);font-size:10.5px;font-weight:900;letter-spacing:0;text-transform:uppercase;color:#A85F78;margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ob-guide-title{font-family:var(--ob-font-display);font-size:16px;font-weight:800;line-height:1.15;color:#4D4250;margin-bottom:5px;letter-spacing:0}
+.ob-guide-body{font-family:var(--ob-font-body);font-size:12.8px;font-weight:650;line-height:1.42;color:#6E616D;overflow-wrap:anywhere}
+.ob-guide-actions{display:flex;align-items:center;gap:8px;margin-top:10px}
+.ob-guide-primary,.ob-guide-secondary{appearance:none;border:0;border-radius:999px;min-height:32px;padding:7px 12px;font-family:var(--ob-font-meta);font-size:12px;font-weight:900;letter-spacing:0;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.ob-guide-primary{background:linear-gradient(135deg,#C07088,#9D668B);color:#fff;box-shadow:0 8px 18px rgba(192,112,136,0.22)}
+.ob-guide-secondary{background:rgba(91,79,95,0.08);color:#6A5967}
+.ob-guide-primary:active,.ob-guide-secondary:active{transform:scale(0.97)}
+body.dark-mode .ob-guide-trigger{background:linear-gradient(150deg,rgba(34,43,66,0.98),rgba(24,31,51,0.94));border-color:rgba(255,207,150,0.25);box-shadow:0 16px 34px rgba(0,0,0,0.42),0 0 18px rgba(255,190,90,0.08),inset 0 1px 0 rgba(255,235,205,0.10)}
+body.dark-mode .ob-guide-pulse{border-color:rgba(255,190,90,0.34);box-shadow:0 0 0 0 rgba(255,190,90,0.20)}
+body.dark-mode .ob-guide-bubble{background:linear-gradient(155deg,rgba(25,33,54,0.98),rgba(15,22,39,0.96));border-color:rgba(255,190,90,0.24);box-shadow:0 18px 42px rgba(0,0,0,0.42),0 0 18px rgba(255,190,90,0.08),inset 0 1px 0 rgba(255,235,205,0.08)}
+body.dark-mode .ob-guide-bubble::after{background:rgba(18,26,44,0.96);border-color:rgba(255,190,90,0.24)}
+body.dark-mode .ob-guide-kicker{color:#F0C078}
+body.dark-mode .ob-guide-title{color:#FFF4EA}
+body.dark-mode .ob-guide-body{color:#E4D9CF}
+body.dark-mode .ob-guide-secondary{background:rgba(255,230,200,0.10);color:#F6D8B0}
+@keyframes obGuidePeek{0%,74%,100%{transform:translateY(0) rotate(0deg)}80%{transform:translateY(-5px) rotate(-1.2deg)}88%{transform:translateY(0) rotate(1deg)}}
+@keyframes obGuideBubbleIn{from{opacity:0;transform:translateY(10px) scale(0.96)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes obGuidePulse{0%{opacity:0.7;box-shadow:0 0 0 0 rgba(192,112,136,0.22)}100%{opacity:0;box-shadow:0 0 0 14px rgba(192,112,136,0)}}
+@media (max-width:380px){
+  .ob-guide-companion.is-open{left:8px;right:8px}
+  .ob-guide-bubble{width:calc(var(--ob-vw,100vw) - 104px);padding:12px 12px 11px}
+  .ob-guide-title{font-size:15px}
+  .ob-guide-body{font-size:12.2px}
+  .ob-guide-trigger{width:70px;height:70px;border-radius:24px}
+}
+@media (prefers-reduced-motion: reduce){
+  .ob-guide-companion,.ob-guide-trigger,.ob-guide-pulse,.ob-guide-bubble,.ob-guide-primary,.ob-guide-secondary{animation:none!important;transition:none!important}
+}
+
 /* ═══ BACKGROUND — watercolour washes, no transition ═══ */
 body{background:var(--bg-solid);color:var(--text-deep);position:relative;min-height:100vh}
 
@@ -7028,6 +7069,213 @@ body:not(.dark-mode) .ob-app-root button.ob-quick-log-btn{
   border-color:rgba(139,189,208,0.42)!important;
   background:linear-gradient(180deg,rgba(255,255,255,0.78),rgba(244,251,255,0.50))!important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.86),0 8px 18px rgba(65,84,104,0.10)!important;
+}
+
+/* Care tab declutter pass */
+.ob-app-root .ob-care-tab-shell{
+  display:grid;
+  gap:10px;
+  margin-bottom:14px;
+}
+.ob-app-root .ob-care-hero{
+  margin-bottom:0!important;
+}
+.ob-app-root .ob-care-primary-read{
+  width:100%;
+  min-height:104px;
+  display:grid;
+  grid-template-columns:42px minmax(0,1fr) auto;
+  align-items:center;
+  gap:10px;
+  padding:12px 13px!important;
+  border:1.35px solid rgba(201,112,90,0.16)!important;
+  border-radius:18px!important;
+  background:
+    linear-gradient(135deg,rgba(255,255,255,0.72),rgba(239,249,248,0.44)),
+    var(--card-bg)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.82),0 10px 24px rgba(65,84,104,0.09)!important;
+  color:var(--text-deep)!important;
+  cursor:pointer;
+  text-align:left;
+  box-sizing:border-box;
+}
+.ob-app-root .ob-care-primary-icon{
+  width:42px;
+  height:42px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:14px;
+  background:linear-gradient(180deg,rgba(255,255,255,0.82),rgba(230,246,245,0.58));
+  border:1px solid rgba(111,168,152,0.22);
+  font-size:20px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.86);
+}
+.ob-app-root .ob-care-primary-copy{
+  min-width:0;
+  display:grid;
+  gap:3px;
+}
+.ob-app-root .ob-care-primary-kicker{
+  font:800 9.5px var(--ob-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:var(--text-lt);
+}
+.ob-app-root .ob-care-primary-copy strong{
+  font:850 14.5px var(--ob-font-ui, Inter, system-ui, sans-serif);
+  color:var(--text-deep);
+  line-height:1.22;
+  overflow-wrap:anywhere;
+}
+.ob-app-root .ob-care-primary-copy small{
+  display:-webkit-box;
+  -webkit-line-clamp:2;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+  font:600 11.5px/1.38 var(--ob-font-ui, Inter, system-ui, sans-serif);
+  color:var(--text-mid);
+}
+.ob-app-root .ob-care-primary-cta{
+  justify-self:end;
+  max-width:78px;
+  padding:7px 9px;
+  border-radius:999px;
+  border:1px solid rgba(192,112,136,0.18);
+  background:rgba(192,112,136,0.08);
+  color:var(--ter);
+  font:850 10.5px var(--ob-font-ui, Inter, system-ui, sans-serif);
+  line-height:1.1;
+  text-align:center;
+}
+.ob-app-root .ob-care-fast-path-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+.ob-app-root .ob-care-fast-path{
+  min-height:68px!important;
+  display:grid;
+  grid-template-columns:28px minmax(0,1fr);
+  align-items:center;
+  gap:8px;
+  padding:11px 12px!important;
+  border-radius:16px!important;
+  border:1.2px solid rgba(255,255,255,0.60)!important;
+  background:linear-gradient(180deg,rgba(255,255,255,0.62),rgba(255,255,255,0.28)),var(--card-bg)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.84),0 8px 18px rgba(91,64,54,0.07)!important;
+  color:var(--text-deep)!important;
+  cursor:pointer;
+  text-align:left;
+}
+.ob-app-root .ob-care-fast-path span{
+  font-size:21px;
+  line-height:1;
+}
+.ob-app-root .ob-care-fast-path strong{
+  min-width:0;
+  font:850 12.5px/1.18 var(--ob-font-ui, Inter, system-ui, sans-serif);
+  overflow-wrap:anywhere;
+}
+.ob-app-root details.ob-care-more{
+  border:1.2px solid rgba(130,103,95,0.12);
+  border-radius:16px;
+  background:rgba(255,255,255,0.34);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.52);
+  overflow:hidden;
+}
+.ob-app-root details.ob-care-more > summary{
+  min-height:50px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  padding:12px 13px;
+  color:var(--text-deep);
+  cursor:pointer;
+  list-style:none;
+}
+.ob-app-root details.ob-care-more > summary::-webkit-details-marker{
+  display:none;
+}
+.ob-app-root details.ob-care-more > summary span{
+  font:850 13px var(--ob-font-ui, Inter, system-ui, sans-serif);
+}
+.ob-app-root details.ob-care-more > summary small{
+  font:800 10px var(--ob-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  color:var(--text-lt);
+}
+.ob-app-root .ob-care-more-body{
+  padding:0 10px 11px;
+}
+.ob-app-root .ob-care-more-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
+.ob-app-root .ob-care-tool-tile{
+  min-height:66px!important;
+  display:grid;
+  grid-template-columns:24px minmax(0,1fr);
+  align-items:center;
+  column-gap:8px;
+  row-gap:2px;
+  padding:9px 10px!important;
+  border-radius:14px!important;
+  color:var(--text-deep)!important;
+  cursor:pointer;
+  text-align:left;
+}
+.ob-app-root .ob-care-tool-icon{
+  grid-row:1 / span 2;
+  font-size:18px;
+  line-height:1;
+}
+.ob-app-root .ob-care-tool-label{
+  min-width:0;
+  font:800 12px/1.18 var(--ob-font-ui, Inter, system-ui, sans-serif);
+  overflow-wrap:anywhere;
+}
+.ob-app-root .ob-care-tool-premium{
+  font:850 9px var(--ob-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  color:var(--gold);
+}
+body.dark-mode .ob-app-root .ob-care-primary-read{
+  border-color:rgba(255,184,118,0.15)!important;
+  background:
+    linear-gradient(180deg,rgba(18,39,64,0.96),rgba(9,23,40,0.94)),
+    var(--card-bg)!important;
+  box-shadow:inset 0 1px 0 rgba(255,220,180,0.08),0 14px 30px rgba(0,0,0,0.26)!important;
+}
+body.dark-mode .ob-app-root .ob-care-primary-icon,
+body.dark-mode .ob-app-root .ob-care-fast-path{
+  border-color:rgba(255,184,118,0.13)!important;
+  background:linear-gradient(180deg,rgba(255,184,118,0.09),rgba(255,255,255,0.035)),rgba(9,23,40,0.92)!important;
+  box-shadow:inset 0 1px 0 rgba(255,230,190,0.08),0 12px 26px rgba(0,0,0,0.22)!important;
+}
+body.dark-mode .ob-app-root details.ob-care-more{
+  border-color:rgba(255,184,118,0.12);
+  background:rgba(8,22,39,0.62);
+  box-shadow:inset 0 1px 0 rgba(255,230,190,0.06);
+}
+body.dark-mode .ob-app-root .ob-care-primary-cta{
+  border-color:rgba(255,184,118,0.18);
+  background:rgba(255,184,118,0.10);
+  color:#F1C4A2;
+}
+@media (max-width:360px){
+  .ob-app-root .ob-care-primary-read{
+    grid-template-columns:38px minmax(0,1fr);
+  }
+  .ob-app-root .ob-care-primary-cta{
+    grid-column:1 / -1;
+    justify-self:start;
+    max-width:none;
+  }
 }
 body.light-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"],
 body:not(.dark-mode) .ob-app-root div[role="navigation"][aria-label="Main navigation"]{

@@ -194,6 +194,12 @@ function _nativePrefRemove(key) {
   } catch {}
   return Promise.resolve();
 }
+const OB_NATIVE_DATA_MIRROR_KEY = "ob_native_data_mirror_v1";
+const OB_NATIVE_DELETE_TOMBSTONE_KEY = "ob_native_delete_tombstone_v1";
+function _nativeDeleteTombstoneIsFresh(value) {
+  const ts = Number(value || 0);
+  return Number.isFinite(ts) && ts > 0 && Date.now() - ts < 14 * 24 * 60 * 60 * 1000;
+}
 // Native trials are anchored to first install, not first log. Keep the legacy
 // trial key in step so older builds and restored data keep one consistent date.
 (function(){
@@ -6894,6 +6900,8 @@ const OB_MASCOT_SRC = Object.freeze({
   sleeping:"sleep-baby.png",
   thinking:"obubba-thinking.png"
 });
+const OB_MASCOT_GUIDE_HIDE_KEY = "ob_mascot_guide_hidden_day_v1";
+const OB_MASCOT_GUIDE_SEEN_KEY = "ob_mascot_guide_seen_v1";
 
 function OBubbaMascot({type="happy",size=120,alt="OBubba mascot",className="",style={}}){
   const src = OB_MASCOT_SRC[type] || OB_MASCOT_SRC.happy;
@@ -13542,7 +13550,13 @@ function App(){
     (async()=>{
       try {
         if (!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) return;
-        const raw = await _nativePrefGet("ob_native_data_mirror_v1");
+        const justDeleted = (()=>{try{return localStorage.getItem("_just_deleted")==="1";}catch{return false;}})();
+        const nativeDeletedAt = await _nativePrefGet(OB_NATIVE_DELETE_TOMBSTONE_KEY);
+        if (justDeleted || _nativeDeleteTombstoneIsFresh(nativeDeletedAt)) {
+          try { await _nativePrefRemove(OB_NATIVE_DATA_MIRROR_KEY); } catch {}
+          return;
+        }
+        const raw = await _nativePrefGet(OB_NATIVE_DATA_MIRROR_KEY);
         if (!alive || !raw) return;
         let mirror = null;
         try { mirror = JSON.parse(raw); } catch { return; }
@@ -13639,6 +13653,10 @@ function App(){
       if(onboarded)try{localStorage.setItem("onboarded_v2","1");}catch{}
       if (nativeDataRestoreDoneRef.current) {
         try {
+          if (window._deletingAccount || localStorage.getItem("_just_deleted")==="1") {
+            _nativePrefRemove(OB_NATIVE_DATA_MIRROR_KEY).catch(()=>{});
+            return;
+          }
           const mirrorChildren = _stripNativeMirrorChildren(_cleanForStorage);
           const mirrorPayload = {
             version: 1,
@@ -13652,7 +13670,10 @@ function App(){
             onboarded: !!onboarded
           };
           const mirrorJson = JSON.stringify(mirrorPayload);
-	          if (mirrorJson.length < 3000000) _nativePrefSet("ob_native_data_mirror_v1", mirrorJson).catch(()=>{});
+	          if (mirrorJson.length < 3000000) {
+	            _nativePrefSet(OB_NATIVE_DATA_MIRROR_KEY, mirrorJson).catch(()=>{});
+	            if (backupCodeRef.current || familyUsername) _nativePrefRemove(OB_NATIVE_DELETE_TOMBSTONE_KEY).catch(()=>{});
+	          }
 	          else console.warn("OBubba: native data mirror skipped because core log payload is too large.");
         } catch {}
       }
@@ -14632,11 +14653,12 @@ function App(){
       // Belt-and-braces: also push to ALL child sync docs alongside main cloud push
       try {
         const _csc = _parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1"));
-        Object.entries(_csc).forEach(([cid, syncCode]) => {
+        await Promise.all(Object.entries(_csc).map(([cid, syncCode]) => {
           if(syncCode && allChildren[cid]) {
-            pushChildSync(cid, syncCode, allChildren[cid]);
+            return pushChildSync(cid, syncCode, allChildren[cid]);
           }
-        });
+          return null;
+        }));
       } catch(_csErr) { console.warn("child sync push alongside cloud:", _csErr); }
       // Our push IS the new cloud state — keep the floor-check reference in sync and
       // reset the session delete counter. Without this, a burst of local deletes would
@@ -14662,9 +14684,7 @@ function App(){
       if(!snap.exists()){ cloudSyncedRef.current = true; return; }
       const d = snap.data();
 
-      const myUid = window._fbUid;
       if(d.writeToken && d.writeToken === writeTokenRef.current) return;
-      if(myUid && d.updatedBy === myUid) return;
       try{
         if(d.children) {
           // Tolerate corrupted cloud children payload — silently drop
@@ -14910,8 +14930,8 @@ function App(){
         }
         // Restore carer card data from cloud (survives reinstall)
         if(d.carerInfo) {
-          // NOTE: we only reach this code if writeToken/updatedBy checks above
-          // confirmed this snapshot came from ANOTHER device, not ourselves.
+          // NOTE: we only reach this code if the writeToken check above
+          // confirmed this snapshot came from another app session.
           // Cloud is authoritative → REPLACE, don't merge (merging caused
           // duplicates on edits/deletes since additive merges never removed).
           try {
@@ -15301,6 +15321,9 @@ function App(){
           }
         }
         if(code) {
+          try { await repairFirebaseIdentityForLocalAccount("restore-existing-account"); } catch(e) { console.warn("OBubba restore identity repair error", e); }
+        }
+        if(code) {
           try {
             const snap = await fsGet("families", code);
             if(snap.exists()) {
@@ -15615,6 +15638,7 @@ function App(){
     clearTimeout(cloudPushRef.current);
     try { clearTimeout(syncTimerRef?.current); } catch {}
     cloudSyncedRef.current = false;
+    try { resetFirebaseIdentityForAccountSwitch("logout").catch(()=>{}); } catch {}
 
     // ═══ CLEAR ALL localStorage — comprehensive wipe ═══
     // Instead of maintaining an incomplete key list, clear everything that starts
@@ -15632,7 +15656,8 @@ function App(){
         if (!keep && isOBubba) { try { localStorage.removeItem(k); } catch {} }
       });
     } catch {}
-    try { _nativePrefRemove("ob_native_data_mirror_v1").catch(()=>{}); } catch {}
+    try { _nativePrefRemove(OB_NATIVE_DATA_MIRROR_KEY).catch(()=>{}); } catch {}
+    try { ["bio_user","bio_pin","bio_enabled"].forEach(k => _nativePrefRemove(k).catch(()=>{})); } catch {}
 
     // ═══ RESET ALL REACT STATE ═══
     const blankChild = {id:uid(),name:"",dob:"",sex:"",unborn:false,days:{},weights:[],heights:[],photos:[],milestones:{}};
@@ -16007,6 +16032,118 @@ function App(){
     if (afterRest) { window._fbUid = afterRest; return afterRest; }
     return "";
   }
+  function clearRestAuthCache() {
+    try {
+      window._obRestToken = null;
+      window._obRestTokenExp = 0;
+      window._obRestRefreshToken = null;
+      localStorage.removeItem("ob_rest_token");
+      localStorage.removeItem("ob_rest_token_exp");
+      localStorage.removeItem("ob_rest_refresh_token");
+      localStorage.removeItem("ob_rest_uid");
+    } catch {}
+  }
+  async function resetFirebaseIdentityForAccountSwitch(reason) {
+    clearRestAuthCache();
+    try { window._fbUid = ""; } catch {}
+    try {
+      const auth = window._fb?.auth;
+      if(auth && window._fb?.signOut) await window._fb.signOut(auth).catch(()=>{});
+    } catch(e) { console.warn("OBubba auth sign-out during account switch failed", reason || "", e?.message || e); }
+    try {
+      const auth = window._fb?.auth;
+      if(auth && window._fb?.signInAnonymously) {
+        const cred = await window._fb.signInAnonymously(auth).catch(()=>null);
+        const uid2 = cred?.user?.uid || window._fb?.auth?.currentUser?.uid || "";
+        if(uid2) { window._fbUid = uid2; return uid2; }
+      }
+    } catch(e) { console.warn("OBubba auth sign-in after account switch failed", reason || "", e?.message || e); }
+    try { await _ensureAuthToken(); } catch {}
+    return window._fbUid || window._fb?.auth?.currentUser?.uid || "";
+  }
+  async function rebindChildSyncIdentityForCurrentUser(codesOverride) {
+    try {
+      const uid2 = await ensureFirebaseUid(5000);
+      if(!uid2) return false;
+      const codes = codesOverride && typeof codesOverride === "object"
+        ? codesOverride
+        : _parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1"));
+      const entries = Object.entries(codes || {}).filter(([, code]) => isValidChildSyncCode(String(code || "").trim().toUpperCase()));
+      if(!entries.length) return false;
+      let changed = false;
+      for(const [childId, rawCode] of entries) {
+        const cleanCode = String(rawCode || "").trim().toUpperCase();
+        try {
+          const snap = await fsGet("child_syncs", cleanCode);
+          if(!snap.exists()) continue;
+          const data = snap.data() || {};
+          if(data.isActive === false) continue;
+          const currentParticipants = Array.isArray(data.participants) ? data.participants : [];
+          const currentUids = Array.isArray(data.participantUids)
+            ? data.participantUids.filter(Boolean)
+            : currentParticipants.map(p=>p&&p.uid).filter(Boolean);
+          if(currentUids.includes(uid2)) continue;
+          const username2 = familyUsername || localStorage.getItem("family_username") || "";
+          const participant = {uid: uid2, username: username2, joinedAt: new Date().toISOString()};
+          const nextParticipants = [...currentParticipants.filter(p=>p && p.uid !== uid2), participant].slice(-25);
+          const nextUids = [...new Set([...currentUids, uid2])].slice(-25);
+          const ok = await fsSet("child_syncs", cleanCode, {
+            participants: nextParticipants,
+            participantUids: nextUids
+          }, true);
+          if(ok) {
+            changed = true;
+            _rememberChildSyncMeta(childId || data.childId || "", cleanCode, {
+              ...data,
+              participants: nextParticipants,
+              participantUids: nextUids
+            });
+          }
+        } catch(e) { console.warn("OBubba child sync identity rebind error", cleanCode, e?.message || e); }
+      }
+      return changed;
+    } catch(e) {
+      console.warn("OBubba child sync identity rebind failed", e?.message || e);
+      return false;
+    }
+  }
+  async function repairFirebaseIdentityForLocalAccount(reason) {
+    try {
+      const localUser = normaliseUsername((familyUsername || localStorage.getItem("family_username") || "").toString());
+      const localBackup = String(backupCodeRef.current || localStorage.getItem("backup_code") || "").trim().toUpperCase();
+      if(!window._fb || !localUser || !localBackup) return false;
+      const uid2 = await ensureFirebaseUid(5000);
+      if(!uid2) return false;
+      const snap = await fsGet("uid_to_backup", uid2);
+      const mappedBackup = snap.exists() ? String((snap.data() || {}).backupCode || "").trim().toUpperCase() : "";
+      if(mappedBackup && mappedBackup !== localBackup) {
+        cloudSyncedRef.current = false;
+        clearTimeout(cloudPushRef.current);
+        const newUid = await resetFirebaseIdentityForAccountSwitch(reason || "local-account-mismatch");
+        if(newUid) {
+          const codes = _parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1"));
+          const {serverTimestamp} = window._fb || {};
+          await fsSet("uid_to_backup", newUid, {
+            backupCode: localBackup,
+            childSyncCodes: codes,
+            updatedAt: serverTimestamp ? serverTimestamp() : Date.now()
+          }, true).catch(()=>{});
+          await rebindChildSyncIdentityForCurrentUser(codes);
+          try {
+            localStorage.setItem("ob_auth_username", localUser);
+            localStorage.setItem("ob_auth_backup_code", localBackup);
+          } catch {}
+          return true;
+        }
+      }
+      try {
+        localStorage.setItem("ob_auth_username", localUser);
+        localStorage.setItem("ob_auth_backup_code", localBackup);
+      } catch {}
+      await rebindChildSyncIdentityForCurrentUser(_parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1")));
+    } catch(e) { console.warn("OBubba account identity repair skipped", e?.message || e); }
+    return false;
+  }
   function _nativeAccountFunctionRuntime() {
     try {
       if(window.Capacitor?.isNativePlatform?.()) return true;
@@ -16264,10 +16401,17 @@ function App(){
 	    if(!key) { setAuthError("Enter a username"); return false; }
 	    if(!preHashed && loginPin.length !== 4) { setAuthError("PIN must be 4 digits"); return false; }
 	    try {
+	      let _accountIdentityReset = false;
+	      const _previousUsername = normaliseUsername((familyUsername || localStorage.getItem("family_username") || "").toString());
+	      if(_previousUsername && _previousUsername !== key) {
+	        await resetFirebaseIdentityForAccountSwitch("username-switch");
+	        _accountIdentityReset = true;
+	      }
 	      await ensureFirebaseUid(5000);
 	      let data = null;
 	      let _secureLoginVerified = false;
-	      const _serverLogin = await callAccountFunction("accountLogin", {username:key, pin:loginPin, preHashed:!!preHashed});
+	      const _loginPayload = {username:key, pin:loginPin, preHashed:!!preHashed};
+	      let _serverLogin = await callAccountFunction("accountLogin", _loginPayload);
 	      if (_serverLogin && _serverLogin.ok && _serverLogin.account) {
 	        data = _serverLogin.account;
 	        _secureLoginVerified = true;
@@ -16334,14 +16478,27 @@ function App(){
       // him into her own local cache. Treat a backup-code change as an
       // account switch and clean-slate everything device-scoped.
       let _isAccountSwitch = false;
-      try {
-        const _existingCode = backupCodeRef.current || localStorage.getItem("backup_code") || null;
-        if (_existingCode && resolvedBackup && _existingCode !== resolvedBackup) {
-          _isAccountSwitch = true;
-        }
-      } catch {}
+	      try {
+	        const _existingCode = backupCodeRef.current || localStorage.getItem("backup_code") || null;
+	        if (_existingCode && resolvedBackup && _existingCode !== resolvedBackup) {
+	          _isAccountSwitch = true;
+	        }
+	      } catch {}
+	      if(_isAccountSwitch && !_accountIdentityReset) {
+	        await resetFirebaseIdentityForAccountSwitch("backup-code-switch");
+	        _accountIdentityReset = true;
+	        await ensureFirebaseUid(5000);
+	        _serverLogin = await callAccountFunction("accountLogin", _loginPayload);
+	        if (_serverLogin && _serverLogin.ok && _serverLogin.account) {
+	          data = _serverLogin.account;
+	          _secureLoginVerified = true;
+	        } else if (_serverLogin && _serverLogin.error) {
+	          setAuthError(_serverLogin.error);
+	          return false;
+	        }
+	      }
 
-      if (_isAccountSwitch) {
+	      if (_isAccountSwitch) {
         // Gate pushes until the new account has hydrated from cloud.
         // Without this, the auto-push effect could fire with the OLD
         // account's state still in memory and clobber the new account's
@@ -16453,6 +16610,11 @@ function App(){
       setFamilyUsername(data.displayName || username.trim());
       try{ localStorage.setItem("family_username", data.displayName || username.trim()); }catch{}
       try{ localStorage.setItem("auth_verified","1"); }catch{}
+      try {
+        localStorage.setItem("ob_auth_username", key);
+        if(resolvedBackup) localStorage.setItem("ob_auth_backup_code", resolvedBackup);
+      } catch {}
+      try { await rebindChildSyncIdentityForCurrentUser(_parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1"))); } catch {}
 
       // Stamp the owner of the newly-hydrated children state. Once this is
       // set, pushToCloud's ownership guard will only allow writes when the
@@ -16586,10 +16748,7 @@ function App(){
       }
     } catch(e) {}
     try {
-      window._obRestToken = null;
-      window._obRestTokenExp = 0;
-      localStorage.removeItem("ob_rest_token");
-      localStorage.removeItem("ob_rest_token_exp");
+      clearRestAuthCache();
     } catch(e) {}
     return await _ensureAuthToken();
   }
@@ -16628,15 +16787,7 @@ function App(){
       if(_data.error) return snapErr(_data.error.message || _data.error.status, _status);
       const fields = _data.fields || {};
       const parsed = {};
-      for(const [k,v] of Object.entries(fields)) {
-        if(v.stringValue !== undefined) parsed[k] = v.stringValue;
-        else if(v.timestampValue !== undefined) parsed[k] = v.timestampValue;
-        else if(v.booleanValue !== undefined) parsed[k] = v.booleanValue;
-        else if(v.integerValue !== undefined) parsed[k] = parseInt(v.integerValue);
-        else if(v.nullValue !== undefined) parsed[k] = null;
-        else if(v.mapValue) parsed[k] = v.mapValue;
-        else parsed[k] = v;
-      }
+      for(const [k,v] of Object.entries(fields)) parsed[k] = syncV2PlainValue(v);
       return {exists:()=>true, data:()=>parsed};
     } catch(e) { return {exists:()=>false, data:()=>({}), error:true, message:e?.message||"Firestore read failed"}; }
   }
@@ -18095,7 +18246,7 @@ function App(){
 	    const {db, doc, setDoc, getDoc, serverTimestamp} = window._fb;
 	    const child = childData || children[childId];
 	    if(!child) return;
-	    const writerUid = await ensureFirebaseUid(5000);
+	    let writerUid = await ensureFirebaseUid(5000);
 	    if(!writerUid) return;
 	    try {
       let childForCloud = child;
@@ -18107,6 +18258,12 @@ function App(){
 	        if (existing.exists()) {
 	          const existingData = existing.data() || {};
 	          _absorbChildSyncTombstones(existingData);
+	          const localUsername = normaliseUsername((familyUsername || localStorage.getItem("family_username") || "").toString());
+	          const ownerUsername = normaliseUsername((existingData.ownerUsername || "").toString());
+	          if(existingData.ownerUid === writerUid && localUsername && ownerUsername && localUsername !== ownerUsername) {
+	            const resetUid = await resetFirebaseIdentityForAccountSwitch("child-sync-owner-uid-mismatch");
+	            if(resetUid) writerUid = resetUid;
+	          }
 	          if (existingData.ownerUid !== writerUid && !(Array.isArray(existingData.participantUids) && existingData.participantUids.includes(writerUid))) {
 	            const claimedOwner = await claimChildSyncBackupOwner(childId, code, existingData);
 	            if(!claimedOwner) {
@@ -18205,7 +18362,6 @@ function App(){
       } catch {}
 
       if(d.writeToken && d.writeToken === writeTokenRef.current) return;
-      if(d.updatedBy && window._fbUid && d.updatedBy === window._fbUid) return;
       try {
         if(d.child) {
           // Tolerate a corrupted or partial cloud field: if JSON.parse
@@ -18508,7 +18664,7 @@ function App(){
       Object.values(childSubsRef.current).forEach(unsub=>unsub());
       childSubsRef.current={};
     };
-  },[fbReady]);
+  },[fbReady, childSyncCodes, subscribeToChildSync]);
   useEffect(()=>{
     if(!fbReady) return;
     clearTimeout(syncRef.current);
@@ -30793,6 +30949,91 @@ function App(){
     return { done: ()=>{ clearTimeout(loadingGuardRef.current); setMascotPopup(p => p && p.type==="loading" ? null : p); } };
   }
   const[viewPhoto,setViewPhoto]=useState(null);
+  const[mascotGuideOpen,setMascotGuideOpen]=useState(()=>{
+    try{
+      const today = todayStr();
+      return localStorage.getItem(OB_MASCOT_GUIDE_SEEN_KEY)!=="1" && localStorage.getItem(OB_MASCOT_GUIDE_HIDE_KEY)!==today;
+    }catch{return true;}
+  });
+  const[mascotGuideHiddenDay,setMascotGuideHiddenDay]=useState(()=>{try{return localStorage.getItem(OB_MASCOT_GUIDE_HIDE_KEY)||"";}catch{return "";}});
+  const mascotGuide = React.useMemo(()=>{
+    const _today = todayStr();
+    const _isToday = selDay === _today;
+    const _name = babyName || "your baby";
+    const _entries = ((days && days[selDay]) || []).filter(Boolean);
+    const _last = _entries.filter(e => e && !isActiveNapStub(e)).slice(-1)[0] || null;
+    const _hasSharedChild = !!familyUsername || !!backupCode || Object.keys(childSyncCodes || {}).some(k => !!childSyncCodes[k]);
+    const _tourPending = showTutPrompt || (()=>{try{return !!((localStorage.getItem("ob_app_tour_pending_v1") || localStorage.getItem("ob_tutorial_deferred_simple_start_v1")) && !localStorage.getItem("tut_v2"));}catch{return false;}})();
+    if(_tourPending) {
+      return {kind:"tour-ready",type:"happy",kicker:"OBubba guide",title:"Want the one calm tour?",body:"I'll show the app in four short steps, then get out of the way. No second intro screen.",short:"Tour"};
+    }
+    if(syncStatus === "error") {
+      return {kind:"sync-error",type:"thinking",kicker:"Cloud",title:"Sync needs a little nudge",body:"I couldn't finish sending the shared log. Your entries stay on this phone while OBubba tries again.",short:"Sync"};
+    }
+    if(syncStatus === "syncing") {
+      return {kind:"syncing",type:"loading",kicker:"Cloud",title:"Syncing the family log",body:"I'm matching this phone with the shared child record. Partner phones may take a few seconds to settle, but the entry is safe.",short:"Syncing"};
+    }
+    if(_hasSharedChild && syncStatus === "synced") {
+      return {kind:"synced",type:"happy",kicker:"Cloud",title:"Shared log is settled",body:"This phone and your partner's account are lined up. New logs will appear as each device catches up.",short:"Synced"};
+    }
+    if(napOn || _entries.some(isActiveNapStub)) {
+      return {kind:"nap-open",type:"sleeping",kicker:"Right now",title:"Nap is open",body:"I'll wait until the nap ends before moving wake windows, feed nudges and bedtime. Nothing needs judging mid-nap.",short:"Nap"};
+    }
+    if(bedTimerDay) {
+      return {kind:"night-open",type:"sleeping",kicker:"Right now",title:"Night is open",body:"Wakes and feeds will stay with this sleep until morning wake closes the night. I'll keep the night story together.",short:"Night"};
+    }
+    const _rightNow = (()=>{try{return expandedRightNow();}catch{return null;}})();
+    if(_rightNow && _rightNow.text) {
+      return {kind:"right-now",type:_rightNow.priority==="high"?"thinking":"happy",kicker:"Right now",title:"One gentle next step",body:_rightNow.text + ". I'll keep it simple from here.",short:"Now"};
+    }
+    if(_isToday && _entries.length === 0) {
+      return {kind:"empty-day",type:"happy",kicker:"Today",title:"Quiet start is okay",body:"Nothing logged yet today. One honest log is enough for OBubba to shape the next gentle step.",short:"Start"};
+    }
+    if(_last && _isToday) {
+      if(_last.type === "feed") return {kind:"feed-saved",type:"celebration",kicker:"Saved",title:"Feed is in",body:"I'll use it with naps and wake time to shape the next nudge, not judge the day.",short:"Saved"};
+      if(_last.type === "nap") return {kind:"nap-saved",type:"celebration",kicker:"Saved",title:"Nap saved",body:"I'll fold that sleep into the next wake window and protect bedtime if the day needs it.",short:"Saved"};
+      if(_last.type === "poop") return {kind:"nappy-saved",type:"happy",kicker:"Saved",title:"Nappy saved",body:"I'll keep it in the day pattern. You can add details later if they matter.",short:"Saved"};
+      if(_last.type === "wake") return {kind:"wake-saved",type:"happy",kicker:"Saved",title:"Wake saved",body:"That anchors the day. The next nap and feed nudges can now make more sense.",short:"Saved"};
+      if(_last.type === "sleep") return {kind:"sleep-saved",type:"sleeping",kicker:"Saved",title:"Bedtime saved",body:"I'll use tonight's wakes and feeds with this bedtime, so morning feels less like guesswork.",short:"Saved"};
+    }
+    if(tab === "insights") {
+      return {kind:"insights",type:"thinking",kicker:"Understand",title:"Patterns, not pressure",body:"The numbers are here to explain what happened and what could help next, not to grade you.",short:"Guide"};
+    }
+    if(tab === "schedule") {
+      return {kind:"schedule",type:"happy",kicker:"Plan",title:"Plans can bend",body:"A schedule is only a starting point. I'll keep adjusting around " + _name + "'s real day.",short:"Guide"};
+    }
+    const _softLine = (()=>{try{return smartReassurance();}catch{return null;}})();
+    return {kind:"steady",type:"happy",kicker:"OBubba guide",title:"I'm here with you",body:_softLine || "When the day gets loud, I'll turn the logs into the next gentle step.",short:"Guide"};
+  },[showTutPrompt,syncStatus,familyUsername,backupCode,childSyncCodes,days,selDay,babyName,napOn,bedTimerDay,tab,daySubScreen,todayPanel,partnerTick]);
+  const mascotGuideHidden = mascotGuideHiddenDay === todayStr();
+  function toggleMascotGuide(){
+    try{localStorage.setItem(OB_MASCOT_GUIDE_SEEN_KEY,"1");}catch{}
+    setMascotGuideOpen(v=>!v);
+  }
+  function restMascotGuideForToday(){
+    const today = todayStr();
+    try{
+      localStorage.setItem(OB_MASCOT_GUIDE_SEEN_KEY,"1");
+      localStorage.setItem(OB_MASCOT_GUIDE_HIDE_KEY,today);
+    }catch{}
+    if(showTutPrompt) {
+      clearPendingAppTour(true);
+      setShowTutPrompt(false);
+    }
+    setMascotGuideHiddenDay(today);
+    setMascotGuideOpen(false);
+  }
+  function startMascotGuidedTour(){
+    try{localStorage.setItem(OB_MASCOT_GUIDE_SEEN_KEY,"1");}catch{}
+    clearPendingAppTour(false);
+    setShowTutPrompt(false);
+    setMascotGuideOpen(false);
+    setTab("day");
+    setDaySubScreen(null);
+    setTodayPanel("log");
+    setTourSpotlight(null);
+    setTutStep(0);
+  }
   // Memory Book feature fully removed. Previously this area had state for
   // showMemoryBook, memoryPage, memory notes, stickers, scrapbook refs, and
   // a Firestore shared_albums sync helper. All scrubbed from the marketing
@@ -35751,15 +35992,57 @@ function App(){
     const pf = getPoopFrequency();
     const poopDaysAgo = pf ? pf.daysSince : (lastPoop ? 0 : null);
 
+    // QR code / carer portal — generate early so we can place it near the top
+    const _careTokenData = ensureCarerTokenForBackup();
+    const _carerToken = _careTokenData.token;
+    const _bc2 = _careTokenData.backupCode;
+    void _bc2;
+    const carerPortalUrl = safeCarePortalUrl(_carerToken, resolvedActiveId || "");
+    if (!carerPortalUrl) throw new Error("Invalid Bubba Care token");
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(carerPortalUrl)}&bgcolor=FFFCF9`;
+    const carerPortalUrlHtml = htmlEscape(carerPortalUrl);
+    const qrUrlHtml = htmlEscape(qrUrl);
+
     // Build sections
     let sections = [];
 
     // Header
-    sections.push(`<div style="text-align:center;margin-bottom:24px">
+    sections.push(`<div style="text-align:center;margin-bottom:16px">
       <div style="font-size:40px;margin-bottom:8px">👶</div>
       <h1 style="font-family:Georgia,serif;font-size:28px;color:#5B4F5F;margin:0">${nameHtml}'s Bubba Care</h1>
       ${ageStr ? `<p style="color:#A898AC;margin:4px 0">${ageHtml} old</p>` : ""}
       <p style="color:#ccc;font-size:12px;margin:2px 0">Generated ${new Date().toLocaleDateString(navigator.language||"en-GB", { weekday: "short", day: "numeric", month: "short" })} at ${fmt12(nowTime())}</p>
+    </div>`);
+
+    // QUICK GLANCE — the 3 things a carer needs at 3am
+    const _qlNextFeed = nextFeedEst ? "~" + fmt12(nextFeedEst) : (lastFeed ? fmt12(lastFeed.time) + " (last)" : "Follow cues");
+    const _qlSleep = tempRangeHtml;
+    const _qlCall = _validContacts.length ? htmlEscape(_validContacts[0].name) + ": " + htmlEscape(_validContacts[0].phone) : emergNumHtml;
+    sections.push(`<div style="display:flex;gap:8px;margin-bottom:16px">
+      <div style="flex:1;background:#FFF8F2;border:1.5px solid #F0D0C8;border-radius:14px;padding:12px 10px;text-align:center">
+        <div style="font-size:20px;margin-bottom:4px">🍼</div>
+        <div style="font-size:11px;color:#A898AC;margin-bottom:2px">Next feed</div>
+        <div style="font-size:15px;font-weight:700;color:#5B4F5F">${_qlNextFeed}</div>
+      </div>
+      <div style="flex:1;background:#F0F8F5;border:1.5px solid #d4ede6;border-radius:14px;padding:12px 10px;text-align:center">
+        <div style="font-size:20px;margin-bottom:4px">🛏️</div>
+        <div style="font-size:11px;color:#A898AC;margin-bottom:2px">Safe sleep</div>
+        <div style="font-size:15px;font-weight:700;color:#5B4F5F">Back, clear cot</div>
+        <div style="font-size:11px;color:#6fa898;margin-top:2px">${_qlSleep}</div>
+      </div>
+      <div style="flex:1;background:#f8f0f0;border:1.5px solid #E8B4C0;border-radius:14px;padding:12px 10px;text-align:center">
+        <div style="font-size:20px;margin-bottom:4px">📞</div>
+        <div style="font-size:11px;color:#A898AC;margin-bottom:2px">Call</div>
+        <div style="font-size:13px;font-weight:700;color:#5B4F5F;word-break:break-all">${_qlCall}</div>
+      </div>
+    </div>`);
+
+    // CARER PORTAL — QR + link near the top so carers can log entries
+    sections.push(`<div style="text-align:center;padding:14px;background:#f8f4f0;border-radius:16px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:700;color:#5B4F5F;margin-bottom:6px">Log feeds, naps & nappies</div>
+      <img src="${qrUrlHtml}" alt="QR Code" style="width:120px;height:120px;border-radius:8px;border:2px solid #e8ddd5"/>
+      <div style="margin-top:8px"><a href="${carerPortalUrlHtml}" style="display:inline-block;padding:10px 20px;border-radius:99px;background:linear-gradient(135deg,#C07088,#a85a44);color:white;font-size:14px;font-weight:700;text-decoration:none">Open Carer Log</a></div>
+      <div style="font-size:10px;color:#C0A8B0;margin-top:6px">Scan QR or tap above. Entries sync back to the parent's app.</div>
     </div>`);
 
     // IMPORTANT NOTES (allergies, medical)
@@ -35773,42 +36056,41 @@ function App(){
     // FEEDING
     sections.push(`<div style="background:#FFF8F2;border:1px solid #F0D0C8;border-radius:16px;padding:16px;margin-bottom:12px">
       <h2 style="color:#C07088;font-size:16px;margin:0 0 10px">🍼 Feeding</h2>
-      <table style="width:100%;font-size:14px;color:#5B4F5F">
-        <tr><td style="padding:4px 0;color:#A898AC">Type</td><td style="padding:4px 0;font-weight:600">${htmlEscape(feedTypeLabel)}</td></tr>
-        ${avgAmount > 0 ? `<tr><td style="padding:4px 0;color:#A898AC">Typical amount</td><td style="padding:4px 0;font-weight:600">~${htmlEscape(fmtVol(avgAmount, FU))} per feed</td></tr>` : ""}
-        ${avgFeeds > 0 ? `<tr><td style="padding:4px 0;color:#A898AC">Typical frequency</td><td style="padding:4px 0;font-weight:600">~${avgFeeds} feeds/day</td></tr>` : ""}
-        ${lastFeed ? `<tr><td style="padding:4px 0;color:#A898AC">Last feed</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(lastFeed.time))}${lastFeed.amount ? ". " + htmlEscape(fmtVol(lastFeed.amount, FU)) : ""}${lastFeed.feedType === "breast" ? " (breast)" : ""}</td></tr>` : ""}
-        ${nextFeedEst ? `<tr><td style="padding:4px 0;color:#A898AC">Next feed around</td><td style="padding:4px 0;font-weight:600">~${fmt12(nextFeedEst)}</td></tr>` : ""}
-      </table>
-      <p style="font-size:13px;color:#7A6B7E;margin:8px 0 4px;line-height:1.5">💡 <b>Feed every ${age&&age.totalWeeks<8?"2–3":"3–4"} hours</b>. or sooner if ${nameHtml} shows hunger cues (rooting, lip-smacking, hand-to-mouth). Don't worry about exact timing. follow ${nameHtml}'s lead.</p>
-      ${feedTypes.includes("breast") ? `<p style="font-size:12px;color:#A898AC;margin:8px 0 0">If breastfed: ${nameHtml} may feed on demand. Breast milk is stored in the fridge. use within 24 hours.</p>` : ""}
+      <div style="font-size:15px;color:#5B4F5F;line-height:2">
+        <b>Type:</b> ${htmlEscape(feedTypeLabel)}<br>
+        ${avgAmount > 0 ? `<b>Typical amount:</b> ~${htmlEscape(fmtVol(avgAmount, FU))} per feed<br>` : ""}
+        ${avgFeeds > 0 ? `<b>Usually:</b> ~${avgFeeds} feeds per day<br>` : ""}
+        ${lastFeed ? `<b>Last feed:</b> ${htmlEscape(fmt12(lastFeed.time))}${lastFeed.amount ? " — " + htmlEscape(fmtVol(lastFeed.amount, FU)) : ""}${lastFeed.feedType === "breast" ? " (breast)" : ""}<br>` : ""}
+        ${nextFeedEst ? `<b>Next feed around:</b> ~${fmt12(nextFeedEst)}<br>` : ""}
+      </div>
+      <p style="font-size:13px;color:#7A6B7E;margin:10px 0 4px;line-height:1.5">Feed every ${age&&age.totalWeeks<8?"2–3":"3–4"} hours, or sooner if ${nameHtml} shows hunger cues (rooting, lip-smacking, hand-to-mouth). Follow ${nameHtml}'s lead.</p>
+      ${feedTypes.includes("breast") ? `<p style="font-size:12px;color:#A898AC;margin:8px 0 0">If breastfed: ${nameHtml} may feed on demand. Breast milk is stored in the fridge — use within 24 hours.</p>` : ""}
     </div>`);
 
     // NAPPIES
+    const _nappyPoopLabel = lastPoop ? fmt12(lastPoop.time) + " today" : poopDaysAgo !== null ? poopDaysAgo + " day" + (poopDaysAgo===1?"":"s") + " ago" : "Not logged";
     sections.push(`<div style="background:#FFF9F0;border:1px solid #F0E0C8;border-radius:16px;padding:16px;margin-bottom:12px">
       <h2 style="color:#B08030;font-size:16px;margin:0 0 10px">💧💩 Nappies</h2>
-      <table style="width:100%;font-size:14px;color:#5B4F5F">
-        <tr><td style="padding:4px 0;color:#A898AC">Today's nappies</td><td style="padding:4px 0;font-weight:600">${nappyCount} (${wetCount} wet${poopEntries.length ? ", " + poopEntries.length + " dirty" : ""})</td></tr>
-        ${lastNappy ? `<tr><td style="padding:4px 0;color:#A898AC">Last nappy</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(lastNappy.time))}. ${htmlEscape(lastNappy.poopType||"wet")}</td></tr>` : ""}
-        <tr><td style="padding:4px 0;color:#A898AC">Last poop</td><td style="padding:4px 0;font-weight:600;${poopDaysAgo!==null&&poopDaysAgo>=3?"color:#d4a020":""}">
-          ${lastPoop ? htmlEscape(fmt12(lastPoop.time)) + " today" : poopDaysAgo !== null ? poopDaysAgo + " day" + (poopDaysAgo===1?"":"s") + " ago" : "Not logged"}
-        </td></tr>
-        <tr><td style="padding:4px 0;color:#A898AC">Hydration target</td><td style="padding:4px 0;font-weight:600">${wetCount} wet · ${_ccHydScore}/${_ccHydTarget} hydration score${_ccHydOk?" ✅":""}</td></tr>
-      </table>
-      <p style="font-size:12px;color:#A898AC;margin:8px 0 0">Target is age-adjusted (${_ccHydTarget}+ hydration score in 24h). A long overnight nappy counts as 2–3. ${_ccCheckGuidance}</p>
+      <div style="font-size:15px;color:#5B4F5F;line-height:2">
+        <b>Today:</b> ${nappyCount} nappies (${wetCount} wet${poopEntries.length ? ", " + poopEntries.length + " dirty" : ""})<br>
+        ${lastNappy ? `<b>Last change:</b> ${htmlEscape(fmt12(lastNappy.time))} — ${htmlEscape(lastNappy.poopType||"wet")}<br>` : ""}
+        <b>Last poop:</b> <span${poopDaysAgo!==null&&poopDaysAgo>=3?" style=\"color:#d4a020;font-weight:700\"":""}>${htmlEscape(_nappyPoopLabel)}</span><br>
+        <b>Wet nappies:</b> ${_ccHydScore} so far — need ${_ccHydTarget}+ in 24 hours ${_ccHydOk?"✅":""}
+      </div>
+      <p style="font-size:12px;color:#A898AC;margin:8px 0 0">${_ccCheckGuidance}</p>
     </div>`);
 
     // SLEEP & ROUTINE
     sections.push(`<div style="background:#F0F8F5;border:1px solid #d4ede6;border-radius:16px;padding:16px;margin-bottom:12px">
       <h2 style="color:#6fa898;font-size:16px;margin:0 0 10px">😴 Sleep & Routine</h2>
-      <table style="width:100%;font-size:14px;color:#5B4F5F">
-        ${wakeEntry ? `<tr><td style="padding:4px 0;color:#A898AC">Woke up today</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(wakeEntry.time))}</td></tr>` : ""}
-        ${ww ? `<tr><td style="padding:4px 0;color:#A898AC">Wake window</td><td style="padding:4px 0;font-weight:600">${htmlEscape(ww.label)} between sleeps</td></tr>` : ""}
-        ${lastNap ? `<tr><td style="padding:4px 0;color:#A898AC">Last nap</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(lastNap.start))} – ${htmlEscape(fmt12(lastNap.end))} (${htmlEscape(hm(minDiff(lastNap.start, lastNap.end)))})</td></tr>` : ""}
-        ${pred ? `<tr><td style="padding:4px 0;color:#A898AC">Next nap window</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(pred.napStart_min))} – ${htmlEscape(fmt12(pred.napStart_max))}</td></tr>` : ""}
-        ${bed ? `<tr><td style="padding:4px 0;color:#A898AC">${bed.estimated?"Estimated bedtime":"Predicted bedtime"}</td><td style="padding:4px 0;font-weight:600">${bed.estimated?"~":""}${htmlEscape(fmt12(bed.time))}</td></tr>` : ""}
-      </table>
-      <p style="font-size:12px;color:#A898AC;margin:8px 0 0">Watch for tired cues: yawning, rubbing eyes, looking away, fussing. Put ${nameHtml} down when you see these signs. don't wait until they're overtired.</p>
+      <div style="font-size:15px;color:#5B4F5F;line-height:2">
+        ${wakeEntry ? `<b>Woke up:</b> ${htmlEscape(fmt12(wakeEntry.time))}<br>` : ""}
+        ${ww ? `<b>Can stay awake:</b> ${htmlEscape(ww.label)} between sleeps<br>` : ""}
+        ${lastNap ? `<b>Last nap:</b> ${htmlEscape(fmt12(lastNap.start))} – ${htmlEscape(fmt12(lastNap.end))} (${htmlEscape(hm(minDiff(lastNap.start, lastNap.end)))})<br>` : ""}
+        ${pred ? `<b>Next nap window:</b> ${htmlEscape(fmt12(pred.napStart_min))} – ${htmlEscape(fmt12(pred.napStart_max))}<br>` : ""}
+        ${bed ? `<b>Bedtime:</b> ${bed.estimated?"~":""}${htmlEscape(fmt12(bed.time))}<br>` : ""}
+      </div>
+      <p style="font-size:12px;color:#A898AC;margin:8px 0 0">Tired cues: yawning, rubbing eyes, looking away, fussing. Put ${nameHtml} down when you see these — don't wait until overtired.</p>
     </div>`);
 
     // SAFE SLEEP. country-aware source label
@@ -35831,29 +36113,42 @@ function App(){
     sections.push(`<div style="background:#FFF8F2;border:1px solid #F0D0C8;border-radius:16px;padding:16px;margin-bottom:12px">
       <h2 style="color:#C07088;font-size:16px;margin:0 0 10px">💝 If ${nameHtml} Cries</h2>
       <div style="font-size:14px;color:#5B4F5F;line-height:1.7">
-        1. <b>Check basics</b>. hungry? nappy? too hot/cold?<br>
-        2. <b>Tired?</b>. check wake window above. Dim lights, quiet voice<br>
-        3. <b>Wind</b>. try burping over shoulder or gentle bicycle legs<br>
-        4. <b>Comfort</b>. gentle rocking, skin-to-skin, white noise<br>
-        5. <b>Still unsettled?</b>. contact parent. It's OK to put ${nameHtml} down safely and take a breath
+        1. <b>Check basics</b> — hungry? nappy? too hot/cold?<br>
+        2. <b>Tired?</b> — check wake window above. Dim lights, quiet voice<br>
+        3. <b>Wind</b> — try burping over shoulder or gentle bicycle legs<br>
+        4. <b>Comfort</b> — gentle rocking, skin-to-skin, white noise<br>
+        5. <b>Still unsettled?</b> — contact parent. It's OK to put ${nameHtml} down safely and take a breath
       </div>
     </div>`);
 
-    // IF YOU'RE OVERWHELMED. safe coping reminder for carers
-    sections.push(`<div style="background:#F5F0F8;border:1px solid #D4C4E0;border-radius:16px;padding:16px;margin-bottom:12px">
-      <h2 style="color:#8868A0;font-size:16px;margin:0 0 10px">💜 If you're feeling overwhelmed</h2>
+    // NIGHT WAKES — the #1 3am scenario
+    sections.push(`<div style="background:#F0F0F8;border:1px solid #D0D0E8;border-radius:16px;padding:16px;margin-bottom:12px">
+      <h2 style="color:#7070A0;font-size:16px;margin:0 0 10px">🌙 If ${nameHtml} Wakes at Night</h2>
+      <div style="font-size:14px;color:#5B4F5F;line-height:1.8">
+        1. <b>Wait 2 minutes</b> — they may resettle on their own<br>
+        2. <b>If crying:</b> check nappy, offer a feed<br>
+        3. <b>Keep it boring</b> — lights dim, voice low, no play or eye contact<br>
+        4. <b>Put back down drowsy</b> — they don't need to be fully asleep in your arms<br>
+        5. <b>If unsettled 20+ minutes:</b> contact parent
+      </div>
+    </div>`);
+
+    // IF YOU'RE OVERWHELMED + NEVER SHAKE — combined, more prominent
+    sections.push(`<div style="background:#F5F0F8;border:2px solid #D4C4E0;border-radius:16px;padding:16px;margin-bottom:12px">
+      <h2 style="color:#8868A0;font-size:16px;margin:0 0 10px">💜 If It Gets Too Much</h2>
       <div style="font-size:14px;color:#5B4F5F;line-height:1.7">
-        Crying is hard to sit with. If you feel yourself getting tense, frustrated, or tearful. that's a signal, not a failure.
+        Crying is hard to sit with. If you feel tense, frustrated, or tearful — that's a signal, not a failure.
         <br><br>
         <b>It's always OK to:</b><br>
-        • Place ${nameHtml} down safely in their cot on their back<br>
-        • Walk away for a minute or two. make a cup of tea, take a few breaths<br>
-        • Come back when you feel steadier. ${nameHtml} is safe in the cot.
-        <br><br>
-        <b style="color:#8868A0">Never shake a baby.</b> Shaking can cause serious, lasting harm. Putting baby down and stepping away is always the right choice if you need a moment.
-        <br><br>
-        <span style="font-size:12px;color:#8868A0">You're not alone in this. Call the parent, ring a trusted friend, or reach a helpline if you need support.</span>
+        • Place ${nameHtml} down safely in their cot, on their back<br>
+        • Walk away for a minute. Make a cup of tea, take a few breaths<br>
+        • Come back when you feel steadier — ${nameHtml} is safe in the cot
       </div>
+      <div style="margin-top:12px;padding:12px;background:#f0e8f4;border-radius:12px;text-align:center">
+        <div style="font-size:15px;font-weight:700;color:#8868A0">Never shake a baby.</div>
+        <div style="font-size:13px;color:#5B4F5F;margin-top:4px">Putting baby down and stepping away is always the right choice.</div>
+      </div>
+      <p style="font-size:12px;color:#8868A0;margin:10px 0 0">You're not alone. Call the parent, a trusted friend, or a helpline.</p>
     </div>`);
 
     // COMFORT & ROUTINE
@@ -35904,28 +36199,7 @@ function App(){
       Safe sleep advice: ${safeSleepSourceHtml}
     </div>`);
 
-    // QR code points to Bubba Care. use short-lived carer token (not the raw backup code).
-    const _careTokenData = ensureCarerTokenForBackup();
-    const _carerToken = _careTokenData.token;
-    const _bc2 = _careTokenData.backupCode;
-    // Keep the backup code local only; carers receive the CT token link.
-    void _bc2;
-    // Carer portal is now on Firebase Hosting with real Cache-Control:
-    // no-cache headers, so stale HTML isn't possible. No cache-bust
-    // query param needed.
-    const carerPortalUrl = safeCarePortalUrl(_carerToken, resolvedActiveId || "");
-    if (!carerPortalUrl) throw new Error("Invalid Bubba Care token");
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(carerPortalUrl)}&bgcolor=FFFCF9`;
-    const carerPortalUrlHtml = htmlEscape(carerPortalUrl);
-    const qrUrlHtml = htmlEscape(qrUrl);
-
-    sections.push(`<div style="text-align:center;margin:16px 0 8px;padding:16px;background:#f8f4f0;border-radius:16px">
-      <div style="font-size:13px;font-weight:700;color:#5B4F5F;margin-bottom:8px">📱 Bubba Care</div>
-      <img src="${qrUrlHtml}" alt="QR Code" style="width:150px;height:150px;border-radius:8px;border:2px solid #e8ddd5"/>
-      <div style="font-size:12px;color:#A898AC;margin-top:8px">Scan the QR code or tap the link below</div>
-      <a href="${carerPortalUrlHtml}" style="display:inline-block;margin-top:8px;padding:10px 20px;border-radius:99px;background:linear-gradient(135deg,#C07088,#a85a44);color:white;font-size:14px;font-weight:700;text-decoration:none">Open Bubba Care →</a>
-      <div style="font-size:10px;color:#C0A8B0;margin-top:8px">Carers can log feeds, naps & nappies. you'll review them in the app</div>
-    </div>`);
+    /* QR / carer portal already inserted near top of card */
 
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${nameHtml}'s Bubba Care</title><style>*{box-sizing:border-box;margin:0}body{font-family:-apple-system,system-ui,sans-serif;max-width:100%;margin:0;padding:60px 12px 40px;padding-top:max(60px,env(safe-area-inset-top,60px));background:#FFFCF9;font-size:14px;line-height:1.5;-webkit-text-size-adjust:100%;overflow-x:hidden}h2{font-family:Georgia,serif;font-size:16px}table{border-collapse:collapse;width:100%;table-layout:fixed}td,th{padding:3px 6px;font-size:12px;word-break:break-word;overflow-wrap:break-word}img{max-width:100%;height:auto}@media(max-width:430px){body{font-size:13px;padding:60px 10px 32px;padding-top:max(60px,env(safe-area-inset-top,60px))}h2{font-size:15px}td,th{padding:2px 4px;font-size:11px}}</style></head><body>${sections.join("")}</body></html>`;
   }
@@ -48345,7 +48619,7 @@ function App(){
               {/* ── Proactive hard moment cards. moved to Wellbeing sub-screen ── */}
 
               {/* ── Partner check-in. moved to Wellbeing sub-screen ── */}
-              {!insightFilter && renderDay1InsightCard()}
+              {false && !insightFilter && renderDay1InsightCard()}
 
               {/* Empty state for new users */}
               {(()=>{
@@ -48393,74 +48667,111 @@ function App(){
               {/* Tip of the Day moved to News sub-screen in Day tab */}
 
               {/* ═══ Insights Dashboard — navigation grid (moved up so users can jump into a section first) ═══ */}
-              {!insightFilter && (
-                <div className="glass-card ob-premium-hero">
-                  <div className="ob-premium-kicker" style={{marginBottom:8}}>Understand</div>
-                  <div className="ob-premium-title" style={{marginBottom:6}}>
-                    {babyName||"Baby"}'s rhythm, in plain English
+              {!insightFilter && (()=>{
+                const _daysLogged = Object.keys(days).filter(d => (days[d]||[]).length > 0).length;
+                const _confidence = _daysLogged >= 7 ? "Strong pattern" : _daysLogged >= 3 ? "Pattern forming" : "Still learning";
+                const _name = babyName || "Baby";
+                const _last = _lastNightMemo;
+                const _diag = _nightDiagnosisMemo;
+                const _careHeroCopy = (() => {
+                  try {
+                    if (_diag && _diag.type === "developmental_disruption") return _diag.title + ": OBubba is cross-checking sleep, feeds, naps and bedtime before changing the plan.";
+                    if (_last && _last.longestStretchMin >= 240) return "A steadier stretch may be forming. OBubba will keep watching before making bigger recommendations.";
+                    if (_last && _last.wakeCount >= 2) return "A few wakes showed up overnight. OBubba separates hunger, timing, teeth and habit before suggesting a next step.";
+                  } catch {}
+                  return "A calm place to see what the logs may be suggesting, without turning the day into a scorecard.";
+                })();
+                const _primaryCareRead = (() => {
+                  if (_diag || _last) {
+                    return {
+                      id:"sleep",
+                      icon:"😴",
+                      kicker:"Start here",
+                      title:_diag ? _diag.title : "Last night's read",
+                      body:_careHeroCopy,
+                      cta:"Open sleep"
+                    };
+                  }
+                  return {
+                    id:"tomorrow",
+                    icon:"📅",
+                    kicker:"Start here",
+                    title:"One gentle next rhythm",
+                    body:"See the next likely wake, nap or bedtime without opening every chart.",
+                    cta:"Open tomorrow"
+                  };
+                })();
+                const _openInsightTool = (f) => {
+                  haptic(8);
+                  if (f.modal && f.id === "sleepcoach") {
+                    if (!hasAccess()) triggerPaywall("sleep_coach", true);
+                    else setShowSleepCoach(true);
+                    return;
+                  }
+                  setInsightFilter(f.id);
+                };
+                const _careToolTile = (f, compact=false) => (
+                  <button key={f.id} type="button" onClick={()=>_openInsightTool(f)} className={"glass-card ob-care-tool-tile"+(compact?" is-compact":"")}>
+                    <span className="ob-care-tool-icon">{f.icon}</span>
+                    <span className="ob-care-tool-label">{f.label}</span>
+                    {f.premium && <span className="ob-care-tool-premium">Premium</span>}
+                  </button>
+                );
+                const _fastCareTools = [
+                  {id:"weaning", label:"Weaning", icon:"🍎", onClick:()=>{haptic();setTab("day");openTrackWeaning();}},
+                  {id:"parentRoom", label:"Parent Room", icon:"💜", onClick:()=>{haptic();setTab("day");openTrackDayTool("wellbeing");}}
+                ];
+                const _secondaryCareTools = [
+                  {id:"tomorrow",label:"Tomorrow",icon:"📅"},
+                  {id:"sleep",label:"Sleep",icon:"😴"},
+                  {id:"feeding",label:"Feeding",icon:"🍼"},
+                  {id:"growth",label:"Growth",icon:"📏"},
+                  {id:"safesleep",label:"Safe Sleep",icon:"🛏️"},
+                  {id:"reports",label:"Reports",icon:"📊"},
+                  {id:"sleepcoach",label:"Sleep Coach",icon:"🗓",modal:true,premium:true},
+                  {id:"nightwean",label:"Night Weaning",icon:"🌙",premium:true}
+                ];
+                return (
+                  <div className="ob-care-tab-shell" data-testid="care-tab-shell">
+                    <div className="glass-card ob-premium-hero ob-care-hero">
+                      <div className="ob-premium-kicker" style={{marginBottom:8}}>Care</div>
+                      <div className="ob-premium-title" style={{marginBottom:6}}>
+                        {_name}'s rhythm, in plain English
+                      </div>
+                      <div className="ob-premium-copy">{_careHeroCopy}</div>
+                    </div>
+                    <button type="button" data-testid="care-primary-read" className="glass-card ob-care-primary-read" onClick={()=>_openInsightTool(_primaryCareRead)}>
+                      <span className="ob-care-primary-icon">{_primaryCareRead.icon}</span>
+                      <span className="ob-care-primary-copy">
+                        <span className="ob-care-primary-kicker">{_primaryCareRead.kicker} · {_confidence}</span>
+                        <strong>{_primaryCareRead.title}</strong>
+                        <small>{_primaryCareRead.body}</small>
+                      </span>
+                      <span className="ob-care-primary-cta">{_primaryCareRead.cta}</span>
+                    </button>
+                    <div className="ob-care-fast-path-grid" data-testid="care-fast-path-grid">
+                      {_fastCareTools.map(f=>(
+                        <button key={f.id} type="button" className="glass-card ob-care-fast-path" onClick={f.onClick}>
+                          <span>{f.icon}</span>
+                          <strong>{f.label}</strong>
+                        </button>
+                      ))}
+                    </div>
+                    <details className="ob-care-more" data-testid="care-more-tools">
+                      <summary>
+                        <span>More care tools</span>
+                        <small>{_daysLogged} logged day{_daysLogged===1?"":"s"}</small>
+                      </summary>
+                      <div className="ob-care-more-body">
+                        {renderDay1InsightCard()}
+                        <div className="ob-care-more-grid">
+                          {_secondaryCareTools.map(f=>_careToolTile(f, true))}
+                        </div>
+                      </div>
+                    </details>
                   </div>
-                  <div className="ob-premium-copy">
-                    {(() => {
-                      try {
-                        const _last = _lastNightMemo;
-                        const _diag = _nightDiagnosisMemo;
-                        if (_diag && _diag.type === "developmental_disruption") return _diag.title + ": OBubba is treating the extra wakes as a changed pattern and cross-checking teeth, feeds, naps and bedtime.";
-                        if (_last && _last.longestStretchMin >= 240) return "Last night may suggest a steadier sleep stretch is forming. OBubba will keep watching the pattern before making bigger recommendations.";
-                        if (_last && _last.wakeCount >= 2) return "There were a few wakes in the night pattern. OBubba checks whether this is new for " + (babyName||"baby") + ", then separates hunger, timing, teeth and habit.";
-                      } catch {}
-                      return "A calm place to see what the logs may be suggesting, without turning the day into a scorecard.";
-                    })()}
-                  </div>
-                </div>
-              )}
-	              {!insightFilter && (()=>{
-	                const _daysLogged = Object.keys(days).filter(d => (days[d]||[]).length > 0).length;
-	                const _confidence = _daysLogged >= 7 ? "Strong pattern" : _daysLogged >= 3 ? "Pattern forming" : "Still learning";
-	                const _insightTile = (f) => (
-	                  <button key={f.id} onClick={()=>{
-	                    haptic(8);
-	                    if (f.modal && f.id === "sleepcoach") {
-	                      if (!hasAccess()) triggerPaywall("sleep_coach", true);
-	                      else setShowSleepCoach(true);
-	                    } else setInsightFilter(f.id);
-	                  }} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"12px 8px",cursor:_cP,textAlign:"center",border:"1.5px solid var(--card-border)",minHeight:82}}>
-	                    <span style={{fontSize:22}}>{f.icon}</span>
-	                    <div style={{fontSize:12,fontWeight:700,color:C.deep,lineHeight:1.2}}>{f.label}</div>
-	                    {f.premium && <div style={{fontSize:9,color:C.gold,fontWeight:800,letterSpacing:_ls08}}>PREMIUM</div>}
-	                  </button>
-	                );
-	                const _groups = [
-	                  {label:"Next rhythm", sub:_confidence+" · "+_daysLogged+" logged day"+(_daysLogged===1?"":"s"), items:[
-	                    {id:"tomorrow",label:"Tomorrow",icon:"📅"},
-	                    {id:"sleep",label:"Sleep",icon:"😴"}
-	                  ]},
-	                  {label:"Care & growth", sub:"feeds, growth, safety", items:[
-	                    {id:"feeding",label:"Feeding",icon:"🍼"},
-	                    {id:"growth",label:"Growth",icon:"📏"},
-	                    {id:"safesleep",label:"Safe Sleep",icon:"🛏️"},
-	                    {id:"reports",label:"Reports",icon:"📊"}
-	                  ]},
-	                  {label:"Gentle plans", sub:"support without pressure", items:[
-	                    {id:"sleepcoach",label:"Sleep Coach",icon:"🗓",modal:true,premium:true},
-	                    {id:"nightwean",label:"Night Weaning",icon:"🌙",premium:true}
-	                  ]}
-	                ];
-	                return (
-	                  <div style={{marginBottom:14}}>
-	                    {_groups.map(g=>(
-	                      <div key={g.label} style={{marginBottom:12}}>
-	                        <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:10,margin:"0 2px 7px"}}>
-	                          <div className="ob-premium-kicker" style={{margin:0}}>{g.label}</div>
-	                          <div style={{fontSize:10,color:C.lt,fontFamily:_fM,textAlign:"right",lineHeight:1.3}}>{g.sub}</div>
-	                        </div>
-	                        <div className="ob-premium-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-	                          {g.items.map(_insightTile)}
-	                        </div>
-	                      </div>
-	                    ))}
-	                  </div>
-	                );
-	              })()}
+                );
+              })()}
 
               {insightFilter==="sleep" && (
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
@@ -54959,6 +55270,15 @@ function App(){
                         // 4. Wipe all local storage
                         console.log("[DELETE] Step 4: Wiping localStorage");
                         try{ trackEvent("delete_account_success", { server_deleted: _serverDeleted }); }catch(e){}
+                        try{
+                          await Promise.allSettled([
+                            _nativePrefSet(OB_NATIVE_DELETE_TOMBSTONE_KEY, String(Date.now())),
+                            _nativePrefRemove(OB_NATIVE_DATA_MIRROR_KEY),
+                            _nativePrefRemove("bio_user"),
+                            _nativePrefRemove("bio_pin"),
+                            _nativePrefRemove("bio_enabled")
+                          ]);
+                        }catch(e){console.warn("[DELETE] Native preference wipe error",e);}
                         try{localStorage.clear();}catch(e){}
                         // Mark that we just deleted. so sign-in page renders cleanly after reload
                         try{localStorage.setItem("_just_deleted","1");}catch(e){}
@@ -62650,6 +62970,27 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ═══ Contextual OBubba Guide Companion ═══ */}
+      {mascotGuide && !mascotGuideHidden && !mascotPopup && (
+        <div data-testid="ob-mascot-guide" data-guide-kind={mascotGuide.kind} className={"ob-guide-companion "+(mascotGuideOpen?"is-open":"is-closed")}>
+          {mascotGuideOpen && (
+            <section className="ob-guide-bubble" role="region" aria-label="OBubba guide">
+              <div className="ob-guide-kicker">{mascotGuide.kicker}</div>
+              <div className="ob-guide-title">{mascotGuide.title}</div>
+              <div className="ob-guide-body" aria-live="polite">{mascotGuide.body}</div>
+              <div className="ob-guide-actions">
+                <button type="button" className="ob-guide-primary" onClick={startMascotGuidedTour}>Tour</button>
+                <button type="button" className="ob-guide-secondary" onClick={restMascotGuideForToday}>Rest</button>
+              </div>
+            </section>
+          )}
+          <button type="button" className="ob-guide-trigger" onClick={toggleMascotGuide} aria-expanded={mascotGuideOpen?"true":"false"} aria-label={mascotGuideOpen ? "Close OBubba guide" : "Open OBubba guide: " + (mascotGuide.short || "Guide")}>
+            <OBubbaMascot type={mascotGuide.type || "happy"} size={mascotGuideOpen?72:62} alt="OBubba guide"/>
+            {!mascotGuideOpen && <span className="ob-guide-pulse" aria-hidden="true"/>}
+          </button>
         </div>
       )}
 
