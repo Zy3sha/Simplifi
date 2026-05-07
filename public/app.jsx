@@ -42334,6 +42334,11 @@ function App(){
 	      try{ev && ev.stopPropagation && ev.stopPropagation();}catch{}
 	      if (!item || !item.entry) return;
 	      haptic(12);
+	      // If this item is already showing and pinned, go straight to edit
+	      if (clockLabTip && clockLabTip.pinned && clockLabTip.entry && clockLabTip.entry.id === item.entry.id && !clockLabTipUsesMeta(clockLabTip)) {
+	        editClockLabLog(item.entry, ev);
+	        return;
+	      }
 	      setClockLabTip({...item, pinned:true});
 	    };
     const hideClockLabTip = (item) => {
