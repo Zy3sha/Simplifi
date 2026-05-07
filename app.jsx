@@ -11446,7 +11446,22 @@ function App(){
     const _cloudPremium = localStorage.getItem("ob_premium_cloud")==="1" && _cloudStillActive && (!_cloudUser || !_localUser || _cloudUser === _localUser);
     return _cloudPremium;
   }catch{return false;}})();
-  const _villageActive = (()=>{try{const ve=safeTimestampMs(localStorage.getItem("ob_village_end"), NaN);return Number.isFinite(ve) && ve>Date.now();}catch{return false;}})();
+  const _villageActive = (()=>{try{
+    // Check localStorage first, then fall back to cloud data (survives reinstall)
+    const ve = safeTimestampMs(localStorage.getItem("ob_village_end"), NaN);
+    if (Number.isFinite(ve) && ve > Date.now()) return true;
+    // Cloud fallback: check if active child has village claim
+    const _ac = activeChild || {};
+    if (_ac._villageEnd) {
+      const _cloudEnd = safeTimestampMs(_ac._villageEnd, NaN);
+      if (Number.isFinite(_cloudEnd) && _cloudEnd > Date.now()) {
+        // Restore to localStorage so next check is fast
+        try { localStorage.setItem("ob_village_end", _ac._villageEnd); localStorage.setItem("ob_village_unlocked", "1"); } catch {}
+        return true;
+      }
+    }
+    return false;
+  }catch{return false;}})();
   const[isPremium,setIsPremium]=useState(_cachedPremium || _villageActive);
   const[heroWhyOpen,setHeroWhyOpen]=useState(false);
   const[poopWhyOpen,setPoopWhyOpen]=useState(false);
@@ -14299,11 +14314,13 @@ function App(){
   const[claimError,setClaimError]=useState("");
   const claimCheckRef=useRef(null);
   const[familyCode,setFamilyCode]=useState(()=>{try{return localStorage.getItem("family_code")||null;}catch{return null;}});
+  const DAY_TOUR_STORAGE_KEY = "day_tut_v2";
   function queueAppTourAfterSetup(reason) {
     try {
       localStorage.setItem("ob_app_tour_pending_v1", reason || "setup");
       localStorage.removeItem("tut_v2");
       localStorage.removeItem("day_tut_v1");
+      localStorage.removeItem(DAY_TOUR_STORAGE_KEY);
     } catch {}
   }
   function clearPendingAppTour(markDone) {
@@ -14314,18 +14331,19 @@ function App(){
     } catch {}
   }
 			  const APP_TOUR_TARGETS = [
-			    ["today-hero", "quick-log-row", "nav-day"],
+			    ["clock-stage", "clock-home-lab", "nav-day"],
 			    ["care-primary-tools", "nav-insights"],
 			    ["nav-develop"],
 			    ["family-hub", "nav-settings"]
 			  ];
 		  const DAY_TOUR_TARGETS = [
-		    ["today-hero"],
-		    ["quick-log-row", "simple-actions"],
-		    ["detail-log-grid", "tile-schedule"]
+		    ["clock-stage", "clock-home-lab", "today-hero"],
+		    ["clock-home-log-buttons", "quick-log-row"],
+		    ["clock-panel-tabs", "today-plan-simple-card"],
+		    ["clock-stage", "clock-home-kindness"]
 		  ];
 			  const OB_APP_TOUR_JOURNEY = [
-			    { chapter:"Chapter 1", tab:"day", iconName:"timer", target:"Track", title:"Track the day", body:"Use Track for the clock, quick logs and live timers.\n\nOne tap is enough at 3am; details can come later." },
+			    { chapter:"Chapter 1", tab:"day", iconName:"timer", target:"Track clock", title:"Read the clock", body:"Track opens on the clock: the rim shows feeds, nappies, wakes, naps and bedtime in time order.\n\nLogged moments replace predictions as the day happens, with quick logs, Plan and Guidance right underneath." },
 			    { chapter:"Chapter 2", tab:"insights", iconName:"care", target:"Care", title:"Open the parent toolkit", body:"Care leads with the real tools: Weaning, Parent Room, Sleep Coach and Night Weaning.\n\nSleep, Feeding, Growth and Travel insights sit underneath." },
 			    { chapter:"Chapter 3", tab:"develop", iconName:"growth", target:"Grow", title:"Support development gently", body:"Grow keeps activities, waves, milestones and teething together.\n\nIt is context, not another checklist." },
 			    { chapter:"Chapter 4", tab:"settings", iconName:"account", target:"Account", title:"Keep the app yours", body:"Account holds child settings, Share & Sync, Bubba Care sharing, Lock Bubba Care session, backups, preferences and replayable guides." }
@@ -16679,7 +16697,7 @@ function App(){
         // Keep device-level prefs + any keys not belonging to OBubba
         const keep = k === "ob_theme" || k === "ob_widget_theme" || k === "ob_locale";
         // Only clear keys that are known OBubba prefixes or explicit known keys
-        const isOBubba = k.startsWith("ob_") || k.startsWith("obubba") || k.startsWith("nap_") || k.startsWith("bed_") || k.startsWith("breast_") || k.startsWith("timer_") || k.startsWith("weaning_started_") || ["children_v1","active_child","backup_code","family_code","family_username","auth_verified","tut_v2","day_tut_v1","install_date_v1","onboarded_v2","needs_child_setup_v1","use_personal_recs_v1","fluid_unit_v1","measure_unit_v1","temp_unit_v1","reminders_v1","appointments_v1","pinned_notes_v1","meds_v1","saved_meds_v1","emergency_contacts_v1","carer_notes_v1","carer_comfort_v1","wellbeing_history_v1","wellbeing_date_v1","wb_response_v1","allergen_profile_v1","weekly_digest_v1","sched_override_v1","bridge_nap_days_v1","safe_sleep_shown_v1","digest_last_shown","parent_nudge_date","ww_adjust","last_breast_side","pred_accuracy_v1","_lastWidgetData","_hasBreast","child_sync_codes_v1","bn_v2","bw_v2","dob_v1","sex_v1","unborn_v1","ms_v1","bio_enabled","bio_pin","bio_user","recovery_email_v1","reclaim_username","obuddy_handoff_v1","obuddy_remind_12mo_v1","beta_banner_v1","beta_emailed_v1","trial_banner_date"].includes(k);
+        const isOBubba = k.startsWith("ob_") || k.startsWith("obubba") || k.startsWith("nap_") || k.startsWith("bed_") || k.startsWith("breast_") || k.startsWith("timer_") || k.startsWith("weaning_started_") || ["children_v1","active_child","backup_code","family_code","family_username","auth_verified","tut_v2","day_tut_v1","day_tut_v2","install_date_v1","onboarded_v2","needs_child_setup_v1","use_personal_recs_v1","fluid_unit_v1","measure_unit_v1","temp_unit_v1","reminders_v1","appointments_v1","pinned_notes_v1","meds_v1","saved_meds_v1","emergency_contacts_v1","carer_notes_v1","carer_comfort_v1","wellbeing_history_v1","wellbeing_date_v1","wb_response_v1","allergen_profile_v1","weekly_digest_v1","sched_override_v1","bridge_nap_days_v1","safe_sleep_shown_v1","digest_last_shown","parent_nudge_date","ww_adjust","last_breast_side","pred_accuracy_v1","_lastWidgetData","_hasBreast","child_sync_codes_v1","bn_v2","bw_v2","dob_v1","sex_v1","unborn_v1","ms_v1","bio_enabled","bio_pin","bio_user","recovery_email_v1","reclaim_username","obuddy_handoff_v1","obuddy_remind_12mo_v1","beta_banner_v1","beta_emailed_v1","trial_banner_date"].includes(k);
         if (!keep && isOBubba) { try { localStorage.removeItem(k); } catch {} }
       });
     } catch {}
@@ -16944,7 +16962,7 @@ function App(){
 	    if (tab === "day" && !daySubScreen && dayTutStep === -1 && tutStep === -1) {
 	      try {
         const mainDone = localStorage.getItem("tut_v2");
-        const dayDone = localStorage.getItem("day_tut_v1");
+        const dayDone = localStorage.getItem(DAY_TOUR_STORAGE_KEY);
         const daysLogged = Object.keys(days).filter(d=>(days[d]||[]).length>0).length;
         if (mainDone && !dayDone && daysLogged >= 1) {
           const _t = setTimeout(()=>setDayTutStep(0), 1200);
@@ -36991,11 +37009,21 @@ function App(){
     } catch(e) { showCareTokenError(e); return; }
 
     // Village unlock: first Bubba Care share = 7 days premium
+    // Persisted to BOTH localStorage AND cloud to prevent reset-by-reinstall exploit
     const _villageUnlock = ()=>{try {
-      if (!localStorage.getItem("ob_village_unlocked")) {
+      const _alreadyClaimed = localStorage.getItem("ob_village_unlocked") || (activeChild && activeChild._villageClaimed);
+      if (!_alreadyClaimed) {
         localStorage.setItem("ob_village_unlocked", "1");
         const villageEnd = new Date(Date.now() + 7*24*60*60*1000).toISOString();
         localStorage.setItem("ob_village_end", villageEnd);
+        // Persist to cloud so it survives reinstall
+        try {
+          setChildren(prev => {
+            const cid = resolvedActiveId;
+            if (!cid || !prev[cid]) return prev;
+            return {...prev, [cid]: {...prev[cid], _villageClaimed: true, _villageEnd: villageEnd}};
+          });
+        } catch {}
         showToast("🏘️ Village activated! 7 days of premium. because it takes a village.", 4000, 1);
       }
     } catch {}};
@@ -43191,7 +43219,7 @@ function App(){
             </div>
           </section>
 	        <section className="ob-clock-rhythm-card">
-	          <section className="ob-clock-stage" aria-label="Clock timeline">
+	          <section className="ob-clock-stage" data-tour-id="clock-stage" aria-label="Clock timeline">
           <svg viewBox="0 0 240 240" className="ob-clock-svg" role="img" aria-label="Today clock with coloured logs">
             <defs>
               <radialGradient id="obClockFaceGlow" cx="50%" cy="42%" r="62%">
@@ -43483,7 +43511,7 @@ function App(){
             </div>
           )}
         </section>
-        <nav className="ob-clock-tabs" aria-label="Clock home sections">
+        <nav className="ob-clock-tabs" data-tour-id="clock-panel-tabs" aria-label="Clock home sections">
           {["logs","plan","guidance"].map(panel => {
             const isActive = clockLabPanel === panel;
             const isGuidanceNew = panel === "guidance" && clockGuidanceHasNew;
@@ -44646,10 +44674,10 @@ function App(){
 	        <div style={{position:"fixed",inset:0,zIndex:9990,background:"rgba(3,7,18,0.78)",backdropFilter:"blur(10px)",WebkitBackdropFilter:"blur(10px)",display:"flex",alignItems:"center",justifyContent:"center",padding:"calc(env(safe-area-inset-top,0px) + 16px) 12px calc(env(safe-area-inset-bottom,0px) + 16px)"}} onClick={()=>{setShowTutPrompt(false);clearPendingAppTour(true);}}>
 	          <div className="ob-tour-journey-sheet" role="dialog" aria-modal="true" aria-label="OBubba app tour" onClick={e=>e.stopPropagation()}>
 	            <div className="ob-tour-journey-handle"/>
-	            <div className="ob-tour-journey-hero">
+		              <div className="ob-tour-journey-hero">
 	              <OBubbaMascot type="happy" size={96} alt="OBubba" style={{margin:"0 auto"}}/>
-		              <div className="ob-tour-journey-title">Your OBubba map</div>
-		              <p className="ob-tour-journey-copy">A quick route through Track, Care, Grow and Account, so the useful bits are easy to find when your hands are full.</p>
+		              <div className="ob-tour-journey-title">Your OBubba clock map</div>
+		              <p className="ob-tour-journey-copy">A quick route through the clock, Care, Grow and Account, so the useful bits are easy to find when your hands are full.</p>
 	            </div>
 	            <div className="ob-tour-journey-list">
 	              {OB_APP_TOUR_JOURNEY.map((item,i)=>(
@@ -44666,7 +44694,7 @@ function App(){
 	              ))}
 	            </div>
 	            <button className="ob-tour-journey-primary" onClick={()=>{setShowTutPrompt(false);clearPendingAppTour(false);setTab("day");setDaySubScreen(null);setTodayPanel("log");setTutStep(0);}}>Start OBubba tour</button>
-	            <button className="ob-tour-journey-secondary" onClick={()=>{setShowTutPrompt(false);clearPendingAppTour(true);}}>Maybe later</button>
+	            <button className="ob-tour-journey-secondary" onClick={()=>{setShowTutPrompt(false);clearPendingAppTour(true);}}>Not now</button>
 	          </div>
 	        </div>
 	      )}
@@ -44876,13 +44904,14 @@ function App(){
       {dayTutStep >= 0 && (()=>{
 	        const _bn3 = babyName || "your baby";
 		        const DAY_TUT_STEPS = [
-		          { icon:"🧠", title:"The top card", body:"This card reads the day and shows what matters now.\n\nIt changes as you log feeds, nappies, naps, wake-ups and bedtime." },
-		          { icon:"⚡", title:"One-tap logs", body:"Use the quick row for messy moments.\n\nThe main buttons stay visible. More actions open only when you need them." },
-		          { icon:"📋", title:"Details and schedule", body:"Detailed log keeps the full history. Schedule Builder helps shape wake, naps and bedtime." },
+		          { icon:"🕰️", title:"Read the clock", body:"The clock is Track.\n\nDots are quick moments like feeds, nappies and wakes. Arcs are things with duration: naps, bedtime sleep, and night wakes when you have added settled or soothed time. Softer arcs are predictions until real logs replace them." },
+		          { icon:"⚡", title:"Log without decoding", body:"Use One-tap logs when your hands are full.\n\nTap to add the moment now, hold for details. If a nap or bedtime timer is running, stop it from the active timer controls or the clock centre so accidental taps do not rewrite the day." },
+		          { icon:"📋", title:"Logs, Plan, Guidance", body:"Logs is the saved history. Plan is what OBubba thinks may come next, and it updates as real logs arrive.\n\nGuidance is for the short sleep, feed and care read when something actually needs your attention." },
+		          { icon:"✨", title:"Bubba Hug at night", body:"In night mode, fireflies around the clock are other parents awake at the same quiet time.\n\nTap a firefly to send a Bubba Hug. Day mode stays clear, but a day-mode parent can still appear as a firefly to someone using night mode." },
 		        ];
 
         const dismissDayTut = () => {
-          try{localStorage.setItem("day_tut_v1","1");}catch{}
+          try{localStorage.setItem(DAY_TOUR_STORAGE_KEY,"1");}catch{}
           setDayTutStep(-1);
         };
 	        const nextDayStep = () => {
@@ -51023,6 +51052,34 @@ function App(){
 	                    const _teethRecent = (() => { try { const t = activeChild.teething || []; return t.filter(x => x.date && (Date.now() - new Date(x.date).getTime()) < 14*86400000).length; } catch { return 0; } })();
 	                    const _disruptionActive = !!normaliseDisruptionModePayload(disruptionMode);
 	                    const _regression = (() => { try { return detectSleepRegression(); } catch { return null; } })();
+	                    if (diagnosis && diagnosis.type === "split_night") {
+	                      const _splitIsFeed = /feed|milk|calorie|nappy|growth|hydration/i.test(_splitCorrelation || "") || _splitClues.some(c => /feed|milk|calorie|nappy|growth|hydration/i.test(c));
+	                      const _headline = _broadlyStrongNight ? "Strong night overall — watch the long wake" : "Long wake — steady plan first";
+	                      const _summaryItems = [];
+	                      if (_broadlyStrongNight) {
+	                        _summaryItems.push("Strong night overall. " + _name + " had " + _strongNightWins.join(", ") + ". The " + _longWakeText + " is worth watching, but it does not look like a broken night on its own.");
+	                      } else {
+	                        _summaryItems.push("There was a longer awake patch overnight: " + _longWakeText + ". OBubba is looking for a repeated cause before changing the routine.");
+	                      }
+	                      if (_splitIsFeed) {
+	                        _summaryItems.push("The main clue so far is feeding. OBubba will compare daytime milk, night feeds, wet nappies and growth before suggesting a change.");
+	                      } else if (_splitCorrelation) {
+	                        _summaryItems.push("The main clue so far is " + _splitCorrelation + ". The plan only changes when the pattern is clear.");
+	                      } else {
+	                        _summaryItems.push("No clear cause has shown up yet, so this is a watch point rather than a routine change. The plan only changes when the pattern is clear.");
+	                      }
+	                      if (_longWakeIsTrend) {
+	                        _summaryItems.push("Because long wakes have happened " + _longWakeNights7 + " time" + (_longWakeNights7 === 1 ? "" : "s") + " in the last 7 nights, OBubba is watching whether the same trigger keeps showing up.");
+	                      }
+	                      return {
+	                        headline:_headline,
+	                        sections:[{title:"Sleep summary", icon:"\uD83C\uDF19", items:_summaryItems}],
+	                        action:_broadlyStrongNight
+	                          ? "Plan stays steady today while OBubba watches whether long wakes repeat."
+	                          : "Do not change the routine today. Keep naps, feeds and bedtime steady, and let OBubba watch for the same trigger across the next few nights.",
+	                        body:_summaryItems.join(" ")
+	                      };
+	                    }
 	                    // HEADLINE
 	                    const _headline = _nightCount === 0 ? _name + " slept through"
 	                      : _longestStr >= 300 ? "Strong night with " + _nightCount + " wake" + (_nightCount === 1 ? "" : "s")
@@ -51180,10 +51237,10 @@ function App(){
                         );
                       })()}
 
-                      <details data-testid="care-sleep-debrief-proof-drawer" className="ob-care-data-drawer" style={{padding:0,margin:"10px 0 0"}}>
+	                      <details data-testid="care-sleep-debrief-proof-drawer" className="ob-care-data-drawer" style={{padding:0,margin:"10px 0 0"}}>
                         <summary className="ob-care-data-summary">
                           <span>Why OBubba thinks this</span>
-                          <small>optional proof</small>
+                          <small>More detail · tap to read · optional proof</small>
 	                        </summary>
 	                        <div className="ob-care-data-body">
 
@@ -56497,7 +56554,7 @@ function App(){
                   <div style={{fontSize:10,color:C.lt,marginTop:1}}>Replay guide</div>
                 </div>
               </button>
-		              <button data-testid="replay-track-tour" onClick={(e)=>{e.preventDefault();e.stopPropagation();setTab("day");setDaySubScreen(null);setDayTutStep(0);try{localStorage.removeItem("day_tut_v1");}catch{}}} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 12px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"left"}}>
+		              <button data-testid="replay-track-tour" onClick={(e)=>{e.preventDefault();e.stopPropagation();setTab("day");setDaySubScreen(null);setDayTutStep(0);try{localStorage.removeItem("day_tut_v1");localStorage.removeItem(DAY_TOUR_STORAGE_KEY);}catch{}}} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 12px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"left"}}>
                 <span style={{fontSize:22,flexShrink:0}}>☀️</span>
                 <div style={_S.flex1}>
 	                  <div style={{fontSize:12,fontWeight:700,color:C.deep}}>Track Tour</div>
@@ -60666,7 +60723,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               try{if(navigator.share){await safeNavigatorShare({title:"OBubba",text:"Hey! I've been using OBubba and it genuinely helped. Worth trying: "+OBUBBA_DOWNLOAD_URL});}}catch{}
               setShowPassItOn(false);
             }} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#C07088,#a85a44)",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:8}}>Share OBubba 💛</button>
-            <button onClick={()=>{try{localStorage.setItem("ob_pass_it_on_v1","1");}catch{}setShowPassItOn(false);}} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Maybe later</button>
+            <button onClick={()=>{try{localStorage.setItem("ob_pass_it_on_v1","1");}catch{}setShowPassItOn(false);}} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Not now</button>
           </div>
         </div>
       )}
@@ -60679,7 +60736,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:700,color:"#5B4F5F",marginBottom:8}}>OBubba noticed something</div>
             <div style={{fontSize:14,color:"#8A7F87",lineHeight:1.7,marginBottom:20}}>We've been watching {babyName||"your baby"}'s sleep this week and spotted an interesting pattern forming. Open Premium to see what your data is telling you.</div>
             <button onClick={()=>{try{localStorage.setItem("ob_curiosity_shown","1");}catch{}setShowCuriosityGap(false);triggerPaywall("curiosity_gap");}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#C07088,#a85a44)",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:8}}>Start Free Trial</button>
-            <button onClick={()=>{try{localStorage.setItem("ob_curiosity_shown","1");}catch{}setShowCuriosityGap(false);}} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Maybe Later</button>
+            <button onClick={()=>{try{localStorage.setItem("ob_curiosity_shown","1");}catch{}setShowCuriosityGap(false);}} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Not now</button>
           </div>
         </div>
       )}
@@ -60723,7 +60780,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             <div style={{fontSize:14,color:"#8A7F87",lineHeight:1.7,marginBottom:16}}>{premiumGateInfo.description}</div>
             <div style={{fontSize:13,color:"#6A6070",lineHeight:1.6,marginBottom:16,padding:"10px 14px",background:"rgba(155,139,184,0.06)",borderRadius:12}}>For less than a coffee a month, unlock personalised predictions, sleep analysis, growth charts, and more for {babyName||"your baby"}.</div>
             <button onClick={()=>{setPremiumGateInfo(null);triggerPaywall(premiumGateInfo.context||"general");}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:8,boxShadow:"0 4px 20px rgba(155,139,184,0.3)"}}>Subscribe. {_fallbackPlanPrice("monthly")}/month</button>
-            <button onClick={()=>setPremiumGateInfo(null)} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Maybe later</button>
+            <button onClick={()=>setPremiumGateInfo(null)} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Not now</button>
           </div>
         </div>
       )}
@@ -60737,7 +60794,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             <div style={{fontSize:14,color:"#8A7F87",lineHeight:1.7,marginBottom:8}}>Has someone in the family asked for the 100th time if {babyName||"baby"} has been fed, how long they slept, how many nappies? {"\u{1F4AD}"}</div>
             <div style={{fontSize:14,color:"#6A6070",lineHeight:1.7,marginBottom:16}}>Well{"\u2026"} for just {_fallbackPlanPrice("monthly")}/month, let{"\u2019"}s put grandma{"\u2019"}s mind at ease with a beautiful daily snapshot card. Or not {"\u2014"} I don{"\u2019"}t want to tell you how to live {"\u{1F440}"}</div>
             <button onClick={()=>{setFamilyShareGate(false);triggerPaywall("family_share");}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:8,boxShadow:"0 4px 20px rgba(155,139,184,0.3)"}}>Subscribe {"\u2192"}</button>
-            <button onClick={()=>setFamilyShareGate(false)} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Maybe later</button>
+            <button onClick={()=>setFamilyShareGate(false)} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Not now</button>
           </div>
         </div>
       )}
@@ -61347,7 +61404,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             ))}
 
             <button onClick={()=>setShowYouTime(false)} style={{width:"100%",marginTop:4,padding:"10px",borderRadius:99,border:"none",background:"transparent",color:C.lt,fontSize:12,cursor:_cP}}>
-              Maybe later
+              Not now
             </button>
           </div>
         </div>
@@ -64999,7 +65056,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 👤 Share with profile picture
               </button>
               <button onClick={()=>setMsSharePrompt(null)} style={{width:"100%",padding:"10px",background:"none",border:"none",color:"#A898AC",fontSize:13,cursor:_cP,fontFamily:"inherit"}}>
-                Maybe later
+                Not now
               </button>
             </div>
           </div>
