@@ -12131,7 +12131,7 @@ function App(){
   const[showSwipeTutorial,setShowSwipeTutorial]=useState(false);
   const[insightSection,setInsightSection]=useState({trends:false,sleep:false,feeding:false,reports:false});
 	  const[insightFilter,setInsightFilter]=useState(null);
-	  const[lastNightDebriefOpen,setLastNightDebriefOpen]=useState(false);
+	  const[lastNightDebriefOpen,setLastNightDebriefOpen]=useState(true);
 	  const[lastNightDebriefSeenTick,setLastNightDebriefSeenTick]=useState(0);
 	  useEffect(()=>{if(insightFilter!=="sleep") setLastNightDebriefOpen(false);},[insightFilter]);
 	  useEffect(()=>{
