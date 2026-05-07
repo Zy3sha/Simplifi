@@ -59,7 +59,7 @@ assert("daily scheduled pushes are gated by each user's local wall clock", sourc
 assert("birthday and development reminders skip malformed DOBs", (source.match(/const dobMs = timestampMs\(data\.babyDob\);/g) || []).length >= 3);
 assert("re-engagement skips malformed last-update timestamps", source.includes("const lastMs = timestampMs(lastUpdate);") && source.includes("if (!lastMs) return;"));
 assert("expired anonymous Bubba Hugs are cleaned up by existing scheduled cleanup", source.includes("exports.cleanupPushLog = onSchedule(\"every day 03:00\"") && source.includes("const hugCutoffMs = Date.now();") && source.includes(".collection(\"bubba_hugs\")") && source.includes(".where(\"expiresAtMs\", \"<\", hugCutoffMs)"));
-assert("dedicated anonymous Bubba Hug cleanup removes hugs after expiry", source.includes("exports.cleanupBubbaHugs = onSchedule(\"every 1 hours\"") && source.includes("const cutoffMs = Date.now();") && source.includes(".where(\"expiresAtMs\", \"<\", cutoffMs)"));
+assert("dedicated anonymous Bubba Hug cleanup removes hugs and clock presence after expiry", source.includes("exports.cleanupBubbaHugs = onSchedule(\"every 1 hours\"") && source.includes("const cutoffMs = Date.now();") && source.includes(".collection(\"bubba_hugs\")") && source.includes(".collection(\"bubba_presence\")") && source.includes(".where(\"expiresAtMs\", \"<\", cutoffMs)"));
 assert("Cloud Functions runtime uses supported Node 22", functionsPkg.engines && functionsPkg.engines.node === "22");
 assert("Cloud Functions lockfile runtime matches package runtime", functionsLock.packages[""].engines.node === functionsPkg.engines.node);
 

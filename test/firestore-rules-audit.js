@@ -54,6 +54,7 @@ assert("user activity writes are owner-scoped and field allowlisted", rules.incl
 assert("user activity writes type-check reminder metadata", rules.includes("boundedString(request.resource.data.babyName, 80)") && rules.includes("boundedString(request.resource.data.babyDob, 20)") && rules.includes("request.resource.data.tzOffsetMin >= -840") && rules.includes("clientTimestampValue(request.resource.data.lastFeedTimestamp)"));
 assert("Bubba Hug list reads are capped", rules.includes("allow list: if signedIn() && request.query.limit <= 25;"));
 assert("Bubba Hug lifetime is capped", rules.includes("request.resource.data.expiresAtMs <= request.resource.data.createdAtMs + 10 * 60 * 1000"));
+assert("Bubba clock presence list reads are capped and writes are own-doc only", rules.includes("match /bubba_presence/{presenceId}") && rules.includes("allow list: if signedIn() && request.query.limit <= 40;") && rules.includes("presenceId == request.auth.uid") && rules.includes("request.resource.data.expiresAtMs <= request.resource.data.lastSeenMs + 30 * 60 * 1000"));
 assert("broad raw auth-only document access is gone", !/allow\s+(get|create|update|read|write):\s*if\s+request\.auth\s*!=\s*null\s*;/.test(rules));
 
 assert("app generates Bubba Care tokens with the shared secure random helper", app.includes("function ensureCarerTokenForBackup()") && app.includes('const token = "CT" + Array.from({length:20}, () => chars[secureRandomIndex(chars.length)]).join("");'));

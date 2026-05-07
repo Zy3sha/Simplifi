@@ -414,7 +414,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ -n \"${CODESIGNING_FOLDER_PATH}\" ] && [ -d \"${CODESIGNING_FOLDER_PATH}\" ]; then\n  /usr/bin/xattr -cr \"${CODESIGNING_FOLDER_PATH}\" || true\nfi\n";
+			shellScript = "if [ -n \"${CODESIGNING_FOLDER_PATH}\" ] && [ -d \"${CODESIGNING_FOLDER_PATH}\" ]; then\n  /usr/bin/xattr -cr \"${CODESIGNING_FOLDER_PATH}\" || true\n  /usr/bin/find \"${CODESIGNING_FOLDER_PATH}\" -depth -exec /usr/bin/xattr -d com.apple.FinderInfo {} \\; 2>/dev/null || true\n  /usr/bin/find \"${CODESIGNING_FOLDER_PATH}\" -depth -exec /usr/bin/xattr -d com.apple.ResourceFork {} \\; 2>/dev/null || true\n  /usr/bin/find \"${CODESIGNING_FOLDER_PATH}\" -depth -exec /usr/bin/xattr -d com.apple.quarantine {} \\; 2>/dev/null || true\n  /usr/bin/find \"${CODESIGNING_FOLDER_PATH}\" -depth -exec /usr/bin/xattr -d com.apple.fileprovider.fpfs#P {} \\; 2>/dev/null || true\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 		OBXATTR000000000000002 /* Strip extended attributes before signing */ = {
@@ -430,7 +430,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ -n \"${CODESIGNING_FOLDER_PATH}\" ] && [ -d \"${CODESIGNING_FOLDER_PATH}\" ]; then\n  /usr/bin/xattr -cr \"${CODESIGNING_FOLDER_PATH}\" || true\nfi\n";
+			shellScript = "if [ -n \"${CODESIGNING_FOLDER_PATH}\" ] && [ -d \"${CODESIGNING_FOLDER_PATH}\" ]; then\n  /usr/bin/xattr -cr \"${CODESIGNING_FOLDER_PATH}\" || true\n  /usr/bin/find \"${CODESIGNING_FOLDER_PATH}\" -depth -exec /usr/bin/xattr -d com.apple.FinderInfo {} \\; 2>/dev/null || true\n  /usr/bin/find \"${CODESIGNING_FOLDER_PATH}\" -depth -exec /usr/bin/xattr -d com.apple.ResourceFork {} \\; 2>/dev/null || true\n  /usr/bin/find \"${CODESIGNING_FOLDER_PATH}\" -depth -exec /usr/bin/xattr -d com.apple.quarantine {} \\; 2>/dev/null || true\n  /usr/bin/find \"${CODESIGNING_FOLDER_PATH}\" -depth -exec /usr/bin/xattr -d com.apple.fileprovider.fpfs#P {} \\; 2>/dev/null || true\nfi\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */

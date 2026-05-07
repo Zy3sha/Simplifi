@@ -1219,23 +1219,33 @@ exports.cleanupPushLog = onSchedule("every day 03:00", async () => {
   const batch = db.batch();
   old.docs.forEach(doc => batch.delete(doc.ref));
   const hugCutoffMs = Date.now();
-  const expiredHugs = await db.collection("bubba_hugs")
-    .where("expiresAtMs", "<", hugCutoffMs)
-    .limit(200)
-    .get();
-  expiredHugs.docs.forEach(doc => batch.delete(doc.ref));
-  if (old.docs.length > 0 || expiredHugs.docs.length > 0) await batch.commit();
-});
+	  const expiredHugs = await db.collection("bubba_hugs")
+	    .where("expiresAtMs", "<", hugCutoffMs)
+	    .limit(200)
+	    .get();
+	  expiredHugs.docs.forEach(doc => batch.delete(doc.ref));
+	  const expiredPresence = await db.collection("bubba_presence")
+	    .where("expiresAtMs", "<", hugCutoffMs)
+	    .limit(200)
+	    .get();
+	  expiredPresence.docs.forEach(doc => batch.delete(doc.ref));
+	  if (old.docs.length > 0 || expiredHugs.docs.length > 0 || expiredPresence.docs.length > 0) await batch.commit();
+	});
 
-// ── Cleanup: purge expired anonymous Bubba Hugs ─────────────────
+// ── Cleanup: purge expired anonymous Bubba Hugs and clock presence ─────────────────
 exports.cleanupBubbaHugs = onSchedule("every 1 hours", async () => {
   const cutoffMs = Date.now();
   const old = await db.collection("bubba_hugs")
     .where("expiresAtMs", "<", cutoffMs)
     .limit(200)
     .get();
+  const oldPresence = await db.collection("bubba_presence")
+    .where("expiresAtMs", "<", cutoffMs)
+    .limit(200)
+    .get();
 
   const batch = db.batch();
   old.docs.forEach(doc => batch.delete(doc.ref));
-  if (old.docs.length > 0) await batch.commit();
+  oldPresence.docs.forEach(doc => batch.delete(doc.ref));
+  if (old.docs.length > 0 || oldPresence.docs.length > 0) await batch.commit();
 });

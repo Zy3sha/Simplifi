@@ -39358,6 +39358,7 @@ function App(){
 		  const simpleStartLegacyAllowed = dashboardMode !== "full" && !simpleStartDismissed && (simpleStartLogCount < 8 || simpleStartPartnerMode || simpleStartForced);
 		  const simpleStartActive = !!(tab==="day" && !daySubScreen && selDay===todayStr() && (simpleStartModePinned || simpleStartLegacyAllowed));
 		  const isTrackDailySurface = !daySubScreen || daySubScreen==="today" || daySubScreen==="log" || daySubScreen==="plan";
+		  const clockHomeLabEnabled = (()=>{try{const p=new URLSearchParams(window.location.search||"");return p.get("clockHome")==="1" || localStorage.getItem("ob_clock_home_lab")==="1";}catch{return false;}})();
   const activationStats = React.useMemo(()=>{
     void forceRender;
     const childKey = safeStorageToken(resolvedActiveId || "default", "default", 32);
@@ -39442,6 +39443,9 @@ function App(){
   }, [activationStats.totalLogs, activationStats.loggedDays, activationStats.shouldShow, activationStats.childKey, simpleStartActive, tab, daySubScreen, selDay, showReviewPrompt]);
   const[simplePressedAction,setSimplePressedAction]=useState("");
   const simplePressedTimerRef = React.useRef(null);
+  const[clockLabTip,setClockLabTip]=useState(null);
+  const[clockLabPanel,setClockLabPanel]=useState("logs");
+  const clockLabLongPressRef = React.useRef({timer:null,fired:false});
   function setTrackModePreference(mode, opts = {}) {
     const next = mode === "full" ? "full" : "simple";
     try {
@@ -39925,6 +39929,306 @@ function App(){
           <button type="button" className="is-secondary" onClick={()=>{haptic();clearRecentStoppedNap();showToast("Okay. nap saved as awake.",1500,1);}}>All awake</button>
         </div>
       </section>
+    );
+  }
+
+  function clockLabArmLongPress(longAction) {
+    const ref = clockLabLongPressRef.current || {};
+    clearTimeout(ref.timer);
+    clockLabLongPressRef.current = {
+      fired:false,
+      timer:setTimeout(()=>{
+        clockLabLongPressRef.current.fired = true;
+        haptic(25);
+        try{longAction && longAction();}catch{}
+      }, 560)
+    };
+  }
+  function clockLabClearLongPress() {
+    const ref = clockLabLongPressRef.current || {};
+    clearTimeout(ref.timer);
+  }
+  function clockLabConsumeLongPressClick() {
+    const ref = clockLabLongPressRef.current || {};
+    if (ref.fired) {
+      clockLabLongPressRef.current.fired = false;
+      return true;
+    }
+    return false;
+  }
+
+  function renderClockHomeLab() {
+    const name = babyName || "Baby";
+    const dayKey = selDay || todayStr();
+    const entriesForDay = (days[dayKey] || []).filter(e => e && e.type && !e._deleted);
+    const now = new Date();
+    const nowMins = now.getHours() * 60 + now.getMinutes();
+    const activeBedTimerDay = (()=>{try{return bedTimerDay || localStorage.getItem("bed_timer_day") || "";}catch{return bedTimerDay || "";}})();
+    const td = tickDataRef.current || {};
+    const nextEvent = td.nextEvent || null;
+    const nextMins = typeof nextEvent?.timeMins === "number" ? nextEvent.timeMins : clockMins(nextEvent?.timeStr || "");
+    const nextDue = !!(nextEvent && nextEvent.type === "nap" && (nextEvent.overdue || (nextMins !== null && nowMins >= nextMins)));
+    const nextCountdown = nextEvent && nextMins !== null ? Math.max(0, nextMins - nowMins) : null;
+    const activeTimer = napOn || breastActive || !!activeBedTimerDay;
+    const bedTimerStart = (()=>{try{return localStorage.getItem("bed_timer_start") || "";}catch{return "";}})();
+    const clockCenterTitle = napOn ? (napPaused ? "Nap paused" : "Nap timer") : breastActive ? "Feed timer" : activeBedTimerDay ? "Night sleep" : nextDue ? "Nap now" : name + "'s rhythm today";
+    const clockCenterSub = napOn ? fmtSec(napSec) : breastActive ? "feeding now" : activeBedTimerDay ? "sleeping" + (bedTimerStart ? " since " + bedTimerStart : "") : nextDue ? "Tap to start the timer" : "Sleep, feeds and wakes at a glance.";
+    const timerHandMins = (() => {
+      if (napOn) return Math.max(0, Math.floor((napSec || 0) / 60));
+      if (breastActive) return Math.max(0, Math.floor(((breastSec?.L || 0) + (breastSec?.R || 0)) / 60));
+      if (activeBedTimerDay && bedTimerStart) return Math.max(0, minDiff(bedTimerStart, nowTime()));
+      if (nextCountdown !== null) return nextCountdown;
+      return null;
+    })();
+    const eventMeta = {
+      feed:{label:"Feed",color:"#78B9D7",icon:"feed"},
+      poop:{label:"Nappy",color:"#70B79A",icon:"nappy"},
+      nap:{label:"Nap",color:"#D6B65F",icon:"nap"},
+      wake:{label:"Wake",color:"#E89A7E",icon:"sun"},
+      sleep:{label:"Bedtime",color:"#8D78C9",icon:"moon"},
+      medicine:{label:"Medicine",color:"#C07088",icon:"wellbeing"},
+      tummy:{label:"Tummy",color:"#9BB8A8",icon:"sparkle"}
+    };
+    const entryStartMins = (entry) => {
+      const raw = entry && (entry.time || entry.start || "");
+      const mins = clockMins(raw);
+      return mins === null ? null : mins;
+    };
+    const entryEndMins = (entry, start) => {
+      if (entry && entry.type === "nap" && entry.start && entry.end && entry.end !== entry.start) {
+        const end = clockMins(entry.end);
+        if (end !== null) return end <= start ? end + 1440 : end;
+      }
+      if (entry && entry.type === "sleep") return start + 42;
+      return start + 26;
+    };
+    const entryLabelLab = (entry) => {
+      if (!entry) return "Log";
+      if (entry.type === "feed") return (entry.feedType === "breast" ? "Breast feed" : entry.feedType === "solids" ? "Solids" : "Feed") + (entry.amount ? " · " + entry.amount + "ml" : "");
+      if (entry.type === "poop") return "Nappy" + (entry.poopType ? " · " + entry.poopType : "");
+      if (entry.type === "nap") return "Nap" + (entry.start && entry.end && entry.start !== entry.end ? " · " + hm(minDiff(entry.start, entry.end)) : "");
+      if (entry.type === "sleep") return "Bedtime";
+      if (entry.type === "wake") return entry.night ? "Night wake" : "Wake";
+      return eventMeta[entry.type]?.label || String(entry.type || "Log");
+    };
+    const polar = (cx, cy, r, angle) => {
+      const rad = (angle - 90) * Math.PI / 180;
+      return {x:cx + r * Math.cos(rad), y:cy + r * Math.sin(rad)};
+    };
+    const arcPath = (startMins, endMins, radius) => {
+      const startAngle = (startMins % 1440) / 1440 * 360;
+      const endAngle = (endMins % 1440) / 1440 * 360;
+      const span = Math.max(5, endMins - startMins);
+      const s = polar(120,120,radius,startAngle);
+      const e = polar(120,120,radius,endAngle);
+      const large = span > 720 ? 1 : 0;
+      return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${radius} ${radius} 0 ${large} 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)}`;
+    };
+    const clockHandMode = activeTimer ? "timer" : timerHandMins !== null ? "countdown" : "now";
+    const hourHandAngle = timerHandMins !== null ? ((timerHandMins % 720) / 720) * 360 : (((now.getHours() % 12) * 60 + now.getMinutes()) / 720) * 360;
+    const minuteHandAngle = timerHandMins !== null ? ((timerHandMins % 60) / 60) * 360 : (now.getMinutes() / 60) * 360;
+    const hourHandEnd = polar(120,120,44,hourHandAngle);
+    const minuteHandEnd = polar(120,120,68,minuteHandAngle);
+    const clockEvents = entriesForDay
+      .filter(e => ["feed","poop","nap","wake","sleep","medicine","tummy"].includes(e.type))
+      .map((entry, index) => {
+        const start = entryStartMins(entry);
+        if (start === null) return null;
+        const bucket = Math.round(start / 5) * 5;
+        return {entry,index,start,bucket,end:entryEndMins(entry,start)};
+      })
+      .filter(Boolean)
+      .sort((a,b)=>a.start-b.start || a.index-b.index);
+    const bucketCounts = {};
+    clockEvents.forEach(item => {
+      bucketCounts[item.bucket] = bucketCounts[item.bucket] || 0;
+      item.lane = bucketCounts[item.bucket]++;
+    });
+    const recentRows = [...clockEvents].sort((a,b)=>b.start-a.start).slice(0,5);
+    const predictionItem = nextEvent && nextMins !== null && !activeTimer ? (() => {
+      const kind = nextEvent.type === "bed" ? "sleep" : (nextEvent.type || "nap");
+      const meta = eventMeta[kind] || eventMeta.nap;
+      const rawLabel = String(nextEvent.label || nextEvent.text || (kind === "sleep" ? "bedtime" : kind) || "next").replace(/\s+in\s+\d.*$/i, "").trim();
+      const friendly = rawLabel ? rawLabel[0].toLowerCase() + rawLabel.slice(1) : "next";
+      const label = nextDue ? "Nap now" : (/^predicted/i.test(rawLabel) ? rawLabel : "Predicted " + friendly);
+      const span = kind === "nap" ? 62 : kind === "sleep" ? 46 : 34;
+      const mid = polar(120, 120, 107, ((nextMins + span / 2) % 1440) / 1440 * 360);
+      return { kind, meta, label, span, mid, start:nextMins, end:nextMins + span };
+    })() : null;
+    const clockLabels = [
+      {mins:0,top:"12",bottom:"AM"},
+      {mins:180,top:"3",bottom:"AM"},
+      {mins:360,top:"6",bottom:"AM"},
+      {mins:540,top:"9",bottom:"AM"},
+      {mins:720,top:"12",bottom:"PM"},
+      {mins:900,top:"3",bottom:"PM"},
+      {mins:1080,top:"6",bottom:"PM"},
+      {mins:1260,top:"9",bottom:"PM"}
+    ];
+    const legendItems = [
+      {label:"Sleep", color:eventMeta.sleep.color},
+      {label:"Feed", color:eventMeta.feed.color},
+      {label:"Awake", color:"#D8A076"},
+      {label:"Nappy", color:eventMeta.poop.color},
+      {label:"Wake", color:eventMeta.wake.color}
+    ];
+    const nextCardIcon = nextEvent?.type === "bed" ? "moon" : nextEvent?.type === "nap" ? "nap" : "timer";
+    const nextCardTitle = nextDue ? "Nap now" : nextEvent ? (nextEvent.type === "bed" ? "Bedtime" : (nextEvent.label || nextEvent.type || "Next")) : "";
+    const nextCardValue = nextDue ? "Start" : nextEvent ? (nextEvent.timeStr || (nextCountdown !== null ? hm(nextCountdown) : "")) : "";
+    const labAction = (id, icon, label, action, longAction, accent) => (
+      <button key={id} type="button" className="ob-clock-log-btn" style={{"--ob-clock-accent":accent}} onPointerDown={()=>clockLabArmLongPress(longAction)} onPointerUp={clockLabClearLongPress} onPointerCancel={clockLabClearLongPress} onPointerLeave={clockLabClearLongPress} onClick={(e)=>{if(clockLabConsumeLongPressClick()) return; haptic(); action();}}>
+        <BubbaIcon name={icon} size={25}/>
+        <span>{label}</span>
+        <em>Tap to log · hold for details</em>
+      </button>
+    );
+    const clockTap = () => {
+      haptic();
+      if (napOn) { napPaused ? resumeNap() : pauseNap(); return; }
+      if (breastActive) { openLogPanel("feed"); return; }
+      if (nextDue) { startNap(); return; }
+      if (nextEvent && nextEvent.type === "nap") { showToast("Nap window is coming. tap again when it says Nap now.",2400,1); return; }
+      showToast("Tap a log below, or hold for details.",1900,1);
+    };
+    const openClockPanel = (panel) => {
+      haptic();
+      setClockLabPanel(panel);
+    };
+    const panelNode = clockLabPanel === "plan" ? (
+      <section className="ob-clock-panel">
+        <div className="ob-clock-panel-title">Plan</div>
+        <p>{nextEvent ? (nextEvent.text || (nextEvent.label || "Next event") + (nextEvent.timeStr ? " · " + nextEvent.timeStr : "")) : "No next event yet. OBubba will shape the plan once wake, feeds and sleep are logged."}</p>
+        <button type="button" onClick={openTrackScheduleBuilder}>Open Schedule Builder</button>
+      </section>
+    ) : clockLabPanel === "guidance" ? (
+      <section className="ob-clock-panel">
+        <div className="ob-clock-panel-title">Guidance</div>
+        <p>{recentRows.length ? "The clock shows what happened, then OBubba turns it into the next gentle step." : "Start with one honest log. The day does not need to be perfectly tracked to be useful."}</p>
+        <button type="button" onClick={()=>{setInsightFilter("sleep");setTab("insights");}}>Open Understand</button>
+      </section>
+    ) : (
+      <section className="ob-clock-panel">
+        <div className="ob-clock-panel-title">Logs</div>
+        {recentRows.length ? recentRows.map(item => (
+          <button type="button" key={(item.entry.id||item.index)+"clock-row"} className="ob-clock-row" onClick={()=>setClockLabTip(item)}>
+            <span style={{background:eventMeta[item.entry.type]?.color || "#C07088"}}/>
+            <b>{entryLabelLab(item.entry)}</b>
+            <em>{fmt12(item.entry.time || item.entry.start)}</em>
+          </button>
+        )) : <p>No logs yet today. Tap Feed, Nappy, Nap or Wake below.</p>}
+      </section>
+    );
+    return (
+      <div data-testid="clock-home-lab" className={"ob-clock-lab"+(activeTimer?" is-timing":"")}>
+        <section className="ob-clock-rhythm-card">
+          <div className="ob-clock-lab-top">
+            <div>
+              <div className="ob-clock-kicker">Rhythm</div>
+              <h2>{name}'s day</h2>
+              <p>A 24-hour look at sleep, feeds, wakes and more.</p>
+            </div>
+            {nextEvent && (
+              <button type="button" className={"ob-clock-next-pill"+(nextDue?" is-now":"")} onClick={clockTap}>
+                <BubbaIcon name={nextCardIcon} size={30}/>
+                <span>{nextCardTitle}</span>
+                <strong>{nextCardValue}</strong>
+              </button>
+            )}
+          </div>
+          <section className="ob-clock-stage" aria-label="Clock timeline">
+          <svg viewBox="0 0 240 240" className="ob-clock-svg" role="img" aria-label="Today clock with coloured logs">
+            <defs>
+              <radialGradient id="obClockFaceGlow" cx="50%" cy="42%" r="62%">
+                <stop offset="0%" stopColor="#fffaf2" stopOpacity="0.98"/>
+                <stop offset="58%" stopColor="#f7eee6" stopOpacity="0.78"/>
+                <stop offset="100%" stopColor="#e9f4f6" stopOpacity="0.58"/>
+              </radialGradient>
+            </defs>
+            <circle cx="120" cy="120" r="111" className="ob-clock-halo"/>
+            <circle cx="120" cy="120" r="96" className="ob-clock-face"/>
+            {Array.from({length:48}).map((_,i)=>{
+              const p1=polar(120,120,i%6===0?86:90,i/48*360);
+              const p2=polar(120,120,93,i/48*360);
+              return <line key={"minor-"+i} x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} className={"ob-clock-minute-tick"+(i%6===0?" is-major":"")}/>;
+            })}
+            {clockLabels.map(label=>{
+              const p1=polar(120,120,82,label.mins/1440*360);
+              const p2=polar(120,120,94,label.mins/1440*360);
+              const pt=polar(120,120,70,label.mins/1440*360);
+              return <g key={label.mins}><line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} className="ob-clock-tick"/><text x={pt.x} y={pt.y-2} className="ob-clock-num"><tspan x={pt.x} dy="0">{label.top}</tspan><tspan x={pt.x} dy="10">{label.bottom}</tspan></text></g>;
+            })}
+            <g className={"ob-clock-hands is-"+clockHandMode}>
+              <title>{clockHandMode === "now" ? "Current time hands" : clockHandMode === "timer" ? "Timer hour and minute hands" : "Countdown hour and minute hands"}</title>
+              <line x1="120" y1="120" x2={hourHandEnd.x} y2={hourHandEnd.y} className="ob-clock-hand-hour"/>
+              <line x1="120" y1="120" x2={minuteHandEnd.x} y2={minuteHandEnd.y} className="ob-clock-hand-minute"/>
+              <circle cx="120" cy="120" r="4.8" className="ob-clock-hand-pivot"/>
+            </g>
+            {predictionItem && (
+              <g className="ob-clock-prediction-svg" onClick={clockTap}>
+                <path d={arcPath(predictionItem.start,predictionItem.end,106)} className="ob-clock-prediction-arc" stroke={predictionItem.meta.color}/>
+                <circle cx={predictionItem.mid.x} cy={predictionItem.mid.y} r="6.4" className="ob-clock-prediction-dot" fill={predictionItem.meta.color}/>
+              </g>
+            )}
+            {clockEvents.map(item => {
+              const meta = eventMeta[item.entry.type] || eventMeta.tummy;
+              const radius = 93 - Math.min(item.lane, 2) * 15;
+              return (
+                <path key={(item.entry.id || item.index)+"clock-arc"} d={arcPath(item.start,item.end,radius)} className="ob-clock-event-arc" stroke={meta.color} tabIndex="0" onMouseEnter={()=>setClockLabTip(item)} onFocus={()=>setClockLabTip(item)} onClick={()=>setClockLabTip(item)}>
+                  <title>{entryLabelLab(item.entry)} · {fmt12(item.entry.time || item.entry.start)}</title>
+                </path>
+              );
+            })}
+            {activeTimer && <circle cx="120" cy="120" r="58" className="ob-clock-active-ring"/>}
+          </svg>
+          <button type="button" className="ob-clock-center" onClick={clockTap}>
+            <div className={"ob-clock-mini-hands is-"+clockHandMode} style={{"--ob-hour-angle":hourHandAngle+"deg","--ob-minute-angle":minuteHandAngle+"deg"}} aria-hidden="true">
+              <i className="is-hour"/>
+              <i className="is-minute"/>
+              <i className="is-pivot"/>
+            </div>
+            <span>{clockCenterTitle}</span>
+            <strong>{clockCenterSub}</strong>
+          </button>
+          {clockLabTip && (
+            <div className="ob-clock-tip" role="status">
+              <span style={{background:eventMeta[clockLabTip.entry.type]?.color || "#C07088"}}/>
+              <b>{entryLabelLab(clockLabTip.entry)}</b>
+              <em>{fmt12(clockLabTip.entry.time || clockLabTip.entry.start)}</em>
+            </div>
+          )}
+          {predictionItem && !clockLabTip && (
+            <button type="button" className="ob-clock-prediction-chip" style={{"--ob-clock-predict":predictionItem.meta.color}} onClick={clockTap}>
+              <span/>
+              <b>{predictionItem.label}</b>
+              <em>{nextEvent.timeStr || fmt12(nextEvent.time || "") || (nextCountdown !== null ? hm(nextCountdown) : "")}</em>
+            </button>
+          )}
+          </section>
+          <div className="ob-clock-legend" aria-label="Clock colour legend">
+            {legendItems.map(item => (
+              <span key={item.label}><i style={{background:item.color}}/>{item.label}</span>
+            ))}
+          </div>
+        </section>
+        {napOn && (
+          <section className="ob-clock-timer-controls">
+            <button type="button" onClick={()=>{haptic();napPaused?resumeNap():pauseNap();}}>{napPaused?"Start":"Pause"}</button>
+            <button type="button" onClick={()=>{haptic();setShowNapStartEdit(true);}}>Edit</button>
+            <button type="button" className="is-soft" onClick={()=>{showConfirm("Cancel timer?", "Cancel this nap attempt without saving any nap minutes?", ()=>{cancelNap();setConfirmDialog(null);}, "Cancel timer");}}>Cancel</button>
+            <button type="button" className="is-primary" onClick={()=>{haptic();endNap();}}>End nap</button>
+          </section>
+        )}
+        <section className="ob-clock-actions" data-testid="clock-home-log-buttons">
+          {labAction("feed","feed","Feed",()=>simpleQuick("feed"),()=>openLogPanel("feed"),"#78B9D7")}
+          {labAction("nappy","nappy","Nappy",()=>simpleQuick("nappy"),()=>openLogPanel("nappy"),"#70B79A")}
+          {labAction("sleep",napOn?"timer":"nap",napOn?"End nap":"Nap",()=>simpleQuick("sleep"),()=>{if(napOn)setShowNapStartEdit(true);else{setShowNapStartPicker(true);setNapCustomStart(nowTime());}},"#D6B65F")}
+          {labAction("wake","sun",activeBedTimerDay?"Wake":"Wake",()=>simpleQuick("wake"),()=>openLogPanel("wake"),"#E89A7E")}
+        </section>
+        <nav className="ob-clock-tabs" aria-label="Clock home sections">
+          {["logs","plan","guidance"].map(panel => <button key={panel} type="button" className={clockLabPanel===panel?"is-active":""} onClick={()=>openClockPanel(panel)}>{panel[0].toUpperCase()+panel.slice(1)}</button>)}
+        </nav>
+        {panelNode}
+      </div>
     );
   }
 
@@ -42165,6 +42469,8 @@ function App(){
                 Open today
               </button>
             </div>
+          ):clockHomeLabEnabled && !daySubScreen?(
+            renderClockHomeLab()
           ):simpleStartActive?(
             renderSimpleStartHome()
           ):(

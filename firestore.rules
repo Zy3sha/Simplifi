@@ -680,6 +680,37 @@ service cloud.firestore {
       allow delete: if signedIn() && request.auth.uid == uid;
     }
 
+    // ── Bubba Presence ──
+    // Anonymous clock presence for worldwide "awake with you" stars/flowers.
+    // No names, location, baby data, profile, text, or contact details.
+    match /bubba_presence/{presenceId} {
+      allow get: if signedIn();
+      allow list: if signedIn() && request.query.limit <= 40;
+      allow create, update: if signedIn()
+        && presenceId == request.auth.uid
+        && request.resource.data.keys().hasAll([
+          'fromId', 'app', 'localMode', 'minuteBucket',
+          'lastSeenMs', 'lastSeenClient', 'expiresAtMs'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'fromId', 'app', 'localMode', 'minuteBucket',
+          'lastSeenMs', 'lastSeenClient', 'expiresAtMs'
+        ])
+        && request.resource.data.fromId == request.auth.uid
+        && request.resource.data.app == 'obubba'
+        && request.resource.data.localMode in ['day', 'night']
+        && request.resource.data.minuteBucket is int
+        && request.resource.data.minuteBucket >= 0
+        && request.resource.data.lastSeenMs is int
+        && request.resource.data.lastSeenClient is string
+        && request.resource.data.expiresAtMs is int
+        && request.resource.data.lastSeenMs >= request.time.toMillis() - 2 * 60 * 1000
+        && request.resource.data.lastSeenMs <= request.time.toMillis() + 2 * 60 * 1000
+        && request.resource.data.expiresAtMs > request.resource.data.lastSeenMs
+        && request.resource.data.expiresAtMs <= request.resource.data.lastSeenMs + 30 * 60 * 1000;
+      allow delete: if signedIn() && presenceId == request.auth.uid;
+    }
+
     // ── Bubba Hugs ──
     // Anonymous, preset-only support pings. No names, location, text, baby data,
     // usernames, or contact details should ever be stored here.
@@ -691,21 +722,26 @@ service cloud.firestore {
           'fromId', 'context', 'messageKey', 'createdAtMs',
           'createdAtClient', 'expiresAtMs', 'app'
         ])
-        && request.resource.data.keys().hasOnly([
-          'fromId', 'context', 'messageKey', 'createdAtMs',
-          'createdAtClient', 'expiresAtMs', 'app'
-        ])
-        && request.resource.data.fromId == request.auth.uid
-        && request.resource.data.context in ['parent_room', 'night_wake', 'bedtime', 'nap_refused', 'rough_day', 'general']
-        && request.resource.data.messageKey in ['not_alone', 'keep_going', 'one_breath', 'tiny_step']
-        && request.resource.data.createdAtMs is int
-        && request.resource.data.createdAtClient is string
-        && request.resource.data.expiresAtMs is int
+	        && request.resource.data.keys().hasOnly([
+	          'fromId', 'context', 'messageKey', 'createdAtMs',
+	          'createdAtClient', 'expiresAtMs', 'app',
+	          'minuteBucket', 'presenceWindowMin', 'source', 'localMode'
+	        ])
+	        && request.resource.data.fromId == request.auth.uid
+	        && request.resource.data.context in ['parent_room', 'night_wake', 'bedtime', 'nap_refused', 'rough_day', 'general', 'clock_home', 'clock_presence']
+	        && request.resource.data.messageKey in ['not_alone', 'keep_going', 'one_breath', 'tiny_step']
+	        && request.resource.data.createdAtMs is int
+	        && request.resource.data.createdAtClient is string
+	        && request.resource.data.expiresAtMs is int
         && request.resource.data.createdAtMs >= request.time.toMillis() - 2 * 60 * 1000
-        && request.resource.data.createdAtMs <= request.time.toMillis() + 2 * 60 * 1000
-        && request.resource.data.expiresAtMs > request.resource.data.createdAtMs
-        && request.resource.data.expiresAtMs <= request.resource.data.createdAtMs + 10 * 60 * 1000
-        && request.resource.data.app == 'obubba';
+	        && request.resource.data.createdAtMs <= request.time.toMillis() + 2 * 60 * 1000
+	        && request.resource.data.expiresAtMs > request.resource.data.createdAtMs
+	        && request.resource.data.expiresAtMs <= request.resource.data.createdAtMs + 10 * 60 * 1000
+	        && request.resource.data.app == 'obubba'
+	        && (!('minuteBucket' in request.resource.data) || (request.resource.data.minuteBucket is int && request.resource.data.minuteBucket >= 0))
+	        && (!('presenceWindowMin' in request.resource.data) || (request.resource.data.presenceWindowMin is int && request.resource.data.presenceWindowMin >= 1 && request.resource.data.presenceWindowMin <= 30))
+	        && (!('source' in request.resource.data) || request.resource.data.source in ['clock_presence'])
+	        && (!('localMode' in request.resource.data) || request.resource.data.localMode in ['day', 'night']);
       allow update: if signedIn()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'claimedBy', 'claimedAtMs', 'claimedAtClient'
