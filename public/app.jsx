@@ -7187,7 +7187,7 @@ const TOG_GUIDE = [
   {temp:"21–23°C",range:[21,23],tog:"1.0",clothing:"Long-sleeve bodysuit",emoji:"🌤️",color:"#7BA68C"},
   {temp:"18–20°C",range:[18,20],tog:"2.5",clothing:"Long-sleeve bodysuit + sleepsuit",emoji:"🌙",color:"#7B68EE"},
   {temp:"16–17°C",range:[16,17],tog:"2.5–3.5",clothing:"Long-sleeve bodysuit + sleepsuit",emoji:"❄️",color:"#7AABC4"},
-  {temp:"Under 16°C",range:[0,16],tog:"3.5+",clothing:"Warm the room or add a safe sleepwear layer",emoji:"🧊",color:"#A898AC"},
+  {temp:"Under 16°C",range:[0,16],tog:"3.5+",clothing:"Warm the room or add a safe sleepwear layer",emoji:"🧊",color:"#8A7888"},
 ];
 const TOG_SAFETY = [
   "Room temperature 16-20°C is commonly used as a safe sleep range (" + _guide.sleepSource + ")",
@@ -7217,7 +7217,7 @@ function getC(){
   return{
     ter:v('--ter')||"#C07088",
     mid:v('--text-mid')||"#7A6B7E",
-    lt:v('--text-lt')||"#A898AC",
+    lt:v('--text-lt')||"#8A7888",
     blush:v('--blush')||"#F0D0C8",
     rose:v('--rose')||"#E8B4C0",
     cream:v('--cream')||"#FFF8F2",
@@ -7895,7 +7895,7 @@ function TimeInput({label, value, onChange, previousMinutes=null, nightOnly=fals
       {label&&<label style={{fontSize:15,fontFamily:_fM,color:C.mid,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>{label}</label>}
       <button onClick={openPicker} type="button"
         style={{width:"100%",padding:"9px 12px",borderRadius:12,border:`1.5px solid ${borderColor}`,background:bgColor,fontSize:15,fontFamily:_fI,textAlign:"left",cursor:_cP,display:"flex",alignItems:"center",justifyContent:"space-between",boxSizing:_bBB,...inputStyle}}>
-        <span style={{color:parsed?C.deep:"#c8beb8"}}>{parsed ? fmt12(parsed) : fmt12(nowTime())}</span>
+        <span style={{color:parsed?C.deep:"#8A7A74"}}>{parsed ? fmt12(parsed) : fmt12(nowTime())}</span>
         <span style={{fontSize:14,opacity:0.5}}>🕐</span>
       </button>
 
@@ -9130,7 +9130,7 @@ class ErrorBoundary extends React.Component {
         ),
         React.createElement("div",{className:"ob-brand-display",style:{fontSize:26,color:"var(--text-deep, #5B4F5F)",lineHeight:1.25,marginBottom:10}},"Uh oh!"),
         React.createElement("div",{style:{fontSize:15,color:"var(--text-mid, #7A6B7E)",lineHeight:1.65,maxWidth:300,marginBottom:6}},"Looks like OBubba fell asleep..."),
-        React.createElement("div",{style:{fontSize:14,color:"var(--text-lt, #A898AC)",lineHeight:1.5,maxWidth:280,marginBottom:28}},"Hold tight. we'll be back from our nap ASAP. Your data is safe."),
+        React.createElement("div",{style:{fontSize:14,color:"var(--text-lt, #8A7888)",lineHeight:1.5,maxWidth:280,marginBottom:28}},"Hold tight. we'll be back from our nap ASAP. Your data is safe."),
         React.createElement("button",{onClick:()=>window.location.reload(),style:{padding:"14px 36px",borderRadius:99,border:"none",background:"rgba(192,112,136,0.55)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 0 24px rgba(246,221,227,0.40), 0 0 48px rgba(217,207,243,0.25), 0 4px 16px rgba(192,112,136,0.20)",animation:"floatUp 3s ease-in-out infinite",letterSpacing:"0.01em"}},"Wake Up & Refresh"),
         React.createElement("div",{style:{fontSize:10,color:"var(--text-lt, #C8B8C0)",marginTop:24,fontFamily:"monospace",maxWidth:300,wordBreak:"break-all"}},String(this.state.error||""))
       );
@@ -36731,8 +36731,8 @@ function App(){
     sections.push(`<div style="text-align:center;margin-bottom:24px">
       <div style="font-size:40px;margin-bottom:8px">👶</div>
       <h1 style="font-family:Georgia,serif;font-size:28px;color:#5B4F5F;margin:0">${nameHtml}'s Bubba Care</h1>
-      ${ageStr ? `<p style="color:#A898AC;margin:4px 0">${ageHtml} old</p>` : ""}
-      <p style="color:#ccc;font-size:12px;margin:2px 0">Generated ${new Date().toLocaleDateString(navigator.language||"en-GB", { weekday: "short", day: "numeric", month: "short" })} at ${fmt12(nowTime())}</p>
+      ${ageStr ? `<p style="color:#8A7888;margin:4px 0">${ageHtml} old</p>` : ""}
+      <p style="color:#999;font-size:12px;margin:2px 0">Generated ${new Date().toLocaleDateString(navigator.language||"en-GB", { weekday: "short", day: "numeric", month: "short" })} at ${fmt12(nowTime())}</p>
     </div>`);
 
     // IMPORTANT NOTES (allergies, medical)
@@ -36747,41 +36747,41 @@ function App(){
     sections.push(`<div style="background:#FFF8F2;border:1px solid #F0D0C8;border-radius:16px;padding:16px;margin-bottom:12px">
       <h2 style="color:#C07088;font-size:16px;margin:0 0 10px">🍼 Feeding</h2>
       <table style="width:100%;font-size:14px;color:#5B4F5F">
-        <tr><td style="padding:4px 0;color:#A898AC">Type</td><td style="padding:4px 0;font-weight:600">${htmlEscape(feedTypeLabel)}</td></tr>
-        ${avgAmount > 0 ? `<tr><td style="padding:4px 0;color:#A898AC">Typical amount</td><td style="padding:4px 0;font-weight:600">~${htmlEscape(fmtVol(avgAmount, FU))} per feed</td></tr>` : ""}
-        ${avgFeeds > 0 ? `<tr><td style="padding:4px 0;color:#A898AC">Typical frequency</td><td style="padding:4px 0;font-weight:600">~${avgFeeds} feeds/day</td></tr>` : ""}
-        ${lastFeed ? `<tr><td style="padding:4px 0;color:#A898AC">Last feed</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(lastFeed.time))}${lastFeed.amount ? ". " + htmlEscape(fmtVol(lastFeed.amount, FU)) : ""}${lastFeed.feedType === "breast" ? " (breast)" : ""}</td></tr>` : ""}
-        ${nextFeedEst ? `<tr><td style="padding:4px 0;color:#A898AC">Next feed around</td><td style="padding:4px 0;font-weight:600">~${fmt12(nextFeedEst)}</td></tr>` : ""}
+        <tr><td style="padding:4px 0;color:#8A7888">Type</td><td style="padding:4px 0;font-weight:600">${htmlEscape(feedTypeLabel)}</td></tr>
+        ${avgAmount > 0 ? `<tr><td style="padding:4px 0;color:#8A7888">Typical amount</td><td style="padding:4px 0;font-weight:600">~${htmlEscape(fmtVol(avgAmount, FU))} per feed</td></tr>` : ""}
+        ${avgFeeds > 0 ? `<tr><td style="padding:4px 0;color:#8A7888">Typical frequency</td><td style="padding:4px 0;font-weight:600">~${avgFeeds} feeds/day</td></tr>` : ""}
+        ${lastFeed ? `<tr><td style="padding:4px 0;color:#8A7888">Last feed</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(lastFeed.time))}${lastFeed.amount ? ". " + htmlEscape(fmtVol(lastFeed.amount, FU)) : ""}${lastFeed.feedType === "breast" ? " (breast)" : ""}</td></tr>` : ""}
+        ${nextFeedEst ? `<tr><td style="padding:4px 0;color:#8A7888">Next feed around</td><td style="padding:4px 0;font-weight:600">~${fmt12(nextFeedEst)}</td></tr>` : ""}
       </table>
       <p style="font-size:13px;color:#7A6B7E;margin:8px 0 4px;line-height:1.5">💡 <b>Feed every ${age&&age.totalWeeks<8?"2–3":"3–4"} hours</b>. or sooner if ${nameHtml} shows hunger cues (rooting, lip-smacking, hand-to-mouth). Don't worry about exact timing. follow ${nameHtml}'s lead.</p>
-      ${feedTypes.includes("breast") ? `<p style="font-size:12px;color:#A898AC;margin:8px 0 0">If breastfed: ${nameHtml} may feed on demand. Breast milk is stored in the fridge. use within 24 hours.</p>` : ""}
+      ${feedTypes.includes("breast") ? `<p style="font-size:12px;color:#8A7888;margin:8px 0 0">If breastfed: ${nameHtml} may feed on demand. Breast milk is stored in the fridge. use within 24 hours.</p>` : ""}
     </div>`);
 
     // NAPPIES
     sections.push(`<div style="background:#FFF9F0;border:1px solid #F0E0C8;border-radius:16px;padding:16px;margin-bottom:12px">
       <h2 style="color:#B08030;font-size:16px;margin:0 0 10px">💧💩 Nappies</h2>
       <table style="width:100%;font-size:14px;color:#5B4F5F">
-        <tr><td style="padding:4px 0;color:#A898AC">Today's nappies</td><td style="padding:4px 0;font-weight:600">${nappyCount} (${wetCount} wet${poopEntries.length ? ", " + poopEntries.length + " dirty" : ""})</td></tr>
-        ${lastNappy ? `<tr><td style="padding:4px 0;color:#A898AC">Last nappy</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(lastNappy.time))}. ${htmlEscape(lastNappy.poopType||"wet")}</td></tr>` : ""}
-        <tr><td style="padding:4px 0;color:#A898AC">Last poop</td><td style="padding:4px 0;font-weight:600;${poopDaysAgo!==null&&poopDaysAgo>=3?"color:#d4a020":""}">
+        <tr><td style="padding:4px 0;color:#8A7888">Today's nappies</td><td style="padding:4px 0;font-weight:600">${nappyCount} (${wetCount} wet${poopEntries.length ? ", " + poopEntries.length + " dirty" : ""})</td></tr>
+        ${lastNappy ? `<tr><td style="padding:4px 0;color:#8A7888">Last nappy</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(lastNappy.time))}. ${htmlEscape(lastNappy.poopType||"wet")}</td></tr>` : ""}
+        <tr><td style="padding:4px 0;color:#8A7888">Last poop</td><td style="padding:4px 0;font-weight:600;${poopDaysAgo!==null&&poopDaysAgo>=3?"color:#d4a020":""}">
           ${lastPoop ? htmlEscape(fmt12(lastPoop.time)) + " today" : poopDaysAgo !== null ? poopDaysAgo + " day" + (poopDaysAgo===1?"":"s") + " ago" : "Not logged"}
         </td></tr>
-        <tr><td style="padding:4px 0;color:#A898AC">Hydration target</td><td style="padding:4px 0;font-weight:600">${wetCount} wet · ${_ccHydScore}/${_ccHydTarget} hydration score${_ccHydOk?" ✅":""}</td></tr>
+        <tr><td style="padding:4px 0;color:#8A7888">Hydration target</td><td style="padding:4px 0;font-weight:600">${wetCount} wet · ${_ccHydScore}/${_ccHydTarget} hydration score${_ccHydOk?" ✅":""}</td></tr>
       </table>
-      <p style="font-size:12px;color:#A898AC;margin:8px 0 0">Target is age-adjusted (${_ccHydTarget}+ hydration score in 24h). A long overnight nappy counts as 2–3. ${_ccCheckGuidance}</p>
+      <p style="font-size:12px;color:#8A7888;margin:8px 0 0">Target is age-adjusted (${_ccHydTarget}+ hydration score in 24h). A long overnight nappy counts as 2–3. ${_ccCheckGuidance}</p>
     </div>`);
 
     // SLEEP & ROUTINE
     sections.push(`<div style="background:#F0F8F5;border:1px solid #d4ede6;border-radius:16px;padding:16px;margin-bottom:12px">
       <h2 style="color:#6fa898;font-size:16px;margin:0 0 10px">😴 Sleep & Routine</h2>
       <table style="width:100%;font-size:14px;color:#5B4F5F">
-        ${wakeEntry ? `<tr><td style="padding:4px 0;color:#A898AC">Woke up today</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(wakeEntry.time))}</td></tr>` : ""}
-        ${ww ? `<tr><td style="padding:4px 0;color:#A898AC">Wake window</td><td style="padding:4px 0;font-weight:600">${htmlEscape(ww.label)} between sleeps</td></tr>` : ""}
-        ${lastNap ? `<tr><td style="padding:4px 0;color:#A898AC">Last nap</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(lastNap.start))} – ${htmlEscape(fmt12(lastNap.end))} (${htmlEscape(hm(minDiff(lastNap.start, lastNap.end)))})</td></tr>` : ""}
-        ${pred ? `<tr><td style="padding:4px 0;color:#A898AC">Next nap window</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(pred.napStart_min))} – ${htmlEscape(fmt12(pred.napStart_max))}</td></tr>` : ""}
-        ${bed ? `<tr><td style="padding:4px 0;color:#A898AC">${bed.estimated?"Estimated bedtime":"Predicted bedtime"}</td><td style="padding:4px 0;font-weight:600">${bed.estimated?"~":""}${htmlEscape(fmt12(bed.time))}</td></tr>` : ""}
+        ${wakeEntry ? `<tr><td style="padding:4px 0;color:#8A7888">Woke up today</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(wakeEntry.time))}</td></tr>` : ""}
+        ${ww ? `<tr><td style="padding:4px 0;color:#8A7888">Wake window</td><td style="padding:4px 0;font-weight:600">${htmlEscape(ww.label)} between sleeps</td></tr>` : ""}
+        ${lastNap ? `<tr><td style="padding:4px 0;color:#8A7888">Last nap</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(lastNap.start))} – ${htmlEscape(fmt12(lastNap.end))} (${htmlEscape(hm(minDiff(lastNap.start, lastNap.end)))})</td></tr>` : ""}
+        ${pred ? `<tr><td style="padding:4px 0;color:#8A7888">Next nap window</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(pred.napStart_min))} – ${htmlEscape(fmt12(pred.napStart_max))}</td></tr>` : ""}
+        ${bed ? `<tr><td style="padding:4px 0;color:#8A7888">${bed.estimated?"Estimated bedtime":"Predicted bedtime"}</td><td style="padding:4px 0;font-weight:600">${bed.estimated?"~":""}${htmlEscape(fmt12(bed.time))}</td></tr>` : ""}
       </table>
-      <p style="font-size:12px;color:#A898AC;margin:8px 0 0">Watch for tired cues: yawning, rubbing eyes, looking away, fussing. Put ${nameHtml} down when you see these signs. don't wait until they're overtired.</p>
+      <p style="font-size:12px;color:#8A7888;margin:8px 0 0">Watch for tired cues: yawning, rubbing eyes, looking away, fussing. Put ${nameHtml} down when you see these signs. don't wait until they're overtired.</p>
     </div>`);
 
     // SAFE SLEEP. country-aware source label
@@ -36868,11 +36868,11 @@ function App(){
         <b>Non-emergency:</b> ${nonEmergencyLabelHtml}<br>
         <b>If concerned:</b> Contact ${healthContactHtml}
       </div>
-      <p style="font-size:12px;color:#A898AC;margin:8px 0 0">If ${nameHtml} is unresponsive, has difficulty breathing, has a high temperature (${feverTempHtml}+ in under 3 months), a rash that doesn't fade under pressure, or you're worried. please call ${emergNumHtml}.</p>
+      <p style="font-size:12px;color:#8A7888;margin:8px 0 0">If ${nameHtml} is unresponsive, has difficulty breathing, has a high temperature (${feverTempHtml}+ in under 3 months), a rash that doesn't fade under pressure, or you're worried. please call ${emergNumHtml}.</p>
     </div>`);
 
     // Footer
-    sections.push(`<div style="text-align:center;padding:16px 0;color:#ccc;font-size:11px">
+    sections.push(`<div style="text-align:center;padding:16px 0;color:#999;font-size:11px">
       Generated by OBubba · obubba.com<br>
       Safe sleep advice: ${safeSleepSourceHtml}
     </div>`);
@@ -36895,7 +36895,7 @@ function App(){
     sections.push(`<div style="text-align:center;margin:16px 0 8px;padding:16px;background:#f8f4f0;border-radius:16px">
       <div style="font-size:13px;font-weight:700;color:#5B4F5F;margin-bottom:8px">📱 Bubba Care</div>
       <img src="${qrUrlHtml}" alt="QR Code" style="width:150px;height:150px;border-radius:8px;border:2px solid #e8ddd5"/>
-      <div style="font-size:12px;color:#A898AC;margin-top:8px">Scan the QR code or tap the link below</div>
+      <div style="font-size:12px;color:#8A7888;margin-top:8px">Scan the QR code or tap the link below</div>
       <a href="${carerPortalUrlHtml}" style="display:inline-block;margin-top:8px;padding:10px 20px;border-radius:99px;background:linear-gradient(135deg,#C07088,#a85a44);color:white;font-size:14px;font-weight:700;text-decoration:none">Open Bubba Care →</a>
       <div style="font-size:10px;color:#C0A8B0;margin-top:8px">Carers can log feeds, naps & nappies. you'll review them in the app</div>
     </div>`);
@@ -42961,7 +42961,7 @@ function App(){
 	        tone:"routine",
 	        icon:"🌙",
 	        title:"Bedtime not happening?",
-	        body:"Use the old Track bedtime-resistance read: calm reset, short routine, or start the bed timer.",
+	        body:"Choose a calmer bedtime path: reset gently, shorten the routine, or start the sleep timer.",
 	        cta:"choose path",
 	        onClick:openBedtimeResistanceOptions
 	      });
@@ -57371,7 +57371,7 @@ function App(){
                 ? "We're preparing to launch on Google Play."
                 : "We're preparing to launch on the App Store and Google Play."}
             </div>
-            <div style={{fontSize:13,color:"#A898AC",lineHeight:1.6,marginBottom:18}}>
+            <div style={{fontSize:13,color:"#8A7888",lineHeight:1.6,marginBottom:18}}>
               Some features may not work perfectly in the browser as they're designed for the native app. Everything will be fully working once we launch.
             </div>
             <div style={{background:"rgba(192,112,136,0.06)",border:"1px solid rgba(192,112,136,0.15)",borderRadius:16,padding:"14px",marginBottom:18}}>
@@ -57381,7 +57381,7 @@ function App(){
                 Email hello@obubba.com
               </a>
             </div>
-            <button onClick={()=>{setShowBetaBanner(false);try{localStorage.setItem("beta_banner_v1",String(Date.now()));}catch{};}} style={{width:"100%",padding:"12px",borderRadius:99,border:"1px solid #F0D0C8",background:"none",color:"#A898AC",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+            <button onClick={()=>{setShowBetaBanner(false);try{localStorage.setItem("beta_banner_v1",String(Date.now()));}catch{};}} style={{width:"100%",padding:"12px",borderRadius:99,border:"1px solid #F0D0C8",background:"none",color:"#8A7888",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
               Got it. let me explore!
             </button>
           </div>
@@ -65094,7 +65094,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               }} style={{width:"100%",padding:"12px",borderRadius:99,border:`1.5px solid #F0D0C8`,background:"none",color:"#5B4F5F",fontSize:14,fontWeight:600,cursor:_cP,fontFamily:"inherit"}}>
                 👤 Share with profile picture
               </button>
-              <button onClick={()=>setMsSharePrompt(null)} style={{width:"100%",padding:"10px",background:"none",border:"none",color:"#A898AC",fontSize:13,cursor:_cP,fontFamily:"inherit"}}>
+              <button onClick={()=>setMsSharePrompt(null)} style={{width:"100%",padding:"10px",background:"none",border:"none",color:"#8A7888",fontSize:13,cursor:_cP,fontFamily:"inherit"}}>
                 Not now
               </button>
             </div>
