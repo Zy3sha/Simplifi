@@ -40977,7 +40977,8 @@ function App(){
 	      clockMinuteGap(item.start, other.start) <= 18
 	    ));
 	    const clockDayWakeItem = clockEvents.find(item => item.entry.type === "wake" && !item.entry.night);
-	    const clockOrderAnchor = clockDayWakeItem ? clockDayWakeItem.start : 0;
+	    // If no morning wake found, use 5am as anchor so overnight entries (midnight-5am) sort after daytime
+	    const clockOrderAnchor = clockDayWakeItem ? clockDayWakeItem.start : 5 * 60;
 	    const clockOrderMins = (item) => item.start < clockOrderAnchor ? item.start + 1440 : item.start;
 	    const clockLogRows = [...clockEvents].sort((a,b)=>clockOrderMins(a)-clockOrderMins(b) || a.index-b.index);
 	    const recentRows = [...clockLogRows].slice(-5).reverse();
