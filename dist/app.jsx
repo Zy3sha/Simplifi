@@ -47348,13 +47348,13 @@ function App(){
                               <div style={{fontSize:12,color:C.mid,lineHeight:1.7,marginBottom:12}}>
                                 {(r.ingredients||"").split(",").map((ing,j)=><div key={j}>• {ing.trim()}</div>)}
                               </div>
-                              {r.method && (
+                              {r.method && (_weaningStylePref === "puree" || _weaningStylePref === "mixed") && (
                                 <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(139,126,200,0.06)",border:`1px solid rgba(139,126,200,0.15)`,marginBottom:8}}>
                                   <div style={{fontSize:10,fontWeight:700,color:"#8B7EC8",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>🥄 Puree / spoon-fed</div>
                                   <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>{r.method}</div>
                                 </div>
                               )}
-                              {r.blw && (
+                              {r.blw && (_weaningStylePref === "blw" || _weaningStylePref === "mixed") && (
                                 <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(111,168,152,0.06)",border:`1px solid rgba(111,168,152,0.15)`,marginBottom:12}}>
                                   <div style={{fontSize:10,fontWeight:700,color:C.mint,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>👶 Baby-led (BLW)</div>
                                   <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>{r.blw}</div>
@@ -47544,13 +47544,13 @@ function App(){
                               <div style={{fontSize:12,color:C.mid,lineHeight:1.7,marginBottom:12}}>
                                 {(r.ingredients||"").split(",").map((ing,j)=><div key={j}>• {ing.trim()}</div>)}
                               </div>
-                              {r.method && (
+                              {r.method && (_weaningStylePref === "puree" || _weaningStylePref === "mixed") && (
                                 <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(139,126,200,0.06)",border:`1px solid rgba(139,126,200,0.15)`,marginBottom:8}}>
                                   <div style={{fontSize:10,fontWeight:700,color:"#8B7EC8",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>🥄 Puree / spoon-fed</div>
                                   <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>{r.method}</div>
                                 </div>
                               )}
-                              {r.blw && (
+                              {r.blw && (_weaningStylePref === "blw" || _weaningStylePref === "mixed") && (
                                 <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(111,168,152,0.06)",border:`1px solid rgba(111,168,152,0.15)`,marginBottom:12}}>
                                   <div style={{fontSize:10,fontWeight:700,color:C.mint,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>👶 Baby-led (BLW)</div>
                                   <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>{r.blw}</div>
@@ -59916,9 +59916,19 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
 	              setShowWeaningForm(false);
 	              const al = _foodInfo.allergens;
               // Start 2-hour allergen observation timer if new allergen introduced
+              // AND prompt parent to confirm all clear after the observation period
               if (al.length > 0) {
 	                const _newAllergens = al.filter(a => !allergenIntroduced(weaningEvidence||weaning||[], a));
-                if (_newAllergens.length > 0) {
+                if (_newAllergens.length > 0 && weaningForm.reaction !== "allergic") {
+                  // Immediate prompt: remind parent to watch for reactions
+                  setTimeout(() => {
+                    showConfirm(
+                      "🛡️ Allergen watch started",
+                      _foodTrim + " contains " + _newAllergens.join(", ") + ". Watch " + (babyName || "baby") + " for 2 hours for any signs of reaction (rash, swelling, vomiting).\n\nOBubba will remind you to confirm all clear.",
+                      () => { setConfirmDialog(null); },
+                      "Got it"
+                    );
+                  }, 500);
                   try {
                     const _allergenTimer = normaliseAllergenTimerPayload({allergens:_newAllergens, food:_foodTrim, startMs:Date.now()});
                     if (_allergenTimer) localStorage.setItem("ob_allergen_timer", JSON.stringify(_allergenTimer));
