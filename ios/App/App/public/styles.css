@@ -7767,19 +7767,19 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-wake-arc{
   fill:none!important;
-  stroke:#FF3DBB!important;
+  stroke:#00D9FF!important;
   stroke-width:6.4px!important;
   stroke-linecap:round!important;
   opacity:0.96!important;
   cursor:pointer!important;
   vector-effect:non-scaling-stroke!important;
-  filter:drop-shadow(0 0 5px rgba(255,61,187,0.78)) drop-shadow(0 0 15px rgba(255,61,187,0.54)) drop-shadow(0 0 28px rgba(255,61,187,0.22))!important;
+  filter:drop-shadow(0 0 5px rgba(0,217,255,0.82)) drop-shadow(0 0 15px rgba(0,217,255,0.56)) drop-shadow(0 0 28px rgba(0,217,255,0.26))!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-wake-arc:hover,
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-wake-arc:focus-visible{
   stroke-width:7.4px!important;
   opacity:1!important;
-  filter:drop-shadow(0 0 7px rgba(255,61,187,0.92)) drop-shadow(0 0 20px rgba(255,61,187,0.70)) drop-shadow(0 0 36px rgba(255,61,187,0.30))!important;
+  filter:drop-shadow(0 0 7px rgba(0,217,255,0.96)) drop-shadow(0 0 20px rgba(0,217,255,0.72)) drop-shadow(0 0 36px rgba(0,217,255,0.34))!important;
 }
 @media (max-width:370px){
   body[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-strip{
@@ -7825,20 +7825,20 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-wake-arc{
   fill:none!important;
-  stroke:#FF3DBB!important;
+  stroke:#00D9FF!important;
   stroke-width:3.2px!important;
   stroke-linecap:round!important;
   stroke-linejoin:round!important;
   opacity:0.98!important;
   cursor:pointer!important;
   vector-effect:non-scaling-stroke!important;
-  filter:drop-shadow(0 0 5px rgba(255,61,187,0.82)) drop-shadow(0 0 16px rgba(255,61,187,0.44))!important;
+  filter:drop-shadow(0 0 5px rgba(0,217,255,0.86)) drop-shadow(0 0 16px rgba(0,217,255,0.48))!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-wake-arc:hover,
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-wake-arc:focus-visible{
   stroke-width:3.8px!important;
   opacity:1!important;
-  filter:drop-shadow(0 0 6px rgba(255,61,187,0.96)) drop-shadow(0 0 20px rgba(255,61,187,0.58))!important;
+  filter:drop-shadow(0 0 6px rgba(0,217,255,0.98)) drop-shadow(0 0 20px rgba(0,217,255,0.62))!important;
 }
 
 /* Clock lab requested log colour final lock: wake yellow, feed light blue, nappy highlighter yellow-green, solids purple. */
@@ -7927,20 +7927,32 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-wake-window-arc{
 
 /* Clock home lab intelligence pass: warmer copy, outline logs, wake-window arcs, and Track-grade panels. */
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-kindness-note{
-  margin:0 auto -16px!important;
-  padding:0 14px!important;
+  margin:0 auto -12px!important;
+  padding:0 20px!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-kindness-card{
-  padding:10px 16px 11px!important;
+  padding:12px 18px 13px!important;
   text-align:center!important;
+  background:rgba(255,255,255,0.06)!important;
+  border:1px solid rgba(255,255,255,0.08)!important;
+  border-radius:16px!important;
+  backdrop-filter:blur(12px)!important;
+  -webkit-backdrop-filter:blur(12px)!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-kindness-card{
+  background:rgba(90,70,100,0.04)!important;
+  border:1px solid rgba(90,70,100,0.08)!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-kindness-card i{
   display:none!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-kindness-card p{
-  max-width:40ch!important;
+  max-width:38ch!important;
   margin:0 auto!important;
   text-align:center!important;
+  font-size:13.5px!important;
+  line-height:1.55!important;
+  letter-spacing:0.01em!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-wake-window-arc{
   fill:none!important;
@@ -14943,20 +14955,20 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-wake-arc{
   fill:none!important;
-  stroke:#FF3DBB!important;
+  stroke:#00D9FF!important;
   stroke-width:3.2px!important;
   stroke-linecap:round!important;
   stroke-linejoin:round!important;
   opacity:0.98!important;
   cursor:pointer!important;
   vector-effect:non-scaling-stroke!important;
-  filter:drop-shadow(0 0 5px rgba(255,61,187,0.82)) drop-shadow(0 0 16px rgba(255,61,187,0.44))!important;
+  filter:drop-shadow(0 0 5px rgba(0,217,255,0.86)) drop-shadow(0 0 16px rgba(0,217,255,0.48))!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-wake-arc:hover,
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-wake-arc:focus-visible{
   stroke-width:3.8px!important;
   opacity:1!important;
-  filter:drop-shadow(0 0 6px rgba(255,61,187,0.96)) drop-shadow(0 0 20px rgba(255,61,187,0.58))!important;
+  filter:drop-shadow(0 0 6px rgba(0,217,255,0.98)) drop-shadow(0 0 20px rgba(0,217,255,0.62))!important;
 }
 
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc-cut.is-sleep,
@@ -15001,7 +15013,7 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot.is-now{
   stroke-width:2px!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot.is-wake{stroke:#FFD166!important;}
-body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot.is-night-wake{stroke:#FF3DBB!important;}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot.is-night-wake{stroke:#00D9FF!important;}
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot.is-feed{stroke:#9FD7FF!important;}
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot.is-poop{stroke:#C8FF3D!important;}
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot.is-pump,
@@ -15036,17 +15048,17 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-wake-arc{
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc.is-night-wake,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-event-arc.is-night-wake{
   fill:none!important;
-  stroke:#FF3DBB!important;
+  stroke:#00D9FF!important;
   stroke-width:2.4px!important;
   opacity:0.98!important;
-  filter:drop-shadow(0 0 5px rgba(255,61,187,0.74)) drop-shadow(0 0 14px rgba(255,61,187,0.34))!important;
+  filter:drop-shadow(0 0 5px rgba(0,217,255,0.78)) drop-shadow(0 0 14px rgba(0,217,255,0.38))!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc.is-night-wake:hover,
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc.is-night-wake:focus-visible,
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc.is-night-wake.is-now{
   stroke-width:2.9px!important;
   opacity:1!important;
-  filter:drop-shadow(0 0 6px rgba(255,61,187,0.90)) drop-shadow(0 0 18px rgba(255,61,187,0.48))!important;
+  filter:drop-shadow(0 0 6px rgba(0,217,255,0.92)) drop-shadow(0 0 18px rgba(0,217,255,0.54))!important;
 }
 /* Clock lab logs totals final lock: split sleep into night sleep and naps without widening the panel. */
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-total-grid{
@@ -15717,7 +15729,7 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-lab > .ob-clock-kindness-note{
   width:min(100%,540px)!important;
   max-width:540px!important;
-  margin:5px auto 9px!important;
+  margin:5px auto -4px!important;
   padding:0 14px!important;
   box-sizing:border-box!important;
   position:relative!important;
@@ -15791,7 +15803,7 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-rhythm-card > .ob-clock-kin
 }
 @media (max-width:390px){
   body[data-clock-home-lab="1"] .ob-app-root .ob-clock-lab > .ob-clock-kindness-note{
-    margin:4px auto 8px!important;
+    margin:4px auto -3px!important;
     padding:0 10px!important;
   }
   body[data-clock-home-lab="1"] .ob-app-root .ob-clock-lab > .ob-clock-kindness-note .ob-clock-kindness-card{
@@ -15857,7 +15869,7 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc-group:focus-visib
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc-group:hover .ob-clock-event-arc.is-night-wake,
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc-group:focus-visible .ob-clock-event-arc.is-night-wake{
   stroke-width:2.4px!important;
-  filter:drop-shadow(0 0 6px rgba(255,61,187,0.88)) drop-shadow(0 0 17px rgba(255,61,187,0.44))!important;
+  filter:drop-shadow(0 0 6px rgba(0,217,255,0.90)) drop-shadow(0 0 17px rgba(0,217,255,0.50))!important;
 }
 
 /* Clock lab prediction chip below-clock final lock: chips and hover tips do not sit on top of arcs. */
@@ -16692,9 +16704,9 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .o
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot.is-night-wake,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-event-dot.is-night-wake,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-event-dot.is-night-wake{
-  fill:#FF5C8A!important;
-  stroke:#FF5C8A!important;
-  filter:drop-shadow(0 0 6px rgba(255,92,138,0.62)) drop-shadow(0 0 15px rgba(255,92,138,0.28))!important;
+  fill:#00D9FF!important;
+  stroke:#00D9FF!important;
+  filter:drop-shadow(0 0 6px rgba(0,217,255,0.66)) drop-shadow(0 0 15px rgba(0,217,255,0.34))!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot.is-pump,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-event-dot.is-pump,
@@ -16744,8 +16756,8 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .o
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc.is-night-wake,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-event-arc.is-night-wake,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-event-arc.is-night-wake{
-  stroke:#FF5C8A!important;
-  filter:drop-shadow(0 0 6px rgba(255,92,138,0.64)) drop-shadow(0 0 16px rgba(255,92,138,0.30))!important;
+  stroke:#00D9FF!important;
+  filter:drop-shadow(0 0 6px rgba(0,217,255,0.68)) drop-shadow(0 0 16px rgba(0,217,255,0.36))!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot.is-now,
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot-group:hover .ob-clock-event-dot,
@@ -17114,6 +17126,20 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-sun-ray{
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-sun-ray.is-diagonal{
   stroke-width:0.95px!important;
   opacity:0.86!important;
+}
+/* Clock lab centre timer hit target final lock: only the Nap now / active timer text starts or pauses timers. */
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-action{
+  cursor:pointer!important;
+  pointer-events:auto!important;
+  outline:none!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-action:focus-visible .ob-clock-center-hit{
+  stroke:rgba(255,255,255,0.78)!important;
+  stroke-width:1.4px!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-hit{
+  fill:rgba(255,255,255,0.001)!important;
+  stroke:transparent!important;
 }
 @media (prefers-reduced-motion: reduce){
   body[data-clock-home-lab="1"] .ob-app-root .ob-clock-presence-firefly,

@@ -4763,8 +4763,10 @@ function diagnoseNightPattern(lastNight, context) {
     };
   }
   // ── Bedtime vs age guideline ──
+  // Age-appropriate bedtime windows (NHS/AAP aligned)
+  // <16wk: 7pm-9pm (flexible newborn), 16-26wk: 6:30-8pm, 26-52wk: 6-7:30pm, 52+wk: 7-9pm (toddler shift later)
   const _ageBedMin = _ageWeeks !== null && _ageWeeks < 16 ? 19*60 : _ageWeeks !== null && _ageWeeks < 26 ? 18.5*60 : _ageWeeks !== null && _ageWeeks < 52 ? 18*60 : 19*60;
-  const _ageBedMax = _ageWeeks !== null && _ageWeeks < 16 ? 21*60 : _ageWeeks !== null && _ageWeeks < 26 ? 20*60 : _ageWeeks !== null && _ageWeeks < 52 ? 19.5*60 : 20.5*60;
+  const _ageBedMax = _ageWeeks !== null && _ageWeeks < 16 ? 21*60 : _ageWeeks !== null && _ageWeeks < 26 ? 20*60 : _ageWeeks !== null && _ageWeeks < 52 ? 19.5*60 : 21*60;
   if (bedtimeMins > _ageBedMax + 30 && wakeCount >= 2) {
     return {
       type: "late_bedtime", emoji: "🕙",
@@ -38667,6 +38669,26 @@ function App(){
           return _daysAgo >= 0 && _daysAgo <= 14;
         });
         _diagCtx.recentTeethingCount = _recentTeeth.length;
+        // Populate lastNapEndMin for nap-to-bedtime gap detection
+        try {
+          const _bedDk = _lastNight?._bedDayKey || prevCalDay(todayStr());
+          const _napsForCtx = (days[_bedDk] || []).filter(isValidCompletedNap).sort((a,b) => timeVal(a) - timeVal(b));
+          const _lastNapCtx = _napsForCtx.length ? _napsForCtx[_napsForCtx.length - 1] : null;
+          if (_lastNapCtx && _lastNapCtx.end) {
+            const _lnm = clockMins(_lastNapCtx.end);
+            if (_lnm !== null) _diagCtx.lastNapEndMin = _lnm;
+          }
+          _diagCtx.lastDaySleepMin = _napsForCtx.reduce((s, n) => s + minDiff(n.start, n.end), 0);
+          if (_aw && Number.isFinite(_aw)) {
+            const _napProf = getAgeNapProfile(_aw);
+            if (_napProf) _diagCtx.ageMinDaySleep = _napProf.idealTotalMin;
+          }
+        } catch {}
+        // Populate disruptionEndMs for illness recovery detection
+        try {
+          const _dm = normaliseDisruptionModePayload(disruptionMode);
+          if (_dm && _dm.ts) _diagCtx.disruptionEndMs = Number(_dm.ts) || null;
+        } catch {}
         const _splitSignals = [];
         const _splitSignalKinds = new Set();
         const _addSplitSignal = (kind, text) => {
