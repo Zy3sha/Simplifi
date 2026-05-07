@@ -42072,6 +42072,8 @@ function App(){
 	        showToast(name + " is already asleep. Tap Wake when " + clockCareSubject + " is properly up.", 2300, 1);
 	        return;
 	      }
+	      // If bed timer is running, this is a morning wake — stop the bed timer properly
+	      if (activeBedTimerDay) { logMorningWakeNextDay(); return; }
 	      (logForAll?quickAddLogForAll:quickAddLog)("wake",{type:"wake",time:nowTime(),night:false,note:""});
 	    };
 	    const clockDetailSleepLongAction = () => {
