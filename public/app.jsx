@@ -42072,8 +42072,15 @@ function App(){
 	        showToast(name + " is already asleep. Tap Wake when " + clockCareSubject + " is properly up.", 2300, 1);
 	        return;
 	      }
-	      // If bed timer is running, this is a morning wake — stop the bed timer properly
-	      if (activeBedTimerDay) { logMorningWakeNextDay(); return; }
+	      // If bed timer is running AND it's plausibly morning (5am+), treat as morning wake.
+	      // During the night (before 5am), a wake tap is a night wake, not morning.
+	      if (activeBedTimerDay) {
+	        const _wakeH = new Date().getHours();
+	        if (_wakeH >= 5) { logMorningWakeNextDay(); return; }
+	        // It's still nighttime — open night wake flow instead of ending the night
+	        clockNightWakeAction();
+	        return;
+	      }
 	      (logForAll?quickAddLogForAll:quickAddLog)("wake",{type:"wake",time:nowTime(),night:false,note:""});
 	    };
 	    const clockDetailSleepLongAction = () => {
