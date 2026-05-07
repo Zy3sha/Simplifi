@@ -40924,10 +40924,19 @@ function App(){
     };
     const clockEventEntriesLab = (() => {
       const seen = new Set();
-      // In wake-to-wake mode, also include previous day's bedtime + night entries
-      // so the full overnight arc (bedtime → night wakes → morning) renders on one clock
+      // In wake-to-wake mode, pull yesterday's bedtime + night wakes onto today's clock
+      // so the full overnight (bed → wakes → morning) renders on one face.
+      // Only pull bedtime if today doesn't already have one (avoid duplicates).
+      const _todayHasBedtime = entriesForDay.some(e => e && e.type === "sleep" && !e.night);
       const _prevDayNightEntries = dayBoundary === "wake" ? (days[prevCalDay(dayKey)] || [])
-        .filter(e => e && isClockLabRealLog(e) && (e.night || e.type === "sleep"))
+        .filter(e => {
+          if (!e || !isClockLabRealLog(e)) return false;
+          // Always pull night-flagged entries (night wakes, night feeds)
+          if (e.night) return true;
+          // Pull bedtime only if today doesn't have one
+          if (e.type === "sleep" && !e.night && !_todayHasBedtime) return true;
+          return false;
+        })
         .map(entry => ({entry, sourceDay:prevCalDay(dayKey)})) : [];
       return [..._prevDayNightEntries, ...entriesForDay.map(entry => ({entry, sourceDay:dayKey}))]
         .filter(item => isClockLabRealLog(item.entry) && ["feed","poop","nap","wake","sleep","medicine","tummy"].includes(item.entry.type))
