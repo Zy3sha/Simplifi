@@ -40980,7 +40980,8 @@ function App(){
 	      !isTimedClockEntry(other.entry) &&
 	      clockMinuteGap(item.start, other.start) <= 18
 	    ));
-	    const clockDayWakeItem = clockEvents.find(item => item.entry.type === "wake" && !item.entry.night);
+	    // Morning wake must be from TODAY's entries, not overnight entries pulled from yesterday
+	    const clockDayWakeItem = clockEvents.find(item => item.entry.type === "wake" && !item.entry.night && item.sourceDay === dayKey);
 	    // Wake-to-wake mode: anchor at morning wake so overnight sorts after daytime.
 	    // Midnight-to-midnight mode: anchor at 0 — pure chronological (00:00 → 23:59).
 	    const clockOrderAnchor = dayBoundary === "midnight" ? 0 : (clockDayWakeItem ? clockDayWakeItem.start : 5 * 60);
@@ -40994,7 +40995,7 @@ function App(){
 	        const type = item.entry.type;
 	        const start = clockOrderMins(item);
 	        const end = item.end < clockOrderAnchor ? item.end + 1440 : item.end;
-	        if (type === "wake" && !item.entry.night) {
+	        if (type === "wake" && !item.entry.night && item.sourceDay === dayKey) {
 	          awakeStart = start;
 	          return;
 	        }
