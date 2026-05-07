@@ -50687,7 +50687,7 @@ function App(){
                   <div>
                     {/* Sleep score proof drawer */}
                     {_score !== null && (
-                      <details className="glass-card ob-care-data-drawer" data-testid="care-sleep-score-proof-drawer" style={{padding:0,marginBottom:12}}>
+                      <details open className="glass-card ob-care-data-drawer" data-testid="care-sleep-score-proof-drawer" style={{padding:0,marginBottom:12}}>
                         <summary className="ob-care-data-summary">
                           <span>Sleep score, if you want it</span>
                           <small>{_score}/100 · not a grade</small>
@@ -50779,7 +50779,7 @@ function App(){
                   let _sectionIdx = 0;
                   const _divider = () => (_sectionIdx++ > 0) ? {marginTop:12,paddingTop:12,borderTop:`1px solid ${C.blush}`} : {};
                   return (
-                    <details className="glass-card ob-care-data-drawer" data-testid="care-sleep-rhythm-proof-drawer" style={{padding:0,marginBottom:12}}>
+                    <details open className="glass-card ob-care-data-drawer" data-testid="care-sleep-rhythm-proof-drawer" style={{padding:0,marginBottom:12}}>
                       <summary className="ob-care-data-summary">
                         <span>{_name}'s wake-window proof</span>
                         <em>folded into the debrief</em>
@@ -50904,7 +50904,7 @@ function App(){
                   const _label = (o) => o === "optimal" ? "solid" : o === "check" ? "check" : o === "late-ok" ? "ok" : "short";
                   const _short = _outcomes.filter(x => x.result.outcome === "short").length;
                   return (
-                    <details className="glass-card ob-care-data-drawer" data-testid="care-sleep-nap-proof-drawer" style={{padding:0,marginBottom:12}}>
+                    <details open className="glass-card ob-care-data-drawer" data-testid="care-sleep-nap-proof-drawer" style={{padding:0,marginBottom:12}}>
                       <summary className="ob-care-data-summary">
                         <span>Nap log detail</span>
                         <em>already folded into debrief</em>
@@ -50987,10 +50987,10 @@ function App(){
                   if (!_has14 && !_hasBedCon && !_hasSm && !_hasSS7) return null;
 
                   return (
-                    <details className="glass-card" style={{padding:"12px 16px",marginBottom:12}}>
+                    <details open className="glass-card" style={{padding:"12px 16px",marginBottom:12}}>
                       <summary style={{cursor:_cP,fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,listStyle:"none",WebkitAppearance:"none",display:"flex",alignItems:"center",gap:6}}>
                         <span>📊 Trends & numbers</span>
-                        <span style={{marginLeft:"auto",fontSize:10,color:C.lt,fontWeight:500}}>tap to open ▼</span>
+                        <span style={{marginLeft:"auto",fontSize:10,color:C.lt,fontWeight:500}}></span>
                       </summary>
                       <div style={{marginTop:12}}>
                         {_has14 && (
@@ -51098,7 +51098,7 @@ function App(){
                   const _napColor = "rgba(123,104,238,0.55)";
                   const _napColorToday = "rgba(123,104,238,0.2)";
                   return (
-                    <details className="glass-card ob-care-data-drawer" data-testid="care-sleep-weekly-rhythm-drawer" style={{padding:0,marginBottom:12}}>
+                    <details open className="glass-card ob-care-data-drawer" data-testid="care-sleep-weekly-rhythm-drawer" style={{padding:0,marginBottom:12}}>
                       <summary className="ob-care-data-summary">
                         <span>Weekly rhythm chart</span>
                         <em>visual check only</em>
@@ -51545,10 +51545,10 @@ function App(){
                   const _thisAvg7 = (()=>{try{const _d=getRecentDays(7);const v=_d.map(d=>sumFeedVolumes(getFeedsForDay(d))).filter(x=>x>0);return v.length>=3?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null;}catch{return null;}})();
                   if (!_frc && !_gfc && _thisAvg7===null) return null;
                   return (
-                    <details className="glass-card" style={{padding:"12px 16px",marginBottom:12}}>
+                    <details open className="glass-card" style={{padding:"12px 16px",marginBottom:12}}>
                       <summary style={{cursor:_cP,fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,listStyle:"none",WebkitAppearance:"none",display:"flex",alignItems:"center",gap:6}}>
                         <span>📊 Trends & numbers</span>
-                        <span style={{marginLeft:"auto",fontSize:10,color:C.lt,fontWeight:500}}>tap to open ▼</span>
+                        <span style={{marginLeft:"auto",fontSize:10,color:C.lt,fontWeight:500}}></span>
                       </summary>
                       <div style={{marginTop:12}}>
                         {_frc && (
