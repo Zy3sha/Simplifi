@@ -256,6 +256,50 @@ SHOTS = [
         "text": "#2C3440",
         "foot": "One baby rhythm, shared by the people caring for them.",
     },
+    {
+        "raw": "09-bubba-care.png",
+        "out": "09-bubba-care-for-your-village.png",
+        "title": "Bubba Care for your village",
+        "sub": "A live care guide for grandparents, nursery or whoever is helping.",
+        "chips": ["Carer link", "Bigger text", "Live handover"],
+        "bg": ("#F0FAFF", "#FFF1EB"),
+        "accent": "#5B8AA0",
+        "text": "#2F3744",
+        "foot": "Share the essentials without typing the same message again.",
+    },
+    {
+        "raw": "10-feeding-insight.png",
+        "out": "10-feeding-support-for-every-route.png",
+        "title": "Feeding support for every route",
+        "sub": "Breast, bottle, combi and solids are read together, not separately.",
+        "chips": ["Breastfeeding", "Bottles", "Solids"],
+        "bg": ("#FFF7F2", "#ECF9F8"),
+        "accent": "#6FA898",
+        "text": "#343238",
+        "foot": "Looks at intake, nappies, solids and growth before nudging.",
+    },
+    {
+        "raw": "11-travel-help.png",
+        "out": "11-travel-with-less-rhythm-chaos.png",
+        "title": "Travel with less rhythm chaos",
+        "sub": "Timezone shifts, journeys and off-days stay in the plan.",
+        "chips": ["Travel help", "Off days", "Gentle shifts"],
+        "bg": ("#EFF7FF", "#FFF4EF"),
+        "accent": "#6B8EC8",
+        "text": "#2D3544",
+        "foot": "Keeps the day understandable when normal timing moves.",
+    },
+    {
+        "raw": "12-safe-sleep.png",
+        "out": "12-safety-guidance-when-it-matters.png",
+        "title": "Safety guidance when it matters",
+        "sub": "Safe sleep, weaning and growth checks stay close to the moment.",
+        "chips": ["NHS", "WHO", "AAP"],
+        "bg": ("#F8F6FF", "#EEF9F2"),
+        "accent": "#9B8BB8",
+        "text": "#332F42",
+        "foot": "Public-health guidance translated into practical parent steps.",
+    },
 ]
 
 
@@ -323,7 +367,7 @@ def make_contact_sheet(files):
     label_h = 48
     gap = 18
     cols = 4
-    rows = 2
+    rows = (len(files) + cols - 1) // cols
     sheet = Image.new("RGB", (cols * (thumb_w + gap) + gap, rows * (thumb_h + label_h + gap) + gap), "#F6F3F0")
     d = ImageDraw.Draw(sheet)
     label_font = font(18, "bold")

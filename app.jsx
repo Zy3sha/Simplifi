@@ -4517,8 +4517,8 @@ function diagnoseNightPattern(lastNight, context) {
         type: "bedtime_resistance",
         emoji: "🌙",
         title: "Bedtime was hard",
-        detail: "Bedtime resistance was logged last night (" + _bedtimeResistanceLabel + "). I am not treating that as a missed nap or a normal easy night; the debrief will hold it as settling context.",
-        actionTaken: "No schedule change today. Keep the last hour calm, offer comfort, and log how bedtime starts tonight.",
+        detail: "Bedtime was hard last night (" + _bedtimeResistanceLabel + "). That's useful information — it tells us something about how the day landed.",
+        actionTaken: "No big changes today. Keep the last hour before bed calm and gentle, and see how tonight goes.",
         bedtimeShiftMin: 0,
         confidence: "medium",
         bedtimeResistance: _bedtimeResistance
@@ -4529,7 +4529,7 @@ function diagnoseNightPattern(lastNight, context) {
       emoji: "🌟",
       title: "Dream night",
       detail: "No wakes logged last night. Longest stretch: " + (longestStretchMin > 60 ? Math.floor(longestStretchMin / 60) + "h " + (longestStretchMin % 60) + "m" : longestStretchMin + "m") + ".",
-      actionTaken: "I've kept tonight's bedtime on the same rhythm that worked last night.",
+      actionTaken: "Great night — keeping the same rhythm tonight since it clearly worked. 💛",
       bedtimeShiftMin: 0,
       confidence: "high"
     };
@@ -4551,7 +4551,7 @@ function diagnoseNightPattern(lastNight, context) {
         emoji: "😫",
         title: "Overtired false start",
         detail: "Baby woke " + _earlySignal + _settleText + ". The last wake window was " + hm(_lastWW) + " (age max ~" + hm(_maxWW) + "). That pattern may suggest baby was past their comfortable window, which can make linking sleep cycles harder.",
-        actionTaken: "I've brought tonight's bedtime forward by 15 minutes. When baby seems overtired, an earlier bedtime often helps.",
+        actionTaken: "Bedtime is moving 15 minutes earlier tonight — when babies are overtired, an earlier bedtime usually helps more than a later one.",
         bedtimeShiftMin: -15,
         confidence: "high",
         _lastWW
@@ -4571,7 +4571,7 @@ function diagnoseNightPattern(lastNight, context) {
         emoji: "😫",
         title: "Looks overtired",
         detail: "Early false start (" + earlyHardWakes[0].fromBedMin + " min after bed) AND " + _dawnWakesEarly.length + " hard wake" + (_dawnWakesEarly.length > 1 ? "s" : "") + " in the 3-5am window. Last wake window was " + hm(_lastWW) + " (age max ~" + hm(_maxWW) + "). Together, those patterns may suggest overtiredness.",
-        actionTaken: "I've brought tonight's bedtime forward by 15 minutes. When baby seems overtired, an earlier bedtime often helps.",
+        actionTaken: "Bedtime is moving 15 minutes earlier tonight — when babies are overtired, an earlier bedtime usually helps more than a later one.",
         bedtimeShiftMin: -15,
         confidence: "high",
         _lastWW
@@ -4582,8 +4582,8 @@ function diagnoseNightPattern(lastNight, context) {
       type: (_lastWW > 0 && _maxWW > 0) ? "undertired" : "false_start",
       emoji: "⏰",
       title: (_lastWW > 0 && _maxWW > 0) ? "Looks undertired" : "False start after bedtime",
-      detail: "Baby woke " + _earlySignal + _settleText + ". " + ((_lastWW > 0 && _maxWW > 0) ? "This may suggest they needed a little more awake time before bed. The last stretch before bed was " + hm(_lastWW) + "." : "That is a false-start signal, so I won't call it a normal night even if the wake count looks small."),
-      actionTaken: (_lastWW > 0 && _maxWW > 0) ? "I've pushed tonight's bedtime 15 minutes later so baby is a little more ready for sleep. Nothing else for you to change." : "No schedule change today. Keep the bedtime routine steady and log whether the early wake repeats.",
+      detail: "Baby woke " + _earlySignal + _settleText + ". " + ((_lastWW > 0 && _maxWW > 0) ? "This usually means they needed a bit more awake time before bed. The last stretch before bed was " + hm(_lastWW) + "." : "This is what's called a false start — it doesn't mean the night is ruined, just that bedtime might need tweaking."),
+      actionTaken: (_lastWW > 0 && _maxWW > 0) ? "Bedtime is shifting 15 minutes later tonight so baby has a bit more time to get properly sleepy. Nothing else to change." : "No changes today — just keep bedtime calm and consistent and see if it happens again.",
       bedtimeShiftMin: (_lastWW > 0 && _maxWW > 0) ? 15 : 0,
       confidence: earlyHardWakes.length >= 2 || earlyHardWakes[0].fromBedMin <= 90 ? "high" : "medium"
     };
@@ -4615,7 +4615,7 @@ function diagnoseNightPattern(lastNight, context) {
       emoji: "🌘",
       title: "Long wake night",
       detail: hm(_longWake.durationMin || lastNight.totalAwakeMin || 0) + " awake" + (_longWake.time ? " around " + fmt12(_longWake.time) : "") + " last night. " + _crossLogWhy + (_feedRefusalOrFussy ? " Baby seemed fussy or refused feeds during this wake." : ""),
-      actionTaken: "No routine change today. Keep naps, feeds and bedtime steady while OBubba checks whether the same cause shows up again.",
+      actionTaken: "No changes today — just keep things steady and see how tonight goes. If the same thing happens again, we'll know it's a pattern.",
       bedtimeShiftMin: 0,
       confidence: (_longWake.durationMin || 0) >= 60 || (lastNight.totalAwakeMin || 0) >= 75 ? "high" : "medium",
       crossLogWhy: _crossLogWhy,
@@ -4627,8 +4627,8 @@ function diagnoseNightPattern(lastNight, context) {
       type: "bedtime_resistance",
       emoji: "🌙",
       title: "Bedtime and night settling were hard",
-      detail: "Bedtime resistance was logged (" + _bedtimeResistanceLabel + "), and the night notes also mention difficult settling. I am reading this as a real unsettled-night signal, not a normal night.",
-      actionTaken: "Keep the routine steady today. OBubba will treat comfort, bedtime resistance and night wakes as one sleep story, not separate problems.",
+      detail: "Bedtime was hard (" + _bedtimeResistanceLabel + ") and the night was unsettled too. When both ends of the night are rough, it usually points to something in the day that needs adjusting.",
+      actionTaken: "Keep things calm and consistent today. OBubba is looking at the whole picture — bedtime, settling, and the night wakes together — and will suggest a change if the same thing keeps happening.",
       bedtimeShiftMin: 0,
       confidence: "high",
       bedtimeResistance: _bedtimeResistance
@@ -4689,7 +4689,7 @@ function diagnoseNightPattern(lastNight, context) {
       emoji: "🔁",
       title: "Cycle-linked wakes",
       detail: "Wakes clustered near 90-minute sleep cycle boundaries, all resettled quickly (avg " + avgResettleMin + "m). Baby is stirring between cycles, totally normal.",
-      actionTaken: "I've left the rhythm as-is. Quick resettles mean baby is learning to link cycles, this phase usually resolves on its own.",
+      actionTaken: "Nothing to change here — quick resettles are actually a good sign. Baby is learning to connect sleep cycles and this phase passes on its own.",
       bedtimeShiftMin: 0,
       confidence: "high"
     };
@@ -4702,7 +4702,7 @@ function diagnoseNightPattern(lastNight, context) {
       emoji: "🍼",
       title: "Feed-driven wakes",
       detail: "Every wake last night settled quickly with milk/breast. Genuine hunger wakes typically settle in under 20 min when fed.",
-      actionTaken: "I've kept the rhythm the same. If baby is over 4 months, a dream feed around 10pm can sometimes pre-empt the first wake, but night feeds at this age are normal.",
+      actionTaken: "No changes needed — hunger wakes are completely normal. If baby is over 4 months, you could try a dream feed around 10pm to see if it helps, but there's nothing wrong with feeding on demand at night.",
       bedtimeShiftMin: 0,
       confidence: "medium"
     };
@@ -5066,9 +5066,9 @@ function diagnoseFeedPattern(todayEntries, recent14, ageWeeks, weights, latestWe
     return {
       type: "dehydration_warning",
       emoji: "💧",
-      title: "Wet nappy count low · hydration check",
-      detail: "Hydration score " + latestWetNappies24h + "/" + _dehTarget + " in the last 24h (long overnight nappies count 2–3×). That's meaningfully below target for this age — worth a check.",
-      action: "Offer a feed now. If the hydration score doesn't improve in 12h, contact your " + _doctor + ". If baby is unusually sleepy or hard to rouse, call " + _helpLine + " today.",
+      title: "Fewer wet nappies than expected",
+      detail: "Only " + latestWetNappies24h + " wet nappies in the last 24 hours — at this age we'd expect at least " + _dehTarget + ". Worth keeping an eye on.",
+      action: "Offer a feed now and check again in a few hours. If wet nappies don't pick up, or baby seems unusually sleepy or hard to wake, call your " + _doctor + " today.",
       urgency: "high",
       confidence: "high"
     };
@@ -5205,9 +5205,9 @@ function diagnoseFeedPattern(todayEntries, recent14, ageWeeks, weights, latestWe
         return {
           type: "reverse_cycling",
           emoji: "🔄",
-          title: "Reverse cycling signal",
-          detail: "Night feeds are larger than day feeds (~" + Math.round(_nightAvg) + "ml vs " + Math.round(_dayAvg) + "ml). Baby is getting most of their calories at night, which reinforces night waking.",
-          action: "Increase day feed volumes by 20–30ml per bottle and offer more day feeds. Don't cut night feeds abruptly — let night volumes shrink naturally as day volumes grow.",
+          title: "Feeding more at night than during the day",
+          detail: _name + " is taking bigger feeds overnight (~" + Math.round(_nightAvg) + "ml) than during the day (~" + Math.round(_dayAvg) + "ml). When babies get most of their milk at night, it can keep the night waking going.",
+          action: "Try offering a little more during daytime feeds (20-30ml extra per bottle) and fitting in an extra daytime feed if you can. The night feeds will naturally shrink as the day ones grow — no need to cut them suddenly.",
           urgency: "medium",
           confidence: "high"
         };
@@ -14344,7 +14344,7 @@ function App(){
 		  ];
 			  const OB_APP_TOUR_JOURNEY = [
 			    { chapter:"Chapter 1", tab:"day", iconName:"timer", target:"Track clock", title:"Read the clock", body:"Track opens on the clock: the rim shows feeds, nappies, wakes, naps and bedtime in time order.\n\nLogged moments replace predictions as the day happens, with quick logs, Plan and Guidance right underneath." },
-			    { chapter:"Chapter 2", tab:"insights", iconName:"care", target:"Care", title:"Open the parent toolkit", body:"Care leads with the real tools: Weaning, Parent Room, Sleep Coach and Night Weaning.\n\nSleep, Feeding, Growth and Travel insights sit underneath." },
+			    { chapter:"Chapter 2", tab:"insights", iconName:"care", target:"Care", title:"Open the parent toolkit", body:"Care leads with the real tools: Bubba Care, Weaning, Parent Room, Sleep Coach and Night Weaning.\n\nSleep, Feeding, Growth and Travel insights sit underneath." },
 			    { chapter:"Chapter 3", tab:"develop", iconName:"growth", target:"Grow", title:"Support development gently", body:"Grow keeps activities, waves, milestones and teething together.\n\nIt is context, not another checklist." },
 			    { chapter:"Chapter 4", tab:"settings", iconName:"account", target:"Account", title:"Keep the app yours", body:"Account holds child settings, Share & Sync, Bubba Care sharing, Lock Bubba Care session, backups, preferences and replayable guides." }
 			  ];
@@ -41212,32 +41212,53 @@ function App(){
 	    const td = tickDataRef.current || {};
 	    const rawNextEvent = td.nextEvent || null;
 	    const rawNextMins = typeof rawNextEvent?.timeMins === "number" ? rawNextEvent.timeMins : clockLabMins(rawNextEvent?.timeStr || rawNextEvent?.time || "");
+	    const clockBedtimeOverdueKeepMins = 4 * 60;
 	    const clockLabPredictionIsCurrent = (event, mins) => {
 	      if (!clockLabIsToday || activeTimer || !event || mins === null) return false;
 	      const kind = event.type === "bed" ? "sleep" : event.type;
 	      if (kind === "sleep" && clockBedtimeLogged) return false;
-	      if (typeof event.targetMs === "number" && Number.isFinite(event.targetMs) && event.targetMs < Date.now() - (kind === "nap" ? 45 : 5) * 60000 && !event.overdue) return false;
-	      if (kind === "sleep" && mins < nowMins - 5) return false;
+	      if (kind === "sleep") {
+	        if (typeof event.targetMs === "number" && Number.isFinite(event.targetMs)) {
+	          if (event.targetMs <= Date.now() && event.targetMs >= Date.now() - clockBedtimeOverdueKeepMins * 60000) return true;
+	          if (event.targetMs < Date.now() - clockBedtimeOverdueKeepMins * 60000 && !event.overdue) return false;
+	        }
+	        if (event.overdue) return true;
+	        if (mins < nowMins - clockBedtimeOverdueKeepMins) return false;
+	        return mins >= nowMins - clockBedtimeOverdueKeepMins;
+	      }
+	      if (typeof event.targetMs === "number" && Number.isFinite(event.targetMs) && event.targetMs < Date.now() - 45 * 60000 && !event.overdue) return false;
 	      if (kind === "nap" && event.overdue) return true;
-	      return mins >= nowMins - (kind === "nap" ? 45 : 5);
+	      return mins >= nowMins - 45;
 	    };
 			    const nextEvent = clockLabPredictionIsCurrent(rawNextEvent, rawNextMins) ? rawNextEvent : null;
 			    const nextMins = nextEvent ? rawNextMins : null;
 			    const nextDue = !!(nextEvent && nextEvent.type === "nap" && (nextEvent.overdue || (nextMins !== null && nowMins >= nextMins)));
 			    const nextCountdown = nextEvent && nextMins !== null ? Math.max(0, nextMins - nowMins) : null;
-			    const clockPredictionCountdownTextLab = (mins, overdue = false) => {
+			    const clockOverdueTextLab = (mins, targetMs) => {
+			      let overdueMins = null;
+			      if (typeof targetMs === "number" && Number.isFinite(targetMs) && targetMs < Date.now()) {
+			        overdueMins = Math.max(1, Math.round((Date.now() - targetMs) / 60000));
+			      } else {
+			        const raw = Number(mins);
+			        if (Number.isFinite(raw) && raw < nowMins) overdueMins = Math.max(1, Math.round(nowMins - raw));
+			      }
+			      return overdueMins ? "overdue by " + hm(overdueMins) : "";
+			    };
+			    const clockPredictionCountdownTextLab = (mins, overdue = false, targetMs = null) => {
 			      const raw = Number(mins);
 			      if (!Number.isFinite(raw)) return "";
+			      const overdueText = overdue || raw < nowMins || (typeof targetMs === "number" && Number.isFinite(targetMs) && targetMs < Date.now()) ? clockOverdueTextLab(raw, targetMs) : "";
+			      if (overdueText) return overdueText;
 			      const remaining = overdue ? 0 : Math.max(0, Math.round(raw - nowMins));
 			      return remaining <= 0 ? "now" : "in " + hm(remaining);
 			    };
 			    const clockPredictionDetailLab = (item) => {
 			      if (!item) return "";
-			      const countdownText = item.countdownText || clockPredictionCountdownTextLab(item.start, item.overdue);
+			      const countdownText = item.countdownText || clockPredictionCountdownTextLab(item.start, item.overdue, item.targetMs);
 			      const timeText = item.time || "";
 			      return [countdownText, timeText].filter(Boolean).join(" · ");
 			    };
-			    const clockPredictionCountdownOnlyLab = (item) => item ? (item.countdownText || clockPredictionCountdownTextLab(item.start, item.overdue)) : "";
+			    const clockPredictionCountdownOnlyLab = (item) => item ? (item.countdownText || clockPredictionCountdownTextLab(item.start, item.overdue, item.targetMs)) : "";
 			    const clockPredictionTimeOnlyLab = (item) => item ? (item.time || (Number.isFinite(Number(item.start)) ? clockLabFmt12(mtp24h(Number(item.start))) : "")) : "";
 			    const clockCenterFriendlyTitleLab = (event, fallback = "") => {
 			      const type = event?.type === "bed" ? "sleep" : event?.type;
@@ -41249,7 +41270,7 @@ function App(){
 			        if (/bridge/i.test(label)) return "Nap window";
 			        return "Nap soon";
 			      }
-			      if (type === "sleep") return event?.overdue ? "Bedtime" : "Bedtime soon";
+			      if (type === "sleep") return event?.overdue || (typeof event?.targetMs === "number" && event.targetMs <= Date.now()) ? "Bedtime" : "Bedtime soon";
 			      if (/bridge/i.test(label)) return "Nap window";
 			      return label || "Next up";
 			    };
@@ -41258,7 +41279,7 @@ function App(){
 			      if (nextEvent) {
 			        const type = nextEvent.type === "bed" ? "sleep" : nextEvent.type;
 			        const title = clockCenterFriendlyTitleLab(nextEvent, type === "sleep" ? "bedtime" : type === "nap" ? "nap" : "next");
-			        return {title, sub:clockPredictionCountdownOnlyLab({start:nextMins, overdue:!!nextEvent.overdue, time:nextEvent.timeStr || (nextMins !== null ? clockLabFmt12(mtp24h(nextMins)) : "")})};
+			        return {title, sub:clockPredictionCountdownOnlyLab({start:nextMins, overdue:!!nextEvent.overdue, targetMs:nextEvent.targetMs, time:nextEvent.timeStr || (nextMins !== null ? clockLabFmt12(mtp24h(nextMins)) : "")})};
 			      }
 			      if (typeof td.nextNapMins === "number" && clockLabPredictionIsCurrent({type:"nap",label:"Nap " + ((td.napsDone || 0) + 1), overdue:td.nextNapMins <= nowMins}, td.nextNapMins)) {
 			        return {title:td.nextNapMins <= nowMins ? "Nap now" : "Nap " + ((td.napsDone || 0) + 1), sub:clockPredictionCountdownOnlyLab({start:td.nextNapMins, overdue:td.nextNapMins <= nowMins, time:clockLabFmt12(mtp24h(td.nextNapMins))})};
@@ -43471,7 +43492,7 @@ function App(){
               <span aria-hidden="true">🍼</span>
               <b>Dream feed</b>
             </button>
-            <button type="button" onClick={()=>{haptic();logMorningWakeNextDay();}}>
+            <button type="button" className="is-morning-wake" onClick={()=>{haptic();logMorningWakeNextDay();}}>
               <span aria-hidden="true">☀️</span>
               <b>Morning wake</b>
             </button>
@@ -45633,12 +45654,15 @@ function App(){
               const _retryRemaining = _retryAt > Date.now() ? Math.ceil((_retryAt - Date.now())/60000) : 0;
               // Nap is overdue: either the event says so, or wake window exceeded
               const _napIsOverdue = !_retryRemaining && ((_ne2 && _ne2.overdue) || (_showAsNap && _awakeMins2 > (age ? getWakeWindow(age.predictiveWeeks??age.totalWeeks).max : 180)));
+              const _bedOverdueText = isBed && isOverdue && _ne2 && typeof _ne2.targetMs === "number" && _ne2.targetMs < Date.now()
+                ? Math.max(1, Math.round((Date.now() - _ne2.targetMs) / 60000)) + "m late"
+                : "";
               const icon = _retryRemaining ? "timer" : _napIsOverdue ? "nap" : (isBedNow||isBed) && !_showAsNap ? "moon" : isNapNow ? "nap" : "timer";
               const label = _retryRemaining ? "Retry nap" : _showAsNap ? "Nap" : isBed ? "Bedtime" : (_isBridgeNap ? "Bridge" : "Nap");
               const pillBg = _retryRemaining ? C.mint : _napIsOverdue ? C.gold : isOverdue ? C.gold : isNow ? (isBedNow?C.sky:C.mint) : "var(--card-bg)";
               const pillColor = _retryRemaining ? "white" : _napIsOverdue ? "white" : isOverdue ? "white" : isNow ? "white" : (_showAsNap ? C.mint : isBed ? C.sky : C.mint);
               const pillBorder = _retryRemaining ? "none" : _napIsOverdue ? "none" : isNow || isOverdue ? "none" : "1px solid var(--card-border)";
-              const valueText = _retryRemaining ? _retryRemaining+"m" : _napIsOverdue ? "Overdue" : isOverdue ? "Overdue" : isNow ? "Now!" : (countdown!==null ? fmtCountdown(countdown) : "–");
+              const valueText = _retryRemaining ? _retryRemaining+"m" : _napIsOverdue ? "Overdue" : _bedOverdueText || (isOverdue ? "Overdue" : isNow ? "Now!" : (countdown!==null ? fmtCountdown(countdown) : "–"));
               const pillClass = [
                 "ob-countdown-pill",
                 isNow || _retryRemaining ? "is-now" : "",
@@ -51081,34 +51105,8 @@ function App(){
 	                    const _teethRecent = (() => { try { const t = activeChild.teething || []; return t.filter(x => x.date && (Date.now() - new Date(x.date).getTime()) < 14*86400000).length; } catch { return 0; } })();
 	                    const _disruptionActive = !!normaliseDisruptionModePayload(disruptionMode);
 	                    const _regression = (() => { try { return detectSleepRegression(); } catch { return null; } })();
-	                    if (diagnosis && diagnosis.type === "split_night") {
-	                      const _splitIsFeed = /feed|milk|calorie|nappy|growth|hydration/i.test(_splitCorrelation || "") || _splitClues.some(c => /feed|milk|calorie|nappy|growth|hydration/i.test(c));
-	                      const _headline = _broadlyStrongNight ? "Strong night overall — watch the long wake" : "Long wake — steady plan first";
-	                      const _summaryItems = [];
-	                      if (_broadlyStrongNight) {
-	                        _summaryItems.push("Strong night overall. " + _name + " had " + _strongNightWins.join(", ") + ". The " + _longWakeText + " is worth watching, but it does not look like a broken night on its own.");
-	                      } else {
-	                        _summaryItems.push("There was a longer awake patch overnight: " + _longWakeText + ". OBubba is looking for a repeated cause before changing the routine.");
-	                      }
-	                      if (_splitIsFeed) {
-	                        _summaryItems.push("The main clue so far is feeding. OBubba will compare daytime milk, night feeds, wet nappies and growth before suggesting a change.");
-	                      } else if (_splitCorrelation) {
-	                        _summaryItems.push("The main clue so far is " + _splitCorrelation + ". The plan only changes when the pattern is clear.");
-	                      } else {
-	                        _summaryItems.push("No clear cause has shown up yet, so this is a watch point rather than a routine change. The plan only changes when the pattern is clear.");
-	                      }
-	                      if (_longWakeIsTrend) {
-	                        _summaryItems.push("Because long wakes have happened " + _longWakeNights7 + " time" + (_longWakeNights7 === 1 ? "" : "s") + " in the last 7 nights, OBubba is watching whether the same trigger keeps showing up.");
-	                      }
-	                      return {
-	                        headline:_headline,
-	                        sections:[{title:"Sleep summary", icon:"\uD83C\uDF19", items:_summaryItems}],
-	                        action:_broadlyStrongNight
-	                          ? "Plan stays steady today while OBubba watches whether long wakes repeat."
-	                          : "Do not change the routine today. Keep naps, feeds and bedtime steady, and let OBubba watch for the same trigger across the next few nights.",
-	                        body:_summaryItems.join(" ")
-	                      };
-	                    }
+	                    // Split night no longer gets its own early return — flows through the
+	                    // structured analysis (What looks good / Nap analysis / Why woke) like all other types
 	                    // HEADLINE
 	                    const _headline = _nightCount === 0 ? _name + " slept through"
 	                      : _longestStr >= 300 ? "Strong night with " + _nightCount + " wake" + (_nightCount === 1 ? "" : "s")
@@ -51133,10 +51131,10 @@ function App(){
 	                      const _napUnderTarget = _yProfile && _yNapMins < _yProfile.idealTotalMin;
 	                      _napNotes.push(_yNaps.length + " nap" + (_yNaps.length===1?"":"s") + " totalling " + _hmStr(_yNapMins) + (_yTarget ? " (target ~" + _hmStr(_yTarget) + ")" : ""));
 	                      _yNaps.forEach((n,i) => _napNotes.push("Nap " + (i+1) + ": " + _hmStr(minDiff(n.start, n.end))));
-	                      if (_napOverTarget) _napNotes.push("Day sleep was over target — this reduces overnight sleep pressure and can cause lighter sleep or longer wakes");
-	                      if (_napUnderTarget) _napNotes.push("Day sleep fell short — overtiredness can build by bedtime, causing harder settling and more wakes");
-	                      if (_longNaps.length && !_napOverTarget) _napNotes.push("One long nap (" + _hmStr(Math.max(..._napDurs)) + ") — some babies funnel sleep into one anchor nap. If nights stay settled, this is fine");
-	                      if (_shortNaps >= 2) _napNotes.push(_shortNaps + " naps under 30min — try slightly shorter wake windows before those naps");
+	                      if (_napOverTarget) _napNotes.push("A bit more day sleep than usual — this can make overnight sleep lighter because the sleep tank was already quite full");
+	                      if (_napUnderTarget) _napNotes.push("Day sleep was on the short side — by bedtime the tiredness can stack up and actually make settling harder");
+	                      if (_longNaps.length && !_napOverTarget) _napNotes.push("One long nap (" + _hmStr(Math.max(..._napDurs)) + ") — some babies just need one big nap and that's their thing. If nights are fine, don't worry about it");
+	                      if (_shortNaps >= 2) _napNotes.push(_shortNaps + " naps under 30min — try putting baby down a little earlier for those naps");
 	                    }
 	                    // WHY BABY WOKE — cross-reference ALL data
 	                    const _wakeNotes = [];
@@ -51146,14 +51144,14 @@ function App(){
 	                      if (_longestWake && (_longestWake.durationMin||0) >= 20) {
 	                        _wakeNotes.push(_hmStr(_longestWake.durationMin) + " awake" + (_longestWake.time ? " around " + fmt12(_longestWake.time) : ""));
 	                      }
-	                      if (_yProfile && _yNapMins > _yProfile.idealTotalMax) _wakeNotes.push("Too much day sleep (" + _hmStr(_yNapMins) + " vs ~" + _hmStr(_yTarget) + " target) — less sleep pressure at bedtime means lighter overnight sleep");
-	                      else if (_lastWW > 0 && _ww && _lastWW < (_ww.min||0)) _wakeNotes.push("Final wake window was short (" + _hmStr(_lastWW) + " vs " + _hmStr(_ww.min) + "–" + _hmStr(_ww.max) + " guideline) — not enough sleep pressure built before bed");
+	                      if (_yProfile && _yNapMins > _yProfile.idealTotalMax) _wakeNotes.push("Too much day sleep (" + _hmStr(_yNapMins) + " vs ~" + _hmStr(_yTarget) + " target) — this can make overnight sleep lighter because there's less sleep drive built up");
+	                      else if (_lastWW > 0 && _ww && _lastWW < (_ww.min||0)) _wakeNotes.push("Final wake window was short (" + _hmStr(_lastWW) + " vs " + _hmStr(_ww.min) + "–" + _hmStr(_ww.max) + " guideline) — baby may not have been tired enough when bedtime came");
 	                      else if (_lastWW > 0 && _ww && _lastWW > (_ww.max||999)) _wakeNotes.push("Final wake window ran long (" + _hmStr(_lastWW) + ") — " + _name + " may have arrived at bedtime overtired, which makes sleep lighter");
-	                      if (_teethRecent > 0) _wakeNotes.push("Teething logged recently — discomfort causes lighter sleep, especially in the second half of the night");
-	                      if (_disruptionActive) _wakeNotes.push("Disruption mode active (illness/teething) — wakes are expected and usually temporary");
-	                      if (_regression) _wakeNotes.push(_regression.label + " — developmental regressions temporarily disrupt sleep, usually passes in 2-4 weeks");
-	                      if (_yNightFeeds.length >= 2) _wakeNotes.push(_yNightFeeds.length + " night feeds — if daytime intake is good, some may be comfort feeds");
-	                      if (_yFeedMl > 0 && _yFeedMl < 400 && age && (age.predictiveWeeks??age.totalWeeks) >= 12) _wakeNotes.push("Daytime intake was low (" + Math.round(_yFeedMl) + "ml) — some wakes may be genuine hunger");
+	                      if (_teethRecent > 0) _wakeNotes.push("Teething logged recently — sore gums can make the second half of the night rougher");
+	                      if (_disruptionActive) _wakeNotes.push("Baby is unwell or teething — extra wakes are completely expected right now and will pass");
+	                      if (_regression) _wakeNotes.push(_regression.label + " — this is a normal brain development phase and usually settles in 2-4 weeks");
+	                      if (_yNightFeeds.length >= 2) _wakeNotes.push(_yNightFeeds.length + " night feeds — if daytime feeds are going well, some of these may be for comfort rather than hunger");
+	                      if (_yFeedMl > 0 && _yFeedMl < 400 && age && (age.predictiveWeeks??age.totalWeeks) >= 12) _wakeNotes.push("Daytime intake was low (" + Math.round(_yFeedMl) + "ml) — some of these wakes might be real hunger — worth checking tomorrow's daytime feeds");
 	                      // Reverse cycling check
 	                      const _yNightMl = _yNightFeeds.reduce((s,w) => s + (w.feedAmount || w.ml || 0), 0);
 	                      if (_yNightMl > 0 && _yFeedMl > 0 && _yNightMl > _yFeedMl * 0.6) _wakeNotes.push("More milk overnight than during the day — " + _name + " may be reverse cycling (tanking up at night instead of day)");
@@ -51173,30 +51171,30 @@ function App(){
 	                        }
 	                      } catch {}
 	                      // Late bedtime
-	                      if (lastNight.bedtimeMins && lastNight.bedtimeMins > 21 * 60) _wakeNotes.push("Late bedtime (" + fmt12(lastNight.bedtimeStr || "") + ") — overtired babies often sleep lighter, not deeper");
+	                      if (lastNight.bedtimeMins && lastNight.bedtimeMins > 21 * 60) _wakeNotes.push("Late bedtime (" + fmt12(lastNight.bedtimeStr || "") + ") — when babies are overtired they actually sleep worse, not better");
 	                      // Separation anxiety (8-10mo)
 	                      const _aw = age ? (age.predictiveWeeks ?? age.totalWeeks) : 0;
-	                      if (_aw >= 32 && _aw <= 44 && _nightCount >= 2 && !_yNightFeeds.length) _wakeNotes.push("At " + fmtAge(age) + " separation anxiety is common — wakes without hunger that settle with your presence are typical");
+	                      if (_aw >= 32 && _aw <= 44 && _nightCount >= 2 && !_yNightFeeds.length) _wakeNotes.push("At " + fmtAge(age) + " separation anxiety is really common at this age — waking up and needing to know you're there is completely normal");
 	                      // Growth spurt windows
 	                      const _gsWindows = [3,6,12,19,26,36,52];
 	                      const _inGrowthSpurt = _gsWindows.some(gw => _aw >= gw - 1 && _aw <= gw + 1);
-	                      if (_inGrowthSpurt && _yNightFeeds.length >= 2) _wakeNotes.push("Growth spurt window — increased hunger wakes are normal and usually last 2-3 days");
+	                      if (_inGrowthSpurt && _yNightFeeds.length >= 2) _wakeNotes.push("Growth spurt window — extra hunger wakes are completely normal during a growth spurt — usually settles in 2-3 days");
 	                      // Illness recovery
 	                      try {
 	                        const _dm = disruptionMode;
 	                        if (_dm && typeof _dm === "object" && _dm.ts) {
 	                          const _daysOff = Math.round((Date.now() - _dm.ts) / 86400000);
-	                          if (_daysOff >= 3 && _daysOff <= 10) _wakeNotes.push("Recently unwell (" + _daysOff + " days ago) — habits from illness (extra feeds, more holding) can linger after baby feels better");
+	                          if (_daysOff >= 3 && _daysOff <= 10) _wakeNotes.push("Recently unwell (" + _daysOff + " days ago) — the extra cuddles and feeds from when they were poorly can stick around for a bit even after they're feeling better");
 	                        }
 	                      } catch {}
-	                      if (!_wakeNotes.length) _wakeNotes.push("No single cause stands out. If this repeats for 3+ nights, a clearer pattern will emerge");
+	                      if (!_wakeNotes.length) _wakeNotes.push("Nothing obvious jumps out from the logs. If this happens again over the next few nights, the picture will get clearer");
 	                    }
 	                    // WHAT OBUBBA WILL DO
 	                    const _planH = new Date().getHours();
 	                    const _planIsEvening = _planH >= 17 || _planH < 6;
 	                    let _action;
 	                    if (_nightCount === 0 || (diagnosis && diagnosis.type === "great_night")) {
-	                      _action = "No changes needed. OBubba will keep the same rhythm today.";
+	                      _action = "Everything worked well — no changes needed. Just keep doing what you're doing. 💛";
 	                    } else if (_planIsEvening) {
 	                      _action = diagnosis && diagnosis.type === "split_night"
 	                        ? "Tonight: keep resettles dark, brief and boring. No talking, no eye contact. Short feed if needed."
@@ -51214,7 +51212,7 @@ function App(){
 	                      if (diagnosis && diagnosis.type === "late_bedtime") _acts.push("Move bedtime 15-20min earlier tonight");
 	                      if (diagnosis && diagnosis.type === "illness_recovery") _acts.push("Gently return to pre-illness routine — consistency for a week usually resets the pattern");
 	                      if (diagnosis && diagnosis.type === "nap_bed_gap_long") _acts.push("Consider a short bridge nap or earlier bedtime to close the gap");
-	                      if (!_acts.length) _acts.push("Keep today steady — OBubba will only adjust when the pattern repeats");
+	                      if (!_acts.length) _acts.push("No big changes needed — just keep today's routine as normal and we'll see how tonight goes");
 	                      _action = _acts.join(". ") + ".";
 	                    }
 	                    // Build sections for structured rendering

@@ -263,7 +263,7 @@ async function capture(cdp, fileName) {
   await fs.promises.mkdir(rawDir, { recursive: true });
   const file = path.join(rawDir, fileName);
   await wait(700);
-  const shot = await cdp.send("Page.captureScreenshot", { format: "png", fromSurface: true, captureBeyondViewport: false }, 30000);
+  const shot = await cdp.send("Page.captureScreenshot", { format: "png", fromSurface: true, captureBeyondViewport: false }, 60000);
   await fs.promises.writeFile(file, Buffer.from(shot.data, "base64"));
   console.log("captured " + file);
 }
@@ -318,43 +318,104 @@ async function main() {
       screenHeight: 932,
     });
     await cdp.send("Page.addScriptToEvaluateOnNewDocument", { source: demoSeedSource() });
+    const shotOnly = process.env.OB_STORE_SHOT_ONLY || "";
+    const shouldCapture = (id) => !shotOnly || shotOnly === id;
 
-    await preparePage(cdp, appUrl, "?storeShot=track-day&clockThemePreview=day");
-    await clickAria(cdp, "Track tab");
-    await capture(cdp, "01-track-day.png");
+    if (shouldCapture("01")) {
+      await preparePage(cdp, appUrl, "?storeShot=track-day&clockThemePreview=day");
+      await clickAria(cdp, "Track tab");
+      await capture(cdp, "01-track-day.png");
+    }
 
-    await preparePage(cdp, appUrl, "?storeShot=track-night&clockThemePreview=night&presencePreview=1");
-    await clickAria(cdp, "Track tab");
-    await capture(cdp, "02-track-night.png");
+    if (shouldCapture("02")) {
+      await preparePage(cdp, appUrl, "?storeShot=track-night&clockThemePreview=night&presencePreview=1");
+      await clickAria(cdp, "Track tab");
+      await capture(cdp, "02-track-night.png");
+    }
 
-    await preparePage(cdp, appUrl, "?storeShot=care");
-    await clickAria(cdp, "Care tab");
-    await wait(800);
-    await capture(cdp, "03-care-tools.png");
+    if (shouldCapture("03")) {
+      await preparePage(cdp, appUrl, "?storeShot=care");
+      await clickAria(cdp, "Care tab");
+      await wait(800);
+      await capture(cdp, "03-care-tools.png");
+    }
 
-    await clickTestId(cdp, "care-tile-sleep");
-    await wait(900);
-    await capture(cdp, "04-sleep-insight.png");
+    if (shouldCapture("04")) {
+      await preparePage(cdp, appUrl, "?storeShot=sleep");
+      await clickAria(cdp, "Care tab");
+      await wait(650);
+      await clickTestId(cdp, "care-tile-sleep");
+      await wait(900);
+      await capture(cdp, "04-sleep-insight.png");
+    }
 
-    await clickAria(cdp, "Care tab");
-    await wait(500);
-    await clickTestId(cdp, "care-tile-weaning");
-    await wait(900);
-    await capture(cdp, "05-weaning.png");
+    if (shouldCapture("05")) {
+      await preparePage(cdp, appUrl, "?storeShot=weaning");
+      await clickAria(cdp, "Care tab");
+      await wait(650);
+      await clickTestId(cdp, "care-tile-weaning");
+      await wait(900);
+      await capture(cdp, "05-weaning.png");
+    }
 
-    await clickAria(cdp, "Care tab");
-    await wait(500);
-    await clickTestId(cdp, "care-tile-parentroom");
-    await wait(900);
-    await capture(cdp, "06-parent-room.png");
+    if (shouldCapture("06")) {
+      await preparePage(cdp, appUrl, "?storeShot=parent-room");
+      await clickAria(cdp, "Care tab");
+      await wait(650);
+      await clickTestId(cdp, "care-tile-parentroom");
+      await wait(900);
+      await capture(cdp, "06-parent-room.png");
+    }
 
-    await clickAria(cdp, "Grow tab");
-    await wait(900);
-    await capture(cdp, "07-grow.png");
+    if (shouldCapture("07")) {
+      await preparePage(cdp, appUrl, "?storeShot=grow");
+      await clickAria(cdp, "Grow tab");
+      await wait(900);
+      await capture(cdp, "07-grow.png");
+    }
 
-    await clickAria(cdp, "Account tab");
-    await wait(900);
-    await capture(cdp, "08-sync-account.png");
+    if (shouldCapture("08")) {
+      await preparePage(cdp, appUrl, "?storeShot=account");
+      await clickAria(cdp, "Account tab");
+      await wait(900);
+      await capture(cdp, "08-sync-account.png");
+    }
+
+    if (shouldCapture("09")) {
+      await preparePage(cdp, appUrl, "?storeShot=bubba-care");
+      await clickAria(cdp, "Care tab");
+      await wait(650);
+      await clickTestId(cdp, "care-tile-bubbacare");
+      await wait(900);
+      await capture(cdp, "09-bubba-care.png");
+    }
+
+    if (shouldCapture("10")) {
+      await preparePage(cdp, appUrl, "?storeShot=feeding");
+      await clickAria(cdp, "Care tab");
+      await wait(650);
+      await clickTestId(cdp, "care-tile-feeding");
+      await wait(900);
+      await capture(cdp, "10-feeding-insight.png");
+    }
+
+    if (shouldCapture("11")) {
+      await preparePage(cdp, appUrl, "?storeShot=travel");
+      await clickAria(cdp, "Care tab");
+      await wait(650);
+      await clickTestId(cdp, "care-tile-travel");
+      await wait(900);
+      await capture(cdp, "11-travel-help.png");
+    }
+
+    if (shouldCapture("12")) {
+      await preparePage(cdp, appUrl, "?storeShot=safe-sleep");
+      await clickAria(cdp, "Care tab");
+      await wait(650);
+      await clickTestId(cdp, "care-tile-safesleep");
+      await wait(900);
+      await capture(cdp, "12-safe-sleep.png");
+    }
 
     cdp.close();
   } finally {

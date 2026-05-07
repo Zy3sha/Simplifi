@@ -272,10 +272,21 @@ async function capture(cdp, fileName) {
   await wait(900);
   let shot;
   try {
-    shot = await cdp.send("Page.captureScreenshot", { format: "png", fromSurface: true, captureBeyondViewport: false }, 90000);
+    shot = await cdp.send("Page.captureScreenshot", {
+      format: "png",
+      fromSurface: true,
+      captureBeyondViewport: false,
+      optimizeForSpeed: true,
+      clip: { x: 0, y: 0, width: 430, height: 932, scale: 3 },
+    }, 60000);
   } catch (err) {
     await wait(1200);
-    shot = await cdp.send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false }, 90000);
+    shot = await cdp.send("Page.captureScreenshot", {
+      format: "png",
+      fromSurface: true,
+      captureBeyondViewport: false,
+      clip: { x: 0, y: 0, width: 430, height: 932, scale: 3 },
+    }, 60000);
   }
   const file = path.join(rawDir, fileName);
   await fs.promises.writeFile(file, Buffer.from(shot.data, "base64"));

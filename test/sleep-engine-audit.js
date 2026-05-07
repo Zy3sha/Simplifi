@@ -881,7 +881,7 @@ try {
 	if (!appSource.includes("personalDisruption") || !appSource.includes("baselineWasSleepingThrough") || !appSource.includes("recentTeethingCount")) {
 	  _sweepFail("nightDiagnosis", "night diagnosis must use baseline and teething context before calling wakes normal", {});
 	}
-	if (!appSource.includes("function buildSplitNightCrossLogWhy") || !appSource.includes("No clear correlation is strong enough yet") || !appSource.includes("The useful clues are:") || !appSource.includes("splitNightCrossLogSignals") || !appSource.includes("recent milestone logged") || appSource.includes("Looking across feeds, nappies, day sleep and development")) {
+	if (!appSource.includes("function buildSplitNightCrossLogWhy") || !appSource.includes("No clear cause is strong enough yet") || !appSource.includes("Useful clues:") || !appSource.includes("Most likely cause: ") || !appSource.includes("Evidence so far:") || !appSource.includes("splitNightCrossLogSignals") || !appSource.includes("recent milestone logged") || appSource.includes("Looking across feeds, nappies, day sleep and development") || appSource.includes("No clear correlation is strong enough yet") || appSource.includes("The useful clues are:")) {
 	  _sweepFail("nightDiagnosis", "long-wake diagnosis should mention correlations only when the data has one", {});
 	}
 	if (!appSource.includes("can be age-typical, but") || !appSource.includes("_wakesUpFromBaseline") || !appSource.includes("_sixMonthAssessmentWindow")) {

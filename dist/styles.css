@@ -8001,6 +8001,11 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-actions button{
   gap:7px!important;
   font:800 12.5px/1.1 inherit!important;
 }
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-actions button.is-morning-wake{
+  grid-column:1 / -1!important;
+  justify-self:center!important;
+  width:calc((100% - 8px) / 2)!important;
+}
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-actions span{
   font-size:18px!important;
   line-height:1!important;
@@ -8206,6 +8211,9 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-panel-soft{
   body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-actions button{
     min-height:42px!important;
     font-size:11.5px!important;
+  }
+  body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-actions button.is-morning-wake{
+    width:calc((100% - 6px) / 2)!important;
   }
   body[data-clock-home-lab="1"] .ob-app-root .ob-clock-guidance-actions{
     grid-template-columns:1fr!important;
