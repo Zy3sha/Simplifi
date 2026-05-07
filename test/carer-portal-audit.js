@@ -57,6 +57,11 @@ for (const file of careFiles) {
     script.includes("_nightWakeSettledAt = Date.now()") &&
     script.includes("const clockLooksOvernight = bedtimeIsEvening && (nowMins >= bedMins || nowMins < 12 * 60)") &&
     script.includes("nightLocked: !!e.nightLocked"));
+  assert(`${file} supports grandma-friendly larger portal text without changing the parent app`,
+    html.includes("html.large-care-text body") &&
+    html.includes("Parent app toggles this in carerInfo.largeText") &&
+    script.includes("familyContext.largeText") &&
+    script.includes('document.documentElement.classList.toggle("large-care-text", !!familyContext.largeText)'));
   assert(`${file} parses child DOB/due-date through a guarded date-key helper`,
     script.includes("function dateKeyMs(dateStr") &&
     script.includes("const dobMs = dateKeyMs(ch.dob, NaN);") &&
@@ -82,6 +87,13 @@ assert("parent app dedupes Bubba Care auto-merged entries by source id",
   app.includes('if (e && e.carerEntryId) return "carer|" + e.carerEntryId;') &&
   app.includes("const nextRaw = normaliseDaysPayload(typeof fn === \"function\" ? fn(baseDays) : fn);") &&
   app.includes("Object.fromEntries(Object.entries(nextRaw).map(([dayKey, entries]) => [dayKey, dedupEntries(entries)]))"));
+assert("parent app sends grandma-friendly text as a care portal preference",
+  app.includes("currentCarerInfoForPortal()") &&
+  app.includes("largeText: !!grandparentMode") &&
+  app.includes("syncCarerPortalInfoNow()") &&
+  app.includes("Makes the Bubba Care guide easier to read with bigger text and buttons. The app stays the same.") &&
+  app.includes('class="${_largeCareGuide?"large-care-text":""}"') &&
+  app.includes("{false ? (()=>{"));
 
 assert("root and hosted carer portals are identical", read("care.html") === read("hosting-care/care.html"));
 assert("hosted carer portal entrypoints are identical", read("hosting-care/care.html") === read("hosting-care/index.html"));

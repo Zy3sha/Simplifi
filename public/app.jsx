@@ -4477,13 +4477,15 @@ function buildSplitNightCrossLogWhy(context) {
     if (text && !signals.includes(text)) signals.push(text);
   });
   if (!signals.length) {
-    return "No single cause stands out yet — it may have been a one-off. Keep logging and the pattern will get clearer.";
+    return "No clear correlation is strong enough yet. It may have been a one-off, so OBubba will keep the plan gentle and watch the next few sleeps.";
   }
   const primary = String(ctx.splitNightPrimaryPressure || "").trim();
   const friendlyPrimary = humanizeSplitNightPrimaryPressure(primary);
-  const primaryText = friendlyPrimary ? "Most likely cause: " + friendlyPrimary + ". " : "";
   const clueText = signals.slice(0, 3).map(humanizeSplitNightSignal).join(", ");
-  return primaryText + (clueText ? "Other factors: " + clueText + "." : "") + " Adjust gently — no need to rewrite the whole routine.";
+  if (!friendlyPrimary) {
+    return "No clear correlation is strong enough yet. The useful clues are: " + clueText + ". OBubba will keep the plan gentle and watch whether this repeats.";
+  }
+  return "Most likely cause: " + friendlyPrimary + ". The useful clues are: " + clueText + ". Adjust gently — no need to rewrite the whole routine.";
 }
 
 function diagnoseNightPattern(lastNight, context) {
@@ -11985,6 +11987,7 @@ function App(){
   const[carerNotes,setCarerNotes]=usePersistedState("carer_notes_v1", "", safeCarerText, safeCarerText);
   const[emergencyContacts,setEmergencyContacts]=useState(()=>{try{return normaliseEmergencyContactsPayload(safeJsonArray(localStorage.getItem("emergency_contacts_v1")));}catch{return [];}});
   const[carerComfort,setCarerComfort]=usePersistedState("carer_comfort_v1", "", safeCarerText, safeCarerText);
+  const[grandparentMode,setGrandparentMode]=usePersistedState("ob_grandparent_mode", false);
   // Nappy reminder
   const nappyReminderKey = "nappy_reminder_v1_" + (resolvedActiveId || "default");
   function safeNappyReminderMins(value) {
@@ -12316,10 +12319,11 @@ function App(){
       emergencyContacts: normaliseEmergencyContactsPayload(emergencyContacts),
       carerNotes: carerNotes || "",
       carerComfort: carerComfort || "",
-      savedMeds: normaliseSavedMedsPayload(savedMeds)
+      savedMeds: normaliseSavedMedsPayload(savedMeds),
+      largeText: !!grandparentMode
     };
     // Only write if something is actually filled in (avoid overwriting good data with empty)
-    const _hasAny = (_ci.emergencyContacts.length > 0) || !!_ci.carerNotes || !!_ci.carerComfort || (_ci.savedMeds.length > 0);
+    const _hasAny = (_ci.emergencyContacts.length > 0) || !!_ci.carerNotes || !!_ci.carerComfort || (_ci.savedMeds.length > 0) || !!_ci.largeText;
     if (!_hasAny) return;
     setChildren(prev => {
       const existing = prev[resolvedActiveId];
@@ -12329,7 +12333,7 @@ function App(){
       if (JSON.stringify(prevCi) === JSON.stringify(_ci)) return prev;
       return {...prev, [resolvedActiveId]: {...existing, carerInfo: _ci}};
     });
-  }, [emergencyContacts, carerNotes, carerComfort, savedMeds, resolvedActiveId]);
+  }, [emergencyContacts, carerNotes, carerComfort, savedMeds, grandparentMode, resolvedActiveId]);
   // Resurrect carer info on mount if localStorage is empty but children data has it
   useEffect(()=>{
     if (carerInfoResurrectedRef.current) return;
@@ -12338,7 +12342,7 @@ function App(){
     const savedCi = child.carerInfo;
     if (!savedCi) { carerInfoResurrectedRef.current = true; return; }
     // Check if live state is empty, only restore if we'd be overwriting nothing
-    const _liveHasAny = (emergencyContacts && emergencyContacts.length > 0) || !!carerNotes || !!carerComfort || (savedMeds && savedMeds.length > 0);
+    const _liveHasAny = (emergencyContacts && emergencyContacts.length > 0) || !!carerNotes || !!carerComfort || (savedMeds && savedMeds.length > 0) || !!grandparentMode;
     if (_liveHasAny) { carerInfoResurrectedRef.current = true; return; }
     // Restore from child record
     if (Array.isArray(savedCi.emergencyContacts) && savedCi.emergencyContacts.length > 0) {
@@ -12360,10 +12364,14 @@ function App(){
       setSavedMeds(safeSavedMeds);
       try{ localStorage.setItem("saved_meds_v1", JSON.stringify(safeSavedMeds)); }catch{}
     }
+    if (typeof savedCi.largeText === "boolean") {
+      setGrandparentMode(!!savedCi.largeText);
+      try{ localStorage.setItem("ob_grandparent_mode", savedCi.largeText ? "1" : "0"); }catch{}
+    }
     console.log("[OBubba] Carer info resurrected from child record");
     try { showToast("🫂 Carer info restored", 2000, 1); } catch {}
     carerInfoResurrectedRef.current = true;
-  }, [children, resolvedActiveId]);
+  }, [children, resolvedActiveId, grandparentMode]);
   const[notifPermission,setNotifPermission]=useState("default");
   useEffect(()=>{
     (async()=>{
@@ -12885,7 +12893,6 @@ function App(){
       return normaliseObservationsPayload(observations||[]).filter(o => shouldShowObservationNow(o, _nowForObservations));
     } catch { return []; }
   })();
-  const[grandparentMode,setGrandparentMode]=usePersistedState("ob_grandparent_mode", false);
   const[gpSheet,setGpSheet]=useState(null); // null | "feed" | "nappy" | "note"
   const[gpFeedMl,setGpFeedMl]=useState(120);
   const[gpNoteText,setGpNoteText]=useState("");
@@ -15203,6 +15210,7 @@ function App(){
       _carerInfoCloud.carerNotes = safeCarerText(localStorage.getItem("carer_notes_v1")||"");
       _carerInfoCloud.carerComfort = safeCarerText(localStorage.getItem("carer_comfort_v1")||"");
       _carerInfoCloud.savedMeds = normaliseSavedMedsPayload(_readLocalJson("saved_meds_v1", []));
+      _carerInfoCloud.largeText = localStorage.getItem("ob_grandparent_mode") === "1" || localStorage.getItem("ob_grandparent_mode") === "true";
       // Sync appointments, reminders, pinned notes across devices
       var _sharedData = {};
       _sharedData.appointments = normaliseAppointmentsPayload(_readLocalJson("appointments_v1", []));
@@ -15740,6 +15748,10 @@ function App(){
                 try{ localStorage.setItem("saved_meds_v1", JSON.stringify(uniqueMeds)); }catch{}
                 return uniqueMeds;
               });
+            }
+            if(typeof ci.largeText === "boolean") {
+              setGrandparentMode(!!ci.largeText);
+              try{ localStorage.setItem("ob_grandparent_mode", ci.largeText ? "1" : "0"); }catch{}
             }
           } catch(_) {}
         }
@@ -16520,6 +16532,10 @@ function App(){
             });
             setSavedMeds(uniqueMeds);
             try{ localStorage.setItem("saved_meds_v1", JSON.stringify(uniqueMeds)); }catch{}
+          }
+          if(typeof ci.largeText === "boolean") {
+            setGrandparentMode(!!ci.largeText);
+            try{ localStorage.setItem("ob_grandparent_mode", ci.largeText ? "1" : "0"); }catch{}
           }
         } catch(_) {}
       }
@@ -36329,6 +36345,7 @@ function App(){
     const sleepSourceHtml = htmlEscape(_guide.sleepSource);
     const safeSleepSourceHtml = htmlEscape(_guide.safeSleepSource);
     const nonEmergencyLabelHtml = htmlEscape(_guide.nonEmergencyLabel);
+    const _largeCareGuide = !!grandparentMode;
     // ALWAYS use TODAY's entries regardless of which day user has selected in the UI.
     // The care guide is a live snapshot. carers need fresh data, not historical.
     const _todayKey = todayStr();
@@ -36595,7 +36612,7 @@ function App(){
       <div style="font-size:10px;color:#C0A8B0;margin-top:8px">Carers can log feeds, naps & nappies. you'll review them in the app</div>
     </div>`);
 
-    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${nameHtml}'s Bubba Care</title><style>*{box-sizing:border-box;margin:0}body{font-family:-apple-system,system-ui,sans-serif;max-width:100%;margin:0;padding:60px 12px 40px;padding-top:max(60px,env(safe-area-inset-top,60px));background:#FFFCF9;font-size:14px;line-height:1.5;-webkit-text-size-adjust:100%;overflow-x:hidden}h2{font-family:Georgia,serif;font-size:16px}table{border-collapse:collapse;width:100%;table-layout:fixed}td,th{padding:3px 6px;font-size:12px;word-break:break-word;overflow-wrap:break-word}img{max-width:100%;height:auto}@media(max-width:430px){body{font-size:13px;padding:60px 10px 32px;padding-top:max(60px,env(safe-area-inset-top,60px))}h2{font-size:15px}td,th{padding:2px 4px;font-size:11px}}</style></head><body>${sections.join("")}</body></html>`;
+    return `<!DOCTYPE html><html class="${_largeCareGuide?"large-care-text":""}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${nameHtml}'s Bubba Care</title><style>*{box-sizing:border-box;margin:0}body{font-family:-apple-system,system-ui,sans-serif;max-width:100%;margin:0;padding:60px 12px 40px;padding-top:max(60px,env(safe-area-inset-top,60px));background:#FFFCF9;font-size:14px;line-height:1.5;-webkit-text-size-adjust:100%;overflow-x:hidden}h2{font-family:Georgia,serif;font-size:16px}table{border-collapse:collapse;width:100%;table-layout:fixed}td,th{padding:3px 6px;font-size:12px;word-break:break-word;overflow-wrap:break-word}img{max-width:100%;height:auto}html.large-care-text body{font-size:17px!important;line-height:1.65!important;padding-left:16px!important;padding-right:16px!important}html.large-care-text h1{font-size:32px!important;line-height:1.15!important}html.large-care-text h2{font-size:20px!important;line-height:1.25!important}html.large-care-text td,html.large-care-text th{font-size:15px!important;line-height:1.45!important;padding:5px 6px!important}html.large-care-text [style*="font-size:10px"]{font-size:13px!important}html.large-care-text [style*="font-size:11px"]{font-size:14px!important}html.large-care-text [style*="font-size:12px"]{font-size:15px!important}html.large-care-text [style*="font-size:13px"]{font-size:16px!important}html.large-care-text [style*="font-size:14px"]{font-size:17px!important}html.large-care-text a{font-size:17px!important;padding:13px 22px!important}@media(max-width:430px){body{font-size:13px;padding:60px 10px 32px;padding-top:max(60px,env(safe-area-inset-top,60px))}h2{font-size:15px}td,th{padding:2px 4px;font-size:11px}html.large-care-text body{font-size:16px!important;padding-left:14px!important;padding-right:14px!important}html.large-care-text h1{font-size:29px!important}html.large-care-text h2{font-size:19px!important}html.large-care-text td,html.large-care-text th{font-size:15px!important}}</style></head><body>${sections.join("")}</body></html>`;
   }
 
   const CARE_TOKEN_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -36639,10 +36656,43 @@ function App(){
     }
   }
 
+  function currentCarerInfoForPortal() {
+    return {
+      emergencyContacts: normaliseEmergencyContactsPayload(emergencyContacts),
+      carerNotes: safeCarerText(carerNotes || ""),
+      carerComfort: safeCarerText(carerComfort || ""),
+      savedMeds: normaliseSavedMedsPayload(savedMeds),
+      largeText: !!grandparentMode
+    };
+  }
+
+  async function syncCarerPortalInfoNow() {
+    const _code = backupCode || (()=>{try{return localStorage.getItem("backup_code") || "";}catch{return "";}})();
+    if (!_code) return false;
+    try {
+      const _snap = await fsGet("families", _code);
+      const _data = _snap && _snap.exists() ? _snap.data() : {};
+      const _childrenPayload = _data.children || JSON.stringify(childrenRef.current || children || {});
+      const _childSyncPayload = _data.childSyncCodes || JSON.stringify(_parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1")));
+      return await fsSet("families", _code, {
+        children: _childrenPayload,
+        childSyncCodes: _childSyncPayload,
+        carerInfo: JSON.stringify(currentCarerInfoForPortal()),
+        updatedAt: new Date().toISOString(),
+        updatedBy: window._fbUid || "anon",
+        writeToken: writeTokenRef.current
+      }, true);
+    } catch(e) {
+      console.warn("[OBubba] Bubba Care info sync failed:", e);
+      return false;
+    }
+  }
+
   async function ensureSyncedCarerToken() {
     const tokenData = ensureCarerTokenForBackup();
     const synced = await syncCarerTokenMapping(tokenData);
     if (!synced) throw new Error("Bubba Care token sync failed");
+    try { await syncCarerPortalInfoNow(); } catch {}
     return tokenData;
   }
 
@@ -46398,24 +46448,28 @@ function App(){
                                   <div style={{fontSize:11.5,color:C.mid,lineHeight:1.45,marginTop:2}}>{_hasLoggedFoodToday ? (_loggedFoodCount > 1 ? "These are already in today's food journal. Open the journal to edit reactions or notes." : "This is already in today's food journal. Add a reaction or note if you want.") : getWeaningWhyHint(_recipeGuide, _guide)}</div>
                                 </div>
                               </div>
-                              <div data-testid="weaning-step-when" style={{display:"grid",gridTemplateColumns:"28px minmax(0,1fr)",gap:9,padding:"10px 11px",borderRadius:14,background:"rgba(255,255,255,0.34)",border:"1px solid var(--card-border)"}}>
-                                <div style={{width:24,height:24,borderRadius:99,background:"rgba(212,168,85,0.18)",color:C.gold,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:900}}>2</div>
-                                <div>
-                                  <div style={{fontSize:10,fontWeight:900,color:C.lt,textTransform:"uppercase",letterSpacing:"0.06em"}}>When</div>
-                                  <div style={{fontSize:12.5,color:C.mid,lineHeight:1.45}}>{_hasLoggedFoodToday ? "Already logged today." : getWeaningWhenHint(_guide)}</div>
-                                </div>
-                              </div>
-                              <div data-testid="weaning-step-how" style={{display:"grid",gridTemplateColumns:"28px minmax(0,1fr)",gap:9,padding:"10px 11px",borderRadius:14,background:"rgba(255,255,255,0.34)",border:"1px solid var(--card-border)"}}>
-                                <div style={{width:24,height:24,borderRadius:99,background:"rgba(111,168,152,0.16)",color:C.mint,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:900}}>3</div>
-                                <div>
-                                  <div style={{fontSize:10,fontWeight:900,color:C.lt,textTransform:"uppercase",letterSpacing:"0.06em"}}>How</div>
-                                  <div style={{fontSize:12.5,color:C.mid,lineHeight:1.45}}>{_hasLoggedFoodToday ? "No need to add another new food just to satisfy the plan. OBubba will build from what actually happened." : getWeaningServingHintForStyle(_recipeGuide, _awGuide, _weaningStylePref)}</div>
-                                </div>
-                              </div>
+                              {!_hasLoggedFoodToday && (
+                                <>
+                                  <div data-testid="weaning-step-when" style={{display:"grid",gridTemplateColumns:"28px minmax(0,1fr)",gap:9,padding:"10px 11px",borderRadius:14,background:"rgba(255,255,255,0.34)",border:"1px solid var(--card-border)"}}>
+                                    <div style={{width:24,height:24,borderRadius:99,background:"rgba(212,168,85,0.18)",color:C.gold,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:900}}>2</div>
+                                    <div>
+                                      <div style={{fontSize:10,fontWeight:900,color:C.lt,textTransform:"uppercase",letterSpacing:"0.06em"}}>When</div>
+                                      <div style={{fontSize:12.5,color:C.mid,lineHeight:1.45}}>{getWeaningWhenHint(_guide)}</div>
+                                    </div>
+                                  </div>
+                                  <div data-testid="weaning-step-how" style={{display:"grid",gridTemplateColumns:"28px minmax(0,1fr)",gap:9,padding:"10px 11px",borderRadius:14,background:"rgba(255,255,255,0.34)",border:"1px solid var(--card-border)"}}>
+                                    <div style={{width:24,height:24,borderRadius:99,background:"rgba(111,168,152,0.16)",color:C.mint,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:900}}>3</div>
+                                    <div>
+                                      <div style={{fontSize:10,fontWeight:900,color:C.lt,textTransform:"uppercase",letterSpacing:"0.06em"}}>How</div>
+                                      <div style={{fontSize:12.5,color:C.mid,lineHeight:1.45}}>{getWeaningServingHintForStyle(_recipeGuide, _awGuide, _weaningStylePref)}</div>
+                                    </div>
+                                  </div>
+                                </>
+                              )}
                               <div data-testid="weaning-step-after" style={{display:"grid",gridTemplateColumns:"28px minmax(0,1fr)",gap:9,padding:"10px 11px",borderRadius:14,background:"rgba(255,255,255,0.34)",border:"1px solid var(--card-border)"}}>
-                                <div style={{width:24,height:24,borderRadius:99,background:"rgba(139,126,200,0.14)",color:"#8B7EC8",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:900}}>4</div>
+                                <div style={{width:24,height:24,borderRadius:99,background:"rgba(139,126,200,0.14)",color:"#8B7EC8",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:900}}>{_hasLoggedFoodToday ? "2" : "4"}</div>
                                 <div>
-                                  <div style={{fontSize:10,fontWeight:900,color:C.lt,textTransform:"uppercase",letterSpacing:"0.06em"}}>After</div>
+                                  <div style={{fontSize:10,fontWeight:900,color:C.lt,textTransform:"uppercase",letterSpacing:"0.06em"}}>{_hasLoggedFoodToday ? "Watch" : "After"}</div>
                                   <div style={{fontSize:12.5,color:C.mid,lineHeight:1.45}}>{_hasLoggedFoodToday ? "If it was new, watch for rash, swelling or vomiting and log anything unusual." : getWeaningAfterHint(_guide)}</div>
                                 </div>
                               </div>
@@ -50488,7 +50542,8 @@ function App(){
 	              )}
 	              {insightFilter && renderCareSectionGuide(insightFilter)}
 
-	              {insightFilter==="sleep" && (()=>{
+	              {/* Duplicate sleep consultant summary removed — single debrief below handles everything */}
+	              {false && insightFilter==="sleep" && (()=>{
 	                try {
 	                  const _sleepLast = _lastNightMemo;
 	                  const _sleepDiag = _nightDiagnosisMemo;
@@ -50639,17 +50694,23 @@ function App(){
                         : "Yesterday's sleep in plain English";
                     const _body = [];
                     if (diagnosis && diagnosis.type === "split_night") {
-                      const _strongest = diagnosis.crossLogWhy ? ((String(diagnosis.crossLogWhy).match(/The strongest read is ([^.]+)\./) || [])[1] || "") : "";
-                      const _correlationLine = _strongest ? "The useful correlation is " + _strongest + ". " : "";
-                      _body.push("This reads like a sleep-pressure night rather than a mystery wake. " + _correlationLine + "Day sleep was generous and the final wake window still ran long, so " + _name + " may have arrived at bedtime tired-but-wired. That mix can produce one long awake stretch without meaning the whole routine is broken.");
+                      const _strongest = diagnosis.crossLogWhy ? ((String(diagnosis.crossLogWhy).match(/Most likely cause: ([^.]+)\./) || String(diagnosis.crossLogWhy).match(/The strongest read is ([^.]+)\./) || [])[1] || "") : "";
+                      if (_strongest) _body.push("Most likely cause: " + _strongest + ".");
+                      _body.push(_name + " probably had too much day sleep or the last wake window ran long, arriving at bedtime tired but not sleepy enough. That can cause one long awake stretch in the middle of the night.");
                     } else if (diagnosis && diagnosis.type === "false_start") {
-                      _body.push("The first stretch after bedtime is the clue here. A quick wake soon after going down usually points back to the final wake window, the wind-down, or how much help was needed to settle.");
+                      _body.push(_name + " woke up soon after going down. This usually means the last wake window was a bit too long, or bedtime needed a calmer wind-down.");
                     } else if (diagnosis && diagnosis.type === "fragmented_night") {
-                      _body.push("The useful read is not the total number on its own, but the fact the night stayed interrupted. Tonight should be calm, repetitive and easy to log so the pattern can separate itself.");
+                      _body.push("The night was broken up with multiple wakes. This can happen after a busy day, teething, or when something in the routine needs adjusting.");
+                    } else if (diagnosis && diagnosis.type === "overtired") {
+                      _body.push(_name + " showed signs of overtiredness — usually caused by too much awake time before bed or a missed nap window.");
+                    } else if (diagnosis && diagnosis.type === "undertired") {
+                      _body.push(_name + " may not have been tired enough at bedtime. Too much day sleep or too short a final wake window can cause this.");
+                    } else if (diagnosis && diagnosis.type === "great_night") {
+                      _body.push("Everything lined up well. The routine, naps, feeds and wake windows all worked together for a good night.");
                     } else if (diagnosis && diagnosis.detail) {
                       _body.push(diagnosis.detail);
                     } else {
-                      _body.push("The debrief is looking for the most useful pattern, not a perfect score: what happened overnight, what the previous day contributed, and what needs changing today.");
+                      _body.push("OBubba is still learning " + _name + "'s patterns. A few more logged nights will make this read clearer.");
                     }
                     if (_wakeWindowPlan && _wakeWindowPlan.detail) _body.push(_wakeWindowPlan.detail);
                     if (_wakeTimingPattern) _body.push(_wakeTimingPattern);
@@ -50692,13 +50753,13 @@ function App(){
                     <details data-testid="sleep-last-night-debrief" className="glass-card ob-last-night-collapse" open={lastNightDebriefOpen} onToggle={(e)=>{const _open=!!e.currentTarget.open;setLastNightDebriefOpen(_open);if(_open)_markLastNightSeen();}} style={{padding:"0",marginBottom:12,background:`linear-gradient(135deg,rgba(123,104,238,0.06),rgba(111,168,152,0.04))`,border:`1.5px solid rgba(123,104,238,0.2)`}}>
                       <summary className="ob-last-night-summary">
                         <div>
-                          <div className="ob-last-night-kicker">Yesterday's sleep summary</div>
-                          <div className="ob-last-night-title">Review yesterday's sleep and OBubba's plan to help</div>
+                          <div className="ob-last-night-kicker">Last night</div>
+                          <div className="ob-last-night-title">What happened and what OBubba is doing about it</div>
                         </div>
                         <span>{lastNightDebriefOpen?"Hide":(_alreadySeen?"Review":"Open")}</span>
                       </summary>
                       <div className="ob-last-night-detail">
-                      <div style={{fontSize:10,fontFamily:_fM,color:"#7B68EE",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:8,fontWeight:700}}>🌙 Yesterday's sleep summary</div>
+                      {/* Label removed — header already says "Yesterday's sleep summary" */}
 
                       {/* Narrative summary — leads with plain English, stats below */}
                       {(()=>{
@@ -50734,7 +50795,7 @@ function App(){
                         ) : null;
                       })()}
 
-                      {false && _sleepConsultantSummary && (()=>{
+                      {_sleepConsultantSummary && (()=>{
                         const _scBody = _sleepConsultantSummary.body || "";
                         const _scShort = _scBody.length > 120 ? _scBody.slice(0, _scBody.indexOf(" ", 110)) + "…" : _scBody;
                         const _scNeedsMore = _scBody.length > 120;
@@ -59222,11 +59283,12 @@ function App(){
                 </div>
               );
             })()}
-            {(()=>{
-              const _brandInfo = recogniseBabyFoodProduct(weaningForm.food);
-              if (!_brandInfo) return null;
-              const _brandKey = normaliseWeaningName(_brandInfo.displayName);
-              const _alreadyInThisWeek = Array.isArray(weanWeekRecipes) && weanWeekRecipes.some(n => normaliseWeaningName(n) === _brandKey);
+	            {(()=>{
+	              const _brandInfo = recogniseBabyFoodProduct(weaningForm.food);
+	              if (!_brandInfo) return null;
+	              const _isEditingLoggedFood = !!safeTextPayload(weaningForm.editId, "", 80).trim();
+	              const _brandKey = normaliseWeaningName(_brandInfo.displayName);
+	              const _alreadyInThisWeek = Array.isArray(weanWeekRecipes) && weanWeekRecipes.some(n => normaliseWeaningName(n) === _brandKey);
               const _shoppingFoods = (normaliseWeeklyShoppingListPayload(weeklyShoppingList) || {foods:[]}).foods;
               const _alreadyInShopping = _shoppingFoods.some(f => normaliseWeaningName(f.food) === _brandKey);
               const _alreadyInPlan = _alreadyInThisWeek || _alreadyInShopping;
@@ -59244,28 +59306,30 @@ function App(){
                   {_brandInfo.flags.slice(0,3).map((flag,i)=>(
                     <div key={i} style={{fontSize:10,color:C.lt,lineHeight:1.45,marginTop:3}}>• {flag}</div>
                   ))}
-                  <button onClick={()=>{
-                    haptic(8);
-                    setWeeklyShoppingList(prev => {
-                      const base = normaliseWeeklyShoppingListPayload(prev) || {weekStart: todayStr(), foods: [], extras: []};
-                      const exists = (base.foods||[]).some(f => normaliseWeaningName(f.food) === _brandKey);
-                      if (exists) return base;
-                      return normaliseWeeklyShoppingListPayload({...base, foods: [...(base.foods||[]), {food:_brandInfo.displayName, emoji:_brandInfo.icon, cat:_brandInfo.cat, recipe:_brandInfo.type + " · check label", bought:false}], extras: [...(base.extras||[])]}) || base;
-                    });
-                    setWeanWeekRecipes(prev => {
-                      const baseNames = Array.isArray(prev) && prev.length
-                        ? prev
-                        : getThisWeekWeaningRecipes(weaning||[], age ? (age.predictiveWeeks ?? age.totalWeeks) : 30, prev, 5).map(r => r.name);
-                      if (baseNames.some(n => normaliseWeaningName(n) === _brandKey)) return baseNames;
-                      const next = [_brandInfo.displayName, ...baseNames.filter(n => normaliseWeaningName(n) !== _brandKey)].slice(0, 7);
-                      return next;
-                    });
-                    showToast(_alreadyInPlan ? "Already in This Week" : "Added to This Week", 2200, 1);
-                  }} style={{marginTop:8,width:"100%",padding:"8px 10px",borderRadius:99,border:`1px solid ${C.mint}44`,background:_alreadyInPlan?"var(--card-bg)":"rgba(111,168,152,0.12)",color:_alreadyInPlan?C.lt:C.mint,fontSize:12,fontWeight:800,cursor:_cP,fontFamily:_fI}}>
-                    {_alreadyInPlan ? "✓ In This Week" : "Add to This Week"}
-                  </button>
-                </div>
-              );
+	                  {!_isEditingLoggedFood && (
+	                    <button onClick={()=>{
+	                      haptic(8);
+	                      setWeeklyShoppingList(prev => {
+	                        const base = normaliseWeeklyShoppingListPayload(prev) || {weekStart: todayStr(), foods: [], extras: []};
+	                        const exists = (base.foods||[]).some(f => normaliseWeaningName(f.food) === _brandKey);
+	                        if (exists) return base;
+	                        return normaliseWeeklyShoppingListPayload({...base, foods: [...(base.foods||[]), {food:_brandInfo.displayName, emoji:_brandInfo.icon, cat:_brandInfo.cat, recipe:_brandInfo.type + " · check label", bought:false}], extras: [...(base.extras||[])]}) || base;
+	                      });
+	                      setWeanWeekRecipes(prev => {
+	                        const baseNames = Array.isArray(prev) && prev.length
+	                          ? prev
+	                          : getThisWeekWeaningRecipes(weaning||[], age ? (age.predictiveWeeks ?? age.totalWeeks) : 30, prev, 5).map(r => r.name);
+	                        if (baseNames.some(n => normaliseWeaningName(n) === _brandKey)) return baseNames;
+	                        const next = [_brandInfo.displayName, ...baseNames.filter(n => normaliseWeaningName(n) !== _brandKey)].slice(0, 7);
+	                        return next;
+	                      });
+	                      showToast(_alreadyInPlan ? "Already in This Week" : "Added to This Week", 2200, 1);
+	                    }} style={{marginTop:8,width:"100%",padding:"8px 10px",borderRadius:99,border:`1px solid ${C.mint}44`,background:_alreadyInPlan?"var(--card-bg)":"rgba(111,168,152,0.12)",color:_alreadyInPlan?C.lt:C.mint,fontSize:12,fontWeight:800,cursor:_cP,fontFamily:_fI}}>
+	                      {_alreadyInPlan ? "✓ In This Week" : "Add to This Week"}
+	                    </button>
+	                  )}
+	                </div>
+	              );
             })()}
             {/* ── Foods to avoid warning ── */}
             {(()=>{
@@ -61115,14 +61179,14 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:grandparentMode?"rgba(123,166,140,0.1)":"var(--card-bg)",border:`1px solid ${grandparentMode?C.mint:C.blush}`,borderRadius:14,padding:"12px 16px",marginBottom:14}}>
               <div style={{flex:1,paddingRight:10}}>
                 <div style={{fontSize:14,fontWeight:700,color:C.deep}}>Handing your phone to grandma?</div>
-                <div style={{fontSize:11,color:C.lt,marginTop:2,lineHeight:1.45}}>Switch to the big-button logging view they can use on YOUR phone. Turn off when they've left.</div>
+                <div style={{fontSize:11,color:C.lt,marginTop:2,lineHeight:1.45}}>Makes the Bubba Care guide easier to read with bigger text and buttons. The app stays the same.</div>
               </div>
               <button onClick={()=>setGrandparentMode(v=>!v)} style={{width:48,height:28,borderRadius:14,border:"none",background:grandparentMode?"#7BA68C":"#ccc",position:"relative",cursor:_cP,transition:"background 0.2s"}}>
                 <div style={{width:22,height:22,borderRadius:11,background:"white",position:"absolute",top:3,left:grandparentMode?23:3,transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}}/>
               </button>
             </div>
 
-            {grandparentMode ? (()=>{
+            {false ? (()=>{
               // ── GRANDPARENT MODE. big tap-friendly logging interface ──
               const _gpName = babyName || "Baby";
               const _gpEntries = days[selDay] || [];

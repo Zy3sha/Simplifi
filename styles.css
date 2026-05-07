@@ -15729,7 +15729,7 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-lab > .ob-clock-kindness-note{
   width:min(100%,540px)!important;
   max-width:540px!important;
-  margin:5px auto 9px!important;
+  margin:5px auto -4px!important;
   padding:0 14px!important;
   box-sizing:border-box!important;
   position:relative!important;
@@ -15803,7 +15803,7 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-rhythm-card > .ob-clock-kin
 }
 @media (max-width:390px){
   body[data-clock-home-lab="1"] .ob-app-root .ob-clock-lab > .ob-clock-kindness-note{
-    margin:4px auto 8px!important;
+    margin:4px auto -3px!important;
     padding:0 10px!important;
   }
   body[data-clock-home-lab="1"] .ob-app-root .ob-clock-lab > .ob-clock-kindness-note .ob-clock-kindness-card{

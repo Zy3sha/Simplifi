@@ -99,6 +99,53 @@
   /* Floating call button */
   .fab-call { position: fixed; bottom: max(24px, env(safe-area-inset-bottom, 24px)); right: 20px; width: 56px; height: 56px; border-radius: 50%; background: #9BB8A8; color: white; font-size: 24px; border: none; cursor: pointer; box-shadow: 0 6px 20px rgba(155,184,168,0.4); z-index: 90; display: flex; align-items: center; justify-content: center; }
   .fab-call:active { transform: scale(0.92); }
+  /* Grandma-friendly Care Guide text. Parent app toggles this in carerInfo.largeText. */
+  html.large-care-text body { font-size: 17px !important; line-height: 1.65 !important; padding-left: 18px !important; padding-right: 18px !important; }
+  html.large-care-text .header { margin-bottom: 18px !important; }
+  html.large-care-text .header-name { font-size: 22px !important; line-height: 1.15 !important; }
+  html.large-care-text .header-age,
+  html.large-care-text .sub { font-size: 14px !important; }
+  html.large-care-text .logo { font-size: 34px !important; }
+  html.large-care-text .status-bar { padding: 15px 22px !important; }
+  html.large-care-text .status-bar .status-icon { font-size: 28px !important; }
+  html.large-care-text .status-bar .status-text { font-size: 18px !important; line-height: 1.25 !important; }
+  html.large-care-text .status-bar .status-sub,
+  html.large-care-text .status-bar .status-pill { font-size: 14px !important; }
+  html.large-care-text .status-bar .status-timer { font-size: 34px !important; }
+  html.large-care-text .card { padding: 18px !important; border-radius: 22px !important; }
+  html.large-care-text .caring-banner .title { font-size: 20px !important; }
+  html.large-care-text .caring-banner .text { font-size: 16px !important; }
+  html.large-care-text .btn-grid { gap: 12px !important; }
+  html.large-care-text .action-btn { min-height: 122px !important; padding: 24px 14px !important; font-size: 21px !important; }
+  html.large-care-text .action-btn .icon { font-size: 40px !important; }
+  html.large-care-text .action-btn .label { font-size: 17px !important; line-height: 1.2 !important; }
+  html.large-care-text .mood-chip { font-size: 15px !important; padding: 10px 15px !important; }
+  html.large-care-text .section-label { font-size: 16px !important; line-height: 1.25 !important; }
+  html.large-care-text .entry { font-size: 17px !important; padding: 13px 14px !important; }
+  html.large-care-text .entry .emoji { font-size: 23px !important; }
+  html.large-care-text .entry .time { font-size: 15px !important; }
+  html.large-care-text .sheet-title { font-size: 26px !important; }
+  html.large-care-text .amount-display { font-size: 62px !important; }
+  html.large-care-text .amt-btn,
+  html.large-care-text .opt-btn,
+  html.large-care-text .save-btn { font-size: 21px !important; }
+  html.large-care-text .cancel-btn,
+  html.large-care-text .toast,
+  html.large-care-text .parent-note,
+  html.large-care-text .call-btn,
+  html.large-care-text .reassurance-item .q { font-size: 17px !important; }
+  html.large-care-text .reassurance-item .a { font-size: 16px !important; }
+  html.large-care-text .parent-note .pn-label { font-size: 13px !important; }
+  html.large-care-text .card [style*="font-size:10px"] { font-size: 13px !important; }
+  html.large-care-text .card [style*="font-size:11px"] { font-size: 14px !important; }
+  html.large-care-text .card [style*="font-size:12px"] { font-size: 15px !important; }
+  html.large-care-text .card [style*="font-size:13px"] { font-size: 16px !important; }
+  html.large-care-text .card [style*="font-size:14px"] { font-size: 17px !important; }
+  html.large-care-text .card [style*="font-size:15px"] { font-size: 18px !important; }
+  html.large-care-text .card [style*="font-size:20px"] { font-size: 24px !important; }
+  html.large-care-text input,
+  html.large-care-text textarea,
+  html.large-care-text button { font-size: 17px !important; }
   /* Dark mode */
   @media (prefers-color-scheme: dark) {
     html, body { background: #1C1820; color: #E8DDE0; }
@@ -329,7 +376,7 @@ function fmtAgo(mins) {
 
 let sheet = null;
 let recentEntries = [];
-let familyContext = { babyName: "baby", babyDob: null, ageWeeks: null, babyPhoto: null, today: {}, pinnedNotes: [], carerNotes: "", carerComfort: "", emergencyContacts: [] };
+let familyContext = { babyName: "baby", babyDob: null, ageWeeks: null, babyPhoto: null, today: {}, pinnedNotes: [], carerNotes: "", carerComfort: "", emergencyContacts: [], largeText: false };
 let _childrenCache = null; // used to recompute stats when carer entries arrive
 let _napEndedLocally = null; // set to end time when carer taps "Nap Ended" — forces render to treat nap as done
 let _nightWakePausedAt = null; // timestamp when carer tapped Night Wake — pauses timer display
@@ -498,7 +545,9 @@ function _applyFamilyDoc(data) {
     familyContext.carerNotes = ci.carerNotes || "";
     familyContext.carerComfort = ci.carerComfort || "";
     familyContext.emergencyContacts = Array.isArray(ci.emergencyContacts) ? ci.emergencyContacts : [];
-  } catch {}
+    familyContext.largeText = ci.largeText === true || ci.largeText === "true" || ci.largeText === "1" || ci.grandparentMode === true;
+  } catch { familyContext.largeText = false; }
+  document.documentElement.classList.toggle("large-care-text", !!familyContext.largeText);
   // Parse prediction data from parent app
   try {
     const pred = safeJsonValue(data.prediction, {});
