@@ -50225,6 +50225,21 @@ function App(){
                     }
                     if (_wakeWindowPlan && _wakeWindowPlan.detail) _body.push(_wakeWindowPlan.detail);
                     if (_wakeTimingPattern) _body.push(_wakeTimingPattern);
+                    // Personal wake window context (folded from the separate wake-window proof card)
+                    try {
+                      const _rcWW = (()=>{try{return getDailyRecalibration();}catch{return null;}})();
+                      const _wwAge = age ? getWakeWindow(age.predictiveWeeks ?? age.totalWeeks) : null;
+                      if (_rcWW && _rcWW.ww3 && _wwAge) {
+                        const _personalWW = _rcWW.ww3;
+                        const _guideMin = _wwAge.min || 0;
+                        const _guideMax = _wwAge.max || 0;
+                        const _shorter = _personalWW < _guideMin;
+                        const _longer = _personalWW > _guideMax;
+                        if (_shorter) _body.push(_name + "'s wake window is naturally shorter than the age guideline (" + hm(_personalWW) + " vs " + hm(_guideMin) + "–" + hm(_guideMax) + "). Higher sleep need this week" + (_rcWW.ww7 && Math.abs(_personalWW - _rcWW.ww7) >= 3 ? " — it has " + ((_personalWW < _rcWW.ww7) ? "decreased" : "increased") + " by about " + Math.abs(Math.round(_personalWW - _rcWW.ww7)) + "min." : "."));
+                        else if (_longer) _body.push(_name + "'s wake window is stretching beyond the age guideline (" + hm(_personalWW) + " vs " + hm(_guideMin) + "–" + hm(_guideMax) + ")" + (_rcWW.ww7 && Math.abs(_personalWW - _rcWW.ww7) >= 3 ? " — it has " + ((_personalWW > _rcWW.ww7) ? "increased" : "decreased") + " by about " + Math.abs(Math.round(_personalWW - _rcWW.ww7)) + "min this week." : ". Only stretch if cues stay calm."));
+                        else if (_rcWW.ww7 && Math.abs(_personalWW - _rcWW.ww7) >= 3) _body.push(_name + "'s wake window has " + ((_personalWW > _rcWW.ww7) ? "increased" : "decreased") + " by about " + Math.abs(Math.round(_personalWW - _rcWW.ww7)) + "min this week (now averaging " + hm(_personalWW) + ").");
+                      }
+                    } catch {}
                     const _planH = new Date().getHours();
                     const _planIsEvening = _planH >= 17 || _planH < 6;
                     const _dayPlan = _wakeWindowPlan && _wakeWindowPlan.action
@@ -50635,8 +50650,8 @@ function App(){
 
               {/* Wake timing histogram retired: its useful read is now translated into the Sleep summary inside the debrief. */}
 
-              {/* ═══ SLEEP SCORE + LAST NIGHT SUMMARY ═══ */}
-              {(()=>{
+              {/* ═══ SLEEP SCORE — REMOVED, folded into consultant debrief ═══ */}
+              {false && (()=>{
                 // Last night data
                 const _prevDk = prevDayStr(selDay);
                 const _prevEntries = days[_prevDk]||[];
@@ -50759,8 +50774,8 @@ function App(){
 
               {/* ═══ SLEEP INSIGHTS. clean, flat, no collapsible ═══ */}
 
-              {/* ═══ {BABY}'S RHYTHM — unified: pattern + drift + transition + wake-windows ═══ */}
-              {(()=>{
+              {/* ═══ WAKE-WINDOW PROOF — REMOVED, folded into consultant debrief ═══ */}
+              {false && (()=>{
                 try {
                   const _name = babyName || "Baby";
                   const _pats = (()=>{try{return advancedSleepPatterns();}catch{return null;}})();
