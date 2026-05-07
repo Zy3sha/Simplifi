@@ -50028,7 +50028,7 @@ function App(){
 	                  }
 	                };
 	                const _carePrimaryTools = [
-	                  {id:"bubbacare",label:"Bubba Care",icon:"👶",sub:"Share a live care guide with carers"},
+	                  {id:"bubbacare",label:"Bubba Care",icon:"🫂",sub:"Share a live care guide with carers"},
 	                  {id:"weaning",label:"Weaning",icon:"🍎",sub:"Recipes, allergens, food journal"},
 	                  {id:"parentroom",label:"Parent Room",icon:"💜",sub:"Breathing, check-ins, your wellbeing"},
 	                  {id:"sleepcoach",label:"Sleep Coach",icon:"🗓",modal:true,premium:true,sub:"A personalised 14-day sleep plan built from your logs"},
