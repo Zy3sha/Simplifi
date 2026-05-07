@@ -21126,17 +21126,27 @@ function App(){
       let _wp = null, _wpMs = null, _wpLabel = null;
       if (_ne && _ne.type && typeof _ne.targetMs === "number") {
         const _targetMs = _ne.targetMs;
-        const _safeTargetMs = _targetMs >= Date.now() - 5*60*1000 ? Math.max(_targetMs, Date.now() + 1000) : null;
+        const _isOverdue = _targetMs < Date.now();
+        const _overdueByMins = _isOverdue ? Math.round((Date.now() - _targetMs) / 60000) : 0;
         const _eventLabel = _ne.label || (_ne.type === "bed" ? "Bedtime" : ("Nap " + ((napsDone || 0) + 1)));
         const _eventTime = _ne.timeStr || (typeof _ne.timeMins === "number" ? fmt12(_ne.timeMins) : "");
-        _wp = _eventLabel + (_eventTime ? " ~" + _eventTime : "");
-        _wpLabel = _eventLabel;
-        _wpMs = _safeTargetMs;
+        // When overdue: show "Nap 1 ~2:30pm (overdue)" with null ms so widget doesn't countdown
+        // When upcoming: show target ms for widget countdown
+        if (_isOverdue) {
+          _wp = _eventLabel + (_eventTime ? " ~" + _eventTime : "") + " (overdue)";
+          _wpLabel = _eventLabel + " overdue";
+          _wpMs = null; // Don't give widget a target — it's past
+        } else {
+          _wp = _eventLabel + (_eventTime ? " ~" + _eventTime : "");
+          _wpLabel = _eventLabel;
+          _wpMs = _targetMs;
+        }
       } else if (bedMins && !hasBedtime) {
-        _wp = "Bed ~" + fmt12(bedMins);
-        _wpLabel = "Bedtime";
         var _bpD = new Date(); _bpD.setHours(Math.floor(bedMins/60)%24, bedMins%60, 0, 0);
-        if (_bpD.getTime() >= Date.now() - 5*60*1000) _wpMs = Math.max(_bpD.getTime(), Date.now() + 1000);
+        const _bedOverdue = _bpD.getTime() < Date.now();
+        _wp = "Bed ~" + fmt12(bedMins) + (_bedOverdue ? " (overdue)" : "");
+        _wpLabel = _bedOverdue ? "Bedtime overdue" : "Bedtime";
+        _wpMs = _bedOverdue ? null : _bpD.getTime();
       }
       tickDataRef.current.nextPrediction = _wp;
       tickDataRef.current.nextPredictionMs = _wpMs;
