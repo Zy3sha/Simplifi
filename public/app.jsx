@@ -46642,7 +46642,12 @@ function App(){
 	                  {age && (()=>{
 	                    const w = age.predictiveWeeks ?? age.totalWeeks;
 	                    const _name = babyName || "Baby";
-	                    const _currentPhase = DEV_PHASES.slice().reverse().find(p => w >= p.windowStart);
+	                    const _activePhaseNow = DEV_PHASES.find(p => w >= p.windowStart && w <= p.windowEnd);
+	                    const _lastCompletedPhase = DEV_PHASES.slice().reverse().find(p => w > p.windowEnd);
+	                    const _nextPhase = DEV_PHASES.find(p => w < p.windowStart);
+	                    const _currentPhase = _activePhaseNow || _lastCompletedPhase;
+	                    const _inCalmPhase = !_activePhaseNow && _lastCompletedPhase && _nextPhase;
+	                    const _weeksUntilNext = _nextPhase ? Math.max(0, Math.round(_nextPhase.windowStart - w)) : null;
 	                    const _suitable = DEV_ACTIVITIES.filter(a => w >= a.weeks[0] && w <= a.weeks[1]);
 	                    const _doy = Math.floor((new Date() - new Date(new Date().getFullYear(),0,0)) / 86400000);
 	                    const _todayActs = _suitable.length >= 2 ? [_suitable[_doy%_suitable.length],_suitable[(_doy+7)%_suitable.length]] : _suitable.slice(0,2);
@@ -46655,8 +46660,22 @@ function App(){
 	                          <div style={{fontSize:14,fontWeight:700,color:C.deep}}>🧠 This Week's Development</div>
 	                          <button onClick={()=>{haptic();setTab("develop");setDevFilter("phases");}} style={{background:"none",border:"none",fontSize:11,fontWeight:600,color:C.ter,cursor:_cP,fontFamily:_fI,padding:0}}>Waves →</button>
 	                        </div>
-	                        {_currentPhase && <div style={{fontSize:13,color:C.mid,marginBottom:6,lineHeight:1.5}}>{_currentPhase.name}. {_currentPhase.summary || _currentPhase.reframe}</div>}
-	                        {_nearPhase && <div style={{fontSize:12,color:C.ter,fontWeight:600,marginBottom:6,lineHeight:1.5}}>A development wave may be showing up around now. {_name} might need more reassurance, simpler routines or extra chances to practise.</div>}
+	                        {_inCalmPhase ? (
+	                          <div style={{marginBottom:6}}>
+	                            <div style={{fontSize:13,color:C.mint,fontWeight:600,marginBottom:4}}>☀️ Calm phase — settled period</div>
+	                            <div style={{fontSize:12.5,color:C.mid,lineHeight:1.55}}>{_name} is between development waves right now. The last wave ({_lastCompletedPhase.name}) has settled, and the skills from it are consolidating. This is a great time to enjoy the rhythm, practise new skills, and build on what {_name} has learned.</div>
+	                            {_weeksUntilNext !== null && _weeksUntilNext > 0 && <div style={{fontSize:11,color:C.lt,marginTop:4}}>Next wave ({_nextPhase.name}) expected in about {_weeksUntilNext} week{_weeksUntilNext === 1 ? "" : "s"}.</div>}
+	                          </div>
+	                        ) : _activePhaseNow ? (
+	                          <div style={{marginBottom:6}}>
+	                            <div style={{fontSize:13,color:C.ter,fontWeight:600,marginBottom:4}}>🌊 Wave {_activePhaseNow.phase}: {_activePhaseNow.name}</div>
+	                            <div style={{fontSize:12.5,color:C.mid,lineHeight:1.55}}>{_activePhaseNow.summary || _activePhaseNow.reframe}</div>
+	                            <div style={{fontSize:11,color:C.lt,marginTop:4}}>{_activePhaseNow.fussy}</div>
+	                          </div>
+	                        ) : _currentPhase ? (
+	                          <div style={{fontSize:13,color:C.mid,marginBottom:6,lineHeight:1.5}}>{_currentPhase.name}. {_currentPhase.summary || _currentPhase.reframe}</div>
+	                        ) : null}
+	                        {_nearPhase && !_inCalmPhase && <div style={{fontSize:12,color:C.ter,fontWeight:600,marginBottom:6,lineHeight:1.5}}>A development wave may be showing up around now. {_name} might need more reassurance, simpler routines or extra chances to practise.</div>}
 	                        {_todayActs.length > 0 && (
 	                          <div style={{borderTop:"1px solid "+C.blush,paddingTop:10,marginTop:4}}>
 	                            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
