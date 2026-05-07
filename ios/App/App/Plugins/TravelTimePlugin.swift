@@ -92,7 +92,10 @@ public class TravelTimePlugin: CAPPlugin, CAPBridgedPlugin, CLLocationManagerDel
             locationManager = CLLocationManager()
             locationManager?.delegate = self
         }
-        let authStatus = locationManager!.authorizationStatus
+        guard let authStatus = locationManager?.authorizationStatus else {
+            call.reject("Location manager unavailable")
+            return
+        }
 
         if authStatus == .notDetermined {
             // Request permission — store destination + call for when permission comes back
