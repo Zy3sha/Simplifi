@@ -40924,8 +40924,12 @@ function App(){
     };
     const clockEventEntriesLab = (() => {
       const seen = new Set();
-      return entriesForDay
-        .map(entry => ({entry, sourceDay:dayKey}))
+      // In wake-to-wake mode, also include previous day's bedtime + night entries
+      // so the full overnight arc (bedtime → night wakes → morning) renders on one clock
+      const _prevDayNightEntries = dayBoundary === "wake" ? (days[prevCalDay(dayKey)] || [])
+        .filter(e => e && isClockLabRealLog(e) && (e.night || e.type === "sleep"))
+        .map(entry => ({entry, sourceDay:prevCalDay(dayKey)})) : [];
+      return [..._prevDayNightEntries, ...entriesForDay.map(entry => ({entry, sourceDay:dayKey}))]
         .filter(item => isClockLabRealLog(item.entry) && ["feed","poop","nap","wake","sleep","medicine","tummy"].includes(item.entry.type))
         .filter(item => {
           const entry = item.entry;
@@ -42634,11 +42638,18 @@ function App(){
 	              const dotRadius = 94 - Math.floor(item.lane / 3) * (closeMoment ? 6 : 8);
 		              const dotR = closeMoment ? (item.isNow ? 2.7 : 2.2) : (item.isNow ? 3 : 2.5);
 	              const dot = polar(120,120,dotRadius,dotAngle);
+	              // Override color for overnight wakes that weren't flagged night:true
+	              // (legacy entries from one-tap Wake button). If it's a wake between 7pm-7am, show as neon pink.
+	              const _dotMins = item.start % 1440;
+	              const _isOvernightWake = item.entry.type === "wake" && (_dotMins >= 19*60 || _dotMins < 7*60);
+	              const _dotColor = _isOvernightWake ? "#FF5C8A" : meta.color;
+	              const _dotGlow = _isOvernightWake ? "rgba(255,92,138,0.54)" : meta.glow;
+	              const _dotKind = _isOvernightWake ? "night-wake" : visualKind;
 	              return (
 	                <g key={(item.entry.id || item.index)+"clock-dot"} className="ob-clock-event-dot-group" role="button" aria-label={clockLabLogAria(item)} tabIndex="0" onMouseEnter={()=>showClockLabTip(item)} onMouseLeave={()=>hideClockLabTip(item)} onFocus={()=>showClockLabTip(item)} onBlur={()=>hideClockLabTip(item)} onClick={(ev)=>showClockLabTipFromPress(item, ev)} onKeyDown={(ev)=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();showClockLabTipFromPress(item, ev);}}}>
 	                  <title>{entryLabelLab(item.entry)} · {entryTimeRangeLab(item.entry)}</title>
 	                  <circle cx={dot.x.toFixed(2)} cy={dot.y.toFixed(2)} r={Math.max(7.2, dotR + 3.4)} className="ob-clock-event-hit" aria-hidden="true"/>
-	                  <circle cx={dot.x.toFixed(2)} cy={dot.y.toFixed(2)} r={dotR} className={"ob-clock-event-dot is-"+visualKind+(item.isNow?" is-now":"")+(closeMoment?" is-close":"")} style={{"--ob-clock-event-glow":meta.glow,"--ob-clock-dot-fill":meta.color}} fill={meta.color} stroke={meta.color} aria-hidden="true"/>
+	                  <circle cx={dot.x.toFixed(2)} cy={dot.y.toFixed(2)} r={dotR} className={"ob-clock-event-dot is-"+_dotKind+(item.isNow?" is-now":"")+(closeMoment?" is-close":"")} style={{"--ob-clock-event-glow":_dotGlow,"--ob-clock-dot-fill":_dotColor}} fill={_dotColor} stroke={_dotColor} aria-hidden="true"/>
 	                </g>
 	              );
 	            })}
