@@ -398,51 +398,48 @@ private struct WidgetGlassBackground: View {
 
         if isDark {
             ZStack {
+                // Translucent dark glass — lets wallpaper bleed through
+                RoundedRectangle(cornerRadius: 26, style: .continuous)
+                    .fill(.ultraThinMaterial)
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
                     .fill(
                         LinearGradient(
                             colors: [
-                                appNightFaceTop.opacity(0.996),
-                                appNightFaceBottom.opacity(0.992)
+                                appNightFaceTop.opacity(0.55),
+                                appNightFaceBottom.opacity(0.65)
                             ],
                             startPoint: .top,
                             endPoint: .bottom
                         )
                     )
+                // Subtle warm glow accents
                 RadialGradient(
-                    colors: [appNightRimOrange.opacity(0.17), Color.clear],
+                    colors: [appNightRimOrange.opacity(0.10), Color.clear],
                     center: .bottomLeading,
                     startRadius: 8,
                     endRadius: 230
                 )
                 RadialGradient(
-                    colors: [brandPurple.opacity(0.14), Color.clear],
+                    colors: [brandPurple.opacity(0.08), Color.clear],
                     center: .topTrailing,
                     startRadius: 12,
                     endRadius: 220
                 )
-                LinearGradient(
-                    colors: [appNightWarmText.opacity(0.10), Color.clear, appNightRimHot.opacity(0.06)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
+                // Glass rim — thin highlight on edges
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
                     .stroke(
                         LinearGradient(
                             colors: [
-                                appNightRimCream.opacity(0.76),
-                                appNightRimOrange.opacity(0.50),
-                                appNightRimMilk.opacity(0.18),
-                                appNightRimHot.opacity(0.28)
+                                Color.white.opacity(0.20),
+                                Color.white.opacity(0.08),
+                                Color.white.opacity(0.04),
+                                Color.white.opacity(0.10)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
-                        lineWidth: 1.35
+                        lineWidth: 0.8
                     )
-                RoundedRectangle(cornerRadius: 25, style: .continuous)
-                    .stroke(appNightWarmText.opacity(0.12), lineWidth: 0.7)
-                    .padding(1)
             }
         } else {
             let sheenStart = Color.white.opacity(0.72)
@@ -1048,7 +1045,7 @@ struct SmallMetric: View {
                 .minimumScaleFactor(0.66)
             Text(label)
                 .font(.system(size: 7.8, weight: .heavy, design: .rounded))
-                .foregroundColor(brandDeep.opacity(isDark ? 0.66 : 0.44))
+                .foregroundColor(brandDeep.opacity(isDark ? 0.85 : 0.55))
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity)
@@ -1261,7 +1258,7 @@ struct OBubbaSmallWidgetView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("OBUBBA")
                         .font(.system(size: 8.5, weight: .heavy, design: .rounded))
-                        .foregroundColor(brandDeep.opacity(0.42))
+                        .foregroundColor(brandDeep.opacity(0.65))
                     Text(d.babyName)
                         .font(.system(size: 17, weight: .heavy, design: .rounded))
                         .foregroundColor(brandDeep)
@@ -1271,7 +1268,7 @@ struct OBubbaSmallWidgetView: View {
                 Spacer(minLength: 4)
                 Text("Today")
                     .font(.system(size: 9, weight: .heavy, design: .rounded))
-                    .foregroundColor(brandDeep.opacity(0.52))
+                    .foregroundColor(brandDeep.opacity(0.72))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(Capsule().fill(isNightTheme ? Color(hex: "#1A2942").opacity(0.82) : Color.white.opacity(0.46)))
@@ -1302,7 +1299,7 @@ struct OBubbaSmallWidgetView: View {
                         .layoutPriority(10)
                     Text(label.lowercased().contains("feed") ? "tap to stop when done" : "since \(Self.formatBedtime(startDate))")
                         .font(.system(size: 9, weight: .semibold, design: .rounded))
-                        .foregroundColor(brandDeep.opacity(0.46))
+                        .foregroundColor(brandDeep.opacity(0.68))
                         .lineLimit(1)
                         .minimumScaleFactor(0.78)
                 }
@@ -1343,7 +1340,7 @@ struct OBubbaSmallWidgetView: View {
                         .layoutPriority(10)
                     Text(widgetPredictionTimeHint(d.nextPrediction).map { "around \($0)" } ?? "next rhythm cue")
                         .font(.system(size: 9, weight: .semibold, design: .rounded))
-                        .foregroundColor(brandDeep.opacity(0.48))
+                        .foregroundColor(brandDeep.opacity(0.70))
                         .lineLimit(1)
                         .minimumScaleFactor(0.78)
                 }
@@ -1368,7 +1365,7 @@ struct OBubbaSmallWidgetView: View {
 
                 Text("quietly keeping track")
                     .font(.system(size: 9.5, weight: .semibold, design: .rounded))
-                    .foregroundColor(brandDeep.opacity(0.56))
+                    .foregroundColor(brandDeep.opacity(0.75))
                     .lineLimit(1)
                     .minimumScaleFactor(0.76)
             }
@@ -1462,7 +1459,7 @@ struct OBubbaMediumWidgetView: View {
                             .foregroundColor(brandPurple)
                         Text(pred)
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(brandDeep.opacity(0.6))
+                            .foregroundColor(brandDeep.opacity(0.80))
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)

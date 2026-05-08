@@ -775,15 +775,10 @@ function isValidCompletedNap(e) {
   return !!(hasCompletedNapSpan(e) && !e.night && !e._skipped);
 }
 function isActiveNapStub(e) {
-  return !!(
-    e && e.type === "nap" && !e.night &&
-    !e._skipped &&
-    typeof e.start === "string" && clockMins(e.start) !== null &&
-    // Only a running/unfinished nap is active. A saved zero-duration nap should
-    // never resurrect the timer or inflate "currently napping" UI.
-    !hasCompletedNapSpan(e) &&
-    (e._active || !e.end)
-  );
+  if (!e || e.type !== "nap" || e.night || e._skipped) return false;
+  if (typeof e.start !== "string" || clockMins(e.start) === null) return false;
+  if (e._active === true) return true;
+  return !hasCompletedNapSpan(e) && !e.end;
 }
 function preferCompletedNapHistory(a, b) {
   if (!a || !b || a.type !== "nap" || b.type !== "nap") return null;
@@ -9083,6 +9078,22 @@ function ChildSyncCard({ child, cid, code, isShared, participants, myUid, create
   const [regenCode, setRegenCode] = React.useState("");
   const [regenError, setRegenError] = React.useState("");
   const childLabel = child.name || "your baby";
+  const visibleParticipants = React.useMemo(() => {
+    const mine = normaliseUsername((localStorage.getItem("family_username") || "").toString());
+    const byPerson = new Map();
+    (Array.isArray(participants) ? participants : []).forEach((p) => {
+      if (!p || typeof p !== "object") return;
+      const usernameKey = normaliseUsername((p.username || "").toString());
+      const key = usernameKey || (p.uid ? "uid:" + p.uid : "");
+      if (!key) return;
+      if ((myUid && p.uid === myUid) || (mine && usernameKey === mine)) return;
+      const previous = byPerson.get(key);
+      const previousMs = previous ? safeTimestampMs(previous.joinedAt, 0) : 0;
+      const nextMs = safeTimestampMs(p.joinedAt, 0);
+      if (!previous || nextMs >= previousMs) byPerson.set(key, p);
+    });
+    return Array.from(byPerson.values()).slice(-6);
+  }, [participants, myUid]);
   const inviteUrl = code ? buildChildSyncInviteUrl(code) : "";
   const inviteQrUrl = inviteUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=190x190&data=${encodeURIComponent(inviteUrl)}&bgcolor=FFFCF9` : "";
   const inviteText = code ? `I'm using OBubba to track ${child.name||"baby"}'s feeds, nappies and sleep.\n\nTap this invite link to join ${child.name||"baby"}'s tracker:\n${inviteUrl}\n\nIf OBubba asks for a code, use: ${code}` : "";
@@ -9205,15 +9216,15 @@ function ChildSyncCard({ child, cid, code, isShared, participants, myUid, create
               Filtered to exclude the code owner — the owner sees their
               own children elsewhere and doesn't need to see themselves
               as a "participant". */}
-          {Array.isArray(participants) && myUid && participants.filter(p => p && p.uid && p.uid !== myUid).length > 0 && (
+          {visibleParticipants.length > 0 && (
             <div style={{background:"var(--card-bg-alt)",border:"1px solid "+C.blush,borderRadius:10,padding:"8px 12px",marginBottom:8}}>
               <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:700,marginBottom:4}}>
-                👥 {participants.filter(p => p && p.uid && p.uid !== myUid).length} joined
+                👥 {visibleParticipants.length} joined
               </div>
-              {participants.filter(p => p && p.uid && p.uid !== myUid).map((p, i)=>{
+              {visibleParticipants.map((p, i)=>{
                 const _joined = p.joinedAt ? (()=>{ try { const ms=safeTimestampMs(p.joinedAt, NaN); if(!Number.isFinite(ms)) return ""; const d=new Date(ms); return d.toLocaleDateString(undefined,{day:"numeric",month:"short"}); } catch { return ""; } })() : "";
                 return (
-                  <div key={p.uid||i} style={{fontSize:12,color:C.mid,padding:"3px 0",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <div key={normaliseUsername((p.username || "").toString()) || p.uid || i} style={{fontSize:12,color:C.mid,padding:"3px 0",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                     <span style={{fontWeight:600,color:C.deep}}>{p.username || "Unknown device"}</span>
                     {_joined && <span style={{fontSize:10,color:C.lt}}>joined {_joined}</span>}
                   </div>
@@ -17826,7 +17837,7 @@ function App(){
     } catch { return {}; }
   }
 	  async function verifyLogin(username, pin, preHashed) {
-	    await waitForFirebaseModule(1500);
+	    await waitForFirebaseModule(2500);
 	    const key = normaliseUsername(username);
 	    const loginPin = String(pin || "");
 	    if(!key) { setAuthError("Enter a username"); return false; }
@@ -17838,7 +17849,7 @@ function App(){
 	        await resetFirebaseIdentityForAccountSwitch("username-switch");
 	        _accountIdentityReset = true;
 	      }
-	      await ensureFirebaseUid(3000);
+	      await ensureFirebaseUid(5000);
 	      let data = null;
 	      let _secureLoginVerified = false;
 	      const _loginPayload = {username:key, pin:loginPin, preHashed:!!preHashed};
@@ -19226,10 +19237,50 @@ function App(){
       "owner_sig_" + hashPin(sig)
     ].filter(Boolean))];
   }
+  function _dedupeChildSyncParticipantsForCloud(participants) {
+    const byPerson = new Map();
+    (Array.isArray(participants) ? participants : []).forEach((p) => {
+      if (!p || typeof p !== "object") return;
+      const usernameKey = normaliseUsername((p.username || "").toString());
+      const key = usernameKey || (p.uid ? "uid:" + p.uid : "");
+      if (!key) return;
+      const previous = byPerson.get(key);
+      const previousMs = previous ? safeTimestampMs(previous.joinedAt, 0) : 0;
+      const nextMs = safeTimestampMs(p.joinedAt, 0);
+      if (!previous || nextMs >= previousMs) byPerson.set(key, {
+        ...previous,
+        ...p,
+        username: p.username || previous?.username || "",
+        uid: p.uid || previous?.uid || ""
+      });
+    });
+    return Array.from(byPerson.values()).slice(-25);
+  }
+  function _childSyncEntryCount(child) {
+    try {
+      return Object.values((child && child.days) || {}).reduce((sum, entries) => sum + normaliseDayEntries(entries).length, 0);
+    } catch { return 0; }
+  }
+  function _promoteChildSyncChildIfBlank(childId, child) {
+    const safeId = safeChildId(childId, "");
+    if (!safeId) return;
+    try {
+      const currentId = safeChildId(localStorage.getItem("active_child") || "", "");
+      if (currentId === safeId) return;
+      const childMap = childrenRef.current || {};
+      const currentChild = currentId ? childMap[currentId] : null;
+      const currentCount = _childSyncEntryCount(currentChild);
+      const incomingCount = _childSyncEntryCount(child);
+      if (!currentId || !currentChild || (incomingCount > 0 && currentCount === 0)) {
+        localStorage.setItem("active_child", safeId);
+        setActiveChildId(safeId);
+      }
+    } catch {}
+  }
   function _rememberChildSyncMeta(childId, code, data) {
     if(!code || !data) return;
     try {
-      const participants = Array.isArray(data.participants) ? data.participants.filter(Boolean).slice(-25) : [];
+      const participants = _dedupeChildSyncParticipantsForCloud(data.participants);
       const participantUids = Array.isArray(data.participantUids)
         ? data.participantUids.filter(Boolean).slice(-25)
         : participants.map(p=>p&&p.uid).filter(Boolean).slice(-25);
@@ -19337,26 +19388,31 @@ function App(){
     } catch(e) { console.warn("[OBubba] child sync map persist failed", e); }
     return _allCodes;
 	  }
-	  async function ensureChildSyncParticipant(code, data) {
-	    const uid = await ensureFirebaseUid().catch(()=>"");
-	    if(!uid || !code || !data || data.ownerUid === uid) return false;
-	    const existingUids = Array.isArray(data.participantUids)
-	      ? data.participantUids.filter(Boolean)
-	      : (Array.isArray(data.participants) ? data.participants.map(p=>p&&p.uid).filter(Boolean) : []);
-	    if(existingUids.includes(uid)) return true;
-	    const participantEntry = {
-	      uid,
-	      username: familyUsername || localStorage.getItem("family_username") || "",
-	      joinedAt: new Date().toISOString()
-	    };
-	    const currentParticipants = Array.isArray(data.participants) ? data.participants : [];
-	    const nextParticipants = currentParticipants.some(p=>p && p.uid === uid)
-	      ? currentParticipants
-	      : [...currentParticipants, participantEntry].slice(-25);
-	    const nextUids = [...new Set([...existingUids, uid])].slice(-25);
-	    const ok = await fsSet("child_syncs", code, {
-	      participants: nextParticipants,
-	      participantUids: nextUids
+		  async function ensureChildSyncParticipant(code, data) {
+		    const uid = await ensureFirebaseUid().catch(()=>"");
+		    if(!uid || !code || !data || data.ownerUid === uid) return false;
+		    const existingUids = Array.isArray(data.participantUids)
+		      ? data.participantUids.filter(Boolean)
+		      : (Array.isArray(data.participants) ? data.participants.map(p=>p&&p.uid).filter(Boolean) : []);
+		    const participantEntry = {
+		      uid,
+		      username: familyUsername || localStorage.getItem("family_username") || "",
+		      joinedAt: new Date().toISOString()
+		    };
+		    const currentParticipants = _dedupeChildSyncParticipantsForCloud(data.participants);
+		    const participantUsername = normaliseUsername(participantEntry.username || "");
+		    const alreadyListed = currentParticipants.some(p =>
+		      (p && p.uid && p.uid === uid) ||
+		      (participantUsername && normaliseUsername((p && p.username || "").toString()) === participantUsername)
+		    );
+		    const nextParticipants = alreadyListed
+		      ? currentParticipants
+		      : _dedupeChildSyncParticipantsForCloud([...currentParticipants, participantEntry]);
+		    const nextUids = [...new Set([...existingUids, uid])].slice(-25);
+		    if(existingUids.includes(uid) && alreadyListed) return true;
+		    const ok = await fsSet("child_syncs", code, {
+		      participants: nextParticipants,
+		      participantUids: nextUids
 	    }, true);
 	    if(ok) {
 	      _rememberChildSyncMeta(data.childId || "", code, {...data, participants: nextParticipants, participantUids: nextUids});
@@ -19379,15 +19435,20 @@ function App(){
 	      ? data.participantUids.filter(Boolean)
 	      : (Array.isArray(data.participants) ? data.participants.map(p=>p&&p.uid).filter(Boolean) : []);
 	    const ownerUsername = familyUsername || localStorage.getItem("family_username") || data.ownerUsername || "";
-	    const participantEntry = {
-	      uid,
-	      username: ownerUsername,
-	      joinedAt: new Date().toISOString()
-	    };
-	    const currentParticipants = Array.isArray(data.participants) ? data.participants : [];
-	    const nextParticipants = currentParticipants.some(p=>p && p.uid === uid)
-	      ? currentParticipants
-	      : [...currentParticipants, participantEntry].slice(-25);
+		    const participantEntry = {
+		      uid,
+		      username: ownerUsername,
+		      joinedAt: new Date().toISOString()
+		    };
+		    const currentParticipants = _dedupeChildSyncParticipantsForCloud(data.participants);
+		    const participantUsername = normaliseUsername(participantEntry.username || "");
+		    const alreadyListed = currentParticipants.some(p =>
+		      (p && p.uid && p.uid === uid) ||
+		      (participantUsername && normaliseUsername((p && p.username || "").toString()) === participantUsername)
+		    );
+		    const nextParticipants = alreadyListed
+		      ? currentParticipants
+		      : _dedupeChildSyncParticipantsForCloud([...currentParticipants, participantEntry]);
 	    const nextUids = [...new Set([uid, ...existingUids])].slice(-25);
 	    const {serverTimestamp} = window._fb || {};
 	    const ok = await fsSet("child_syncs", code, {
@@ -19426,15 +19487,20 @@ function App(){
 	    const existingUids = Array.isArray(data.participantUids)
 	      ? data.participantUids.filter(Boolean)
 	      : (Array.isArray(data.participants) ? data.participants.map(p=>p&&p.uid).filter(Boolean) : []);
-	    const participantEntry = {
-	      uid,
-	      username: familyUsername || localStorage.getItem("family_username") || "",
-	      joinedAt: new Date().toISOString()
-	    };
-	    const currentParticipants = Array.isArray(data.participants) ? data.participants : [];
-	    const nextParticipants = currentParticipants.some(p=>p && p.uid === uid)
-	      ? currentParticipants
-	      : [...currentParticipants, participantEntry].slice(-25);
+		    const participantEntry = {
+		      uid,
+		      username: familyUsername || localStorage.getItem("family_username") || "",
+		      joinedAt: new Date().toISOString()
+		    };
+		    const currentParticipants = _dedupeChildSyncParticipantsForCloud(data.participants);
+		    const participantUsername = normaliseUsername(participantEntry.username || "");
+		    const alreadyListed = currentParticipants.some(p =>
+		      (p && p.uid && p.uid === uid) ||
+		      (participantUsername && normaliseUsername((p && p.username || "").toString()) === participantUsername)
+		    );
+		    const nextParticipants = alreadyListed
+		      ? currentParticipants
+		      : _dedupeChildSyncParticipantsForCloud([...currentParticipants, participantEntry]);
 	    const {serverTimestamp} = window._fb || {};
 	    const ok = await fsSet("child_syncs", code, {
 	      ownerUid: uid,
@@ -19803,86 +19869,102 @@ function App(){
     } catch {}
 
     if(childSubsRef.current[childId]) childSubsRef.current[childId]();
-    const {db, doc, onSnapshot} = window._fb;
-    const unsub = onSnapshot(doc(db,"child_syncs",code), (snap) => {
-      if(!snap.exists()){ cloudSyncedRef.current = true; return; }
-      const d = snap.data();
-      _rememberChildSyncMeta(childId, code, d);
-      _absorbChildSyncTombstones(d);
+	    const {db, doc, onSnapshot} = window._fb;
+	    const unsub = onSnapshot(doc(db,"child_syncs",code), (snap) => {
+	      if(!snap.exists()){ cloudSyncedRef.current = true; return; }
+	      const d = snap.data();
+	      const syncChildId = safeChildId(d.childId || childId, childId);
+	      if(syncChildId && syncChildId !== childId) {
+	        setChildSyncCodes(prev => {
+	          if(prev[syncChildId] === code && !prev[childId]) return prev;
+	          const n = {...prev, [syncChildId]: code};
+	          if(n[childId] === code) delete n[childId];
+	          try { localStorage.setItem("child_sync_codes_v1", JSON.stringify(n)); } catch {}
+	          return n;
+	        });
+	      }
+	      _rememberChildSyncMeta(syncChildId, code, d);
+	      _absorbChildSyncTombstones(d);
 
       // SECURITY: If the code has been explicitly deactivated (via regenerate /
       // severing the link), unsubscribe immediately and clean up local state so
       // the child stops appearing. Without this, a regenerated code on the
       // owner side would still push child data through this listener for
       // however long the old doc lives.
-      if (d.isActive === false) {
-        try { childSubsRef.current[childId] && childSubsRef.current[childId](); } catch {}
-        delete childSubsRef.current[childId];
-        setChildSyncCodes(prev => {
-          if (!prev[childId]) return prev;
-          const n = {...prev}; delete n[childId];
-          try { localStorage.setItem("child_sync_codes_v1", JSON.stringify(n)); } catch {}
-          return n;
-        });
-        setChildren(prev => {
-          if (!prev[childId]) return prev;
-          const n = {...prev}; delete n[childId];
-          return n;
-        });
-        setChildSyncMeta(prev => {
-          const n = {...prev};
-          delete n[childId];
-          delete n[code];
-          return n;
-        });
+	      if (d.isActive === false) {
+	        try { childSubsRef.current[childId] && childSubsRef.current[childId](); } catch {}
+	        delete childSubsRef.current[childId];
+	        if(syncChildId !== childId) {
+	          try { childSubsRef.current[syncChildId] && childSubsRef.current[syncChildId](); } catch {}
+	          delete childSubsRef.current[syncChildId];
+	        }
+	        setChildSyncCodes(prev => {
+	          if (!prev[childId] && !prev[syncChildId]) return prev;
+	          const n = {...prev}; delete n[childId]; delete n[syncChildId];
+	          try { localStorage.setItem("child_sync_codes_v1", JSON.stringify(n)); } catch {}
+	          return n;
+	        });
+	        setChildren(prev => {
+	          if (!prev[childId] && !prev[syncChildId]) return prev;
+	          const n = {...prev}; delete n[childId]; delete n[syncChildId];
+	          return n;
+	        });
+	        setChildSyncMeta(prev => {
+	          const n = {...prev};
+	          delete n[childId];
+	          delete n[syncChildId];
+	          delete n[code];
+	          return n;
+	        });
         return;
       }
 
       // Capture participants so the owner's Child Sync card can surface
       // WHO has joined the code. Stored in a separate ref keyed by
       // childId so the existing onSnapshot body doesn't have to change
-      // and the ChildSyncCard can read the current list on render.
-      try {
-	        if (Array.isArray(d.participants)) {
-	          setChildSyncParticipants(prev => ({...prev, [childId]: d.participants, [code]: d.participants}));
-	        }
-      } catch {}
+	      // and the ChildSyncCard can read the current list on render.
+	      try {
+		        if (Array.isArray(d.participants)) {
+		          const dedupedParticipants = _dedupeChildSyncParticipantsForCloud(d.participants);
+		          setChildSyncParticipants(prev => ({...prev, [childId]: dedupedParticipants, [syncChildId]: dedupedParticipants, [code]: dedupedParticipants}));
+		        }
+	      } catch {}
 
-      try {
-        if(d.child) {
-          const shadowChild = normaliseChildrenPayload({[childId]: safeObjectPayload(d.child)})[childId] || null;
-          if(shadowChild) queueSyncV2ChildReadShadowAudit(code, childId, shadowChild, "child-sync-snapshot");
-        }
-      } catch {}
+	      try {
+	        if(d.child) {
+	          const shadowChild = normaliseChildrenPayload({[syncChildId]: {...safeObjectPayload(d.child), id: syncChildId}})[syncChildId] || null;
+	          if(shadowChild) queueSyncV2ChildReadShadowAudit(code, syncChildId, shadowChild, "child-sync-snapshot");
+	        }
+	      } catch {}
 
       if(d.writeToken && d.writeToken === writeTokenRef.current) return;
       try {
         if(d.child) {
           // Tolerate a corrupted or partial cloud field: if JSON.parse
-          // throws, silently drop the snapshot instead of taking the
-          // whole handler down and leaving the user with stale state.
-          let remoteChild;
-          remoteChild = normaliseChildrenPayload({[childId]: safeObjectPayload(d.child)})[childId] || {};
-          if (!remoteChild || typeof remoteChild !== "object") return;
-          setChildren(prev => {
-            const existing = prev[childId];
-            // SECURITY: Also re-check the blacklist at mutation time, so a
-            // race between delete and snapshot can't resurrect a removed child.
-            try {
-              const _bl2 = _readLocalJson("ob_removed_child_ids", []);
-              if (Array.isArray(_bl2) && _bl2.includes(childId)) return prev;
-            } catch {}
+	          // throws, silently drop the snapshot instead of taking the
+	          // whole handler down and leaving the user with stale state.
+	          let remoteChild;
+	          remoteChild = normaliseChildrenPayload({[syncChildId]: {...safeObjectPayload(d.child), id: syncChildId}})[syncChildId] || {};
+	          if (!remoteChild || typeof remoteChild !== "object") return;
+	          setChildren(prev => {
+	            const existing = prev[syncChildId] || prev[childId];
+	            // SECURITY: Also re-check the blacklist at mutation time, so a
+	            // race between delete and snapshot can't resurrect a removed child.
+	            try {
+	              const _bl2 = _readLocalJson("ob_removed_child_ids", []);
+	              if (Array.isArray(_bl2) && (_bl2.includes(syncChildId) || _bl2.includes(childId))) return prev;
+	            } catch {}
             // Day-level deletion blacklist: entire days the user has wiped
             // must not be re-absorbed from remote snapshots. Previously only
             // the cloud-sync merge path (line 7505 area) respected this, and
             // the onSnapshot handler bypassed it — meaning a deleted day
             // would reappear the moment another device pushed or the
             // listener fired on reconnect.
-            const _isDayDeleted = (date) => {
-              try { return deletedDaysRef.current.has(childId + ":" + date); }
-              catch { return false; }
-            };
-            if(!existing) {
+	            const _isDayDeleted = (date) => {
+	              try { return deletedDaysRef.current.has(syncChildId + ":" + date) || deletedDaysRef.current.has(childId + ":" + date); }
+	              catch { return false; }
+	            };
+	            if(!existing) {
               // Even on first hydration, filter out entries the user has
               // explicitly deleted on this device AND skip whole days the
               // user has wiped. Without this, a freshly loaded child would
@@ -19890,12 +19972,14 @@ function App(){
               const _cleanedDays = {};
               Object.entries(remoteChild.days||{}).forEach(([date, entries]) => {
                 if (_isDayDeleted(date)) return;
-                _cleanedDays[date] = normaliseDayEntries(entries).filter(e =>
-                  e && e.id && !deletedEntryIdsRef.current.has(e.id)
-                );
-              });
-              return {...prev, [childId]: {...remoteChild, id: childId, days: _cleanedDays}};
-            }
+	                _cleanedDays[date] = normaliseDayEntries(entries).filter(e =>
+	                  e && e.id && !deletedEntryIdsRef.current.has(e.id)
+	                );
+	              });
+	              const next = {...prev, [syncChildId]: {...remoteChild, id: syncChildId, days: _cleanedDays}};
+	              if(syncChildId !== childId && prev[childId] && _childSyncEntryCount(prev[childId]) === 0) delete next[childId];
+	              return next;
+	            }
 
             const mergedDays = {...(existing.days||{})};
             const _entryMergeStamp = (entry) => {
@@ -19953,13 +20037,16 @@ function App(){
                 e && (!e.id || !deletedEntryIdsRef.current.has(e.id))
               );
             });
-            // Also rebuild the top-level child with the cleaned days, so the
-            // spread of remoteChild doesn't reintroduce deleted entries from
-            // its own days map in the remoteChild object itself.
-            return {...prev, [childId]: {...remoteChild, id:childId, days:mergedDays}};
-          });
-        }
-      } catch(e) { console.warn("Child sync apply error", e); }
+	            // Also rebuild the top-level child with the cleaned days, so the
+	            // spread of remoteChild doesn't reintroduce deleted entries from
+	            // its own days map in the remoteChild object itself.
+	            const next = {...prev, [syncChildId]: {...remoteChild, id:syncChildId, days:mergedDays}};
+	            if(syncChildId !== childId && prev[childId] && _childSyncEntryCount(prev[childId]) === 0) delete next[childId];
+	            return next;
+	          });
+	          _promoteChildSyncChildIfBlank(syncChildId, remoteChild);
+	        }
+	      } catch(e) { console.warn("Child sync apply error", e); }
     },(err)=>{
       console.warn("OBubba child sync listener error:", err?.code || err?.message || err);
     });
@@ -19999,15 +20086,17 @@ function App(){
           const _bl2 = _bl.filter(x=>x!==childId);
           localStorage.setItem("ob_removed_child_ids", JSON.stringify(_bl2));
         }
-      } catch {}
-      setChildren(prev => {
-        if(prev[childId]) return prev;
-        let remoteChild = {};
-        remoteChild = normaliseChildrenPayload({[childId]: safeObjectPayload(d.child)})[childId] || {};
-        return {...prev, [childId]: {...remoteChild, id: childId}};
-      });
-      _rememberChildSyncMeta(childId, clean, d);
-      setChildSyncCodes(prev => ({...prev, [childId]: clean}));
+	      } catch {}
+	      let joinedRemoteChild = {};
+	      setChildren(prev => {
+	        if(prev[childId]) return prev;
+	        joinedRemoteChild = normaliseChildrenPayload({[childId]: {...safeObjectPayload(d.child), id: childId}})[childId] || {};
+	        return {...prev, [childId]: {...joinedRemoteChild, id: childId}};
+	      });
+	      try { localStorage.setItem("active_child", childId); } catch {}
+	      setActiveChildId(childId);
+	      _rememberChildSyncMeta(childId, clean, d);
+	      setChildSyncCodes(prev => ({...prev, [childId]: clean}));
       subscribeToChildSync(childId, clean);
       // Persist sync link to cloud so it survives reinstall (save to BOTH uid_to_backup AND username doc)
       const _existingJ = _parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1"));
@@ -20033,20 +20122,21 @@ function App(){
 	          // Read current participants, append if not already present, write back.
 	          const _curSnap = await fsGet("child_syncs", clean);
 	          const _curData = _curSnap.exists() ? _curSnap.data() : {};
-	          const _curParticipants = Array.isArray(_curData.participants) ? _curData.participants : [];
-	          const _curParticipantUids = Array.isArray(_curData.participantUids)
-	            ? _curData.participantUids.filter(Boolean)
-	            : _curParticipants.map(p=>p&&p.uid).filter(Boolean);
-	          const _alreadyIn = _curParticipantUids.includes(joinerUid);
-	          if (!_alreadyIn) {
-	            const _nextParticipants = [..._curParticipants, _participantEntry].slice(-25);
-	            const _nextParticipantUids = [...new Set([..._curParticipantUids, joinerUid])].slice(-25);
-	            await fsSet("child_syncs", clean, {
-	              participants: _nextParticipants,
-	              participantUids: _nextParticipantUids
-	            }, true);
-	            _rememberChildSyncMeta(childId, clean, {..._curData, participants: _nextParticipants, participantUids: _nextParticipantUids});
-	          }
+		          const _curParticipants = _dedupeChildSyncParticipantsForCloud(_curData.participants);
+		          const _curParticipantUids = Array.isArray(_curData.participantUids)
+		            ? _curData.participantUids.filter(Boolean)
+		            : _curParticipants.map(p=>p&&p.uid).filter(Boolean);
+		          const _joinerUsername = normaliseUsername((_participantEntry.username || "").toString());
+		          const _alreadyIn = _curParticipantUids.includes(joinerUid) || (_joinerUsername && _curParticipants.some(p => normaliseUsername((p && p.username || "").toString()) === _joinerUsername));
+		          const _nextParticipants = _alreadyIn ? _curParticipants : _dedupeChildSyncParticipantsForCloud([..._curParticipants, _participantEntry]);
+		          const _nextParticipantUids = [...new Set([..._curParticipantUids, joinerUid])].slice(-25);
+		          if (!_alreadyIn || _nextParticipants.length !== (Array.isArray(_curData.participants) ? _curData.participants.length : 0) || !_curParticipantUids.includes(joinerUid)) {
+		            await fsSet("child_syncs", clean, {
+		              participants: _nextParticipants,
+		              participantUids: _nextParticipantUids
+		            }, true);
+		            _rememberChildSyncMeta(childId, clean, {..._curData, participants: _nextParticipants, participantUids: _nextParticipantUids});
+		          }
         }
       } catch(e) { console.warn("OBubba participant record error", e); }
       trackEvent("partner_joined");
@@ -20157,12 +20247,12 @@ function App(){
     if(!fbReady) return;
     clearTimeout(syncRef.current);
 
-    const childrenSnapshot = children;
-    syncRef.current = setTimeout(()=>{
-      Object.entries(childSyncCodes).forEach(([childId, code]) => {
-        pushChildSync(childId, code, childrenSnapshot[childId]);
-      });
-    }, 2000);
+	    const childrenSnapshot = children;
+	    syncRef.current = setTimeout(()=>{
+	      Object.entries(childSyncCodes).forEach(([childId, code]) => {
+	        if(childrenSnapshot[childId]) pushChildSync(childId, code, childrenSnapshot[childId]);
+	      });
+	    }, 2000);
     return ()=>clearTimeout(syncRef.current);
   },[fbReady, children, childSyncCodes]);
 

@@ -145,6 +145,22 @@ assert(
 );
 
 assert(
+  "child sync join makes the linked baby visible and avoids blank mirror pushes",
+  app.includes('localStorage.setItem("active_child", childId);') &&
+    app.includes("setActiveChildId(childId);") &&
+    app.includes("if(childrenSnapshot[childId]) pushChildSync(childId, code, childrenSnapshot[childId]);") &&
+    app.includes("_promoteChildSyncChildIfBlank(syncChildId, remoteChild);")
+);
+
+assert(
+  "child sync participants are de-duplicated by account name as well as uid",
+  app.includes("function _dedupeChildSyncParticipantsForCloud(participants)") &&
+    app.includes("const visibleParticipants = React.useMemo(() => {") &&
+    app.includes("normaliseUsername((localStorage.getItem(\"family_username\") || \"\").toString())") &&
+    app.includes("const _joinerUsername = normaliseUsername((_participantEntry.username || \"\").toString());")
+);
+
+assert(
   "child sync codes recover after native reinstall before partner pushes resume",
   app.includes("const mirrorSyncCodes = _parseChildSyncCodes(mirror && mirror.childSyncCodes);") &&
     app.includes('localStorage.setItem("child_sync_codes_v1", JSON.stringify({...mirrorSyncCodes, ...storedCodes}))') &&
@@ -192,7 +208,7 @@ assert(
     app.includes("syncV2Hash(syncV2ChildProfile(legacy, safeChildId))") &&
     app.includes("const expectedHash = syncV2Hash(expectedPayload)") &&
     app.includes('queueSyncV2ChildReadShadowAudit(code, childId, childForCloud, "after-child-sync-write")') &&
-    app.includes('queueSyncV2ChildReadShadowAudit(code, childId, shadowChild, "child-sync-snapshot")') &&
+    app.includes('queueSyncV2ChildReadShadowAudit(code, syncChildId, shadowChild, "child-sync-snapshot")') &&
     !app.includes("setChildren(syncV2")
 );
 
