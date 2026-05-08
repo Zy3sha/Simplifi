@@ -15903,6 +15903,24 @@ function App(){
         if (Object.keys(_dayTags).length) _sharedData.dayTags = _dayTags;
         if (Object.keys(_weaningStarted).length) _sharedData.weaningStarted = _weaningStarted;
       } catch(_) {}
+      // Sync active timer state so partner's device sees it
+      try {
+        const _napActive = localStorage.getItem("nap_on") === "1";
+        const _bedActive = !!localStorage.getItem("bed_timer_day");
+        const _breastActive = localStorage.getItem("breast_active") === "1";
+        if (_napActive || _bedActive || _breastActive) {
+          _sharedData.activeTimer = {
+            type: _napActive ? "nap" : _bedActive ? "bed" : "breast",
+            startTime: localStorage.getItem(_napActive ? "nap_startT" : _breastActive ? "breast_startTime" : "bed_timer_start") || "",
+            startMs: parseInt(localStorage.getItem(_napActive ? "nap_startMs" : _breastActive ? "breast_startMs" : "")) || Date.now(),
+            bedDay: _bedActive ? localStorage.getItem("bed_timer_day") : null,
+            updatedAt: Date.now(),
+            deviceId: window._fbUid || "unknown"
+          };
+        } else {
+          _sharedData.activeTimer = null;
+        }
+      } catch {}
       // Include child sync codes so they survive UID changes + new device restores
       let _syncCodesForCloud = {};
       try { _syncCodesForCloud = _parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1")); } catch {}
@@ -16353,6 +16371,61 @@ function App(){
               if(_remoteDayBoundary && (!_localDB || _localDB !== _remoteDayBoundary)) {
                 setDayBoundary(_remoteDayBoundary);
               }
+            }
+            // Sync active timer from partner's device
+            if (sd.activeTimer && typeof sd.activeTimer === "object" && sd.activeTimer.type) {
+              const _rt = sd.activeTimer;
+              const _isMyTimer = _rt.deviceId === window._fbUid;
+              const _isRecent = typeof _rt.updatedAt === "number" && Date.now() - _rt.updatedAt < 14 * 60 * 60 * 1000; // 14h max
+              if (!_isMyTimer && _isRecent) {
+                // Partner started a timer — mirror it locally if we don't have one running
+                const _localNap = localStorage.getItem("nap_on") === "1";
+                const _localBed = !!localStorage.getItem("bed_timer_day");
+                const _localBreast = localStorage.getItem("breast_active") === "1";
+                if (!_localNap && !_localBed && !_localBreast) {
+                  if (_rt.type === "nap" && _rt.startTime) {
+                    try {
+                      localStorage.setItem("nap_on", "1");
+                      localStorage.setItem("nap_startT", _rt.startTime);
+                      if (_rt.startMs) localStorage.setItem("nap_startMs", String(_rt.startMs));
+                      localStorage.setItem("nap_sec", "0");
+                      localStorage.setItem("nap_source", "partner_sync");
+                      setNapOn(true); setNapStartT(_rt.startTime);
+                    } catch {}
+                  } else if (_rt.type === "bed" && _rt.bedDay) {
+                    try {
+                      localStorage.setItem("bed_timer_day", _rt.bedDay);
+                      if (_rt.startTime) localStorage.setItem("bed_timer_start", _rt.startTime);
+                      localStorage.setItem("bed_source", "partner_sync");
+                      setBedTimerDay(_rt.bedDay);
+                    } catch {}
+                  } else if (_rt.type === "breast" && _rt.startTime) {
+                    try {
+                      localStorage.setItem("breast_active", "1");
+                      localStorage.setItem("breast_startTime", _rt.startTime);
+                      if (_rt.startMs) localStorage.setItem("breast_startMs", String(_rt.startMs));
+                      localStorage.setItem("breast_source", "partner_sync");
+                      setBreastActive(true);
+                    } catch {}
+                  }
+                }
+              }
+            } else if (sd.activeTimer === null) {
+              // Partner stopped their timer — clear mirrored timer if it came from partner
+              try {
+                if (localStorage.getItem("nap_source") === "partner_sync") {
+                  ["nap_on","nap_startT","nap_startMs","nap_sec","nap_entry_id","nap_source"].forEach(k => { try { localStorage.removeItem(k); } catch {} });
+                  setNapOn(false);
+                }
+                if (localStorage.getItem("bed_source") === "partner_sync") {
+                  ["bed_timer_day","bed_timer_start","bed_source"].forEach(k => { try { localStorage.removeItem(k); } catch {} });
+                  setBedTimerDay(null);
+                }
+                if (localStorage.getItem("breast_source") === "partner_sync") {
+                  ["breast_active","breast_startTime","breast_startMs","breast_source"].forEach(k => { try { localStorage.removeItem(k); } catch {} });
+                  setBreastActive(false);
+                }
+              } catch {}
             }
             // Restore day notes and tags from cloud
             restoreSharedDayContext(sd);
@@ -17251,6 +17324,20 @@ function App(){
               }
             }
             restoreSharedDayContext(sd);
+            // Sync active timer from partner on login hydration
+            if (sd.activeTimer && typeof sd.activeTimer === "object" && sd.activeTimer.type) {
+              const _rt2 = sd.activeTimer;
+              const _isMyTimer2 = _rt2.deviceId === window._fbUid;
+              const _isRecent2 = typeof _rt2.updatedAt === "number" && Date.now() - _rt2.updatedAt < 14*60*60*1000;
+              if (!_isMyTimer2 && _isRecent2) {
+                const _localAny = localStorage.getItem("nap_on") === "1" || !!localStorage.getItem("bed_timer_day") || localStorage.getItem("breast_active") === "1";
+                if (!_localAny) {
+                  if (_rt2.type === "nap" && _rt2.startTime) { try { localStorage.setItem("nap_on","1"); localStorage.setItem("nap_startT",_rt2.startTime); if(_rt2.startMs)localStorage.setItem("nap_startMs",String(_rt2.startMs)); localStorage.setItem("nap_source","partner_sync"); setNapOn(true); setNapStartT(_rt2.startTime); } catch {} }
+                  else if (_rt2.type === "bed" && _rt2.bedDay) { try { localStorage.setItem("bed_timer_day",_rt2.bedDay); if(_rt2.startTime)localStorage.setItem("bed_timer_start",_rt2.startTime); localStorage.setItem("bed_source","partner_sync"); setBedTimerDay(_rt2.bedDay); } catch {} }
+                  else if (_rt2.type === "breast" && _rt2.startTime) { try { localStorage.setItem("breast_active","1"); localStorage.setItem("breast_startTime",_rt2.startTime); localStorage.setItem("breast_source","partner_sync"); setBreastActive(true); } catch {} }
+                }
+              }
+            }
             if(sd.allergenProfile && typeof sd.allergenProfile === "object") {
               const _allergenProfile = safeAllergenProfile(sd.allergenProfile);
               if (_allergenProfile) try{ localStorage.setItem("allergen_profile_v1", JSON.stringify(_allergenProfile)); }catch{}
