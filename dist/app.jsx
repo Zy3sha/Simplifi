@@ -51756,7 +51756,37 @@ function App(){
                       <div>
 	                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginBottom:10}}>A gentle 7-night baseline-and-stepdown plan. No rush, no cold-turkey changes: OBubba only suggests reducing night milk when {babyName||"baby"} is growing well and daytime feeds are steady.</div>
                         <div style={{fontSize:11,color:C.lt,lineHeight:1.5,marginBottom:10,padding:"8px 10px",background:`${C.gold}10`,borderRadius:8,borderLeft:`3px solid ${C.gold}`}}>⚠️ Check with your {_healthContact} first if {babyName||"baby"} has reflux, CMPA, faltering growth, or any other concerns.</div>
-                        <button onClick={()=>{if(!hasAccess()){triggerPaywall("night_weaning",true);return;}haptic(15);setNightWeanProg({startedAt:new Date().toISOString(),currentNight:1,completedNights:[]});}} style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"none",background:hasAccess()?C.mint:C.ter,color:"#fff",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI}}>{hasAccess()?"Start tonight (Night 1: Baseline)":"🔒 Unlock Night Weaning — Premium"}</button>
+                        <button onClick={()=>{
+                          if(!hasAccess()){triggerPaywall("night_weaning",true);return;}
+                          haptic(15);
+                          // Growth & feed verification before starting
+                          const _nwName = babyName || "baby";
+                          const _nwAw = age ? (age.predictiveWeeks ?? age.totalWeeks) : 0;
+                          const _nwWarnings = [];
+                          // Check growth: any weight logged?
+                          if (!weights.length) _nwWarnings.push("No weight has been logged yet. Night weaning works best when you know " + _nwName + " is growing well.");
+                          else {
+                            const _lastW = [...weights].sort((a,b) => a.date.localeCompare(b.date)).slice(-1)[0];
+                            const _wAgeDays = _lastW ? Math.round((Date.now() - dateKeyMs(_lastW.date)) / 86400000) : 999;
+                            if (_wAgeDays > 42) _nwWarnings.push("Last weight was " + _wAgeDays + " days ago. A recent weigh-in helps make sure growth is on track before reducing night feeds.");
+                          }
+                          // Check daytime feeds: at least 4 feeds/day recently?
+                          const _nwRecentDays = getRecentDays(5, true);
+                          if (_nwRecentDays.length >= 3) {
+                            const _avgFeeds = _nwRecentDays.reduce((s, dk) => s + (days[dk]||[]).filter(e => e.type === "feed" && !e.night).length, 0) / _nwRecentDays.length;
+                            if (_avgFeeds < 4) _nwWarnings.push(_nwName + " is averaging " + Math.round(_avgFeeds) + " daytime feeds — ideally 4+ feeds/day should be established before reducing night milk.");
+                          }
+                          if (_nwWarnings.length) {
+                            showConfirm(
+                              "A few things to check first",
+                              _nwWarnings.join("\n\n") + "\n\nYou can still start, but speak to your " + _healthContact + " if you're unsure.",
+                              () => { setNightWeanProg({startedAt:new Date().toISOString(),currentNight:1,completedNights:[]}); setConfirmDialog(null); },
+                              "Start anyway"
+                            );
+                          } else {
+                            setNightWeanProg({startedAt:new Date().toISOString(),currentNight:1,completedNights:[]});
+                          }
+                        }} style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"none",background:hasAccess()?C.mint:C.ter,color:"#fff",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI}}>{hasAccess()?"Start tonight (Night 1: Baseline)":"🔒 Unlock Night Weaning — Premium"}</button>
                       </div>
                     ) : _isComplete ? (
                       <div>
@@ -51786,9 +51816,34 @@ function App(){
                         <div style={{fontSize:11,color:C.mid,lineHeight:1.5,padding:"8px 10px",background:"var(--card-bg-alt)",borderRadius:8,marginBottom:12,fontStyle:"italic"}}>💛 {_curStep.tip}</div>
                         <button onClick={()=>{
                           haptic(15);
-                          // Dedup so repeated taps on night 7 don't inflate _doneCount
                           const _done = Array.from(new Set([...(nightWeanProg.completedNights||[]), _curNight]));
                           const _next = Math.min(_curNight + 1, 7);
+                          // Adaptive nightly reassessment: check if last night was too hard
+                          const _nwLastNight = _lastNightMemo;
+                          const _nwWakeCount = _nwLastNight ? (_nwLastNight.wakeCount || 0) : 0;
+                          const _nwTotalAwake = _nwLastNight ? (_nwLastNight.totalAwakeMin || 0) : 0;
+                          const _nwName = babyName || "baby";
+                          // If night was significantly worse than expected, suggest pausing
+                          if (_curNight >= 3 && (_nwWakeCount >= 5 || _nwTotalAwake >= 90)) {
+                            showConfirm(
+                              "Tough night — should we pause?",
+                              _nwName + " had " + _nwWakeCount + " wakes and was awake for " + hm(_nwTotalAwake) + " last night. That's harder than expected at this stage.\n\nYou can:\n• Pause and repeat tonight's step (recommended if baby is struggling)\n• Continue to the next step if you feel it went OK overall",
+                              () => { setNightWeanProg({...nightWeanProg, currentNight:_next, completedNights:_done}); setConfirmDialog(null); },
+                              "Continue to Night " + _next,
+                              true // show cancel = "Repeat tonight"
+                            );
+                            return;
+                          }
+                          // If feeds are dropping and baby seems unsettled, check in
+                          if (_curNight >= 4 && _nwWakeCount >= 3 && _nwTotalAwake >= 45) {
+                            showConfirm(
+                              "Quick check-in",
+                              "Last night had " + _nwWakeCount + " wakes. That's within range for this stage, but if " + _nwName + " seems hungrier during the day or unsettled, it's OK to slow down.\n\nDoes " + _nwName + " seem OK during the day?",
+                              () => { setNightWeanProg({...nightWeanProg, currentNight:_next, completedNights:_done}); setConfirmDialog(null); },
+                              "Yes — continue"
+                            );
+                            return;
+                          }
                           setNightWeanProg({...nightWeanProg, currentNight:_next, completedNights:_done});
                         }} style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"none",background:C.mint,color:"#fff",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
                           {_curNight === 7 ? "Finish program 🎉" : `Mark Night ${_curNight} complete → Night ${_curNight+1}`}

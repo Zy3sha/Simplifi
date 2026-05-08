@@ -13388,6 +13388,23 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-wake-window-arc{
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-wake-arc{
   display:none!important;
 }
+
+/* Clock lab outside bedtime visual weight final lock: keep bedtime tappable via
+   the invisible rail, but draw the visible outside arc as a slim line. */
+body[data-clock-home-lab="1"] .ob-app-root svg.ob-clock-svg .ob-clock-event-arc.is-bedtime-outside,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root svg.ob-clock-svg .ob-clock-event-arc.is-bedtime-outside,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root svg.ob-clock-svg .ob-clock-event-arc.is-bedtime-outside{
+  stroke-width:2.8px!important;
+  stroke-dasharray:none!important;
+  opacity:0.92!important;
+  filter:drop-shadow(0 0 5px rgba(255,155,58,0.42)) drop-shadow(0 0 12px rgba(255,155,58,0.18))!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc-group:hover .ob-clock-event-arc.is-bedtime-outside,
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc-group:focus-visible .ob-clock-event-arc.is-bedtime-outside,
+body[data-clock-home-lab="1"] .ob-app-root svg.ob-clock-svg .ob-clock-event-arc.is-bedtime-outside.is-now{
+  stroke-width:3.1px!important;
+  opacity:1!important;
+}
 /* Clock lab night-wake duration final lock: soothed minutes render as the log arc, not a duplicate marker. */
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc.is-night-wake,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-event-arc.is-night-wake{
