@@ -12514,7 +12514,10 @@ function App(){
     trackEvent("bubba_hug_received", { context: picked.context });
   }
 	  async function sendBubbaHug(context="parent_room", opts={}) {
+	    // Hug send disabled — presence-only mode. Fireflies still show.
 	    haptic();
+	    showToast("You're not alone. Other parents are awake too. 💛", 2500, 1);
+	    return;
 	    const now = Date.now();
     try {
       const last = safeTimestampMs(localStorage.getItem("ob_bubba_hug_last_sent_ms"), 0);
@@ -14547,7 +14550,10 @@ function App(){
     })();
     return ()=>{cancelled = true;};
   },[pendingChildSyncCode, fbReady, pendingChildSyncPreview]);
+  // Bubba Hug listener disabled — presence-only fireflies are cheaper.
+  // Fireflies still show via bubba_presence. Hug send/claim removed.
   useEffect(()=>{
+    return; // Disabled — presence-only mode
     if(!fbReady || !window._fb?.collection || !window._fb?.onSnapshot || !window._fb?.query || !window._fb?.orderBy || !window._fb?.limit) return;
     if (bubbaHugsMuted) return;
     let unsub = null;
@@ -14940,10 +14946,13 @@ function App(){
   // Global throttle: prevent sync storms by enforcing minimum interval between cloud pushes
   const _lastPushTs = useRef(0);
   const _pushQueued = useRef(null);
+  const _lastChildPushTs = useRef({});
+  const _childPushQueued = useRef({});
   const _syncV2FamilyShadowRef = useRef({running:false, pending:null});
   const _syncV2ChildShadowRef = useRef({running:false, pending:null});
   const _syncV2ReadShadowRef = useRef({running:{}, pending:{}, timers:{}});
-  const PUSH_MIN_INTERVAL = 10000; // 10 seconds minimum between pushes
+  const PUSH_MIN_INTERVAL = 60000; // legacy family docs are large; keep automatic reads calm
+  const CHILD_PUSH_MIN_INTERVAL = 60000;
   const OB_SYNC_V2_SCHEMA = "sync-v2-shadow-2026-05";
   const OB_SYNC_V2_FAMILY_HASH_PREFIX = "ob_sync_v2_family_hashes_";
   const OB_SYNC_V2_CHILD_HASH_PREFIX = "ob_sync_v2_child_hashes_";
@@ -15044,6 +15053,54 @@ function App(){
       return out;
     }
     return String(value);
+  }
+
+  function stripFirestoreLegacyMedia(value) {
+    try {
+      const clean = JSON.parse(JSON.stringify(value || {}));
+      const isChildProfileNode = node => !!(node && typeof node === "object" && (
+        Object.prototype.hasOwnProperty.call(node, "dob") ||
+        Object.prototype.hasOwnProperty.call(node, "days") ||
+        Object.prototype.hasOwnProperty.call(node, "sex") ||
+        Object.prototype.hasOwnProperty.call(node, "unborn")
+      ));
+      const stripNode = (node, keyName="") => {
+        if(!node || typeof node !== "object") return node;
+        if(Array.isArray(node)) {
+          if(/photos?|images?|media|screenshots?|thumbnails?/i.test(keyName)) return [];
+          return node.map(item => stripNode(item, keyName));
+        }
+        Object.keys(node).forEach(k => {
+          const v = node[k];
+          if(k === "photo" && typeof v === "string" && isChildProfileNode(node)) {
+            node[k] = safeAppImageSrc(v, "");
+            return;
+          }
+          if(/photo|photos|image|images|blob|dataurl|dataUrl|avatar|thumbnail|screenshot/i.test(k)) {
+            node[k] = Array.isArray(v) ? [] : "";
+            return;
+          }
+          if(typeof v === "string" && /^data:image\//i.test(v)) {
+            node[k] = "";
+            return;
+          }
+          stripNode(v, k);
+        });
+        return node;
+      };
+      return stripNode(clean);
+    } catch {
+      return value || {};
+    }
+  }
+
+  function stripFirestoreLegacyMediaChildren(childrenMap) {
+    return stripFirestoreLegacyMedia(childrenMap);
+  }
+
+  function stripFirestoreLegacyMediaChild(child) {
+    const wrapped = stripFirestoreLegacyMedia({child});
+    return wrapped && wrapped.child ? wrapped.child : (child || {});
   }
 
   function syncV2ChildProfile(child, childId) {
@@ -15568,19 +15625,6 @@ function App(){
           }
         });
       });
-      // Trim empty days if payload is too large for Firestore (1MB limit)
-      const _payloadSize = JSON.stringify(cleanForCloud).length;
-      if (_payloadSize > 900000) {
-        console.warn("[OBubba] Cloud payload too large (" + Math.round(_payloadSize/1024) + "KB), trimming empty days");
-        Object.values(cleanForCloud).forEach(ch => {
-          if (!ch.days) return;
-          const sorted = Object.keys(ch.days).sort();
-          // Remove oldest days with no entries until under limit
-          for (let i = 0; i < sorted.length && JSON.stringify(cleanForCloud).length > 800000; i++) {
-            if (!ch.days[sorted[i]] || !ch.days[sorted[i]].length) delete ch.days[sorted[i]];
-          }
-        });
-      }
       // Include carer card data so it survives reinstalls and syncs across devices
       var _carerInfoCloud = {};
       _carerInfoCloud.emergencyContacts = _readLocalJson("emergency_contacts_v1", []);
@@ -15706,6 +15750,20 @@ function App(){
         }
       } catch (_mergeErr) { console.warn("Entry merge read failed (writing anyway):", _mergeErr); }
 
+      const legacyChildrenForCloud = stripFirestoreLegacyMediaChildren(cleanForCloud);
+      // Trim empty days if the legacy compatibility doc is still too large for Firestore.
+      const _payloadSize = JSON.stringify(legacyChildrenForCloud).length;
+      if (_payloadSize > 900000) {
+        console.warn("[OBubba] Cloud payload too large (" + Math.round(_payloadSize/1024) + "KB), trimming empty days");
+        Object.values(legacyChildrenForCloud).forEach(ch => {
+          if (!ch.days) return;
+          const sorted = Object.keys(ch.days).sort();
+          for (let i = 0; i < sorted.length && JSON.stringify(legacyChildrenForCloud).length > 800000; i++) {
+            if (!ch.days[sorted[i]] || !ch.days[sorted[i]].length) delete ch.days[sorted[i]];
+          }
+        });
+      }
+
       // Include carer token so care.html can look up the family by CT token
       let _carerTokenForCloud = null;
       let _carerTokenExpiresAtMs = 0;
@@ -15759,7 +15817,7 @@ function App(){
       } catch {}
 
 	      await fsSet("families", code, {
-	        children: JSON.stringify(cleanForCloud),
+	        children: JSON.stringify(legacyChildrenForCloud),
 	        carerInfo: JSON.stringify(_carerInfoCloud),
 	        sharedData: JSON.stringify(_sharedData),
         childSyncCodes: JSON.stringify(_syncCodesForCloud),
@@ -17104,6 +17162,7 @@ function App(){
     if (!targets || !targets.length) { setTourSpotlight(null); return; }
     let cancelled = false;
     let timer = null;
+    let scrolledForStep = false;
     const findTarget = () => {
       try {
         for (const id of targets) {
@@ -17115,11 +17174,14 @@ function App(){
       } catch {}
       return null;
     };
-    const updateSpotlight = () => {
+    const updateSpotlight = (shouldScroll = false) => {
       if (timer) { clearTimeout(timer); timer = null; }
       const el = findTarget();
       if (!el) { if (!cancelled) setTourSpotlight(null); return; }
-      try { el.scrollIntoView({behavior:"smooth", block:"center", inline:"nearest"}); } catch {}
+      if (shouldScroll && !scrolledForStep) {
+        scrolledForStep = true;
+        try { el.scrollIntoView({behavior:"auto", block:"center", inline:"nearest"}); } catch {}
+      }
       timer = setTimeout(()=>{
         if (cancelled) return;
         const r = el.getBoundingClientRect();
@@ -17127,25 +17189,37 @@ function App(){
         const pad = 7;
         const vw = window.innerWidth || 390;
         const vh = window.innerHeight || 844;
-        setTourSpotlight({
+        const nextSpotlight = {
           left: Math.max(6, r.left - pad),
           top: Math.max(6, r.top - pad),
           width: Math.min(vw - 12, r.width + pad*2),
           height: Math.min(vh - 12, r.height + pad*2),
           radius: Math.min(28, Math.max(14, parseFloat(getComputedStyle(el).borderRadius) || 18)),
           viewportH: vh
+        };
+        setTourSpotlight(prev => {
+          if (
+            prev &&
+            Math.abs((prev.left || 0) - nextSpotlight.left) < 1 &&
+            Math.abs((prev.top || 0) - nextSpotlight.top) < 1 &&
+            Math.abs((prev.width || 0) - nextSpotlight.width) < 1 &&
+            Math.abs((prev.height || 0) - nextSpotlight.height) < 1 &&
+            Math.abs((prev.radius || 0) - nextSpotlight.radius) < 1
+          ) return prev;
+          return nextSpotlight;
         });
       }, 240);
     };
-    updateSpotlight();
-    const onUpdate = () => updateSpotlight();
+    updateSpotlight(true);
+    const onUpdate = () => updateSpotlight(false);
+    const scrollListenerOpts = {capture:true, passive:true};
     window.addEventListener("resize", onUpdate);
-    window.addEventListener("scroll", onUpdate, true);
+    window.addEventListener("scroll", onUpdate, scrollListenerOpts);
     return () => {
       cancelled = true;
       if (timer) clearTimeout(timer);
       window.removeEventListener("resize", onUpdate);
-      window.removeEventListener("scroll", onUpdate, true);
+      window.removeEventListener("scroll", onUpdate, scrollListenerOpts);
     };
   }, [tutStep, dayTutStep, tab, daySubScreen, simpleStartDismissed, simpleStartForced]);
 
@@ -19283,7 +19357,7 @@ function App(){
 	      childName: child?.name || "",
 	      ownerUid,
 	      ownerUsername: familyUsername || "",
-	      child: JSON.stringify(child),
+	      child: JSON.stringify(stripFirestoreLegacyMediaChild(child)),
 	      isActive: true,
 	      replacedBy: "",
 	      updatedAt: serverTimestamp(),
@@ -19340,7 +19414,7 @@ function App(){
     // Create new child_syncs document
 	    const _newSyncDoc = {
 	      childId, childName: child?.name||"", ownerUid,
-	      ownerUsername: familyUsername||"", child: JSON.stringify(child),
+	      ownerUsername: familyUsername||"", child: JSON.stringify(stripFirestoreLegacyMediaChild(child)),
 	      isActive: true, replacedBy: "", updatedAt: serverTimestamp(), updatedBy: ownerUid,
 	      participantUids: [ownerUid]
 	    };
@@ -19386,7 +19460,7 @@ function App(){
             const {serverTimestamp} = window._fb;
 	            const _restoredSyncDoc = {
 	              childId: cid, childName: child.name || "", ownerUid,
-	              ownerUsername: familyUsername || "", child: JSON.stringify(child),
+	              ownerUsername: familyUsername || "", child: JSON.stringify(stripFirestoreLegacyMediaChild(child)),
 	              isActive: true, replacedBy: "", updatedAt: serverTimestamp(), updatedBy: ownerUid,
 	              participantUids: [ownerUid]
 	            };
@@ -19415,6 +19489,18 @@ function App(){
 	    const {db, doc, setDoc, getDoc, serverTimestamp} = window._fb;
 	    const child = childData || children[childId];
 	    if(!child) return;
+	    const childPushKey = String(code || "") + ":" + String(childId || "");
+	    const childPushNow = Date.now();
+	    const childPushElapsed = childPushNow - (_lastChildPushTs.current[childPushKey] || 0);
+	    if(childPushElapsed < CHILD_PUSH_MIN_INTERVAL) {
+	      clearTimeout(_childPushQueued.current[childPushKey]);
+	      _childPushQueued.current[childPushKey] = setTimeout(() => {
+	        const latestChild = (childrenRef.current || {})[childId] || childData;
+	        pushChildSync(childId, code, latestChild);
+	      }, CHILD_PUSH_MIN_INTERVAL - childPushElapsed + 100);
+	      return;
+	    }
+	    _lastChildPushTs.current[childPushKey] = childPushNow;
 	    let writerUid = await ensureFirebaseUid(5000);
 	    if(!writerUid) return;
 	    try {
@@ -19449,8 +19535,9 @@ function App(){
           childForCloud = mergeChildSyncCloudChildForPush(childId, childForCloud, cloudChild);
         }
       } catch(e2) { /* proceed if check fails */ }
+	      const legacyChildForCloud = stripFirestoreLegacyMediaChild(childForCloud);
 	      await fsSet("child_syncs", code, {
-	        child: JSON.stringify(childForCloud),
+	        child: JSON.stringify(legacyChildForCloud),
 	        childName: childForCloud.name || child.name || "",
 	        isActive: true,
 	        deletedEntryIds: JSON.stringify(_deletedEntryIdsArrayForCloud(500)),
@@ -37057,13 +37144,7 @@ function App(){
     const _code = backupCode || (()=>{try{return localStorage.getItem("backup_code") || "";}catch{return "";}})();
     if (!_code) return false;
     try {
-      const _snap = await fsGet("families", _code);
-      const _data = _snap && _snap.exists() ? _snap.data() : {};
-      const _childrenPayload = _data.children || JSON.stringify(childrenRef.current || children || {});
-      const _childSyncPayload = _data.childSyncCodes || JSON.stringify(_parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1")));
       return await fsSet("families", _code, {
-        children: _childrenPayload,
-        childSyncCodes: _childSyncPayload,
         carerInfo: JSON.stringify(currentCarerInfoForPortal()),
         updatedAt: new Date().toISOString(),
         updatedBy: window._fbUid || "anon",
@@ -41941,18 +42022,21 @@ function App(){
 	    // Sleep analysis can still use wake-to-wake grouping underneath.
 	    const clockOrderAnchor = 0;
 	    const clockOrderMins = (item) => item.start < clockOrderAnchor ? item.start + 1440 : item.start;
-	    const clockLogAllowedTypes = ["feed","poop","nap","wake","sleep","medicine","tummy"];
 	    const clockLogOrderAnchor = dayBoundary === "midnight" ? 0 : (clockDayWakeItem ? clockDayWakeItem.start : 5 * 60);
 	    const clockLogOrderMins = (item) => item.start < clockLogOrderAnchor ? item.start + 1440 : item.start;
-	    const clockLogRows = entriesForDay
-	      .map((entry, index) => {
-	        if (!isClockLabRealLog(entry) || !clockLogAllowedTypes.includes(entry.type)) return null;
-	        const start = entryStartMins(entry);
+	    const clockLogAllowedTypes = ["feed","poop","nap","wake","sleep","medicine","tummy","night-wake"];
+	    const clockLogRows = clockEvents
+	      .filter(item => item && !item.visualOnly)
+	      .map((item, rowIndex) => {
+	        const entry = item.entry;
+	        const logKind = entryVisualKindLab(entry) || entry?.type;
+	        if (!isClockLabRealLog(entry) || !clockLogAllowedTypes.includes(logKind)) return null;
+	        const start = Number.isFinite(item.start) ? item.start : entryStartMins(entry);
 	        if (start === null) return null;
-	        const end = entryEndMins(entry, start);
+	        const end = Number.isFinite(item.end) ? item.end : entryEndMins(entry, start);
 	        const nowForLog = end > 1440 && nowMins < start ? nowMins + 1440 : nowMins;
 	        const isNow = nowForLog >= start && nowForLog <= end;
-	        return {entry,index,sourceDay:dayKey,start,bucket:Math.round(start / 5) * 5,end,isNow,visualOnly:false};
+	        return {entry,index:Number.isFinite(item.index) ? item.index : rowIndex,sourceDay:item.sourceDay || dayKey,start,bucket:Math.round(start / 5) * 5,end,isNow,visualOnly:false};
 	      })
 	      .filter(Boolean)
 	      .sort((a,b)=>clockLogOrderMins(a)-clockLogOrderMins(b) || a.index-b.index);

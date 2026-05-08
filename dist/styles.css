@@ -87,7 +87,6 @@ body.dark-mode{
 .ob-bubbamoji{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;line-height:1;vertical-align:middle;filter:drop-shadow(0 6px 12px rgba(91,64,54,0.10));transform:translateZ(0)}
 .ob-bubbamoji svg{display:block;overflow:visible}
 .ob-bubbamoji-animate{animation:obMojiBob 2.4s ease-in-out infinite}
-.ob-quick-log-icon .ob-bubbamoji{filter:drop-shadow(0 7px 13px rgba(91,64,54,0.12))}
 body.dark-mode .ob-bubbamoji{filter:drop-shadow(0 8px 14px rgba(0,0,0,0.28)) drop-shadow(0 0 14px rgba(255,190,90,0.10))}
 @keyframes obMojiBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-2px)}}
 
@@ -264,15 +263,6 @@ body.dark-mode .ob-premium-tile{
     linear-gradient(145deg,rgba(255,210,140,0.06),rgba(255,255,255,0.02)),
     var(--card-bg)!important;
   box-shadow:0 1px 0 rgba(255,210,140,0.16) inset,0 12px 30px rgba(0,0,0,0.24)!important;
-}
-div[data-testid="quick-log-row"]{
-  border-radius:26px!important;
-  padding:12px 8px!important;
-  gap:4px!important;
-  background:
-    radial-gradient(ellipse 90% 70% at 50% 0%,rgba(255,255,255,0.45),transparent 70%),
-    var(--card-bg)!important;
-  box-shadow:var(--card-shadow-elevated)!important;
 }
 div[role="navigation"][aria-label="Main navigation"]{
   overflow:hidden!important;
@@ -910,73 +900,6 @@ body.dark-mode button[style*="borderRadius:14"][style*="flexDirection"]{
     0 1px 0 rgba(255,255,255,0.12) inset,
     0 12px 26px rgba(0,0,0,0.18)!important;
 }
-div[data-testid="quick-log-row"].ob-quick-log-row{
-  gap:7px!important;
-  padding:12px 10px!important;
-  border-radius:26px!important;
-  border:1px solid rgba(255,255,255,0.22)!important;
-  background:
-    linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.06)),
-    var(--card-bg)!important;
-  box-shadow:
-    0 1px 0 rgba(255,255,255,0.22) inset,
-    0 20px 46px rgba(0,0,0,0.20)!important;
-}
-body.light-mode div[data-testid="quick-log-row"].ob-quick-log-row,
-body:not(.dark-mode) div[data-testid="quick-log-row"].ob-quick-log-row{
-  border-color:rgba(255,255,255,0.72)!important;
-  background:
-    linear-gradient(180deg,rgba(255,255,255,0.52),rgba(255,255,255,0.24)),
-    var(--card-bg)!important;
-}
-button.ob-quick-log-btn{
-  flex:1 1 calc(20% - 8px)!important;
-  min-width:58px!important;
-  max-width:96px!important;
-  min-height:68px!important;
-  padding:8px 4px 7px!important;
-  border-radius:18px!important;
-  background:rgba(255,255,255,0.12)!important;
-  border:1px solid rgba(255,255,255,0.20)!important;
-  box-shadow:
-    0 1px 0 rgba(255,255,255,0.20) inset,
-    0 10px 22px rgba(0,0,0,0.14)!important;
-}
-body.light-mode button.ob-quick-log-btn,
-body:not(.dark-mode) button.ob-quick-log-btn{
-  background:rgba(255,255,255,0.34)!important;
-  border-color:rgba(255,255,255,0.72)!important;
-  box-shadow:0 1px 0 rgba(255,255,255,0.82) inset,0 10px 22px rgba(91,64,54,0.08)!important;
-}
-body.dark-mode button.ob-quick-log-btn{
-  background:rgba(255,255,255,0.075)!important;
-  border-color:rgba(255,255,255,0.14)!important;
-}
-.ob-quick-log-icon{
-  display:grid!important;
-  place-items:center!important;
-  width:36px!important;
-  height:36px!important;
-  margin-bottom:1px!important;
-  border-radius:14px!important;
-  background:rgba(255,255,255,0.11)!important;
-  box-shadow:0 1px 0 rgba(255,255,255,0.16) inset!important;
-}
-body.light-mode .ob-quick-log-icon,
-body:not(.dark-mode) .ob-quick-log-icon{background:rgba(255,255,255,0.42)!important}
-.ob-quick-log-label{
-  max-width:100%!important;
-  overflow:hidden!important;
-  text-overflow:ellipsis!important;
-  white-space:nowrap!important;
-  letter-spacing:0!important;
-}
-.ob-quick-log-dot{
-  width:3px!important;
-  height:3px!important;
-  margin-top:0!important;
-  opacity:0.42!important;
-}
 .ob-day-mode-switcher{
   border-radius:21px!important;
   padding:5px!important;
@@ -1045,29 +968,6 @@ body:not(.dark-mode) button.ob-main-tab-btn[aria-current="page"]{
   border-color:rgba(255,255,255,0.86)!important;
 }
 .ob-main-tab-label{letter-spacing:0!important;white-space:nowrap!important}
-body[data-screen-compact] div[data-testid="quick-log-row"].ob-quick-log-row{
-  flex-wrap:nowrap!important;
-  justify-content:flex-start!important;
-  overflow-x:auto!important;
-  overflow-y:hidden!important;
-  scroll-snap-type:x proximity!important;
-  gap:6px!important;
-  padding:10px 8px!important;
-  -webkit-overflow-scrolling:touch!important;
-}
-body[data-screen-compact] button.ob-quick-log-btn{
-  flex:0 0 72px!important;
-  min-width:72px!important;
-  max-width:72px!important;
-  min-height:64px!important;
-  border-radius:17px!important;
-  scroll-snap-align:start!important;
-}
-body[data-screen-compact] .ob-quick-log-icon{
-  width:33px!important;
-  height:33px!important;
-  border-radius:13px!important;
-}
 body[data-screen-compact] div[role="navigation"][aria-label="Main navigation"]{
   width:calc(100% - 18px)!important;
   left:9px!important;
@@ -1110,7 +1010,7 @@ body[data-screen-compact] .ob-main-tab-label{
 /* ═══ Apple frosted-glass final pass
    This sits at the end of the cascade so the installed iOS/Android builds
    match the calmer preview: translucent white edges, no amber glow, tighter
-   controls, and one-row quick logging for sleepy-parent scanning. ═══ */
+   controls, and one-row clock logging for sleepy-parent scanning. ═══ */
 body.dark-mode{
   --bg-solid:#07111d!important;
   --bg-grad:linear-gradient(180deg,#07111d 0%,#0a1422 48%,#0c1728 100%)!important;
@@ -1141,7 +1041,6 @@ body.dark-mode::after{opacity:0!important}
 body.dark-mode .glass-card,
 body.dark-mode .glass-entry,
 body.dark-mode .ob-premium-tile,
-body.dark-mode .ob-quick-log-row,
 body.dark-mode .ob-day-mode-switcher,
 body.dark-mode .ob-header-glass{
   border-color:rgba(255,255,255,0.12)!important;
@@ -1160,83 +1059,6 @@ body.dark-mode .ob-premium-tile::after{
 }
 body.dark-mode button{
   text-shadow:none!important;
-}
-div[data-testid="quick-log-row"].ob-quick-log-row{
-  display:flex!important;
-  flex-wrap:nowrap!important;
-  justify-content:flex-start!important;
-  align-items:center!important;
-  overflow-x:auto!important;
-  overflow-y:hidden!important;
-  scroll-snap-type:x proximity!important;
-  gap:7px!important;
-  padding:10px!important;
-  margin-bottom:12px!important;
-  border-radius:24px!important;
-  border:1px solid rgba(255,255,255,0.16)!important;
-  background:
-    linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.045)),
-    rgba(255,255,255,0.055)!important;
-  box-shadow:
-    0 1px 0 rgba(255,255,255,0.18) inset,
-    0 16px 40px rgba(0,0,0,0.24)!important;
-  -webkit-overflow-scrolling:touch!important;
-}
-body.light-mode div[data-testid="quick-log-row"].ob-quick-log-row,
-body:not(.dark-mode) div[data-testid="quick-log-row"].ob-quick-log-row{
-  border-color:rgba(255,255,255,0.68)!important;
-  background:
-    linear-gradient(180deg,rgba(255,255,255,0.52),rgba(255,255,255,0.22)),
-    rgba(255,255,255,0.42)!important;
-}
-button.ob-quick-log-btn,
-body[data-screen-compact] button.ob-quick-log-btn{
-  flex:0 0 66px!important;
-  min-width:66px!important;
-  max-width:66px!important;
-  min-height:62px!important;
-  padding:7px 4px 6px!important;
-  border-radius:18px!important;
-  scroll-snap-align:start!important;
-  background:rgba(255,255,255,0.075)!important;
-  border:1px solid rgba(255,255,255,0.12)!important;
-  box-shadow:
-    0 1px 0 rgba(255,255,255,0.12) inset,
-    0 8px 20px rgba(0,0,0,0.18)!important;
-}
-body.light-mode button.ob-quick-log-btn,
-body:not(.dark-mode) button.ob-quick-log-btn{
-  background:rgba(255,255,255,0.46)!important;
-  border-color:rgba(255,255,255,0.74)!important;
-  box-shadow:0 1px 0 rgba(255,255,255,0.86) inset,0 8px 20px rgba(91,64,54,0.08)!important;
-}
-.ob-quick-log-icon,
-body[data-screen-compact] .ob-quick-log-icon{
-  width:30px!important;
-  height:30px!important;
-  margin-bottom:1px!important;
-  border-radius:12px!important;
-  background:rgba(255,255,255,0.095)!important;
-  font-size:20px!important;
-  line-height:1!important;
-  filter:saturate(0.92) drop-shadow(0 1px 2px rgba(0,0,0,0.18))!important;
-  box-shadow:0 1px 0 rgba(255,255,255,0.13) inset!important;
-}
-body.light-mode .ob-quick-log-icon,
-body:not(.dark-mode) .ob-quick-log-icon{
-  background:rgba(255,255,255,0.50)!important;
-}
-.ob-quick-log-label{
-  font-size:10px!important;
-  font-weight:700!important;
-  color:var(--text-mid)!important;
-  letter-spacing:0!important;
-}
-.ob-quick-log-dot{
-  width:2.5px!important;
-  height:2.5px!important;
-  opacity:0.35!important;
-  background:rgba(255,255,255,0.34)!important;
 }
 .ob-day-mode-switcher{
   border-radius:22px!important;
@@ -1547,7 +1369,6 @@ body.dark-mode .ob-header-glass{
 .glass-card,
 .glass-entry,
 .ob-premium-tile,
-.ob-quick-log-row,
 .ob-day-mode-switcher,
 div[role="navigation"][aria-label="Main navigation"]{
   border-color:rgba(255,255,255,0.18)!important;
@@ -1556,13 +1377,11 @@ div[role="navigation"][aria-label="Main navigation"]{
 body.light-mode .glass-card,
 body.light-mode .glass-entry,
 body.light-mode .ob-premium-tile,
-body.light-mode .ob-quick-log-row,
 body.light-mode .ob-day-mode-switcher,
 body.light-mode div[role="navigation"][aria-label="Main navigation"],
 body:not(.dark-mode) .glass-card,
 body:not(.dark-mode) .glass-entry,
 body:not(.dark-mode) .ob-premium-tile,
-body:not(.dark-mode) .ob-quick-log-row,
 body:not(.dark-mode) .ob-day-mode-switcher,
 body:not(.dark-mode) div[role="navigation"][aria-label="Main navigation"]{
   border-color:rgba(255,255,255,0.72)!important;
@@ -1576,70 +1395,6 @@ body:not(.dark-mode) div[role="navigation"][aria-label="Main navigation"]{
 .ob-premium-tile::after{
   opacity:0.42!important;
   background:linear-gradient(90deg,transparent,rgba(255,255,255,0.22),transparent)!important;
-}
-div[data-testid="quick-log-row"].ob-quick-log-row{
-  display:grid!important;
-  grid-template-columns:repeat(5,minmax(0,1fr))!important;
-  align-items:stretch!important;
-  justify-content:stretch!important;
-  overflow:visible!important;
-  gap:8px 7px!important;
-}
-button.ob-quick-log-btn,
-body[data-screen-compact] button.ob-quick-log-btn{
-  width:100%!important;
-  min-width:0!important;
-  max-width:none!important;
-  flex:initial!important;
-  scroll-snap-align:none!important;
-}
-@media(max-width:374px){
-  div[data-testid="quick-log-row"].ob-quick-log-row{
-    grid-template-columns:repeat(4,minmax(0,1fr))!important;
-  }
-}
-
-div[data-testid="quick-log-row"].ob-quick-log-row{
-  flex-wrap:nowrap!important;
-  justify-content:flex-start!important;
-  overflow-x:auto!important;
-  gap:8px!important;
-  padding:10px!important;
-  border-radius:25px!important;
-  background:linear-gradient(180deg,rgba(255,255,255,0.16),rgba(255,255,255,0.055)),rgba(255,255,255,0.07)!important;
-}
-button.ob-quick-log-btn,
-body[data-screen-compact] button.ob-quick-log-btn{
-  flex:0 0 61px!important;
-  min-width:61px!important;
-  max-width:61px!important;
-  min-height:58px!important;
-  padding:7px 3px 5px!important;
-  border-radius:18px!important;
-  border:1px solid rgba(255,255,255,0.15)!important;
-  background:linear-gradient(180deg,rgba(255,255,255,0.13),rgba(255,255,255,0.055))!important;
-  box-shadow:0 1px 0 rgba(255,255,255,0.16) inset,0 8px 18px rgba(0,0,0,0.16)!important;
-}
-.ob-quick-log-icon,
-body[data-screen-compact] .ob-quick-log-icon{
-  width:28px!important;
-  height:28px!important;
-  border-radius:11px!important;
-  background:rgba(255,255,255,0.10)!important;
-  font-size:19px!important;
-  filter:saturate(0.88) drop-shadow(0 1px 1px rgba(0,0,0,0.18))!important;
-}
-.ob-quick-log-label{
-  font-size:9.5px!important;
-  font-weight:700!important;
-  line-height:1.08!important;
-  color:rgba(232,237,244,0.78)!important;
-}
-.ob-quick-log-dot{
-  width:2px!important;
-  height:2px!important;
-  margin-top:0!important;
-  background:rgba(255,255,255,0.32)!important;
 }
 button.glass-card.ob-premium-tile{
   min-height:78px!important;
@@ -1718,7 +1473,6 @@ body.dark-mode .glass-card,
 body.dark-mode .glass-entry,
 body.dark-mode .ob-premium-tile,
 body.dark-mode .ob-header-glass,
-body.dark-mode div[data-testid="quick-log-row"].ob-quick-log-row,
 body.dark-mode .ob-day-mode-switcher{
   background:linear-gradient(180deg,rgba(255,255,255,0.145),rgba(255,255,255,0.055)),rgba(255,255,255,0.055)!important;
   border-color:rgba(255,255,255,0.145)!important;
@@ -1728,11 +1482,11 @@ body.dark-mode button{
   text-shadow:none!important;
   outline:none!important;
 }
-body.dark-mode button:not(.ob-quick-log-btn):not(.ob-main-tab-btn){
+body.dark-mode button:not(.ob-main-tab-btn){
   border-color:rgba(255,255,255,0.16)!important;
   box-shadow:0 1px 0 rgba(255,255,255,0.18) inset,0 -1px 0 rgba(255,255,255,0.04) inset,0 8px 20px rgba(0,0,0,0.14)!important;
 }
-body.dark-mode button:not(.ob-quick-log-btn):not(.ob-main-tab-btn):focus-visible{
+body.dark-mode button:not(.ob-main-tab-btn):focus-visible{
   outline:2px solid rgba(255,255,255,0.42)!important;
   outline-offset:2px!important;
 }
@@ -1800,8 +1554,6 @@ body:not(.dark-mode) button.ob-day-mode-btn.is-active .ob-day-mode-label{
    The frosted glass pass uses different surface opacity on iOS/Android than
    desktop Safari, so keep navigation, quick actions, and helper text pinned to
    mode-specific contrast colours at the very end of the cascade. */
-body.light-mode .ob-quick-log-label,
-body:not(.dark-mode) .ob-quick-log-label,
 body.light-mode .ob-main-tab-label,
 body:not(.dark-mode) .ob-main-tab-label,
 body.light-mode .ob-premium-copy,
@@ -1817,7 +1569,6 @@ body:not(.dark-mode) button.ob-main-tab-btn[aria-current="page"] .ob-main-tab-ic
   color:#3f332f!important;
   opacity:1!important;
 }
-body.dark-mode .ob-quick-log-label,
 body.dark-mode .ob-main-tab-label,
 body.dark-mode .ob-premium-copy{
   color:#e4ebf4!important;
@@ -1876,7 +1627,6 @@ body.dark-mode .glass-card,
 body.dark-mode .glass-entry,
 body.dark-mode .ob-premium-tile,
 body.dark-mode .ob-header-glass,
-body.dark-mode div[data-testid="quick-log-row"].ob-quick-log-row,
 body.dark-mode .ob-day-mode-switcher,
 body.dark-mode div[role="navigation"][aria-label="Main navigation"]{
   background:
@@ -1920,12 +1670,10 @@ body.dark-mode .ob-premium-hero{
     0 22px 54px rgba(0,0,0,0.30),
     0 0 34px rgba(255,157,70,0.08)!important;
 }
-body.dark-mode button.ob-quick-log-btn,
 body.dark-mode button.ob-day-mode-btn,
 body.dark-mode button.ob-main-tab-btn{
   border-color:rgba(255,226,186,0.16)!important;
 }
-body.dark-mode button.ob-quick-log-btn,
 body.dark-mode button.ob-day-mode-btn.is-active,
 body.dark-mode button.ob-main-tab-btn[aria-current="page"]{
   background:
@@ -1937,13 +1685,9 @@ body.dark-mode button.ob-main-tab-btn[aria-current="page"]{
     0 9px 20px rgba(0,0,0,0.16),
     0 0 18px rgba(255,160,72,0.045)!important;
 }
-body.dark-mode .ob-quick-log-icon{
-  background:rgba(255,220,170,0.105)!important;
-  box-shadow:0 1px 0 rgba(255,245,225,0.18) inset,0 0 14px rgba(255,170,82,0.055)!important;
-}
 
 /* Final clarity pass for OBubba-owned emoji icons.
-   The quick-log buttons are used half-awake; each icon needs a strong silhouette
+   Clock buttons are used half-awake; each icon needs a strong silhouette
    and enough breathing room to be recognised without reading the label. */
 .ob-line-icon{
   display:inline-flex!important;
@@ -1989,38 +1733,6 @@ body.dark-mode .ob-quick-log-icon{
   overflow:visible!important;
   shape-rendering:geometricPrecision;
 }
-.ob-quick-log-icon,
-body[data-screen-compact] .ob-quick-log-icon{
-  width:44px!important;
-  height:44px!important;
-  border-radius:16px!important;
-  background:
-    linear-gradient(180deg,rgba(255,255,255,0.35),rgba(255,255,255,0.10)),
-    rgba(255,255,255,0.13)!important;
-  border:1px solid rgba(255,255,255,0.18)!important;
-  filter:none!important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.36),
-    0 8px 16px rgba(40,28,36,0.12)!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-}
-button.ob-quick-log-btn,
-body[data-screen-compact] button.ob-quick-log-btn{
-  flex:0 0 74px!important;
-  min-width:74px!important;
-  max-width:74px!important;
-  min-height:78px!important;
-  padding:8px 5px 7px!important;
-  border-radius:20px!important;
-}
-.ob-quick-log-label{
-  font-size:10.5px!important;
-  line-height:1.1!important;
-  font-weight:800!important;
-  color:var(--text-deep)!important;
-}
 body.dark-mode .ob-bubbamoji{
   filter:
     drop-shadow(0 1px 0 rgba(255,244,224,0.32))
@@ -2037,85 +1749,6 @@ body.dark-mode .ob-pump-emoji{
     drop-shadow(0 1px 0 rgba(255,244,224,0.22))
     drop-shadow(0 8px 15px rgba(0,0,0,0.32))
     drop-shadow(0 0 10px rgba(126,199,232,0.12))!important;
-}
-body.dark-mode .ob-quick-log-icon{
-  background:
-    linear-gradient(180deg,rgba(255,235,205,0.14),rgba(255,255,255,0.04)),
-    rgba(255,255,255,0.06)!important;
-  border-color:rgba(255,236,205,0.13)!important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,245,225,0.12),
-    0 8px 18px rgba(0,0,0,0.20)!important;
-}
-body.dark-mode .ob-quick-log-label{
-  color:rgba(248,241,232,0.92)!important;
-}
-div[data-testid="quick-log-row"].ob-quick-log-row{
-  display:grid!important;
-  grid-template-columns:repeat(5,minmax(0,1fr))!important;
-  align-items:stretch!important;
-  justify-content:stretch!important;
-  overflow:visible!important;
-  overflow-x:visible!important;
-  overflow-y:visible!important;
-  gap:8px 7px!important;
-}
-div[data-testid="quick-log-row"].ob-quick-log-row > button:nth-child(6):nth-last-child(4){
-  grid-column:2;
-}
-button.ob-quick-log-btn,
-body[data-screen-compact] button.ob-quick-log-btn{
-  width:100%!important;
-  min-width:0!important;
-  max-width:none!important;
-  flex:initial!important;
-  scroll-snap-align:none!important;
-}
-@media(max-width:374px){
-  div[data-testid="quick-log-row"].ob-quick-log-row{
-    grid-template-columns:repeat(4,minmax(0,1fr))!important;
-  }
-}
-
-/* Restore the one-row quick-log carousel. The buttons need to stay swipeable
-   on phones so the first screen does not grow into a two-row control block. */
-div[data-testid="quick-log-row"].ob-quick-log-row{
-  display:flex!important;
-  flex-wrap:nowrap!important;
-  align-items:center!important;
-  justify-content:flex-start!important;
-  overflow-x:auto!important;
-  overflow-y:hidden!important;
-  scroll-snap-type:x mandatory!important;
-  scroll-padding-inline:12px!important;
-  overscroll-behavior-x:contain!important;
-  touch-action:pan-x!important;
-  -webkit-overflow-scrolling:touch!important;
-  gap:8px!important;
-  padding:12px 20px 14px 12px!important;
-  border-radius:28px!important;
-  mask-image:linear-gradient(90deg,transparent 0,#000 12px,#000 calc(100% - 14px),transparent 100%)!important;
-  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 12px,#000 calc(100% - 14px),transparent 100%)!important;
-}
-div[data-testid="quick-log-row"].ob-quick-log-row > button:nth-child(6):nth-last-child(4){
-  grid-column:auto!important;
-}
-button.ob-quick-log-btn,
-body[data-screen-compact] button.ob-quick-log-btn{
-  flex:0 0 70px!important;
-  width:70px!important;
-  min-width:70px!important;
-  max-width:70px!important;
-  min-height:76px!important;
-  scroll-snap-align:start!important;
-  scroll-snap-stop:always!important;
-  border-radius:22px!important;
-}
-div[data-testid="quick-log-row"].ob-quick-log-row::-webkit-scrollbar{
-  display:none;
-}
-div[data-testid="quick-log-row"].ob-quick-log-row{
-  scrollbar-width:none;
 }
 
 @media(prefers-reduced-motion:reduce){
@@ -2155,7 +1788,6 @@ div[style*="border-radius"][style*="card-bg-alt"],
 div[style*="border-radius"][style*="card-bg-solid"],
 div[style*="border-radius"][style*="rgba("][style*="border"],
 div[style*="border-radius"][style*="backdrop-filter"],
-div[data-testid="quick-log-row"].ob-quick-log-row,
 div[role="navigation"][aria-label="Main navigation"]{
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.34),
@@ -2176,7 +1808,6 @@ body.dark-mode div[style*="border-radius"][style*="card-bg-alt"],
 body.dark-mode div[style*="border-radius"][style*="card-bg-solid"],
 body.dark-mode div[style*="border-radius"][style*="rgba("][style*="border"],
 body.dark-mode div[style*="border-radius"][style*="backdrop-filter"],
-body.dark-mode div[data-testid="quick-log-row"].ob-quick-log-row,
 body.dark-mode div[role="navigation"][aria-label="Main navigation"]{
   box-shadow:
     inset 0 1px 0 rgba(255,244,224,0.16),
@@ -2186,7 +1817,6 @@ body.dark-mode div[role="navigation"][aria-label="Main navigation"]{
 button,
 [role="button"],
 button.glass-card,
-button.ob-quick-log-btn,
 button.ob-main-tab-btn,
 button.ob-day-mode-btn,
 .ob-main-content button,
@@ -2201,7 +1831,6 @@ button.ob-day-mode-btn,
 body.dark-mode button,
 body.dark-mode [role="button"],
 body.dark-mode button.glass-card,
-body.dark-mode button.ob-quick-log-btn,
 body.dark-mode button.ob-main-tab-btn,
 body.dark-mode button.ob-day-mode-btn,
 body.dark-mode .ob-main-content button,
@@ -2228,7 +1857,6 @@ body.dark-mode .ob-main-content button[style*="border-radius"]{
 .ob-app-root div[data-entry-id],
 .ob-app-root div[style*="border-radius"],
 .ob-app-root div[style*="borderRadius"],
-.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
 .ob-app-root div[role="navigation"][aria-label="Main navigation"],
 .ob-app-root button,
 .ob-app-root [role="button"],
@@ -2252,7 +1880,6 @@ body.dark-mode .ob-app-root .ob-day-mode-switcher,
 body.dark-mode .ob-app-root div[data-entry-id],
 body.dark-mode .ob-app-root div[style*="border-radius"],
 body.dark-mode .ob-app-root div[style*="borderRadius"],
-body.dark-mode .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
 body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"],
 body.dark-mode .ob-app-root button,
 body.dark-mode .ob-app-root [role="button"],
@@ -2317,7 +1944,6 @@ body.dark-mode .ob-app-root .ob-day-mode-switcher,
 body.dark-mode .ob-app-root div[data-entry-id],
 body.dark-mode .ob-app-root div[style*="border-radius"],
 body.dark-mode .ob-app-root div[style*="borderRadius"],
-body.dark-mode .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
 body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]{
   background:
     linear-gradient(135deg,rgba(255,226,178,0.060) 0%,rgba(255,226,178,0.026) 6%,transparent 17%),
@@ -2365,23 +1991,8 @@ body.dark-mode .ob-app-root textarea{
     inset -10px -10px 15px -17px var(--ob-corner-btn-lower)!important;
 }
 body.dark-mode .ob-bubbamoji,
-body.dark-mode .ob-line-icon,
-body.dark-mode .ob-quick-log-icon{
+body.dark-mode .ob-line-icon{
   filter:none!important;
-}
-body.dark-mode .ob-quick-log-icon{
-  background:
-    linear-gradient(135deg,rgba(255,226,178,0.050),transparent 22%),
-    linear-gradient(315deg,rgba(255,145,76,0.040),transparent 24%),
-    linear-gradient(180deg,rgba(255,255,255,0.095),rgba(255,255,255,0.040)),
-    rgba(255,255,255,0.050)!important;
-  border-color:rgba(255,236,205,0.105)!important;
-  box-shadow:
-    inset 1px 1px 0 rgba(255,232,198,0.115),
-    inset -1px -1px 0 rgba(255,140,72,0.075),
-    inset 0 1px 0 rgba(255,245,225,0.10),
-    inset 8px 8px 12px -14px rgba(255,214,152,0.075),
-    inset -8px -8px 12px -14px rgba(255,150,82,0.085)!important;
 }
 :root,
 body.light-mode,
@@ -2504,7 +2115,6 @@ body.dark-mode{
 .ob-app-root .ob-header-glass,
 .ob-app-root .ob-sheet-content,
 .ob-app-root .ob-day-mode-switcher,
-.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
 .ob-app-root div[role="navigation"][aria-label="Main navigation"]{
   border:1.35px solid transparent!important;
   background:
@@ -2526,7 +2136,6 @@ body.dark-mode .ob-app-root .ob-premium-tile,
 body.dark-mode .ob-app-root .ob-header-glass,
 body.dark-mode .ob-app-root .ob-sheet-content,
 body.dark-mode .ob-app-root .ob-day-mode-switcher,
-body.dark-mode .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
 body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]{
   background:
     radial-gradient(116px 88px at 3% 0%,rgba(255,218,152,0.076),transparent 64%) padding-box,
@@ -2593,7 +2202,6 @@ body.dark-mode .ob-app-root [role="button"]:not(.ob-icon-dismiss){
     0 0 6px var(--ob-rim-edge),
     0 8px 16px var(--ob-glass-lift)!important;
 }
-.ob-app-root button.ob-quick-log-btn,
 .ob-app-root button.ob-day-mode-btn.is-active,
 .ob-app-root button.ob-main-tab-btn[aria-current="page"],
 .ob-app-root button.glass-card.ob-premium-tile{
@@ -2604,7 +2212,6 @@ body.dark-mode .ob-app-root [role="button"]:not(.ob-icon-dismiss){
     linear-gradient(180deg,rgba(255,255,255,0.50),rgba(255,255,255,0.19)) padding-box,
     linear-gradient(135deg,var(--ob-rim-hot) 0%,var(--ob-rim-mid) 18%,rgba(255,255,255,0.25) 42%,rgba(255,255,255,0.12) 60%,var(--ob-rim-soft) 100%) border-box!important;
 }
-body.dark-mode .ob-app-root button.ob-quick-log-btn,
 body.dark-mode .ob-app-root button.ob-day-mode-btn.is-active,
 body.dark-mode .ob-app-root button.ob-main-tab-btn[aria-current="page"],
 body.dark-mode .ob-app-root button.glass-card.ob-premium-tile{
@@ -2667,7 +2274,6 @@ body.dark-mode{
 .ob-app-root .ob-header-glass,
 .ob-app-root .ob-sheet-content,
 .ob-app-root .ob-day-mode-switcher,
-.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
 .ob-app-root div[role="navigation"][aria-label="Main navigation"]{
   border:1.15px solid transparent!important;
   background:
@@ -2685,7 +2291,6 @@ body.dark-mode .ob-app-root .ob-premium-tile,
 body.dark-mode .ob-app-root .ob-header-glass,
 body.dark-mode .ob-app-root .ob-sheet-content,
 body.dark-mode .ob-app-root .ob-day-mode-switcher,
-body.dark-mode .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
 body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]{
   background:
     linear-gradient(180deg,var(--ob-edge-fill-top),var(--ob-edge-fill-bottom)) padding-box,
@@ -2714,7 +2319,6 @@ body.dark-mode .ob-app-root [data-testid="today-hero"]{
     0 0 3px rgba(255,168,82,0.11),
     0 10px 22px rgba(0,0,0,0.22)!important;
 }
-.ob-app-root button.ob-quick-log-btn,
 .ob-app-root button.ob-day-mode-btn.is-active,
 .ob-app-root button.ob-main-tab-btn[aria-current="page"],
 .ob-app-root button.glass-card.ob-premium-tile{
@@ -2728,7 +2332,6 @@ body.dark-mode .ob-app-root [data-testid="today-hero"]{
     0 0 3px var(--ob-edge-glint),
     0 7px 14px var(--ob-edge-lift)!important;
 }
-body.dark-mode .ob-app-root button.ob-quick-log-btn,
 body.dark-mode .ob-app-root button.ob-day-mode-btn.is-active,
 body.dark-mode .ob-app-root button.ob-main-tab-btn[aria-current="page"],
 body.dark-mode .ob-app-root button.glass-card.ob-premium-tile{
@@ -2767,11 +2370,9 @@ body.dark-mode{
 .ob-app-root .ob-header-glass,
 .ob-app-root .ob-sheet-content,
 .ob-app-root .ob-day-mode-switcher,
-.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
 .ob-app-root div[role="navigation"][aria-label="Main navigation"],
 .ob-app-root .ob-hero,
 .ob-app-root [data-testid="today-hero"],
-.ob-app-root button.ob-quick-log-btn,
 .ob-app-root button.ob-day-mode-btn.is-active,
 .ob-app-root button.ob-main-tab-btn[aria-current="page"],
 .ob-app-root button.glass-card.ob-premium-tile{
@@ -2798,11 +2399,9 @@ body.dark-mode .ob-app-root .ob-premium-tile,
 body.dark-mode .ob-app-root .ob-header-glass,
 body.dark-mode .ob-app-root .ob-sheet-content,
 body.dark-mode .ob-app-root .ob-day-mode-switcher,
-body.dark-mode .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
 body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"],
 body.dark-mode .ob-app-root .ob-hero,
 body.dark-mode .ob-app-root [data-testid="today-hero"],
-body.dark-mode .ob-app-root button.ob-quick-log-btn,
 body.dark-mode .ob-app-root button.ob-day-mode-btn.is-active,
 body.dark-mode .ob-app-root button.ob-main-tab-btn[aria-current="page"],
 body.dark-mode .ob-app-root button.glass-card.ob-premium-tile{
@@ -2826,17 +2425,6 @@ body.dark-mode .ob-app-root button.glass-card.ob-premium-tile{
     0 0 1.8px var(--ob-edge-glint),
     0 5px 10px var(--ob-edge-lift)!important;
 }
-.ob-app-root .ob-quick-log-icon,
-body[data-screen-compact] .ob-quick-log-icon{
-  background:rgba(255,255,255,0.10)!important;
-  border-color:rgba(255,255,255,0.10)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.12)!important;
-}
-body.dark-mode .ob-app-root .ob-quick-log-icon{
-  background:rgba(255,255,255,0.040)!important;
-  border-color:rgba(255,255,255,0.070)!important;
-  box-shadow:inset 0 1px 0 rgba(255,239,212,0.075)!important;
-}
 
 .ob-app-root button:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]),
 .ob-app-root [role="button"]:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]){
@@ -2855,17 +2443,6 @@ body.dark-mode .ob-app-root [role="button"]:not(.ob-icon-dismiss):not([style*="c
   background:
     linear-gradient(var(--ob-edge-fill),var(--ob-edge-fill)) padding-box,
     linear-gradient(135deg,var(--ob-edge-hot) 0%,var(--ob-edge-mid) 16%,rgba(255,236,205,0.070) 42%,rgba(255,188,108,0.032) 66%,var(--ob-edge-soft) 100%) border-box!important;
-}
-.ob-app-root .ob-quick-log-icon,
-body[data-screen-compact] .ob-quick-log-icon{
-  background:transparent!important;
-  border-color:rgba(255,255,255,0.075)!important;
-  box-shadow:none!important;
-}
-body.dark-mode .ob-app-root .ob-quick-log-icon{
-  background:transparent!important;
-  border-color:rgba(255,255,255,0.055)!important;
-  box-shadow:none!important;
 }
 
 /* Button rim discipline.
@@ -2891,7 +2468,6 @@ body.dark-mode{
 }
 .ob-app-root button:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]),
 .ob-app-root [role="button"]:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]),
-.ob-app-root button.ob-quick-log-btn,
 .ob-app-root button.ob-day-mode-btn,
 .ob-app-root button.ob-main-tab-btn{
   border:1px solid var(--ob-button-rim-b)!important;
@@ -2915,7 +2491,6 @@ body.dark-mode{
 }
 body.dark-mode .ob-app-root button:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]),
 body.dark-mode .ob-app-root [role="button"]:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]),
-body.dark-mode .ob-app-root button.ob-quick-log-btn,
 body.dark-mode .ob-app-root button.ob-day-mode-btn,
 body.dark-mode .ob-app-root button.ob-main-tab-btn,
 body.dark-mode .ob-app-root button.ob-day-mode-btn.is-active,
@@ -3015,7 +2590,6 @@ body.dark-mode .ob-app-root .ob-premium-tile,
 body.dark-mode .ob-app-root .ob-header-glass,
 body.dark-mode .ob-app-root .ob-sheet-content,
 body.dark-mode .ob-app-root .ob-day-mode-switcher,
-body.dark-mode .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
 body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"],
 body.dark-mode .ob-app-root div[data-entry-id]{
   border:1.2px solid transparent!important;
@@ -3049,7 +2623,6 @@ body.dark-mode .ob-app-root [data-testid="today-hero"]{
     0 0 10px rgba(255,164,70,0.22),
     0 12px 24px var(--ob-hero-lift)!important;
 }
-body.dark-mode .ob-app-root button.ob-quick-log-btn,
 body.dark-mode .ob-app-root button.ob-day-mode-btn,
 body.dark-mode .ob-app-root button.ob-main-tab-btn,
 body.dark-mode .ob-app-root button:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]),
@@ -3085,7 +2658,6 @@ body.dark-mode .ob-app-root button.glass-card.ob-premium-tile{
    These repeated 4am controls should feel like dark glass catching orange
    candlelight, not a yellow/gold UI theme. Keep the warmth on the rim and the
    lower reflection only so labels stay crisp. */
-body.dark-mode .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
 body.dark-mode .ob-app-root .ob-day-mode-switcher{
   border:1.2px solid transparent!important;
   background:
@@ -3099,7 +2671,6 @@ body.dark-mode .ob-app-root .ob-day-mode-switcher{
     0 0 14px rgba(255,96,34,0.095),
     0 7px 16px rgba(0,0,0,0.22)!important;
 }
-body.dark-mode .ob-app-root button.ob-quick-log-btn,
 body.dark-mode .ob-app-root button.ob-day-mode-btn{
   background:
     radial-gradient(ellipse 76% 58% at 50% 118%,rgba(255,102,38,0.085),transparent 72%),
@@ -3180,7 +2751,6 @@ body.dark-mode .ob-app-root{
   --ob-night-control-face-active:linear-gradient(180deg,rgba(22,43,68,0.98),rgba(15,32,54,0.96));
   --ob-night-control-rim:linear-gradient(135deg,rgba(255,176,112,0.18) 0%,rgba(255,108,42,0.16) 28%,rgba(116,157,188,0.075) 56%,rgba(202,73,30,0.14) 100%);
 }
-body.dark-mode .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
 body.dark-mode .ob-app-root .ob-day-mode-switcher,
 body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]{
   border:1.2px solid transparent!important;
@@ -3196,7 +2766,6 @@ body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]
     0 0 11px rgba(255,88,30,0.060),
     0 8px 18px rgba(0,0,0,0.24)!important;
 }
-body.dark-mode .ob-app-root button.ob-quick-log-btn,
 body.dark-mode .ob-app-root button.ob-day-mode-btn,
 body.dark-mode .ob-app-root button.ob-main-tab-btn{
   border:1.2px solid transparent!important;
@@ -3221,14 +2790,6 @@ body.dark-mode .ob-app-root button.ob-main-tab-btn[aria-current="page"]{
     0 0 0 0.5px rgba(255,104,42,0.060),
     0 0 7px rgba(255,87,30,0.070),
     0 6px 14px rgba(0,0,0,0.24)!important;
-}
-body.dark-mode .ob-app-root .ob-quick-log-icon{
-  background:
-    linear-gradient(180deg,rgba(8,20,35,0.94),rgba(5,14,25,0.90))!important;
-  border-color:rgba(116,157,188,0.090)!important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.045),
-    0 0 0 0.5px rgba(255,112,42,0.035)!important;
 }
 
 /* Night modal clarity pass.
@@ -4248,7 +3809,6 @@ body.dark-mode .ob-app-root .ob-plan-current-card,
 body.dark-mode .ob-app-root .ob-plan-ahead-card,
 body.dark-mode .ob-app-root .ob-plan-next-card,
 body.dark-mode .ob-app-root .ob-weaning-plan-card,
-body.dark-mode .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
 body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"],
 body.dark-mode .ob-app-root div[data-entry-id],
 body.dark-mode .ob-app-root div[style*="background: var(--card-bg)"][style*="border-radius"],
@@ -4296,7 +3856,6 @@ body.dark-mode .ob-app-root div[style*="background:var(--card-bg)"][style*="bord
     inset 0 1px 0 rgba(255,255,255,0.050),
     0 0 0 0.5px rgba(255,112,42,0.025)!important;
 }
-body.dark-mode .ob-app-root button.ob-quick-log-btn,
 body.dark-mode .ob-app-root button.ob-day-mode-btn,
 body.dark-mode .ob-app-root button.ob-main-tab-btn,
 body.dark-mode .ob-app-root button:not(.ob-icon-dismiss):not(.ob-carousel-nav):not(.ob-widget-theme-swatch):not([style*="linear-gradient"]):not([style*="color: white"]):not([style*="color:white"]),
@@ -4323,7 +3882,6 @@ body.dark-mode .ob-app-root button.glass-card.ob-premium-tile{
     0 0 0 0.5px rgba(255,120,42,0.060),
     0 6px 14px rgba(0,0,0,0.25)!important;
 }
-body.dark-mode .ob-app-root .ob-quick-log-icon,
 body.dark-mode .ob-app-root .ob-day-mode-icon{
   background:rgba(5,16,29,0.72)!important;
   border-color:rgba(116,157,188,0.075)!important;
@@ -4503,7 +4061,6 @@ body.dark-mode .ob-app-root .ob-weaning-plan-card{
     0 9px 22px rgba(0,0,0,0.28),
     0 0 18px rgba(255,118,74,0.14)!important;
 }
-body.dark-mode .ob-app-root button.ob-quick-log-btn,
 body.dark-mode .ob-app-root button.ob-day-mode-btn,
 body.dark-mode .ob-app-root button.ob-main-tab-btn,
 body.dark-mode .ob-app-root button:not(.ob-icon-dismiss):not(.ob-carousel-nav):not(.ob-widget-theme-swatch):not([style*="linear-gradient"]):not([style*="color: white"]):not([style*="color:white"]),
@@ -4628,53 +4185,6 @@ body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.30)!important;
 }
 
-/* Final quick-log overlay guard.
-   Keep the carousel at full width and let the arrow float on top of the edge,
-   matching the earlier carousel feel. */
-.ob-app-root .ob-quick-log-shell{
-  position:relative!important;
-  isolation:isolate!important;
-}
-.ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row{
-  width:100%!important;
-  margin:0!important;
-  padding:8px 10px 9px 10px!important;
-  scroll-padding-inline:10px 42px!important;
-}
-.ob-app-root .ob-quick-log-shell.has-right div[data-testid="quick-log-row"].ob-quick-log-row,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell.has-right div[data-testid="quick-log-row"].ob-quick-log-row{
-  padding-right:10px!important;
-}
-.ob-app-root .ob-quick-log-shell.has-left div[data-testid="quick-log-row"].ob-quick-log-row,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell.has-left div[data-testid="quick-log-row"].ob-quick-log-row{
-  padding-left:10px!important;
-}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell > .ob-carousel-nav{
-  position:absolute!important;
-  top:50%!important;
-  bottom:auto!important;
-  transform:translateY(-50%)!important;
-  z-index:12!important;
-  width:38px!important;
-  min-width:38px!important;
-  max-width:38px!important;
-  height:64px!important;
-  min-height:64px!important;
-  margin:0!important;
-  display:grid!important;
-  place-items:center!important;
-  border-radius:20px!important;
-  pointer-events:auto!important;
-}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav-left{
-  left:4px!important;
-}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav-right{
-  right:4px!important;
-}
-
 /* Physical end guard: rounded navigation capsules.
    Keep this after the dock clamp so the old loved four-pill navigation wins. */
 .ob-app-root div[role="navigation"][aria-label="Main navigation"] button.ob-main-tab-btn,
@@ -4708,67 +4218,8 @@ body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]
 }
 
 /* Day view visual repair.
-   The quick-log arrow should hint there is more without covering the last
-   action, and the selected tab needs a visible but contained spotlight. Keep
-   this at the very end because several older guards reset the same controls. */
-.ob-app-root .ob-quick-log-heading,
-.ob-app-root .ob-quick-log-heading *{
-  font-family:inherit!important;
-  letter-spacing:0!important;
-}
-.ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row{
-  padding:9px 12px 10px!important;
-  scroll-padding-inline:12px 54px!important;
-  mask-image:none!important;
-  -webkit-mask-image:none!important;
-}
-.ob-app-root .ob-quick-log-shell.has-right div[data-testid="quick-log-row"].ob-quick-log-row,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell.has-right div[data-testid="quick-log-row"].ob-quick-log-row{
-  padding-right:54px!important;
-}
-.ob-app-root .ob-quick-log-shell.has-left div[data-testid="quick-log-row"].ob-quick-log-row,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell.has-left div[data-testid="quick-log-row"].ob-quick-log-row{
-  padding-left:46px!important;
-}
-.ob-app-root .ob-quick-log-shell.has-left.has-right div[data-testid="quick-log-row"].ob-quick-log-row,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell.has-left.has-right div[data-testid="quick-log-row"].ob-quick-log-row{
-  padding-left:46px!important;
-  padding-right:54px!important;
-}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell > .ob-carousel-nav{
-  width:34px!important;
-  min-width:34px!important;
-  max-width:34px!important;
-  height:56px!important;
-  min-height:56px!important;
-  border-radius:18px!important;
-  font-size:22px!important;
-  font-weight:850!important;
-  color:#5b7f92!important;
-  background:rgba(255,255,255,0.76)!important;
-  border:1px solid rgba(190,230,255,0.72)!important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.80),
-    0 6px 16px rgba(72,118,150,0.14)!important;
-  text-shadow:none!important;
-}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav-left{
-  left:6px!important;
-}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav-right{
-  right:6px!important;
-}
-body.dark-mode .ob-app-root .ob-quick-log-shell > .ob-carousel-nav{
-  color:#FFE8CE!important;
-  background:rgba(20,31,47,0.88)!important;
-  border-color:rgba(255,214,150,0.34)!important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,246,226,0.18),
-    0 0 18px rgba(255,155,58,0.18),
-    0 7px 18px rgba(0,0,0,0.24)!important;
-}
+   The selected tab needs a visible but contained spotlight. Keep this at the
+   very end because several older guards reset the same controls. */
 
 @keyframes obButtonPressPop{
   0%{filter:brightness(1);transform:scale(0.985)}
@@ -4924,76 +4375,6 @@ body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]
 }
 
 /* Retired Track status card readability guard. */
-.ob-app-root .ob-simple-status-card{
-  --ob-simple-status-bg:
-    radial-gradient(ellipse 80% 90% at 22% 10%,rgba(217,207,243,0.28),transparent 58%),
-    radial-gradient(ellipse 90% 95% at 82% 82%,rgba(246,221,227,0.24),transparent 62%),
-    rgba(255,255,255,0.58);
-  --ob-simple-status-border:rgba(255,255,255,0.72);
-  --ob-simple-status-icon-bg:rgba(217,207,243,0.34);
-  --ob-simple-status-kicker:#8F7E92;
-  --ob-simple-status-title:#5B4F5F;
-  --ob-simple-status-body:#786A78;
-  background:var(--ob-simple-status-bg)!important;
-  color:var(--ob-simple-status-title)!important;
-}
-.ob-app-root .ob-simple-status-card[data-simple-night="1"]{
-  --ob-simple-status-bg:
-    radial-gradient(ellipse 85% 95% at 18% 8%,rgba(217,207,243,0.32),transparent 58%),
-    radial-gradient(ellipse 85% 90% at 85% 82%,rgba(246,221,227,0.28),transparent 62%),
-    rgba(255,255,255,0.54);
-  --ob-simple-status-icon-bg:rgba(217,207,243,0.40);
-  --ob-simple-status-kicker:#8B7A8F;
-  --ob-simple-status-title:#514755;
-  --ob-simple-status-body:#6E616D;
-}
-body.dark-mode .ob-app-root .ob-simple-status-card{
-  --ob-simple-status-bg:
-    radial-gradient(ellipse 80% 90% at 18% 8%,rgba(154,139,184,0.24),transparent 58%),
-    radial-gradient(ellipse 85% 95% at 84% 82%,rgba(192,112,136,0.18),transparent 62%),
-    rgba(18,24,42,0.58);
-  --ob-simple-status-border:rgba(255,255,255,0.18);
-  --ob-simple-status-icon-bg:rgba(255,255,255,0.10);
-  --ob-simple-status-kicker:rgba(255,255,255,0.68);
-  --ob-simple-status-title:#F5F0F5;
-  --ob-simple-status-body:rgba(255,255,255,0.78);
-}
-
-.ob-app-root button.ob-simple-action{
-  position:relative;
-  overflow:hidden;
-  transform:translateY(0) scale(1);
-  transition:transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease, background 120ms ease, filter 120ms ease;
-  -webkit-tap-highlight-color:transparent;
-}
-.ob-app-root button.ob-simple-action::after{
-  content:"";
-  position:absolute;
-  inset:3px;
-  border-radius:inherit;
-  pointer-events:none;
-  opacity:0;
-  border:2px solid var(--ob-action-accent);
-  box-shadow:inset 0 0 0 1px rgba(255,255,255,0.72),0 0 0 3px var(--ob-action-glow),0 0 12px var(--ob-action-glow);
-  transition:opacity 120ms ease;
-}
-.ob-app-root button.ob-simple-action:active{
-  transform:translateY(1px) scale(0.975);
-  border-color:var(--ob-action-accent)!important;
-  filter:saturate(1.12) brightness(1.03);
-  box-shadow:0 0 0 3px var(--ob-action-glow),0 0 12px var(--ob-action-glow),var(--card-shadow)!important;
-}
-.ob-app-root button.ob-simple-action:active::after,
-.ob-app-root button.ob-simple-action.is-pressed::after{
-  opacity:1;
-}
-.ob-app-root button.ob-simple-action.is-pressed{
-  transform:translateY(1px) scale(0.975);
-  border-color:var(--ob-action-accent)!important;
-  filter:saturate(1.18) brightness(1.05);
-  box-shadow:0 0 0 3px var(--ob-action-glow),0 0 14px var(--ob-action-glow),var(--card-shadow)!important;
-  animation:obSimpleActionGlow 320ms ease-out;
-}
 @keyframes obSimpleActionGlow{
   0%{box-shadow:0 0 0 0 var(--ob-action-glow),0 0 0 var(--ob-action-glow),var(--card-shadow);transform:translateY(0) scale(1);}
   42%{box-shadow:0 0 0 3px var(--ob-action-glow),0 0 16px var(--ob-action-glow),var(--card-shadow);transform:translateY(1px) scale(0.975);}
@@ -5204,7 +4585,6 @@ body.dark-mode::before{
 body.dark-mode .glass-card,
 body.dark-mode .glass-entry,
 body.dark-mode .ob-premium-tile,
-body.dark-mode .ob-quick-log-row,
 body.dark-mode .ob-day-mode-switcher,
 body.dark-mode .ob-header-glass{
   background:
@@ -5247,9 +4627,6 @@ body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]
 }
 .ob-app-root div[role="navigation"][aria-label="Main navigation"] button.ob-main-tab-btn[aria-current="page"] > div:last-child{
   display:none!important;
-}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav:active{
-  transform:translateY(-50%) scale(0.96)!important;
 }
 /* Absolute final native tab dock clamp.
    Keep this after the visual passes: earlier visual passes add
@@ -5324,36 +4701,6 @@ body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]
 }
 .ob-app-root .ob-main-content{
   padding-bottom:calc(104px + env(safe-area-inset-bottom,0px))!important;
-}
-.ob-app-root .ob-quick-log-shell{
-  width:100%!important;
-  max-width:100%!important;
-  overflow:hidden!important;
-  clip-path:inset(0 round 18px)!important;
-  contain:paint!important;
-  box-sizing:border-box!important;
-}
-.ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row{
-  width:100%!important;
-  max-width:100%!important;
-  overflow-x:auto!important;
-  overflow-y:hidden!important;
-  padding:8px 44px 9px 10px!important;
-  scroll-padding-inline:10px 44px!important;
-  overscroll-behavior-x:contain!important;
-  scrollbar-width:none!important;
-  clip-path:inset(0 round 18px)!important;
-  box-sizing:border-box!important;
-}
-.ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row::-webkit-scrollbar{
-  display:none!important;
-}
-.ob-app-root .ob-quick-log-shell button.ob-quick-log-btn{
-  scroll-snap-align:start!important;
-}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav-right{
-  right:4px!important;
 }
 
 /* Physical end guard: rounded navigation capsules.
@@ -5463,25 +4810,6 @@ body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]
 .ob-app-root .ob-main-content{
   padding-bottom:calc(104px + env(safe-area-inset-bottom,0px))!important;
 }
-.ob-app-root .ob-quick-log-shell{
-  width:100%!important;
-  max-width:100%!important;
-  overflow:hidden!important;
-  box-sizing:border-box!important;
-}
-.ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row{
-  width:100%!important;
-  max-width:100%!important;
-  overflow-x:auto!important;
-  overflow-y:hidden!important;
-  padding:8px 44px 9px 10px!important;
-  scroll-padding-inline:10px 44px!important;
-  box-sizing:border-box!important;
-}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav-right{
-  right:4px!important;
-}
 
 /* Physical end guard: rounded navigation capsules.
    Keep this after the dock clamp so the old loved four-pill navigation wins. */
@@ -5515,10 +4843,9 @@ body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]
   display:none!important;
 }
 
-/* Last-word mobile dock and carousel viewport guard.
+/* Last-word mobile dock viewport guard.
    The dock should sit above the iPhone home area without using that inset as
-   extra internal height. The quick-log carousel may hint there is more to the
-   right, but it must not widen or shove the whole screen. */
+   extra internal height, and it must not widen or shove the whole screen. */
 .ob-app-root div[role="navigation"][aria-label="Main navigation"]{
   left:max(12px, env(safe-area-inset-left,0px))!important;
   right:max(12px, env(safe-area-inset-right,0px))!important;
@@ -5556,46 +4883,6 @@ body[data-screen-compact] .ob-app-root div[role="navigation"][aria-label="Main n
 }
 .ob-app-root .ob-main-content{
   padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))!important;
-}
-.ob-app-root .ob-quick-log-shell{
-  width:100%!important;
-  max-width:100%!important;
-  overflow:hidden!important;
-  box-sizing:border-box!important;
-}
-.ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row{
-  width:100%!important;
-  max-width:100%!important;
-  box-sizing:border-box!important;
-  overflow-x:auto!important;
-  overflow-y:hidden!important;
-  padding:8px 42px 9px 10px!important;
-  scroll-padding-inline:10px 42px!important;
-}
-.ob-app-root .ob-quick-log-shell.has-left div[data-testid="quick-log-row"].ob-quick-log-row,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell.has-left div[data-testid="quick-log-row"].ob-quick-log-row{
-  padding-left:42px!important;
-}
-.ob-app-root .ob-quick-log-shell.has-left.has-right div[data-testid="quick-log-row"].ob-quick-log-row,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell.has-left.has-right div[data-testid="quick-log-row"].ob-quick-log-row{
-  padding-left:42px!important;
-  padding-right:42px!important;
-}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell > .ob-carousel-nav{
-  width:34px!important;
-  min-width:34px!important;
-  max-width:34px!important;
-  height:58px!important;
-  min-height:58px!important;
-  border-radius:18px!important;
-}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav-left{
-  left:4px!important;
-}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav-right{
-  right:4px!important;
 }
 
 /* Account hierarchy pass: keep essential controls visible, tuck low-frequency
@@ -5649,135 +4936,6 @@ body[data-screen-compact] .ob-app-root .ob-quick-log-shell > .ob-carousel-nav{
 }
 .ob-app-root .ob-account-collapse-body{
   min-width:0;
-}
-
-/* Absolute final quick-log carousel guard.
-   Sticky arrows need a real empty lane so they signal "more" without covering
-   the next sleepy-parent tap target. */
-.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row{
-  padding:12px 64px 14px 12px!important;
-  gap:8px!important;
-  scroll-padding-inline:12px 64px!important;
-}
-.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav{
-  flex:0 0 40px!important;
-  width:40px!important;
-  min-width:40px!important;
-  max-width:40px!important;
-  height:72px!important;
-  min-height:72px!important;
-  border-radius:19px!important;
-}
-.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav-left{
-  left:10px!important;
-  margin-right:10px!important;
-}
-.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav-right{
-  right:10px!important;
-  margin-left:10px!important;
-}
-@media(max-width:374px){
-  .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row{
-    padding-right:56px!important;
-    scroll-padding-inline:10px 56px!important;
-  }
-  .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav{
-    flex-basis:34px!important;
-    width:34px!important;
-    min-width:34px!important;
-    max-width:34px!important;
-  }
-}
-
-/* Overlay arrow hint for the quick-log shell.
-   The carousel keeps its full width while the arrow floats over the edge. */
-.ob-app-root .ob-quick-log-shell{
-  position:relative!important;
-  isolation:isolate!important;
-}
-.ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row{
-  width:100%!important;
-  margin:0!important;
-  padding:12px 14px 14px 12px!important;
-  scroll-padding-inline:12px 48px!important;
-}
-.ob-app-root .ob-quick-log-shell.has-right div[data-testid="quick-log-row"].ob-quick-log-row{
-  padding-right:46px!important;
-}
-.ob-app-root .ob-quick-log-shell.has-left div[data-testid="quick-log-row"].ob-quick-log-row{
-  padding-left:46px!important;
-}
-.ob-app-root .ob-quick-log-shell.has-left.has-right div[data-testid="quick-log-row"].ob-quick-log-row{
-  padding-left:46px!important;
-  padding-right:46px!important;
-}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav{
-  position:absolute!important;
-  top:50%!important;
-  bottom:auto!important;
-  transform:translateY(-50%)!important;
-  z-index:8!important;
-  width:38px!important;
-  min-width:38px!important;
-  max-width:38px!important;
-  height:64px!important;
-  min-height:64px!important;
-  margin:0!important;
-  display:grid!important;
-  place-items:center!important;
-  border-radius:20px!important;
-  border:1.35px solid rgba(165,220,255,0.72)!important;
-  background:
-    radial-gradient(circle at 50% 30%,rgba(216,246,255,0.96),rgba(183,228,255,0.48) 46%,rgba(255,255,255,0.74) 100%) padding-box,
-    linear-gradient(135deg,rgba(183,232,255,0.96),rgba(124,190,234,0.72),rgba(255,255,255,0.62)) border-box!important;
-  color:#407AA6!important;
-  font-size:30px!important;
-  font-weight:900!important;
-  line-height:1!important;
-  cursor:pointer!important;
-  pointer-events:auto!important;
-  box-shadow:0 10px 22px rgba(74,135,175,0.18),0 3px 10px rgba(74,135,175,0.12),inset 0 1px 0 rgba(255,255,255,0.82)!important;
-  text-shadow:0 1px 0 rgba(255,255,255,0.72)!important;
-  -webkit-backdrop-filter:blur(8px) saturate(1.2)!important;
-  backdrop-filter:blur(8px) saturate(1.2)!important;
-}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav-left{
-  left:4px!important;
-}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav-right{
-  right:4px!important;
-}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav:active{
-  transform:translateY(-50%) scale(0.96)!important;
-}
-body.dark-mode .ob-app-root .ob-quick-log-shell > .ob-carousel-nav{
-  border-color:rgba(135,207,255,0.55)!important;
-  background:
-    radial-gradient(circle at 50% 30%,rgba(52,79,99,0.92),rgba(25,43,58,0.76) 50%,rgba(12,23,32,0.9) 100%) padding-box,
-    linear-gradient(135deg,rgba(126,205,255,0.74),rgba(80,137,181,0.56),rgba(255,255,255,0.16)) border-box!important;
-  color:#C7EDFF!important;
-  box-shadow:0 12px 24px rgba(0,0,0,0.34),inset 0 1px 0 rgba(255,255,255,0.16)!important;
-  text-shadow:0 1px 0 rgba(0,0,0,0.34)!important;
-}
-@media(max-width:374px){
-  .ob-app-root .ob-quick-log-shell.has-right div[data-testid="quick-log-row"].ob-quick-log-row{
-    padding-right:40px!important;
-  }
-  .ob-app-root .ob-quick-log-shell.has-left div[data-testid="quick-log-row"].ob-quick-log-row{
-    padding-left:40px!important;
-  }
-  .ob-app-root .ob-quick-log-shell.has-left.has-right div[data-testid="quick-log-row"].ob-quick-log-row{
-    padding-left:40px!important;
-    padding-right:40px!important;
-  }
-  .ob-app-root .ob-quick-log-shell > .ob-carousel-nav{
-    width:34px!important;
-    min-width:34px!important;
-    max-width:34px!important;
-    height:58px!important;
-    min-height:58px!important;
-    border-radius:18px!important;
-  }
 }
 
 /* Absolute final Today navigation guard.
@@ -5846,41 +5004,6 @@ body.dark-mode .ob-app-root button.ob-main-tab-btn[aria-current="page"]{
   font-size:10px!important;
   line-height:1.1!important;
   font-weight:750!important;
-  letter-spacing:0!important;
-}
-.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row{
-  background:var(--ob-calm-tool-fill)!important;
-  border:1px solid var(--ob-calm-tool-border)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.20)!important;
-  padding:8px 16px 9px 10px!important;
-  margin-bottom:10px!important;
-  border-radius:20px!important;
-  gap:6px!important;
-}
-.ob-app-root button.ob-quick-log-btn,
-body.dark-mode .ob-app-root button.ob-quick-log-btn{
-  background:transparent!important;
-  border-color:transparent!important;
-  box-shadow:none!important;
-  min-height:68px!important;
-  width:64px!important;
-  min-width:64px!important;
-  max-width:64px!important;
-  padding:6px 4px!important;
-}
-.ob-app-root button.ob-quick-log-btn .ob-quick-log-icon,
-body.dark-mode .ob-app-root button.ob-quick-log-btn .ob-quick-log-icon{
-  width:38px!important;
-  height:38px!important;
-  border-radius:13px!important;
-  background:var(--ob-calm-icon-fill)!important;
-  border:1px solid var(--ob-calm-tool-border)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.16)!important;
-}
-.ob-app-root button.ob-quick-log-btn .ob-quick-log-label{
-  font-size:10px!important;
-  line-height:1.08!important;
-  font-weight:760!important;
   letter-spacing:0!important;
 }
 
@@ -6036,89 +5159,14 @@ body.dark-mode .ob-app-root button.ob-poop-colour-swatch .ob-poop-colour-dot{
 }
 
 /* 4am usability guard.
-   Buttons should feel like controls, not selectable text. The quick-log shell
-   overlay guard at the end of the file owns the carousel arrow placement. */
+   Buttons should feel like controls, not selectable text. */
 .ob-app-root button,
 .ob-app-root [role="button"],
-.ob-app-root .ob-quick-log-label,
 .ob-app-root .ob-day-mode-btn,
 .ob-app-root .ob-main-tab-btn{
   -webkit-user-select:none!important;
   user-select:none!important;
   -webkit-touch-callout:none!important;
-}
-.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row{
-  padding-right:68px!important;
-  scroll-padding-inline:12px 70px!important;
-}
-.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav-right{
-  right:8px!important;
-  margin-left:8px!important;
-}
-.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav-left{
-  left:8px!important;
-  margin-right:8px!important;
-}
-
-/* Quick-log action dock baseline. The final shell overlay guard below restores
-   the floating arrow treatment when the arrow is rendered outside the row. */
-div[data-testid="quick-log-row"].ob-quick-log-row{
-  flex-wrap:nowrap!important;
-  justify-content:flex-start!important;
-  overflow-x:auto!important;
-  overflow-y:hidden!important;
-  -webkit-overflow-scrolling:touch!important;
-  scroll-snap-type:x proximity!important;
-  gap:7px!important;
-  padding:12px 10px 14px 12px!important;
-  scroll-padding-inline:12px 48px!important;
-}
-.ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row button.ob-quick-log-btn,
-body[data-screen-compact] .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row button.ob-quick-log-btn{
-  flex:0 0 60px!important;
-  width:60px!important;
-  min-width:60px!important;
-  max-width:60px!important;
-}
-div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav{
-  flex:0 0 34px!important;
-  width:34px!important;
-  min-width:34px!important;
-  height:76px!important;
-  min-height:76px!important;
-  border-radius:18px!important;
-  font-size:25px!important;
-}
-div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav-left{
-  margin-right:0!important;
-}
-div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav-right{
-  margin-left:0!important;
-}
-@media(max-width:374px){
-  .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row button.ob-quick-log-btn{
-    flex-basis:56px!important;
-    width:56px!important;
-    min-width:56px!important;
-    max-width:56px!important;
-  }
-  div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav{
-    flex-basis:30px!important;
-    width:30px!important;
-    min-width:30px!important;
-  }
-}
-body.dark-mode div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav{
-  border-color:rgba(122,204,255,0.68)!important;
-  background:
-    radial-gradient(circle at 50% 24%,rgba(85,169,220,0.36),rgba(16,45,77,0.96) 58%,rgba(8,22,40,0.98) 100%) padding-box,
-    linear-gradient(135deg,rgba(166,228,255,0.72),rgba(74,153,219,0.78),rgba(29,65,104,0.64)) border-box!important;
-  color:#CBEFFF!important;
-  box-shadow:
-    inset 0 1px 0 rgba(219,248,255,0.28),
-    0 8px 18px rgba(0,0,0,0.26),
-    0 0 22px rgba(86,186,255,0.34)!important;
-  text-shadow:0 0 14px rgba(124,212,255,0.42)!important;
 }
 
 /* Header nap/bed prediction pill: keep the text readable even when broad
@@ -6444,7 +5492,7 @@ body,
 .ob-app-root :where(button,input,select,textarea){
   max-width:100%;
 }
-.ob-app-root :where(.glass-card,.glass-entry,.ob-premium-tile,.ob-quick-log-shell,.ob-day-mode-switcher){
+.ob-app-root :where(.glass-card,.glass-entry,.ob-premium-tile,.ob-day-mode-switcher){
   max-width:100%!important;
 }
 .ob-app-root button.ob-subscreen-back{
@@ -6501,87 +5549,6 @@ body,
 }
 body[data-kb-open="1"] .ob-keyboard-safe-sheet:focus-within{
   scroll-padding-bottom:240px!important;
-}
-div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-more-arrow{
-  position:sticky;
-  right:-2px;
-  z-index:4;
-  flex:0 0 28px;
-  width:28px;
-  height:54px;
-  display:grid;
-  place-items:center;
-  align-self:stretch;
-  margin-left:-18px;
-  border-radius:16px;
-  color:var(--text-deep);
-  font-size:24px;
-  font-weight:900;
-  line-height:1;
-  pointer-events:none;
-  background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,252,248,0.92) 44%,rgba(255,252,248,0.98));
-  text-shadow:0 1px 8px rgba(91,64,54,0.18);
-}
-body.dark-mode div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-more-arrow{
-  color:#FFE8CE;
-  background:linear-gradient(90deg,rgba(8,21,39,0),rgba(9,22,39,0.88) 44%,rgba(9,22,39,0.98));
-  text-shadow:0 0 12px rgba(255,140,83,0.30);
-}
-div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav{
-  position:sticky!important;
-  z-index:8!important;
-  flex:0 0 50px!important;
-  width:50px!important;
-  min-width:50px!important;
-  height:76px!important;
-  min-height:76px!important;
-  align-self:stretch!important;
-  display:grid!important;
-  place-items:center!important;
-  margin:0!important;
-  border:1.35px solid rgba(165,220,255,0.72)!important;
-  border-radius:22px!important;
-  background:
-    radial-gradient(circle at 50% 30%,rgba(216,246,255,0.96),rgba(183,228,255,0.48) 46%,rgba(255,255,255,0.74) 100%) padding-box,
-    linear-gradient(135deg,rgba(183,232,255,0.96),rgba(124,190,234,0.72),rgba(255,255,255,0.62)) border-box!important;
-  color:#407AA6!important;
-  font-size:30px!important;
-  font-weight:900!important;
-  line-height:1!important;
-  cursor:pointer!important;
-  pointer-events:auto!important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.86),
-    0 8px 22px rgba(80,148,200,0.18),
-    0 0 24px rgba(128,208,255,0.34)!important;
-  text-shadow:0 1px 10px rgba(99,178,230,0.34)!important;
-  -webkit-backdrop-filter:blur(8px) saturate(1.2)!important;
-  backdrop-filter:blur(8px) saturate(1.2)!important;
-}
-div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav-left{
-  left:0!important;
-  order:-1!important;
-  margin-right:-8px!important;
-}
-div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav-right{
-  right:0!important;
-  order:999!important;
-  margin-left:-8px!important;
-}
-div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav:active{
-  transform:scale(0.96)!important;
-}
-body.dark-mode div[data-testid="quick-log-row"].ob-quick-log-row .ob-carousel-nav{
-  border-color:rgba(122,204,255,0.68)!important;
-  background:
-    radial-gradient(circle at 50% 24%,rgba(85,169,220,0.36),rgba(16,45,77,0.96) 58%,rgba(8,22,40,0.98) 100%) padding-box,
-    linear-gradient(135deg,rgba(166,228,255,0.72),rgba(74,153,219,0.78),rgba(29,65,104,0.64)) border-box!important;
-  color:#CBEFFF!important;
-  box-shadow:
-    inset 0 1px 0 rgba(219,248,255,0.28),
-    0 8px 18px rgba(0,0,0,0.26),
-    0 0 22px rgba(86,186,255,0.34)!important;
-  text-shadow:0 0 14px rgba(124,212,255,0.42)!important;
 }
 /* Clock global toast translucent glass final lock: toasts must float as clear frost, not opaque blocks. */
 .ob-global-toast{
@@ -6660,7 +5627,6 @@ body.dark-mode .ob-app-root .ob-plan-task,
 body.dark-mode .ob-app-root .ob-night-wakes-card,
 body.dark-mode .ob-app-root .ob-night-wake-entry,
 body.dark-mode .ob-app-root .ob-today-nudge-card,
-body.dark-mode .ob-app-root div[data-testid="quick-log-row"].ob-quick-log-row,
 body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"],
 body.dark-mode .ob-app-root div[data-entry-id],
 body.dark-mode .ob-app-root div[style*="background: var(--card-bg)"][style*="border-radius"],
@@ -6700,7 +5666,6 @@ body.dark-mode .ob-app-root div[style*="background:var(--picker-bg)"][style*="bo
     0 -18px 46px rgba(0,0,0,0.50),
     0 0 18px rgba(255,118,74,0.14)!important;
 }
-body.dark-mode .ob-app-root button.ob-quick-log-btn,
 body.dark-mode .ob-app-root button.ob-day-mode-btn,
 body.dark-mode .ob-app-root button.ob-main-tab-btn,
 body.dark-mode .ob-app-root button:not(.ob-icon-dismiss):not(.ob-carousel-nav):not(.ob-widget-theme-swatch):not([style*="linear-gradient"]):not([style*="color: white"]):not([style*="color:white"]),
@@ -6825,56 +5790,6 @@ body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.30)!important;
 }
 
-/* Last-word quick-log overlay guard.
-   Keep the carousel at full width and let the arrow float on top of the edge,
-   matching the earlier carousel feel. */
-.ob-app-root .ob-quick-log-shell{
-  position:relative!important;
-  isolation:isolate!important;
-}
-.ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row{
-  width:100%!important;
-  margin:0!important;
-  padding:8px 10px 9px 10px!important;
-  scroll-padding-inline:10px 42px!important;
-}
-.ob-app-root .ob-quick-log-shell.has-right div[data-testid="quick-log-row"].ob-quick-log-row,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell.has-right div[data-testid="quick-log-row"].ob-quick-log-row{
-  padding-right:10px!important;
-}
-.ob-app-root .ob-quick-log-shell.has-left div[data-testid="quick-log-row"].ob-quick-log-row,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell.has-left div[data-testid="quick-log-row"].ob-quick-log-row{
-  padding-left:10px!important;
-}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell > .ob-carousel-nav{
-  position:absolute!important;
-  top:50%!important;
-  bottom:auto!important;
-  transform:translateY(-50%)!important;
-  z-index:12!important;
-  width:38px!important;
-  min-width:38px!important;
-  max-width:38px!important;
-  height:64px!important;
-  min-height:64px!important;
-  margin:0!important;
-  display:grid!important;
-  place-items:center!important;
-  border-radius:20px!important;
-  pointer-events:auto!important;
-}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav-left{
-  left:4px!important;
-}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav-right{
-  right:4px!important;
-}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav:active{
-  transform:translateY(-50%) scale(0.96)!important;
-}
-
 /* Absolute final native tab dock clamp.
    Keep this at the physical end of the stylesheet: earlier visual passes add
    safe-area padding to the dock, which makes the iPhone tab bar tall enough to
@@ -6949,25 +5864,6 @@ body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]
 .ob-app-root .ob-main-content{
   padding-bottom:calc(104px + env(safe-area-inset-bottom,0px))!important;
 }
-.ob-app-root .ob-quick-log-shell{
-  width:100%!important;
-  max-width:100%!important;
-  overflow:hidden!important;
-  box-sizing:border-box!important;
-}
-.ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row{
-  width:100%!important;
-  max-width:100%!important;
-  overflow-x:auto!important;
-  overflow-y:hidden!important;
-  padding:8px 44px 9px 10px!important;
-  scroll-padding-inline:10px 44px!important;
-  box-sizing:border-box!important;
-}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav-right{
-  right:4px!important;
-}
 
 /* Physical end guard: rounded navigation capsules.
    This has to sit after the dock clamp, otherwise the clamp's transparent
@@ -7003,57 +5899,8 @@ body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]
 }
 
 /* Day view final repair.
-   Keep this at physical EOF: older generated guards above also target quick-log,
-   button press, and bottom navigation. */
-.ob-app-root .ob-quick-log-heading,
-.ob-app-root .ob-quick-log-heading *{
-  font-family:inherit!important;
-  letter-spacing:0!important;
-}
-.ob-app-root .ob-quick-log-heading{
-  display:flex!important;
-  align-items:center!important;
-  justify-content:space-between!important;
-  gap:10px!important;
-  margin:0 4px 8px!important;
-}
-.ob-app-root .ob-quick-log-copy{
-  min-width:0!important;
-  flex:1 1 auto!important;
-}
-.ob-app-root .ob-quick-log-title{
-  color:#5B4F5F!important;
-  font-size:13.5px!important;
-  font-weight:850!important;
-  line-height:1.15!important;
-}
-.ob-app-root .ob-quick-log-subtitle{
-  color:#9C8E9A!important;
-  font-size:11px!important;
-  font-weight:650!important;
-  line-height:1.25!important;
-  margin-top:1px!important;
-}
-.ob-app-root button.ob-quick-log-simple-chip{
-  flex:0 0 auto!important;
-  display:inline-flex!important;
-  align-items:center!important;
-  gap:6px!important;
-  padding:7px 10px!important;
-  border-radius:999px!important;
-  border:1px solid rgba(153,213,198,0.44)!important;
-  background:linear-gradient(180deg,rgba(153,213,198,0.12),var(--card-bg-solid))!important;
-  color:#5B4F5F!important;
-  font-size:11.5px!important;
-  font-weight:850!important;
-  white-space:nowrap!important;
-}
-body.dark-mode .ob-app-root .ob-quick-log-title{
-  color:#F5F0F5!important;
-}
-body.dark-mode .ob-app-root .ob-quick-log-subtitle{
-  color:rgba(255,255,255,0.66)!important;
-}
+   Keep this at physical EOF: older generated guards above also target button
+   press and bottom navigation. */
 
 /* Daylight premium v2 pass.
    Day mode should feel as deliberately designed as night mode: pearl glass,
@@ -7140,13 +5987,13 @@ body.light-mode .glass-card,
 body.light-mode .glass-entry,
 body.light-mode .ob-premium-tile,
 body.light-mode .ob-day-mode-switcher,
-body.light-mode .ob-quick-log-shell,
+body.light-mode 
 body.light-mode div[role="navigation"][aria-label="Main navigation"],
 body:not(.dark-mode) .glass-card,
 body:not(.dark-mode) .glass-entry,
 body:not(.dark-mode) .ob-premium-tile,
 body:not(.dark-mode) .ob-day-mode-switcher,
-body:not(.dark-mode) .ob-quick-log-shell,
+body:not(.dark-mode) 
 body:not(.dark-mode) div[role="navigation"][aria-label="Main navigation"]{
   border:1.35px solid transparent!important;
   background:
@@ -7190,31 +6037,6 @@ body:not(.dark-mode) .ob-app-root div[style*="background: var(--card-bg-alt)"][s
 body:not(.dark-mode) .ob-app-root div[style*="background:var(--card-bg-alt)"][style*="border-radius"]{
   border-color:rgba(139,189,208,0.40)!important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.78),0 9px 20px rgba(65,84,104,0.10)!important;
-}
-body.light-mode .ob-app-root .ob-quick-log-shell,
-body:not(.dark-mode) .ob-app-root .ob-quick-log-shell{
-  padding:12px 10px 10px!important;
-  border-color:transparent!important;
-  background:
-    linear-gradient(180deg,rgba(255,254,250,0.86),rgba(245,251,255,0.60)) padding-box,
-    linear-gradient(135deg,rgba(112,174,202,0.54),rgba(202,122,162,0.22),rgba(111,168,152,0.22),rgba(255,255,255,0.60)) border-box!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.94),0 16px 34px rgba(65,84,104,0.14),0 6px 16px rgba(178,86,118,0.08)!important;
-}
-body.light-mode .ob-app-root .ob-quick-log-heading,
-body:not(.dark-mode) .ob-app-root .ob-quick-log-heading{
-  border-bottom-color:rgba(139,189,208,0.38)!important;
-}
-body.light-mode .ob-app-root .ob-quick-log-badge,
-body:not(.dark-mode) .ob-app-root .ob-quick-log-badge{
-  border-color:rgba(139,189,208,0.46)!important;
-  background:linear-gradient(180deg,rgba(255,255,255,0.88),rgba(231,248,255,0.58))!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.92),0 8px 18px rgba(65,84,104,0.12)!important;
-}
-body.light-mode .ob-app-root button.ob-quick-log-btn,
-body:not(.dark-mode) .ob-app-root button.ob-quick-log-btn{
-  border-color:rgba(139,189,208,0.42)!important;
-  background:linear-gradient(180deg,rgba(255,255,255,0.78),rgba(244,251,255,0.50))!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.86),0 8px 18px rgba(65,84,104,0.10)!important;
 }
 
 /* Clock lab final glow override: keep timeline/log colours soft, adult, and night-lit. */
@@ -8220,7 +7042,7 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-panel-soft{
   }
 }
 
-/* Clock lab detail-log compact lock: detail mode must stay the same usable size as quick logs. */
+/* Clock lab detail-log compact lock: detail mode must stay the same usable size as clock logs. */
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions.is-expanded.is-compact-logs[data-compact-detail="1"]{
   display:grid!important;
   grid-template-columns:repeat(7,minmax(0,1fr))!important;
@@ -12224,11 +11046,6 @@ body.dark-mode .ob-app-root .ob-plan-draft button{
   text-shadow:0 1px 0 rgba(0,0,0,0.24)!important;
   box-shadow:inset 0 1px 0 rgba(255,231,210,0.17),0 8px 18px rgba(0,0,0,0.26),0 0 16px rgba(255,139,86,0.10)!important;
 }
-body.dark-mode .ob-app-root button.ob-quick-log-simple-chip{
-  border-color:rgba(255,232,190,0.34)!important;
-  background:linear-gradient(180deg,rgba(255,255,255,0.14),rgba(255,255,255,0.06))!important;
-  color:#F5F0F5!important;
-}
 .ob-app-root .ob-day-dashboard-tools{
   margin:10px 0 10px!important;
 }
@@ -12318,50 +11135,6 @@ body.dark-mode .ob-app-root .ob-day-tool-sub{
 }
 body.dark-mode .ob-app-root .ob-day-tool-title{
   color:#F5F0F5!important;
-}
-.ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row{
-  padding:9px 12px 10px!important;
-  scroll-padding-inline:12px 54px!important;
-  mask-image:none!important;
-  -webkit-mask-image:none!important;
-}
-.ob-app-root .ob-quick-log-shell.has-right div[data-testid="quick-log-row"].ob-quick-log-row,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell.has-right div[data-testid="quick-log-row"].ob-quick-log-row{
-  padding-right:54px!important;
-}
-.ob-app-root .ob-quick-log-shell.has-left div[data-testid="quick-log-row"].ob-quick-log-row,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell.has-left div[data-testid="quick-log-row"].ob-quick-log-row{
-  padding-left:46px!important;
-}
-.ob-app-root .ob-quick-log-shell.has-left.has-right div[data-testid="quick-log-row"].ob-quick-log-row,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell.has-left.has-right div[data-testid="quick-log-row"].ob-quick-log-row{
-  padding-left:46px!important;
-  padding-right:54px!important;
-}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell > .ob-carousel-nav{
-  width:34px!important;
-  min-width:34px!important;
-  max-width:34px!important;
-  height:56px!important;
-  min-height:56px!important;
-  border-radius:18px!important;
-  font-size:22px!important;
-  font-weight:850!important;
-  color:#5b7f92!important;
-  background:rgba(255,255,255,0.76)!important;
-  border:1px solid rgba(190,230,255,0.72)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.80),0 6px 16px rgba(72,118,150,0.14)!important;
-  text-shadow:none!important;
-}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav-left{left:6px!important}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav-right{right:6px!important}
-body.dark-mode .ob-app-root .ob-quick-log-shell > .ob-carousel-nav{
-  color:#FFE8CE!important;
-  background:rgba(20,31,47,0.88)!important;
-  border-color:rgba(255,214,150,0.34)!important;
-  box-shadow:inset 0 1px 0 rgba(255,246,226,0.18),0 0 18px rgba(255,155,58,0.18),0 7px 18px rgba(0,0,0,0.24)!important;
 }
 @keyframes obButtonPressPop{
   0%{filter:brightness(1);transform:scale(0.985)}
@@ -12475,404 +11248,6 @@ body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]
 
 /* Track v3 research layout.
    Competitor pass: Nara calm + Baby Tracker speed + OBubba rhythm intelligence. */
-.ob-app-root .ob-track-v3,
-.ob-app-root .ob-track-v3 *{
-  box-sizing:border-box!important;
-  letter-spacing:0!important;
-}
-.ob-app-root .ob-track-v3{
-  display:flex!important;
-  flex-direction:column!important;
-  gap:12px!important;
-  padding-bottom:18px!important;
-}
-.ob-app-root .ob-track-status-card{
-  margin:0!important;
-  padding:16px!important;
-  border-radius:22px!important;
-  border:1px solid var(--ob-simple-status-border)!important;
-  box-shadow:var(--card-shadow)!important;
-  overflow:hidden!important;
-  position:relative!important;
-  isolation:isolate!important;
-}
-.ob-app-root .ob-track-status-card::after{
-  content:""!important;
-  position:absolute!important;
-  right:-34px!important;
-  top:-42px!important;
-  width:142px!important;
-  height:142px!important;
-  border-radius:50%!important;
-  background:radial-gradient(circle,rgba(178,214,255,0.24),transparent 66%)!important;
-  pointer-events:none!important;
-  z-index:0!important;
-}
-body.dark-mode .ob-app-root .ob-track-status-card::after{
-  background:radial-gradient(circle,rgba(255,190,104,0.18),transparent 66%)!important;
-}
-.ob-app-root .ob-track-status-card > *{
-  position:relative!important;
-  z-index:1!important;
-}
-.ob-app-root .ob-track-status-top{
-  display:grid!important;
-  grid-template-columns:46px minmax(0,1fr) auto!important;
-  align-items:center!important;
-  gap:11px!important;
-  margin-bottom:10px!important;
-}
-.ob-app-root .ob-track-baby-mark{
-  width:46px!important;
-  height:46px!important;
-  border-radius:16px!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  background:var(--ob-simple-status-icon-bg)!important;
-  border:1px solid rgba(255,255,255,0.58)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.62),0 8px 18px rgba(91,64,54,0.08)!important;
-}
-.ob-app-root .ob-track-status-copy{
-  min-width:0!important;
-}
-.ob-app-root .ob-track-kicker{
-  color:var(--ob-simple-status-kicker)!important;
-  font-size:10.5px!important;
-  font-weight:900!important;
-  text-transform:uppercase!important;
-  line-height:1.1!important;
-  margin-bottom:2px!important;
-}
-.ob-app-root .ob-track-title{
-  color:var(--ob-simple-status-title)!important;
-  font-family:Georgia,serif!important;
-  font-size:21px!important;
-  font-weight:850!important;
-  line-height:1.08!important;
-}
-.ob-app-root .ob-track-status-pill{
-  min-width:82px!important;
-  max-width:116px!important;
-  min-height:42px!important;
-  border-radius:999px!important;
-  padding:7px 10px!important;
-  display:flex!important;
-  flex-direction:column!important;
-  align-items:center!important;
-  justify-content:center!important;
-  gap:1px!important;
-  background:rgba(255,255,255,0.54)!important;
-  border:1px solid rgba(255,255,255,0.70)!important;
-  color:#5B4F5F!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.74),0 8px 18px rgba(91,64,54,0.08)!important;
-}
-.ob-app-root .ob-track-status-pill span,
-.ob-app-root .ob-track-status-pill strong{
-  max-width:100%!important;
-  overflow:hidden!important;
-  text-overflow:ellipsis!important;
-  white-space:nowrap!important;
-}
-.ob-app-root .ob-track-status-pill span{
-  font-size:10px!important;
-  font-weight:850!important;
-  color:#8F7E92!important;
-}
-.ob-app-root .ob-track-status-pill strong{
-  font-family:Georgia,serif!important;
-  font-size:14px!important;
-  font-weight:850!important;
-  color:#5B4F5F!important;
-}
-body.dark-mode .ob-app-root .ob-track-status-pill{
-  background:rgba(255,255,255,0.12)!important;
-  border-color:rgba(255,255,255,0.18)!important;
-  color:#F5F0F5!important;
-}
-body.dark-mode .ob-app-root .ob-track-status-pill span{
-  color:rgba(255,255,255,0.66)!important;
-}
-body.dark-mode .ob-app-root .ob-track-status-pill strong{
-  color:#FFF8F0!important;
-}
-.ob-app-root .ob-track-status-meta{
-  color:var(--ob-simple-status-title)!important;
-  font-size:13.5px!important;
-  font-weight:800!important;
-  line-height:1.35!important;
-  margin-bottom:5px!important;
-}
-.ob-app-root .ob-track-status-line{
-  color:var(--ob-simple-status-body)!important;
-  font-size:13px!important;
-  font-weight:650!important;
-  line-height:1.45!important;
-}
-.ob-app-root .ob-track-section-head{
-  display:flex!important;
-  align-items:flex-end!important;
-  justify-content:space-between!important;
-  gap:10px!important;
-  margin:2px 2px -2px!important;
-}
-.ob-app-root .ob-track-section-head.is-tight{
-  align-items:center!important;
-  margin:0 2px 8px!important;
-}
-.ob-app-root .ob-track-section-head.is-card-head{
-  align-items:center!important;
-  margin:0 0 12px!important;
-}
-.ob-app-root .ob-track-section-title{
-  color:#5B4F5F!important;
-  font-size:14px!important;
-  font-weight:900!important;
-  line-height:1.18!important;
-}
-.ob-app-root .ob-track-section-sub{
-  color:#9C8E9A!important;
-  font-size:11px!important;
-  font-weight:650!important;
-  line-height:1.3!important;
-  margin-top:2px!important;
-}
-body.dark-mode .ob-app-root .ob-track-section-title{
-  color:#F5F0F5!important;
-}
-body.dark-mode .ob-app-root .ob-track-section-sub{
-  color:rgba(255,255,255,0.64)!important;
-}
-.ob-app-root button.ob-track-text-btn{
-  flex:0 0 auto!important;
-  min-height:36px!important;
-  padding:8px 11px!important;
-  border-radius:999px!important;
-  border:1px solid rgba(190,230,255,0.72)!important;
-  background:rgba(255,255,255,0.58)!important;
-  color:#5b7f92!important;
-  font-size:11.5px!important;
-  font-weight:900!important;
-  white-space:nowrap!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.74),0 7px 16px rgba(72,118,150,0.10)!important;
-}
-body.dark-mode .ob-app-root button.ob-track-text-btn{
-  border-color:rgba(255,232,190,0.34)!important;
-  background:rgba(255,255,255,0.10)!important;
-  color:#FFE8CE!important;
-}
-.ob-app-root .ob-track-actions-grid{
-  display:grid!important;
-  grid-template-columns:repeat(2,minmax(0,1fr))!important;
-  gap:10px!important;
-}
-.ob-app-root .ob-track-actions-card,
-.ob-app-root .ob-track-today-card{
-  margin:0!important;
-  padding:14px!important;
-  border-radius:22px!important;
-  border:1px solid var(--card-border)!important;
-  background:rgba(255,255,255,0.50)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.66),0 11px 26px rgba(91,64,54,0.07)!important;
-}
-body.dark-mode .ob-app-root .ob-track-actions-card,
-body.dark-mode .ob-app-root .ob-track-today-card{
-  background:rgba(255,255,255,0.09)!important;
-  border-color:rgba(255,255,255,0.15)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.12),0 12px 28px rgba(0,0,0,0.22)!important;
-}
-.ob-app-root .ob-track-actions-grid button.ob-simple-action{
-  min-height:116px!important;
-  border-radius:20px!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.72),0 12px 26px rgba(91,64,54,0.08)!important;
-}
-body.dark-mode .ob-app-root .ob-track-actions-grid button.ob-simple-action{
-  background:linear-gradient(180deg,rgba(255,255,255,0.12),rgba(255,255,255,0.06))!important;
-  border-color:rgba(255,255,255,0.16)!important;
-  color:#F5F0F5!important;
-}
-.ob-app-root .ob-track-glance-card{
-  margin:0!important;
-  padding:2px 0 0!important;
-}
-.ob-app-root .ob-track-glance-card [data-testid="today-summary-strip"]{
-  margin-bottom:0!important;
-}
-.ob-app-root .ob-track-glance-card [data-testid="today-summary-strip"] > div{
-  border-radius:16px!important;
-  background:rgba(255,255,255,0.54)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.72),0 9px 20px rgba(91,64,54,0.06)!important;
-}
-body.dark-mode .ob-app-root .ob-track-glance-card [data-testid="today-summary-strip"] > div{
-  background:rgba(255,255,255,0.10)!important;
-  border-color:rgba(255,255,255,0.14)!important;
-}
-.ob-app-root .ob-track-recent-card,
-.ob-app-root .ob-track-insight-card{
-  margin:0!important;
-  border-radius:20px!important;
-  border:1px solid var(--card-border)!important;
-  background:rgba(255,255,255,0.50)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.66),0 11px 26px rgba(91,64,54,0.07)!important;
-}
-body.dark-mode .ob-app-root .ob-track-recent-card,
-body.dark-mode .ob-app-root .ob-track-insight-card{
-  background:rgba(255,255,255,0.09)!important;
-  border-color:rgba(255,255,255,0.15)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.12),0 12px 28px rgba(0,0,0,0.22)!important;
-}
-.ob-app-root .ob-track-today-card .ob-track-recent-card{
-  margin-top:12px!important;
-  padding-top:10px!important;
-  border-top:1px solid rgba(91,64,54,0.08)!important;
-  background:transparent!important;
-  border-left:0!important;
-  border-right:0!important;
-  border-bottom:0!important;
-  border-radius:0!important;
-  box-shadow:none!important;
-}
-body.dark-mode .ob-app-root .ob-track-today-card .ob-track-recent-card{
-  border-top-color:rgba(255,255,255,0.10)!important;
-  background:transparent!important;
-  box-shadow:none!important;
-}
-.ob-app-root .ob-track-log-count{
-  color:#9C8E9A!important;
-  font-size:11px!important;
-  font-weight:750!important;
-  line-height:1.25!important;
-  margin:0 2px 4px!important;
-}
-body.dark-mode .ob-app-root .ob-track-log-count{
-  color:rgba(255,255,255,0.58)!important;
-}
-.ob-app-root .ob-track-log-list{
-  display:flex!important;
-  flex-direction:column!important;
-  gap:0!important;
-}
-.ob-app-root .ob-track-log-row{
-  min-height:38px!important;
-  display:grid!important;
-  grid-template-columns:28px minmax(0,1fr) auto!important;
-  align-items:center!important;
-  gap:9px!important;
-  border-top:1px solid rgba(91,64,54,0.07)!important;
-  color:#5B4F5F!important;
-}
-.ob-app-root .ob-track-log-row:first-child{
-  border-top:0!important;
-}
-body.dark-mode .ob-app-root .ob-track-log-row{
-  border-top-color:rgba(255,255,255,0.10)!important;
-  color:#F5F0F5!important;
-}
-.ob-app-root .ob-track-log-icon{
-  width:28px!important;
-  height:28px!important;
-  border-radius:11px!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  background:rgba(255,255,255,0.48)!important;
-}
-body.dark-mode .ob-app-root .ob-track-log-icon{
-  background:rgba(255,255,255,0.10)!important;
-}
-.ob-app-root .ob-track-log-label{
-  min-width:0!important;
-  overflow:hidden!important;
-  text-overflow:ellipsis!important;
-  white-space:nowrap!important;
-  font-size:12.5px!important;
-  font-weight:800!important;
-}
-.ob-app-root .ob-track-log-time{
-  color:#9C8E9A!important;
-  font-size:11px!important;
-  font-weight:800!important;
-  white-space:nowrap!important;
-}
-body.dark-mode .ob-app-root .ob-track-log-time{
-  color:rgba(255,255,255,0.58)!important;
-}
-.ob-app-root .ob-track-empty-log{
-  min-height:44px!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  color:#9C8E9A!important;
-  font-size:12px!important;
-  font-weight:700!important;
-  text-align:center!important;
-}
-.ob-app-root .ob-track-insight-card{
-  display:grid!important;
-  grid-template-columns:38px minmax(0,1fr)!important;
-  gap:10px!important;
-  padding:13px 14px!important;
-}
-.ob-app-root .ob-track-insight-icon{
-  width:38px!important;
-  height:38px!important;
-  border-radius:14px!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  background:rgba(217,207,243,0.28)!important;
-  font-size:20px!important;
-}
-.ob-app-root .ob-track-insight-title{
-  color:#5B4F5F!important;
-  font-size:13px!important;
-  font-weight:900!important;
-  line-height:1.18!important;
-}
-.ob-app-root .ob-track-insight-copy{
-  color:#7B6D78!important;
-  font-size:12px!important;
-  font-weight:650!important;
-  line-height:1.45!important;
-  margin-top:3px!important;
-}
-body.dark-mode .ob-app-root .ob-track-insight-title{color:#FFF8F0!important}
-body.dark-mode .ob-app-root .ob-track-insight-copy{color:rgba(255,255,255,0.72)!important}
-.ob-app-root .ob-track-footer-actions{
-  display:grid!important;
-  grid-template-columns:1fr!important;
-  gap:9px!important;
-}
-.ob-app-root button.ob-track-dashboard-btn,
-.ob-app-root button.ob-track-share-btn{
-  width:100%!important;
-  min-height:44px!important;
-  border-radius:15px!important;
-  font-size:13px!important;
-  font-weight:900!important;
-  font-family:inherit!important;
-}
-.ob-app-root button.ob-track-dashboard-btn{
-  border:1px solid rgba(91,64,54,0.10)!important;
-  background:linear-gradient(180deg,#675A64,#51464E)!important;
-  color:#fff!important;
-  box-shadow:0 10px 22px rgba(56,43,48,0.18)!important;
-}
-.ob-app-root button.ob-track-share-btn{
-  border:1.5px dashed rgba(156,142,154,0.34)!important;
-  background:rgba(255,255,255,0.34)!important;
-  color:#8F7E92!important;
-}
-body.dark-mode .ob-app-root button.ob-track-dashboard-btn{
-  border-color:rgba(255,232,190,0.24)!important;
-  background:linear-gradient(180deg,rgba(255,190,104,0.20),rgba(255,255,255,0.09))!important;
-  color:#FFF8F0!important;
-}
-body.dark-mode .ob-app-root button.ob-track-share-btn{
-  border-color:rgba(255,255,255,0.18)!important;
-  background:rgba(255,255,255,0.07)!important;
-  color:rgba(255,255,255,0.68)!important;
-}
 
 /* Compact Track hero: daily guide, not a lecture. */
 .ob-app-root .ob-hero-daily-guide{
@@ -13564,22 +11939,6 @@ body.dark-mode .ob-app-root .ob-day-secondary-tools-grid .ob-day-tool-tile-calm{
     min-height:74px!important;
   }
 }
-@media (max-width:360px){
-  .ob-app-root .ob-track-status-top{
-    grid-template-columns:42px minmax(0,1fr)!important;
-  }
-  .ob-app-root .ob-track-status-pill{
-    grid-column:1 / -1!important;
-    max-width:none!important;
-    width:100%!important;
-    min-height:36px!important;
-    flex-direction:row!important;
-    gap:6px!important;
-  }
-  .ob-app-root .ob-track-actions-grid button.ob-simple-action{
-    min-height:104px!important;
-  }
-}
 
 /* Day mode premium pass: Track keeps the morning calm and sends deeper sleep
    analysis to Care instead of expanding another dense card inline. */
@@ -13659,44 +12018,6 @@ body.dark-mode .ob-app-root .ob-last-night-insight-arrow{
   color:#FFE1AE!important;
 }
 
-/* Quick-log fit pass: compact one-tap row, detailed edits live below. */
-.ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row.is-compact{
-  overflow-x:hidden!important;
-  justify-content:space-between!important;
-  gap:5px!important;
-  padding:8px 8px 9px!important;
-  scroll-padding-inline:8px!important;
-}
-.ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row.is-compact button.ob-quick-log-btn{
-  flex:1 1 0!important;
-  width:auto!important;
-  min-width:0!important;
-  max-width:58px!important;
-  min-height:64px!important;
-  padding:5px 2px!important;
-}
-.ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row.is-compact button.ob-quick-log-btn .ob-quick-log-icon{
-  width:34px!important;
-  height:34px!important;
-}
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row.is-compact button.ob-quick-log-btn{
-  max-width:60px!important;
-  min-height:64px!important;
-}
-.ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row.is-expanded{
-  overflow-x:auto!important;
-  justify-content:flex-start!important;
-  gap:6px!important;
-  padding:8px 44px 9px 10px!important;
-  scroll-padding-inline:10px 44px!important;
-}
-.ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row.is-expanded button.ob-quick-log-btn{
-  flex:0 0 58px!important;
-  width:58px!important;
-  min-width:58px!important;
-  max-width:58px!important;
-}
-
 /* Daylight premium pass.
    Night mode already has depth from darkness. Day mode needs contrast from
    glass edges, cooler light, and shadow separation so it does not feel washed
@@ -13765,13 +12086,11 @@ body:not(.dark-mode) .ob-header-glass{
 body.light-mode .glass-card,
 body.light-mode .glass-entry,
 body.light-mode .ob-premium-tile,
-body.light-mode .ob-quick-log-row,
 body.light-mode .ob-day-mode-switcher,
 body.light-mode div[role="navigation"][aria-label="Main navigation"],
 body:not(.dark-mode) .glass-card,
 body:not(.dark-mode) .glass-entry,
 body:not(.dark-mode) .ob-premium-tile,
-body:not(.dark-mode) .ob-quick-log-row,
 body:not(.dark-mode) .ob-day-mode-switcher,
 body:not(.dark-mode) div[role="navigation"][aria-label="Main navigation"]{
   border-color:rgba(202,235,248,0.76)!important;
@@ -13818,32 +12137,6 @@ body:not(.dark-mode) .ob-app-root .ob-hero-more-note{
   border-color:rgba(202,235,248,0.78)!important;
   background:linear-gradient(180deg,rgba(255,255,255,0.72),rgba(248,253,255,0.46))!important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.82),0 8px 18px rgba(75,99,128,0.08)!important;
-}
-body.light-mode .ob-app-root .ob-quick-log-heading,
-body:not(.dark-mode) .ob-app-root .ob-quick-log-heading{
-  text-shadow:0 1px 0 rgba(255,255,255,0.64)!important;
-}
-body.light-mode .ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row,
-body:not(.dark-mode) .ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row{
-  border-color:rgba(188,229,246,0.78)!important;
-  background:
-    linear-gradient(180deg,rgba(255,255,255,0.72),rgba(255,250,249,0.48)),
-    radial-gradient(ellipse 100% 90% at 50% 0%,rgba(190,232,255,0.18),transparent 64%)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.92),0 16px 34px rgba(75,99,128,0.12),0 8px 18px rgba(192,112,136,0.07)!important;
-}
-body.light-mode .ob-app-root button.ob-quick-log-btn,
-body:not(.dark-mode) .ob-app-root button.ob-quick-log-btn{
-  border-color:rgba(214,237,248,0.78)!important;
-  background:linear-gradient(180deg,rgba(255,255,255,0.62),rgba(255,255,255,0.30))!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.72),0 7px 16px rgba(75,99,128,0.09)!important;
-}
-body.light-mode .ob-app-root button.ob-quick-log-btn .ob-quick-log-icon,
-body:not(.dark-mode) .ob-app-root button.ob-quick-log-btn .ob-quick-log-icon{
-  border-color:rgba(170,222,245,0.84)!important;
-  background:
-    radial-gradient(circle at 36% 24%,rgba(255,255,255,0.98),rgba(255,255,255,0.42) 38%,transparent 66%),
-    linear-gradient(180deg,rgba(232,248,255,0.84),rgba(255,255,255,0.54))!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.88),0 8px 18px rgba(75,99,128,0.12)!important;
 }
 body.light-mode .ob-app-root .ob-day-tool-tile-calm,
 body.light-mode .ob-app-root .ob-day-more-tools-toggle,
@@ -14217,139 +12510,9 @@ body.dark-mode .ob-app-root .ob-sleep-interpreter-card{
   }
 }
 
-/* One-tap log joined header pass.
-   The header and quick actions should read as one tool, not loose copy floating
-   above a separate carousel. */
-.ob-app-root .ob-quick-log-shell{
-  padding:12px 10px 10px!important;
-  border-radius:22px!important;
-  border:1.5px solid rgba(188,229,246,0.74)!important;
-  background:
-    linear-gradient(180deg,rgba(255,255,255,0.70),rgba(255,255,255,0.42)),
-    radial-gradient(ellipse 115% 90% at 50% 0%,rgba(190,232,255,0.18),transparent 64%),
-    radial-gradient(ellipse 92% 80% at 100% 100%,rgba(255,222,231,0.16),transparent 70%)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.84),0 14px 30px rgba(75,99,128,0.10)!important;
-  backdrop-filter:blur(var(--glass-blur,14px)) saturate(1.05)!important;
-  -webkit-backdrop-filter:blur(var(--glass-blur,14px)) saturate(1.05)!important;
-  overflow:hidden!important;
-  box-sizing:border-box!important;
-}
-.ob-app-root .ob-quick-log-heading{
-  display:grid!important;
-  grid-template-columns:38px minmax(0,1fr)!important;
-  align-items:center!important;
-  gap:10px!important;
-  margin:0 1px 8px!important;
-  padding:1px 2px 10px!important;
-  border-bottom:1px solid rgba(188,229,246,0.46)!important;
-  text-shadow:none!important;
-}
-.ob-app-root .ob-quick-log-badge{
-  width:38px!important;
-  height:38px!important;
-  border-radius:15px!important;
-  display:flex!important;
-  align-items:center!important;
-  justify-content:center!important;
-  color:var(--ter)!important;
-  border:1px solid rgba(188,229,246,0.76)!important;
-  background:linear-gradient(180deg,rgba(255,255,255,0.78),rgba(255,255,255,0.42))!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.82),0 7px 16px rgba(75,99,128,0.08)!important;
-  flex:0 0 auto!important;
-}
-.ob-app-root .ob-quick-log-copy{
-  min-width:0!important;
-}
-.ob-app-root .ob-quick-log-title{
-  color:var(--text-deep,#5B4F5F)!important;
-  font-size:14.5px!important;
-  font-weight:900!important;
-  line-height:1.15!important;
-}
-.ob-app-root .ob-quick-log-subtitle{
-  color:var(--text-mid,#7B6F7C)!important;
-  font-size:11.5px!important;
-  font-weight:650!important;
-  line-height:1.32!important;
-  margin-top:2px!important;
-}
-.ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row,
-body.light-mode .ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row,
-body:not(.dark-mode) .ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row,
-body[data-screen-compact] .ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row{
-  border:none!important;
-  background:transparent!important;
-  box-shadow:none!important;
-  backdrop-filter:none!important;
-  -webkit-backdrop-filter:none!important;
-  border-radius:16px!important;
-}
-.ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row.is-compact{
-  padding:4px 2px 1px!important;
-}
-.ob-app-root .ob-quick-log-shell div[data-testid="quick-log-row"].ob-quick-log-row.is-expanded{
-  padding:4px 44px 1px 2px!important;
-  scroll-padding-inline:2px 44px!important;
-}
-.ob-app-root .ob-quick-log-shell.has-left div[data-testid="quick-log-row"].ob-quick-log-row.is-expanded{
-  padding-left:44px!important;
-}
-.ob-app-root .ob-quick-log-shell.has-left.has-right div[data-testid="quick-log-row"].ob-quick-log-row.is-expanded{
-  padding-left:44px!important;
-  padding-right:44px!important;
-}
-.ob-app-root .ob-quick-log-shell > .ob-carousel-nav{
-  top:calc(50% + 24px)!important;
-}
-body.dark-mode .ob-app-root .ob-quick-log-shell{
-  border-color:rgba(255,255,255,0.13)!important;
-  background:
-    linear-gradient(180deg,rgba(255,255,255,0.105),rgba(255,255,255,0.052)),
-    radial-gradient(ellipse 110% 86% at 50% 0%,rgba(255,190,104,0.13),transparent 66%)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.12),0 14px 30px rgba(0,0,0,0.23)!important;
-}
-body.dark-mode .ob-app-root .ob-quick-log-heading{
-  border-bottom-color:rgba(255,255,255,0.10)!important;
-}
-body.dark-mode .ob-app-root .ob-quick-log-badge{
-  border-color:rgba(255,255,255,0.12)!important;
-  background:rgba(255,255,255,0.075)!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.12),0 8px 18px rgba(0,0,0,0.16)!important;
-}
-body.dark-mode .ob-app-root .ob-quick-log-title{
-  color:#F5F0F5!important;
-}
-body.dark-mode .ob-app-root .ob-quick-log-subtitle{
-  color:rgba(255,255,255,0.66)!important;
-}
-
 /* Daylight premium v2 final lock.
-   The joined one-tap log pass is intentionally last for layout, so daylight
-   gets this small afterburner to keep the richer material on the visible tool. */
-body.light-mode .ob-app-root .ob-quick-log-shell,
-body:not(.dark-mode) .ob-app-root .ob-quick-log-shell{
-  border:1.35px solid transparent!important;
-  background:
-    linear-gradient(180deg,rgba(255,254,250,0.86),rgba(245,251,255,0.60)) padding-box,
-    linear-gradient(135deg,rgba(112,174,202,0.54),rgba(202,122,162,0.22),rgba(111,168,152,0.22),rgba(255,255,255,0.60)) border-box!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.94),0 16px 34px rgba(65,84,104,0.14),0 6px 16px rgba(178,86,118,0.08)!important;
-}
-body.light-mode .ob-app-root .ob-quick-log-heading,
-body:not(.dark-mode) .ob-app-root .ob-quick-log-heading{
-  border-bottom-color:rgba(139,189,208,0.38)!important;
-}
-body.light-mode .ob-app-root .ob-quick-log-badge,
-body:not(.dark-mode) .ob-app-root .ob-quick-log-badge{
-  border-color:rgba(139,189,208,0.46)!important;
-  background:linear-gradient(180deg,rgba(255,255,255,0.88),rgba(231,248,255,0.58))!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.92),0 8px 18px rgba(65,84,104,0.12)!important;
-}
-body.light-mode .ob-app-root button.ob-quick-log-btn,
-body:not(.dark-mode) .ob-app-root button.ob-quick-log-btn{
-  border-color:rgba(139,189,208,0.42)!important;
-  background:linear-gradient(180deg,rgba(255,255,255,0.78),rgba(244,251,255,0.50))!important;
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.86),0 8px 18px rgba(65,84,104,0.10)!important;
-}
+   Daylight gets this small afterburner to keep the richer material on the
+   visible clock tools. */
 
 /* Clock lab final glow override: keep timeline/log colours soft, adult, and night-lit. */
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc{

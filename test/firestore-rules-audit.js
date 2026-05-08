@@ -16,6 +16,7 @@ assert("rules use shared signed-in helper", rules.includes("function signedIn()"
 assert("family docs require backup-code-shaped ids", rules.includes("backupCodeId(code)") && rules.includes("allow get: if signedIn() && backupCodeId(code);"));
 assert("backup code rules accept stronger new codes while preserving legacy restores", rules.includes("code.matches('^BK[A-Z0-9]{6,10}$')"));
 assert("family writes are field allowlisted", rules.includes("function validFamilyWrite()") && rules.includes("'children', 'carerInfo', 'sharedData', 'childSyncCodes'"));
+assert("family metadata-only care updates do not need a full children payload", rules.includes("hasAny(['children', 'childSyncCodes', 'deleted', 'carerInfo', 'sharedData', 'prediction', 'todayMeds'])"));
 assert("family backup writes are type-checked", rules.includes("request.resource.data.children is string") && rules.includes("request.resource.data.sharedData is string") && rules.includes("request.resource.data.deleted is bool"));
 const usernameBlock = (rules.match(/match \/usernames\/\{username\} \{[\s\S]*?allow delete: if false;\s*\}/) || [""])[0];
 assert("username docs require owner authorization, not raw username knowledge", rules.includes("function usernameOwner()") && usernameBlock.includes("allow get: if usernameId(username) && usernameOwner();") && !usernameBlock.includes("allow get: if signedIn() && usernameId(username);"));

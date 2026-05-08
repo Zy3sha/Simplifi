@@ -58,9 +58,21 @@ assert(
 assert(
   "legacy family and child sync writes remain in place for rollback",
   app.includes('await fsSet("families", code, {') &&
-    app.includes('children: JSON.stringify(cleanForCloud)') &&
+    app.includes('children: JSON.stringify(legacyChildrenForCloud)') &&
     app.includes('await fsSet("child_syncs", code, {') &&
-    app.includes('child: JSON.stringify(childForCloud)')
+    app.includes('child: JSON.stringify(legacyChildForCloud)')
+);
+
+assert(
+  "legacy sync strips image/base64 media before writing billing-heavy docs",
+  app.includes("function stripFirestoreLegacyMedia(") &&
+    app.includes("isChildProfileNode") &&
+    app.includes('k === "photo"') &&
+    app.includes('safeAppImageSrc(v, "")') &&
+    app.includes("stripFirestoreLegacyMediaChildren(cleanForCloud)") &&
+    app.includes("stripFirestoreLegacyMediaChild(childForCloud)") &&
+    app.includes("CHILD_PUSH_MIN_INTERVAL = 60000") &&
+    app.includes("PUSH_MIN_INTERVAL = 60000")
 );
 
 assert(

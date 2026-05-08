@@ -36,6 +36,9 @@ for (const file of careFiles) {
   assert(`${file} shows a friendly offline/auth failure`, html.includes("Can't connect") && html.includes("Please check your internet and try again"));
   assert(`${file} shows a friendly expired care-link failure`, html.includes("Care link expired") && html.includes("share a fresh link from OBubba") && script.includes("if (!_resolvedToken)"));
   assert(`${file} protects ended carer sessions before loading data`, html.includes("CHECK SESSION LOCK BEFORE RENDERING") && html.includes("return; // Don't load or render anything"));
+  assert(`${file} does not keep a live listener on the billing-heavy family document`,
+    script.includes("scheduleFamilyContextRefresh();") &&
+    !script.includes("renderApp();\n    subscribeFamilyContext();"));
   assert(`${file} writes feed type expected by rules`, script.includes('logEntry({type:"feed", feedType:"bottle"'));
   assert(`${file} writes active nap state expected by rules`, script.includes('logEntry({type:"nap", start:s||nowTime(), end:s||nowTime(), _active:true'));
   assert(`${file} writes nap-end events expected by parent app`, script.includes('logEntry({type:"nap-end", end:_endT'));
@@ -91,6 +94,7 @@ assert("parent app sends grandma-friendly text as a care portal preference",
   app.includes("currentCarerInfoForPortal()") &&
   app.includes("largeText: !!grandparentMode") &&
   app.includes("syncCarerPortalInfoNow()") &&
+  !app.includes('const _snap = await fsGet("families", _code);') &&
   app.includes("Makes the Bubba Care guide easier to read with bigger text and buttons. The app stays the same.") &&
   app.includes('class="${_largeCareGuide?"large-care-text":""}"') &&
   app.includes("{false ? (()=>{"));

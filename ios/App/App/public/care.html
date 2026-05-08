@@ -251,6 +251,7 @@ if (!rawCode || rawCode.length < 4) {
       _sessionLocked = true;
       document.getElementById("app").innerHTML = _lockedHtml;
       if (_familyUnsub) { _familyUnsub(); _familyUnsub = null; }
+      if (_familyRefreshTimer) { clearInterval(_familyRefreshTimer); _familyRefreshTimer = null; }
     }
     // Check session doc BEFORE loading any data
     try {
@@ -268,7 +269,7 @@ if (!rawCode || rawCode.length < 4) {
     // Session is open — proceed with loading
     await loadFamilyContext();
     renderApp();
-    subscribeFamilyContext();
+    scheduleFamilyContextRefresh();
 
     // Live listener for real-time lock while portal is open
     try {
@@ -576,6 +577,7 @@ async function loadFamilyContext() {
 // portal showed whatever snapshot was current at page load and went
 // silent until the carer hard-refreshed.
 let _familyUnsub = null;
+let _familyRefreshTimer = null;
 // Debounced render — coalesces rapid onSnapshot/setInterval calls into a single paint
 let _renderTimer = null;
 function _debouncedRender() {
@@ -598,6 +600,18 @@ function subscribeFamilyContext() {
       console.warn("Family context subscription failed", err);
     });
   } catch (e) { console.warn("subscribeFamilyContext error", e); }
+}
+
+function scheduleFamilyContextRefresh() {
+  if (_familyRefreshTimer) return;
+  _familyRefreshTimer = setInterval(async () => {
+    try {
+      await loadFamilyContext();
+      _debouncedRender();
+    } catch (e) {
+      console.warn("Family context refresh failed", e);
+    }
+  }, 5 * 60 * 1000);
 }
 
 function showToast(msg) {
