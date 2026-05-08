@@ -442,57 +442,54 @@ private struct WidgetGlassBackground: View {
                     )
             }
         } else {
-            let sheenStart = Color.white.opacity(0.72)
-            let sheenMid = Color.white.opacity(0.32)
-            let cornerGlow = Color(hex: "#DDF2FF").opacity(0.34)
-            let violetGlow = brandPurple.opacity(0.09)
-            let blueGlow = Color(hex: "#BEE5FF").opacity(0.30)
-            let lowerGlow = Color(hex: "#DCEFFF").opacity(0.18)
+            // Warm cream/blush glass — matches OBubba's brand
+            let warmCream = Color(hex: "#FDF6F0")
+            let warmBlush = Color(hex: "#F5E6DA")
+            let roseGlow = brandRose.opacity(0.08)
+            let goldGlow = Color(hex: "#F0D0A0").opacity(0.12)
 
             ZStack {
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
                     .fill(.ultraThinMaterial)
-                widgetGlassBaseGradient(theme: theme, isDark: false)
-                RadialGradient(
-                    colors: [cornerGlow, Color.clear],
-                    center: .topLeading,
-                    startRadius: 4,
-                    endRadius: 230
-                )
-                RadialGradient(
-                    colors: [blueGlow, Color.clear],
-                    center: .topTrailing,
-                    startRadius: 10,
-                    endRadius: 220
-                )
-                RadialGradient(
-                    colors: [violetGlow, Color.clear],
-                    center: .bottomTrailing,
-                    startRadius: 8,
-                    endRadius: 210
-                )
+                // Warm base tint
                 LinearGradient(
-                    colors: [sheenStart, sheenMid, Color.white.opacity(0.07), Color.clear],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                LinearGradient(
-                    colors: [Color.clear, lowerGlow],
+                    colors: [warmCream.opacity(0.70), warmBlush.opacity(0.50)],
                     startPoint: .top,
                     endPoint: .bottom
                 )
+                // Soft rose glow bottom-left
+                RadialGradient(
+                    colors: [roseGlow, Color.clear],
+                    center: .bottomLeading,
+                    startRadius: 8,
+                    endRadius: 200
+                )
+                // Warm gold glow top-right
+                RadialGradient(
+                    colors: [goldGlow, Color.clear],
+                    center: .topTrailing,
+                    startRadius: 10,
+                    endRadius: 200
+                )
+                // Subtle top sheen
+                LinearGradient(
+                    colors: [Color.white.opacity(0.40), Color.white.opacity(0.10), Color.clear],
+                    startPoint: .topLeading,
+                    endPoint: .center
+                )
+                // Thin warm border
                 RoundedRectangle(cornerRadius: 26, style: .continuous)
                     .stroke(
                         LinearGradient(
                             colors: [
-                                Color.white.opacity(0.82),
-                                Color(hex: "#B9DCFF").opacity(0.34),
-                                brandPurple.opacity(0.10)
+                                Color.white.opacity(0.50),
+                                Color(hex: "#F0D0C8").opacity(0.30),
+                                brandRose.opacity(0.12)
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
-                        lineWidth: 0.9
+                        lineWidth: 0.8
                     )
                     .padding(0.5)
                 RoundedRectangle(cornerRadius: 25, style: .continuous)
