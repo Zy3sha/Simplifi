@@ -42730,10 +42730,13 @@ function App(){
 		    const clockPresenceGlyphs = clockLabIsDay ? [] : (clockPresenceParents || []).map((parent, index) => {
 		      const seed = Number(parent.seed) || index * 37 + 11;
 		      const angle = (seed * 29 + index * 43) % 360;
-		      const presenceRingOffset = 8;
-		      const radius = 108 + presenceRingOffset + (seed % 3) * 4 + (index % 2 ? 2 : 0);
+		      // Mix: some fireflies drift behind the clock glass, some float around the outside
+		      const isBehind = index % 3 === 0;
+		      const radius = isBehind
+		        ? 40 + (seed % 40) // behind the glass (40-80px from center)
+		        : 108 + (seed % 3) * 5 + (index % 2 ? 6 : 2); // outer ring
 		      const p = polar(120, 120, radius, angle);
-		      return {...parent, index, angle, x:p.x, y:p.y};
+		      return {...parent, index, angle, x:p.x, y:p.y, behind: isBehind};
 		    });
 		    const sendClockPresenceHug = (presence) => {
 		      if (!presence) return;
@@ -44161,9 +44164,20 @@ function App(){
             <ellipse cx="120" cy="129" rx="96" ry="91" className="ob-clock-depth-shadow"/>
             <circle cx="120" cy="120" r="101" className="ob-clock-bevel-outer"/>
 	            <circle cx="120" cy="120" r="96" className="ob-clock-face"/>
+	            {/* Behind-glass fireflies render BEFORE the recess/lip so they appear behind the clock face */}
+	            {clockPresenceGlyphs.filter(p => p.behind).map(parent => {
+	              const pulsing = !!(clockPresencePulse && clockPresencePulse.id === parent.id);
+	              return (
+	                <g key={"bg-presence-"+parent.id} className={"ob-clock-presence-glyph is-firefly is-behind-glass"+(pulsing?" is-pulsing":"")} transform={"translate("+parent.x.toFixed(2)+" "+parent.y.toFixed(2)+")"} style={{"--ob-presence-delay":(parent.index%5)*0.45+"s"}} opacity="0.5">
+	                  <circle cx="0" cy="0" r="3" className="ob-clock-presence-glow"/>
+	                  <circle cx="0" cy="0" r="1.4" className="ob-clock-presence-lantern"/>
+	                </g>
+	              );
+	            })}
             <circle cx="120" cy="120" r="94.8" className="ob-clock-face-recess"/>
 	            <circle cx="120" cy="120" r="96.5" className="ob-clock-bevel-lip"/>
-	            {clockPresenceGlyphs.map(parent => {
+	            {/* Outer fireflies render after the clock face */}
+	            {clockPresenceGlyphs.filter(p => !p.behind).map(parent => {
 	              const pulsing = !!(clockPresencePulse && clockPresencePulse.id === parent.id);
 		              const presenceClass = "is-firefly";
 		              const presenceTip = clockPresenceTipFor(parent);
