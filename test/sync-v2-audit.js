@@ -161,6 +161,21 @@ assert(
 );
 
 assert(
+  "synced active nap timers stay live even when an older build wrote a moving end time",
+  app.includes("if (e._active === true) return true;") &&
+    app.includes("return {...e, end:e.start, duration:0, modifiedAt:Date.now()};") &&
+    app.includes("Finalise only old stale stubs") === false &&
+    app.includes("Finalize only old stale stubs; recent synced stubs may still be running on another device.") &&
+    app.includes("clockNapOnThisDay && isActiveNapStub(entry)")
+);
+
+assert(
+  "android foreground timer restarts after a synced timer is recovered",
+  app.includes("},[babyName, bedTimerDay, resolvedActiveId, napOn, napStartT, napStartMs, bedPaused]);") &&
+    app.includes('_androidTimerStart({type:"nap", startTime:startMs, babyName:safeName});')
+);
+
+assert(
   "child sync codes recover after native reinstall before partner pushes resume",
   app.includes("const mirrorSyncCodes = _parseChildSyncCodes(mirror && mirror.childSyncCodes);") &&
     app.includes('localStorage.setItem("child_sync_codes_v1", JSON.stringify({...mirrorSyncCodes, ...storedCodes}))') &&

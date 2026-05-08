@@ -775,15 +775,10 @@ function isValidCompletedNap(e) {
   return !!(hasCompletedNapSpan(e) && !e.night && !e._skipped);
 }
 function isActiveNapStub(e) {
-  return !!(
-    e && e.type === "nap" && !e.night &&
-    !e._skipped &&
-    typeof e.start === "string" && clockMins(e.start) !== null &&
-    // Only a running/unfinished nap is active. A saved zero-duration nap should
-    // never resurrect the timer or inflate "currently napping" UI.
-    !hasCompletedNapSpan(e) &&
-    (e._active || !e.end)
-  );
+  if (!e || e.type !== "nap" || e.night || e._skipped) return false;
+  if (typeof e.start !== "string" || clockMins(e.start) === null) return false;
+  if (e._active === true) return true;
+  return !hasCompletedNapSpan(e) && !e.end;
 }
 function preferCompletedNapHistory(a, b) {
   if (!a || !b || a.type !== "nap" || b.type !== "nap") return null;
@@ -13679,17 +13674,29 @@ function App(){
         const patched = {};
         Object.entries(d).forEach(([dk, arr]) => {
           if (!Array.isArray(arr)) { patched[dk] = arr; return; }
-          const fixed = arr.map(e => {
-            if (hasCompletedNapSpan(e) && e._active) {
-              changed = true;
-              return {...e, _active: false};
-            }
-            if (isActiveNapStub(e) && !napOn) {
-              changed = true;
-              // Finalize: if end is missing or same as start, set a reasonable duration
-              const dur = e.duration || 0;
-              return {...e, _active: false, end: e.end || e.start, duration: dur};
-            }
+	          const fixed = arr.map(e => {
+	            if (hasCompletedNapSpan(e) && e._active) {
+	              changed = true;
+	              const activeStartMs = (typeof e.startMs === "number" && e.startMs > 1000000000000)
+	                ? e.startMs
+	                : clockDateMs(dk, e.start, NaN);
+	              const activeAgeMs = Number.isFinite(activeStartMs) ? Date.now() - activeStartMs : Infinity;
+	              if (activeAgeMs >= 0 && activeAgeMs < 6 * 3600 * 1000) {
+	                return {...e, end:e.start, duration:0, modifiedAt:Date.now()};
+	              }
+	              return {...e, _active: false};
+	            }
+	            if (isActiveNapStub(e) && !napOn) {
+	              changed = true;
+	              const activeStartMs = (typeof e.startMs === "number" && e.startMs > 1000000000000)
+	                ? e.startMs
+	                : clockDateMs(dk, e.start, NaN);
+	              const activeAgeMs = Number.isFinite(activeStartMs) ? Date.now() - activeStartMs : Infinity;
+	              if (activeAgeMs >= 0 && activeAgeMs < 6 * 3600 * 1000) return e;
+	              // Finalize only old stale stubs; recent synced stubs may still be running on another device.
+	              const dur = e.duration || 0;
+	              return {...e, _active: false, end: e.end || e.start, duration: dur};
+	            }
             return e;
           });
           patched[dk] = fixed;
@@ -13782,7 +13789,7 @@ function App(){
       } catch {}
     }, 1800);
     return ()=>clearTimeout(timer);
-  },[babyName, bedTimerDay, resolvedActiveId]);
+	  },[babyName, bedTimerDay, resolvedActiveId, napOn, napStartT, napStartMs, bedPaused]);
   // Auto-expire the "routine done" flag when bedtime gets logged or 2h pass.
   // Lives HERE (not up with the bedRoutineCompletedAt state) because it
   // reads bedTimerDay which is declared above at line ~4616. Putting this
@@ -41852,7 +41859,7 @@ function App(){
 	      return null;
 	    };
 	    const clockSleepEndLab = (entry, start) => clockSleepEndInEntriesLab(entry, start, entriesForDay, nextEntriesForDay, dayKey);
-	    const isActiveClockNapLab = (entry) => !!(entry && entry.type === "nap" && clockNapOnThisDay && !hasCompletedNapSpan(entry) && (entry.id === napEntryId || entry.start === napStartT || entry._active));
+	    const isActiveClockNapLab = (entry) => !!(entry && entry.type === "nap" && clockNapOnThisDay && isActiveNapStub(entry) && (entry.id === napEntryId || entry.start === napStartT || entry._active));
 	    const clockActiveNapElapsedSecLab = () => Math.max(0, Math.floor(Number(napSec) || 0));
 	    const clockNapDurationLab = (entry) => {
 	      if (!entry || entry.type !== "nap") return 0;
