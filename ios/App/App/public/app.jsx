@@ -6700,6 +6700,124 @@ function getWeaningPrepForStyle(value) {
   return normaliseWeaningStylePref(value) === "blw" ? "blw" : "method";
 }
 
+function splitWeaningRecipeIngredients(recipe) {
+  return String((recipe && recipe.ingredients) || "")
+    .split(",")
+    .map(item => item.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .slice(0, 12);
+}
+
+function splitWeaningRecipeSteps(recipe) {
+  const source = String((recipe && recipe.method) || (recipe && recipe.blw) || "").replace(/\s+/g, " ").trim();
+  if (!source) return [];
+  const parts = source.split(/(?<=[.!?])\s+/).map(step => step.trim()).filter(Boolean);
+  return (parts.length ? parts : [source]).slice(0, 8);
+}
+
+function getWeaningRecipePrepCopy(recipe, prepMode) {
+  const mode = prepMode === "blw" ? "blw" : "method";
+  const source = mode === "blw" ? (recipe && recipe.blw) : (recipe && recipe.method);
+  const fallback = mode === "blw"
+    ? ((recipe && recipe.blw) || "Serve as soft, safe finger food for baby's stage.")
+    : ((recipe && recipe.method) || "Prepare until soft, then mash or blend for baby's stage.");
+  return safeTextPayload(source || fallback, fallback, 320).replace(/\s+/g, " ").trim();
+}
+
+function getWeaningRecipeAllergenLabels(recipe) {
+  const seen = new Set();
+  return (Array.isArray(recipe && recipe.allergens) ? recipe.allergens : [])
+    .map(a => normaliseAllergenId(a) || safeStorageToken(a, "", 32))
+    .filter(Boolean)
+    .filter(a => {
+      if (seen.has(a)) return false;
+      seen.add(a);
+      return true;
+    })
+    .map(weaningAllergenLabel)
+    .filter(Boolean);
+}
+
+function getWeaningRecipeSafetyCopy(recipe) {
+  const allergenLabels = getWeaningRecipeAllergenLabels(recipe);
+  const safety = safeTextPayload(recipe && recipe.safety, "", 260).replace(/\s+/g, " ").trim();
+  const parts = [];
+  parts.push(safety || "Serve seated upright and supervised. Texture should be soft enough for baby's stage.");
+  if (allergenLabels.length) {
+    parts.push("Contains " + allergenLabels.join(", ") + ". Introduce one new allergen early in the day and watch after the first taste.");
+  } else {
+    parts.push("No major allergen words are listed for this recipe.");
+  }
+  return parts.join(" ");
+}
+
+function WeaningRecipePrepSheet({recipe, prepMode="method", onPrepModeChange, onLog, logLabel="Log this food", onChange, changeLabel="Change recipe"}) {
+  if (!recipe) return null;
+  const mode = prepMode === "blw" ? "blw" : "method";
+  const ingredients = splitWeaningRecipeIngredients(recipe);
+  const steps = splitWeaningRecipeSteps(recipe);
+  const allergenLabels = getWeaningRecipeAllergenLabels(recipe);
+  const prepCopy = getWeaningRecipePrepCopy(recipe, mode);
+  return (
+    <div className="ob-weaning-recipe-prep-sheet" data-testid="weaning-recipe-prep-sheet">
+      <section className="ob-weaning-recipe-section is-prep" data-testid="weaning-recipe-prep-first">
+        <div className="ob-weaning-recipe-section-head">
+          <span>1</span>
+          <div>
+            <b>Prep first</b>
+            <em>{mode === "blw" ? "finger food shape" : "spoon or mash texture"}</em>
+          </div>
+        </div>
+        <div className="ob-weaning-recipe-prep-toggle">
+          {["method","blw"].map(option => (
+            <button key={option} type="button" data-testid={"weaning-recipe-prep-"+option} aria-pressed={mode===option?"true":"false"} onClick={()=>onPrepModeChange && onPrepModeChange(option)} className={mode===option?"is-selected":""}>
+              {option === "method" ? "Spoon / mash" : "Baby-led"}
+            </button>
+          ))}
+        </div>
+        <p>{prepCopy}</p>
+      </section>
+
+      <section className="ob-weaning-recipe-section" data-testid="weaning-recipe-ingredients">
+        <div className="ob-weaning-recipe-section-head">
+          <span>2</span>
+          <div><b>Ingredients</b><em>what to get out</em></div>
+        </div>
+        <ul>
+          {ingredients.length ? ingredients.map((ing, i) => <li key={i}>{ing}</li>) : <li>Check the recipe pack or ingredient list.</li>}
+        </ul>
+      </section>
+
+      <section className="ob-weaning-recipe-section" data-testid="weaning-recipe-steps">
+        <div className="ob-weaning-recipe-section-head">
+          <span>3</span>
+          <div><b>Steps</b><em>cook it safely</em></div>
+        </div>
+        <ol>
+          {steps.length ? steps.map((step, i) => <li key={i}>{step}</li>) : <li>Follow the preparation guidance and serve at a safe texture.</li>}
+        </ol>
+      </section>
+
+      <section className="ob-weaning-recipe-section is-safety" data-testid="weaning-recipe-safety">
+        <div className="ob-weaning-recipe-section-head">
+          <span>4</span>
+          <div><b>Safety/allergens</b><em>quick check before serving</em></div>
+        </div>
+        <p>{getWeaningRecipeSafetyCopy(recipe)}</p>
+        <div className="ob-weaning-recipe-allergen-chips">
+          {allergenLabels.length ? allergenLabels.map(a => <span key={a}>{a}</span>) : <span>No listed major allergen</span>}
+        </div>
+        {recipe.source && <small data-testid="weaning-recipe-source">Checked against {recipe.source}.</small>}
+      </section>
+
+      <div className="ob-weaning-recipe-actions">
+        {onLog && <button type="button" data-testid="weaning-recipe-log-food" className="is-primary" onClick={onLog}>{logLabel}</button>}
+        {onChange && <button type="button" className="is-secondary" onClick={onChange}>{changeLabel}</button>}
+      </div>
+    </div>
+  );
+}
+
 function normaliseWeaningName(name) {
   return String(name || "").toLowerCase().replace(/[&+]/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -12839,12 +12957,15 @@ function App(){
   const [recipeNutrientFilter, setRecipeNutrientFilter] = useState("all");
   const [_recipeOpen, _setRecipeOpen] = useState(null);
   const [_recipePrep, _setRecipePrep] = useState("method");
-  const [_weaningStylePref, _setWeaningStylePref] = useState(()=>{
-    try{ return normaliseWeaningStylePref(localStorage.getItem("ob_weaning_style_pref_"+resolvedActiveId)); }catch{ return "mixed"; }
-  });
-  useEffect(()=>{
-    try{ _setWeaningStylePref(normaliseWeaningStylePref(localStorage.getItem("ob_weaning_style_pref_"+resolvedActiveId))); }catch{ _setWeaningStylePref("mixed"); }
-  }, [resolvedActiveId]);
+	  const [_weaningStylePref, _setWeaningStylePref] = useState(()=>{
+	    try{ return normaliseWeaningStylePref(localStorage.getItem("ob_weaning_style_pref_"+resolvedActiveId)); }catch{ return "mixed"; }
+	  });
+	  useEffect(()=>{
+	    let safe = "mixed";
+	    try{ safe = normaliseWeaningStylePref(localStorage.getItem("ob_weaning_style_pref_"+resolvedActiveId)); }catch{}
+	    _setWeaningStylePref(safe);
+	    _setRecipePrep(getWeaningPrepForStyle(safe));
+	  }, [resolvedActiveId]);
   const setWeaningStylePref = (value) => {
     const safe = normaliseWeaningStylePref(value);
     _setWeaningStylePref(safe);
@@ -14532,10 +14653,11 @@ function App(){
 		    ["clock-stage", "clock-home-kindness"]
 		  ];
 			  const OB_APP_TOUR_JOURNEY = [
-			    { chapter:"Chapter 1", tab:"day", iconName:"timer", target:"Track clock", title:"Read the clock", body:"Track opens on the clock: the rim shows feeds, nappies, wakes, naps and bedtime in time order.\n\nLogged moments replace predictions as the day happens, with quick logs, Plan and Guidance right underneath." },
-			    { chapter:"Chapter 2", tab:"insights", iconName:"care", target:"Care", title:"Open the parent toolkit", body:"Care leads with the real tools: Bubba Care, Weaning, Parent Room, Sleep Coach and Night Weaning.\n\nSleep, Feeding, Growth and Travel insights sit underneath." },
-			    { chapter:"Chapter 3", tab:"develop", iconName:"growth", target:"Grow", title:"Support development gently", body:"Grow keeps activities, waves, milestones and teething together.\n\nIt is context, not another checklist." },
-			    { chapter:"Chapter 4", tab:"settings", iconName:"account", target:"Account", title:"Keep the app yours", body:"Account holds child settings, Share & Sync, Bubba Care sharing, Lock Bubba Care session, backups, preferences and replayable guides." }
+			    { chapter:"Step 1", tab:"day", iconName:"timer", target:"Start here", title:"Log what happens", body:"Tap feed, nap, nappy or wake as they happen. The clock fills in around you — no spreadsheets, no perfect timing needed. Even one or two logs a day is enough to start." },
+			    { chapter:"Step 2", tab:"day", iconName:"today", target:"Days 3–5", title:"OBubba learns the rhythm", body:"After a few ordinary days, OBubba starts spotting patterns — when naps work best, how feeds affect sleep, what bedtime actually looks like. You don't have to do anything different. Just keep logging." },
+			    { chapter:"Step 3", tab:"insights", iconName:"care", target:"Care tab", title:"See what OBubba found", body:"Sleep analysis tells you exactly why last night went the way it did. Feeding insights flag what's working. Nap analysis shows what to adjust. All in plain English, not charts and jargon." },
+			    { chapter:"Step 4", tab:"insights", iconName:"care", target:"Parent Room", title:"Look after yourself too", body:"Parenting is relentless. The Parent Room has breathing exercises, wellbeing check-ins, and gentle reminders that you matter in this house too. You're not just a carer — you're a person who needs care." },
+			    { chapter:"Step 5", tab:"settings", iconName:"care", target:"Share & Sync", title:"Connect your village", body:"Partner Sync keeps both parents on the same page — every log, every prediction, shared in real time. Bubba Care gives grandparents or nursery a live care guide with QR code. No repeating yourself." }
 			  ];
 
   const[childSyncCodes,setChildSyncCodes]=useState(()=>{
@@ -22457,9 +22579,19 @@ function App(){
                 }} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(212,168,85,0.3)",background:"rgba(212,168,85,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP}}>
                   <span style={{display:"inline-flex",alignItems:"center",gap:7}}><BubbaIcon name="timer" size={18}/>Night wake</span>
                 </button>
-                <button onClick={()=>{haptic();setShowNightWake(true);setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",settleTime:"",note:""});}} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(123,104,238,0.25)",background:"rgba(123,104,238,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP}}>
-                  <span style={{display:"inline-flex",alignItems:"center",gap:7}}><BubbaIcon name="log" size={18}/>Log details</span>
-                </button>
+	              <button onClick={()=>{
+	                haptic();
+	                if (!bedPaused) {
+	                  const pendingFromPause = pauseBedTimer();
+	                  if (pendingFromPause && pendingFromPause.night) {
+	                    openNightWakeDetailsForEntry(pendingFromPause, {livePending:true});
+	                    return;
+	                  }
+	                }
+	                openPendingOrNewNightWakeDetails();
+	              }} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(123,104,238,0.25)",background:"rgba(123,104,238,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP}}>
+	                  <span style={{display:"inline-flex",alignItems:"center",gap:7}}><BubbaIcon name="log" size={18}/>Log details</span>
+	                </button>
               </div>
               {/* Dream feed one-tap (visible 21:30-23:30, typical dream-feed hours) */}
               {(()=>{
@@ -31574,43 +31706,106 @@ function App(){
       return e;
     });
   }
+  function isPendingBedWakeEntry(entryOrId){
+    try {
+      const id = typeof entryOrId === "string" ? entryOrId : entryOrId && entryOrId.id;
+      if (!id) return false;
+      const paused = bedPaused || localStorage.getItem("bed_paused") === "1";
+      return paused && localStorage.getItem("bed_wake_entry_id") === id;
+    } catch { return false; }
+  }
+  function pendingNightWakeDurationMins(entry, settleTime){
+    try {
+      const explicit = parseInt(entry && (entry.assistedDuration || entry.settleDuration || entry.wakeDuration || entry.duration || 0), 10) || 0;
+      if (explicit > 0 && !isPendingBedWakeEntry(entry)) return explicit;
+      const pauseStartMs = Number(bedPauseStart || (()=>{try{return localStorage.getItem("bed_pause_start");}catch{return 0;}})() || 0);
+      if (pauseStartMs > 1000000000000) {
+        const mins = Math.max(0, Math.round((Date.now() - pauseStartMs) / 60000));
+        if (mins >= 0 && mins <= 360) return mins;
+      }
+      const wakeMins = clockMins(entry && entry.time || "");
+      const settleMins = clockMins(settleTime || "");
+      if (wakeMins !== null && settleMins !== null) {
+        let diff = settleMins - wakeMins;
+        if (diff < 0) diff += 24*60;
+        if (diff >= 0 && diff <= 360) return diff;
+      }
+    } catch {}
+    return 0;
+  }
+  function nightWakeFormFromEntry(entry = {}, opts = {}){
+    const livePending = !!opts.livePending || isPendingBedWakeEntry(entry);
+    const settleTime = livePending ? (entry.settleTime || nowTime()) : (entry.settleTime || "");
+    const duration = livePending ? pendingNightWakeDurationMins(entry, settleTime) : 0;
+    return {
+      time: entry.time || nowTime(),
+      ml: entry.amount ? String(mlToDisplay(entry.amount,fluidUnit)) : "",
+      selfSettled: !!entry.selfSettled,
+      assisted: !!entry.assisted,
+      assistedType: entry.assistedType || "milk",
+      assistedNote: entry.assistedNote || "",
+      assistedDuration: entry.assistedDuration ? String(entry.assistedDuration) : (!entry.selfSettled && duration ? String(duration) : ""),
+      settleDuration: entry.settleDuration ? String(entry.settleDuration) : (entry.selfSettled && duration ? String(duration) : ""),
+      settleTime,
+      note: entry.selfSettled ? (entry.note === "Self settled" ? "" : entry.note || "") : (entry.note || "").replace(/Assisted – [^·]*·?\s*/,"").replace(/Duration: \d+m\s*·?\s*/,"").trim()
+    };
+  }
+  function seedNightWakeResumeAnchor(form){
+    try {
+      const origMins = clockMins(form && form.time);
+      const origDur = parseInt(form && (form.assistedDuration || form.settleDuration || 0), 10) || 0;
+      if (origMins !== null) {
+        let resume = origMins + origDur;
+        if (resume >= 24*60) resume -= 24*60;
+        nwResumeAnchorRef.current = resume;
+      } else {
+        nwResumeAnchorRef.current = null;
+      }
+    } catch(_) {
+      nwResumeAnchorRef.current = null;
+    }
+  }
+  function openNightWakeDetailsForEntry(entry, opts = {}){
+    const form = nightWakeFormFromEntry(entry || {}, opts);
+    seedNightWakeResumeAnchor(form);
+    setNightEditId(entry && entry.id ? entry.id : null);
+    setNwForm(form);
+    setShowNightWake(true);
+  }
+  function openPendingOrNewNightWakeDetails(){
+    try {
+      const pendingId = localStorage.getItem("bed_wake_entry_id");
+      const paused = bedPaused || localStorage.getItem("bed_paused") === "1";
+      if (paused && pendingId) {
+        let pendingEntry = null;
+        Object.values(days || {}).some(arr => {
+          if (!Array.isArray(arr)) return false;
+          pendingEntry = arr.find(e => e && e.id === pendingId) || null;
+          return !!pendingEntry;
+        });
+        if (!pendingEntry) {
+          const pauseStartMs = Number(bedPauseStart || localStorage.getItem("bed_pause_start") || 0);
+          const pauseDate = pauseStartMs > 1000000000000 ? new Date(pauseStartMs) : new Date();
+          pendingEntry = {
+            id: pendingId,
+            type: "wake",
+            time: String(pauseDate.getHours()).padStart(2,"0") + ":" + String(pauseDate.getMinutes()).padStart(2,"0"),
+            night: true,
+            nightLocked: true,
+            note: "Night wake. settling..."
+          };
+        }
+        openNightWakeDetailsForEntry(pendingEntry, {livePending:true});
+        return true;
+      }
+    } catch {}
+    openNightWakeDetailsForEntry({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",settleTime:"",note:""});
+    return false;
+  }
   function openEdit(entry){
     // Night entries open in the night wake form
     if(entry.night && (entry.type==="wake" || entry.type==="feed")){
-      // Stamp the implied "resume time" = originalWakeTime + originalDuration.
-      // When the user edits the wake time, we'll preserve this resume anchor
-      // and recompute duration = resume - newWakeTime. Lets a parent fix a
-      // wake-time typo without manually recalculating how long they soothed.
-      try {
-        const _origMins = (()=>{
-          return clockMins(entry.time);
-        })();
-        const _origDur = parseInt(entry.assistedDuration || entry.settleDuration || 0) || 0;
-        if (_origMins !== null) {
-          let _resume = _origMins + _origDur;
-          // Cross-midnight: if resume goes past 24h, wrap
-          if (_resume >= 24*60) _resume -= 24*60;
-          nwResumeAnchorRef.current = _resume;
-        } else {
-          nwResumeAnchorRef.current = null;
-        }
-      } catch(_) {
-        nwResumeAnchorRef.current = null;
-      }
-      setNwForm({
-        time: entry.time||nowTime(),
-        ml: entry.amount ? String(mlToDisplay(entry.amount,fluidUnit)) : "",
-        selfSettled: !!entry.selfSettled,
-        assisted: !!entry.assisted,
-        assistedType: entry.assistedType||"milk",
-        assistedNote: entry.assistedNote||"",
-        assistedDuration: entry.assistedDuration ? String(entry.assistedDuration) : "",
-        settleDuration: entry.settleDuration ? String(entry.settleDuration) : "",
-        settleTime: entry.settleTime || "",
-        note: entry.selfSettled ? (entry.note==="Self settled"?"":entry.note||"") : (entry.note||"").replace(/Assisted – [^·]*·?\s*/,"").replace(/Duration: \d+m\s*·?\s*/,"").trim()
-      });
-      setNightEditId(entry.id);
-      setShowNightWake(true);
+      openNightWakeDetailsForEntry(entry, {livePending:isPendingBedWakeEntry(entry)});
       return;
     }
     const activityMeta=ACTIVITY_LOG_TYPES.find(a=>a.id===entry.type);
@@ -34642,8 +34837,8 @@ function App(){
     }
     // In midnight mode, we don't need bedTimerDay to route — entries go to todayStr().
     // Only bail if: already paused, OR (wake mode AND no bedTimerDay found)
-    if (bedPaused) { console.log("[OBubba] pauseBedTimer: already paused, ignoring"); return; }
-    if (!_effectiveBTD && dayBoundary === "wake") { console.log("[OBubba] pauseBedTimer: no bedTimerDay and wake mode, bailing. bedTimerDay=",bedTimerDay,"ls=",localStorage.getItem("bed_timer_day")); return; }
+    if (bedPaused) { console.log("[OBubba] pauseBedTimer: already paused, ignoring"); return null; }
+    if (!_effectiveBTD && dayBoundary === "wake") { console.log("[OBubba] pauseBedTimer: no bedTimerDay and wake mode, bailing. bedTimerDay=",bedTimerDay,"ls=",localStorage.getItem("bed_timer_day")); return null; }
     // For midnight mode with no _effectiveBTD, use todayStr() as the routing target
     if (!_effectiveBTD) _effectiveBTD = todayStr();
     haptic();
@@ -34694,6 +34889,7 @@ function App(){
       clearTimerNotification();
     } catch {}
     showToast(_isMorningWake ? "☀️ Morning wake logged." : "🌙 Night wake logged. tap Back to sleep when settled.",3000,1);
+    return _wakeEntry;
   }
   function resumeBedTimer(overrideSettleMethod, opts){
     // Check both React state AND localStorage (state may be stale from async setBedTimerDay)
@@ -38935,7 +39131,7 @@ function App(){
         _diagCtx.recentTeethingCount = _recentTeeth.length;
         // Populate lastNapEndMin for nap-to-bedtime gap detection
         try {
-          const _bedDk = _lastNight?._bedDayKey || prevCalDay(todayStr());
+          const _bedDk = _bedDayKey || prevCalDay(todayStr());
           const _napsForCtx = (days[_bedDk] || []).filter(isValidCompletedNap).sort((a,b) => timeVal(a) - timeVal(b));
           const _lastNapCtx = _napsForCtx.length ? _napsForCtx[_napsForCtx.length - 1] : null;
           if (_lastNapCtx && _lastNapCtx.end) {
@@ -42034,9 +42230,7 @@ function App(){
 		      return clockInsideSleepCurveInsetLab(item);
 		    };
 		    const clockDotSleepInsetLab = (item, visualKind) => {
-		      if (!clockIsInsideSleepCurveLab(item)) return 0;
-		      if (visualKind === "night-wake") return 8;
-		      return 8;
+		      return 0;
 		    };
 		    const clockTimelineSettlingFeedKeyLab = (item) => {
 		      if (!item || !item.entry || item.entry.type !== "feed" || !item.entry.night || item.entry.dreamFeed || item.entry.feedType === "solids" || item.entry.feedType === "pump") return "";
@@ -42069,6 +42263,52 @@ function App(){
 	      !isTimedClockEntry(other.entry) &&
 	      clockMinuteGap(item.start, other.start) <= 18
 	    ));
+	    const clockDotPointLab = (item) => {
+	      if (!item || !item.entry || isTimedClockEntry(item.entry)) return null;
+	      const visualKind = entryVisualKindLab(item.entry);
+	      const closeMoment = item.laneCount > 1 || hasCloseClockMoment(item);
+	      const dotAngle = (item.start % 1440) / 1440 * 360 + (item.lane - (item.laneCount - 1) / 2) * (closeMoment ? 5.2 : 3.8);
+	      const dotSleepInset = clockDotSleepInsetLab(item, visualKind);
+	      const dotRadius = 98;
+	      const dotR = closeMoment ? (item.isNow ? 2.7 : 2.2) : (item.isNow ? 3 : 2.5);
+	      const dot = polar(120, 120, dotRadius, dotAngle);
+	      return {
+	        ...dot,
+	        dotR,
+	        hitR:closeMoment ? Math.max(5.1, dotR + 2.8) : Math.max(7.2, dotR + 3.4),
+	        closeMoment,
+	        dotSleepInset,
+	        visualKind
+	      };
+	    };
+	    const clockNearestDotItemFromPressLab = (ev, fallbackItem) => {
+	      try {
+	        if (!ev || typeof ev.clientX !== "number" || typeof ev.clientY !== "number") return fallbackItem;
+	        const svg = ev.currentTarget && (ev.currentTarget.ownerSVGElement || (ev.currentTarget.closest && ev.currentTarget.closest("svg")));
+	        if (!svg || !svg.createSVGPoint || !svg.getScreenCTM) return fallbackItem;
+	        const matrix = svg.getScreenCTM();
+	        if (!matrix) return fallbackItem;
+	        const point = svg.createSVGPoint();
+	        point.x = ev.clientX;
+	        point.y = ev.clientY;
+	        const local = point.matrixTransform(matrix.inverse());
+	        let best = null;
+	        clockRenderEvents.forEach(candidate => {
+	          if (!candidate || !candidate.entry || isTimedClockEntry(candidate.entry)) return;
+	          const dot = clockDotPointLab(candidate);
+	          if (!dot) return;
+	          const dx = local.x - dot.x;
+	          const dy = local.y - dot.y;
+	          const distance = Math.sqrt(dx * dx + dy * dy);
+	          if (!best || distance < best.distance) best = {item:candidate, dot, distance};
+	        });
+	        if (!best) return fallbackItem;
+	        const limit = Math.max(best.dot.hitR + 2.4, best.dot.closeMoment ? 8.2 : 11.2);
+	        return best.distance <= limit ? best.item : fallbackItem;
+	      } catch {
+	        return fallbackItem;
+	      }
+	    };
 	    // Morning wake must be from TODAY's entries, not overnight entries pulled from yesterday or legacy night-wake dots.
 	    const clockDayWakeItem = clockEvents.find(item => item.entry.type === "wake" && !item.entry.night && !clockIsLegacyNightWakeTimeLab(item.entry) && item.sourceDay === dayKey);
 	    // The clock is always a visual calendar day: midnight → midnight.
@@ -43222,7 +43462,7 @@ function App(){
 	        return;
 	      }
 	      if (clockBedOnThisDay && !bedPaused) { openLogPanel("wake"); return; }
-	      if (clockBedOnThisDay && bedPaused) { setShowNightWake(true); return; }
+		      if (clockBedOnThisDay && bedPaused) { openPendingOrNewNightWakeDetails(); return; }
 	      setShowNapStartPicker(true);setNapCustomStart(nowTime());
 	    };
 	    const clockDetailSleepLabel = clockQuickSleepNeedsWake ? "Sleep" : "Wake Up";
@@ -43246,7 +43486,7 @@ function App(){
 	    };
 	    const clockDetailSleepLongAction = () => {
 	      if (clockQuickSleepNeedsWake) {
-	        if (clockBedOnThisDay) { setShowNightWake(true); return; }
+		        if (clockBedOnThisDay) { openPendingOrNewNightWakeDetails(); return; }
 	        setShowNapStartPicker(true);setNapCustomStart(nowTime());
 	        return;
 	      }
@@ -43506,14 +43746,15 @@ function App(){
 	    };
     const showClockLabTipFromPress = (item, ev) => {
       try{ev && ev.stopPropagation && ev.stopPropagation();}catch{}
-      if (!item || !item.entry) return;
+      const pressItem = item && item.entry && !isTimedClockEntry(item.entry) ? clockNearestDotItemFromPressLab(ev, item) : item;
+      if (!pressItem || !pressItem.entry) return;
       haptic(12);
       // If this item is already showing and pinned, go straight to edit
-      if (clockLabTip && clockLabTip.pinned && clockLabTip.entry && clockLabTip.entry.id === item.entry.id && clockLabTipCanEdit(clockLabTip)) {
-        editClockLabLog(item.entry, ev);
+      if (clockLabTip && clockLabTip.pinned && clockLabTip.entry && clockLabTip.entry.id === pressItem.entry.id && clockLabTipCanEdit(clockLabTip)) {
+        editClockLabLog(pressItem.entry, ev);
         return;
       }
-      setClockLabTip({...item, pinned:true});
+      setClockLabTip({...pressItem, pinned:true});
 	    };
     const hideClockLabTip = (item) => {
       setClockLabTip(current => {
@@ -43801,12 +44042,9 @@ function App(){
 	                  </g>
 	                );
 		              }
-		              const closeMoment = item.laneCount > 1 || hasCloseClockMoment(item);
-		              const dotAngle = (item.start % 1440) / 1440 * 360 + (item.lane - (item.laneCount - 1) / 2) * (closeMoment ? 5.2 : 3.8);
-		              const dotSleepInset = clockDotSleepInsetLab(item, visualKind);
-		              const dotRadius = 94 - Math.floor(item.lane / 3) * (closeMoment ? 6 : 8) - dotSleepInset;
-		              const dotR = closeMoment ? (item.isNow ? 2.7 : 2.2) : (item.isNow ? 3 : 2.5);
-	              const dot = polar(120,120,dotRadius,dotAngle);
+		              const dotPoint = clockDotPointLab(item);
+		              if (!dotPoint) return null;
+		              const {closeMoment, dotSleepInset, dotR, hitR} = dotPoint;
 	              // Legacy one-tap wake fallback: explicit night wakes stay pink, but a real morning wake must stay yellow.
 	              const _dotMins = item.start % 1440;
 	              const _isMorningWakeDot = item.entry.type === "wake" && !item.entry.night && item === clockDayWakeItem;
@@ -43818,8 +44056,8 @@ function App(){
 		              return (
 		                <g key={(item.entry.id || item.index)+"clock-dot"} className={"ob-clock-event-dot-group"+(dotSleepInset?" is-sleep-overlap":"")} role="button" aria-label={clockLabLogAria(item)} tabIndex="0" onMouseEnter={()=>showClockLabTip(item)} onMouseLeave={()=>hideClockLabTip(item)} onFocus={()=>showClockLabTip(item)} onBlur={()=>hideClockLabTip(item)} onClick={(ev)=>showClockLabTipFromPress(item, ev)} onKeyDown={(ev)=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();showClockLabTipFromPress(item, ev);}}}>
 	                  <title>{clockItemLabelLab(item)} · {clockItemTimeRangeLab(item)}</title>
-	                  <circle cx={dot.x.toFixed(2)} cy={dot.y.toFixed(2)} r={Math.max(7.2, dotR + 3.4)} className="ob-clock-event-hit" aria-hidden="true"/>
-	                  <circle cx={dot.x.toFixed(2)} cy={dot.y.toFixed(2)} r={dotR} className={"ob-clock-event-dot is-"+_dotKind+(item.isNow?" is-now":"")+(closeMoment?" is-close":"")} style={{"--ob-clock-event-glow":_dotGlow,"--ob-clock-dot-fill":_dotColor}} fill={_dotColor} stroke={_dotColor} aria-hidden="true"/>
+	                  <circle cx={dotPoint.x.toFixed(2)} cy={dotPoint.y.toFixed(2)} r={hitR.toFixed(2)} className="ob-clock-event-hit" aria-hidden="true"/>
+	                  <circle cx={dotPoint.x.toFixed(2)} cy={dotPoint.y.toFixed(2)} r={dotR} className={"ob-clock-event-dot is-"+_dotKind+(item.isNow?" is-now":"")+(closeMoment?" is-close":"")} style={{"--ob-clock-event-glow":_dotGlow,"--ob-clock-dot-fill":_dotColor}} fill={_dotColor} stroke={_dotColor} aria-hidden="true"/>
 	                </g>
 	              );
 	            })}
@@ -44928,8 +45166,8 @@ function App(){
 	            <div className="ob-tour-journey-handle"/>
 		              <div className="ob-tour-journey-hero">
 	              <OBubbaMascot type="happy" size={96} alt="OBubba" style={{margin:"0 auto"}}/>
-		              <div className="ob-tour-journey-title">Your OBubba clock map</div>
-		              <p className="ob-tour-journey-copy">A quick route through the clock, Care, Grow and Account, so the useful bits are easy to find when your hands are full.</p>
+		              <div className="ob-tour-journey-title">How OBubba helps</div>
+		              <p className="ob-tour-journey-copy">You don't need to learn the app first. Just start logging — OBubba does the rest. Here's what happens next.</p>
 	            </div>
 	            <div className="ob-tour-journey-list">
 	              {OB_APP_TOUR_JOURNEY.map((item,i)=>(
@@ -47196,15 +47434,16 @@ function App(){
                             style={{width:"100%",boxSizing:_bBB,padding:"11px 12px",borderRadius:14,border:"1.5px solid var(--card-border)",background:"var(--card-bg-alt)",color:C.deep,fontSize:14,outline:_oN,fontFamily:_fI,marginBottom:_q.length>=2?10:0}}/>
                           {_q.length >= 2 && (
                             <div data-testid="weaning-recipe-search-results" style={{display:"flex",flexDirection:"column",gap:8}}>
-                              {_results.length ? _results.map((r,i)=>{
-                                const _inThis = _thisNameSet.has(normaliseWeaningName(r.name));
-                                const _inNext = _nextNameSet.has(normaliseWeaningName(r.name));
-                                return (
+	                              {_results.length ? _results.map((r,i)=>{
+	                                const _inThis = _thisNameSet.has(normaliseWeaningName(r.name));
+	                                const _inNext = _nextNameSet.has(normaliseWeaningName(r.name));
+	                                const _displayName = getWeaningRecipeNameForStyle(r, _weaningStylePref) || r.name;
+	                                return (
                                   <div key={r.name+"_"+i} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr)",gap:8,padding:"11px",borderRadius:14,border:"1px solid var(--card-border)",background:"rgba(255,255,255,0.34)"}}>
                                     <div style={{display:"flex",alignItems:"flex-start",gap:9,minWidth:0}}>
-                                      <span style={{fontSize:21,flexShrink:0}}>{r.emoji}</span>
-                                      <div style={{minWidth:0,flex:1}}>
-                                        <div style={{fontSize:13.5,fontWeight:850,color:C.deep,lineHeight:1.25}}>{r.name}</div>
+	                                      <span style={{fontSize:21,flexShrink:0}}>{r.emoji}</span>
+	                                      <div style={{minWidth:0,flex:1}}>
+	                                        <div style={{fontSize:13.5,fontWeight:850,color:C.deep,lineHeight:1.25}}>{_displayName}</div>
                                         <div style={{fontSize:11,color:C.lt,lineHeight:1.45,marginTop:3}}>
                                           {r._ingredientHit ? "Ingredient match: " + r._ingredientHit : r.iron ? "Iron-rich idea" : r.allergens&&r.allergens.length ? "Includes allergen guidance" : "Age-suitable recipe"}
                                           {r.allergens&&r.allergens.length ? " · allergen: " + r.allergens.join(", ") : ""}
@@ -47426,10 +47665,11 @@ function App(){
                           Pick the recipes you'd like to try this week. Don't worry — you can change them anytime.
                         </div>
                       </div>
-	                      <div style={{fontSize:10,fontWeight:700,color:C.gold,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8,paddingLeft:4}}>Tap to select recipes. pick as many as you want this week</div>
-	                      {_scored3.slice(0, 12).map((r,i) => {
-	                        const _selected = _currentNames.has(normaliseWeaningName(r && r.name));
-	                        return (
+		                      <div style={{fontSize:10,fontWeight:700,color:C.gold,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8,paddingLeft:4}}>Tap to select recipes. pick as many as you want this week</div>
+		                      {_scored3.slice(0, 12).map((r,i) => {
+		                        const _selected = _currentNames.has(normaliseWeaningName(r && r.name));
+		                        const _displayName = getWeaningRecipeNameForStyle(r, _weaningStylePref) || r.name;
+		                        return (
                           <button key={i} onClick={()=>{
 	                            haptic(8);
 	                            if (_selected) {
@@ -47441,9 +47681,9 @@ function App(){
 	                              _saveWeek(next);
 	                            }
                           }} className="glass-card" style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"12px 16px",marginBottom:6,cursor:_cP,textAlign:"left",border:_selected?`2px solid ${C.ter}`:"1.5px solid var(--card-border)",background:_selected?"rgba(192,112,136,0.06)":"var(--card-bg)"}}>
-                            <span style={{fontSize:20}}>{r.emoji}</span>
-                            <div style={{flex:1}}>
-                              <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{r.name}</div>
+	                            <span style={{fontSize:20}}>{r.emoji}</span>
+	                            <div style={{flex:1}}>
+	                              <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{_displayName}</div>
                               <div style={{display:"flex",gap:4,marginTop:2}}>
                                 {r.iron && <span style={{fontSize:8,padding:"1px 5px",borderRadius:99,background:"rgba(111,168,152,0.1)",color:C.mint,fontWeight:700}}>Iron</span>}
                                 {r.allergens&&r.allergens.length>0 && <button onClick={(e)=>{e.stopPropagation();haptic(8);_setEduSection("allergens");setDaySubScreen("weaning_before");setDevFilter("weaning");}} style={{fontSize:8,padding:"2px 5px",borderRadius:99,background:"rgba(232,87,74,0.12)",color:"#c04040",fontWeight:700,border:"none",cursor:_cP}}>⚠️ Allergen: {r.allergens.join(", ")}</button>}
@@ -47491,10 +47731,12 @@ function App(){
                         );
                         return null;
                       }
-                      const _isOpen = expandedRecipeIdx === i;
-                      const _isSwapping = swapRecipeIdx === i;
-                      const _done = _isDone(r);
-                      return (
+	                      const _isOpen = expandedRecipeIdx === i;
+	                      const _isSwapping = swapRecipeIdx === i;
+	                      const _done = _isDone(r);
+	                      const _displayName = getWeaningRecipeNameForStyle(r, _weaningStylePref) || r.name;
+	                      const _logName = getWeaningRecipeNameForStyle(r, _recipePrep === "blw" ? "blw" : "puree") || _displayName;
+	                      return (
                         <div key={r.name} className="glass-card" style={{padding:0,marginBottom:8,overflow:"hidden",border:_done?`1.5px solid ${C.mint}55`:"1.5px solid var(--card-border)",background:_done?"linear-gradient(135deg, rgba(111,168,152,0.12), var(--card-bg))":"var(--card-bg)"}}>
                           <div style={{display:"flex",alignItems:"stretch"}}>
                             <button
@@ -47507,11 +47749,11 @@ function App(){
                                 {_done ? "✓" : ""}
                               </span>
                             </button>
-                            <button onClick={()=>{haptic(8);setExpandedRecipeIdx(_isOpen?null:i);setSwapRecipeIdx(null);}}
-                              style={{flex:1,width:"100%",display:"flex",alignItems:"center",gap:10,padding:"14px 16px",background:"none",border:"none",cursor:_cP,textAlign:"left",opacity:_done?0.82:1}}>
-                              <span style={{fontSize:22}}>{r.emoji}</span>
-                              <div style={{flex:1}}>
-                                <div style={{fontSize:14,fontWeight:700,color:C.deep,textDecoration:_done?"line-through":"none",textDecorationThickness:2,textDecorationColor:C.mint+"99"}}>{r.name}</div>
+	                            <button onClick={()=>{haptic(8);setExpandedRecipeIdx(_isOpen?null:i);setSwapRecipeIdx(null);_setRecipePrep(getWeaningPrepForStyle(_weaningStylePref));}}
+	                              style={{flex:1,width:"100%",display:"flex",alignItems:"center",gap:10,padding:"14px 16px",background:"none",border:"none",cursor:_cP,textAlign:"left",opacity:_done?0.82:1}}>
+	                              <span style={{fontSize:22}}>{r.emoji}</span>
+	                              <div style={{flex:1}}>
+	                                <div style={{fontSize:14,fontWeight:700,color:C.deep,textDecoration:_done?"line-through":"none",textDecorationThickness:2,textDecorationColor:C.mint+"99"}}>{_displayName}</div>
                                 <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
                                   {_done && <span style={{fontSize:9,padding:"1px 6px",borderRadius:99,background:"rgba(111,168,152,0.12)",color:C.mint,fontWeight:700}}>Done</span>}
                                   {r.iron && <span style={{fontSize:9,padding:"1px 6px",borderRadius:99,background:"rgba(111,168,152,0.1)",color:C.mint,fontWeight:700}}>Iron</span>}
@@ -47523,47 +47765,19 @@ function App(){
                             </button>
                           </div>
 
-                          {_isOpen && !_isSwapping && (
-                            <div style={{padding:"0 16px 16px",borderTop:`1px solid ${C.blush}`}}>
-                              <div style={{fontSize:10,fontWeight:700,color:C.lt,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:12,marginBottom:6}}>Ingredients</div>
-                              <div style={{fontSize:12,color:C.mid,lineHeight:1.7,marginBottom:12}}>
-                                {(r.ingredients||"").split(",").map((ing,j)=><div key={j}>• {ing.trim()}</div>)}
-                              </div>
-                              {r.method && (_weaningStylePref === "puree" || _weaningStylePref === "mixed") && (
-                                <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(139,126,200,0.06)",border:`1px solid rgba(139,126,200,0.15)`,marginBottom:8}}>
-                                  <div style={{fontSize:10,fontWeight:700,color:"#8B7EC8",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>🥄 Puree / spoon-fed</div>
-                                  <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>{r.method}</div>
-                                </div>
-                              )}
-                              {r.blw && (_weaningStylePref === "blw" || _weaningStylePref === "mixed") && (
-                                <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(111,168,152,0.06)",border:`1px solid rgba(111,168,152,0.15)`,marginBottom:12}}>
-                                  <div style={{fontSize:10,fontWeight:700,color:C.mint,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>👶 Baby-led (BLW)</div>
-                                  <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>{r.blw}</div>
-                                </div>
-                              )}
-                              {/* Allergen info link */}
-                              {r.allergens&&r.allergens.length>0 && (
-                                <button onClick={(e)=>{e.stopPropagation();haptic(8);_setEduSection("allergens");setDaySubScreen("weaning_before");setDevFilter("weaning");}}
-                                  style={{width:"100%",padding:"10px 12px",borderRadius:12,background:"rgba(232,87,74,0.06)",border:"1px solid rgba(232,87,74,0.15)",marginBottom:10,cursor:_cP,textAlign:"left",display:"flex",alignItems:"center",gap:8}}>
-                                  <span style={{fontSize:16}}>⚠️</span>
-                                  <div>
-                                    <div style={{fontSize:12,fontWeight:700,color:"#c04040"}}>Contains allergen: {r.allergens.join(", ")}</div>
-                                    <div style={{fontSize:11,color:C.mid}}>Tiny taste first · introduce in the morning · stay home 2 hours · tap to learn more →</div>
-                                  </div>
-                                </button>
-                              )}
-                              <div style={{display:"flex",gap:8}}>
-                                <button onClick={()=>{haptic(15);setWeaningForm({food:r.name,date:todayStr(),reaction:"neutral",note:"",liked:null});setShowWeaningForm(true);}}
-                                  style={{flex:1,padding:"12px",borderRadius:12,border:"none",background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>
-                                  {_done ? "Add reaction / notes" : "✓ Log this meal"}
-                                </button>
-                                <button onClick={()=>{haptic(8);setSwapRecipeIdx(i);}}
-                                  style={{padding:"12px 16px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP}}>
-                                  🔄 Change
-                                </button>
-                              </div>
-                            </div>
-                          )}
+	                          {_isOpen && !_isSwapping && (
+	                            <div style={{padding:"0 16px 16px",borderTop:`1px solid ${C.blush}`}}>
+	                              <WeaningRecipePrepSheet
+		                                recipe={r}
+		                                prepMode={_recipePrep}
+		                                onPrepModeChange={(mode)=>_setRecipePrep(mode)}
+		                                onLog={()=>{haptic(15);setWeaningForm({food:_logName,date:todayStr(),reaction:"neutral",note:"",liked:null,editId:null});setShowWeaningForm(true);}}
+	                                logLabel={_done ? "Add reaction / notes" : "Log this food"}
+	                                onChange={()=>{haptic(8);setSwapRecipeIdx(i);}}
+	                                changeLabel="Change"
+	                              />
+	                            </div>
+	                          )}
 
                           {/* Swap picker */}
                           {_isSwapping && (
@@ -47701,16 +47915,18 @@ function App(){
                           </div>
                         );
                         return null;
-                      }
-                      const _isOpen = expandedRecipeIdx === i;
-                      const _isSwapping = swapRecipeIdx === i;
-                      return (
+	                      }
+	                      const _isOpen = expandedRecipeIdx === i;
+	                      const _isSwapping = swapRecipeIdx === i;
+	                      const _displayName = getWeaningRecipeNameForStyle(r, _weaningStylePref) || r.name;
+	                      const _logName = getWeaningRecipeNameForStyle(r, _recipePrep === "blw" ? "blw" : "puree") || _displayName;
+	                      return (
                         <div key={r.name} className="glass-card" style={{padding:0,marginBottom:8,overflow:"hidden"}}>
-                          <button onClick={()=>{haptic(8);setExpandedRecipeIdx(_isOpen?null:i);setSwapRecipeIdx(null);}}
-                            style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"14px 16px",background:"none",border:"none",cursor:_cP,textAlign:"left"}}>
-                            <span style={{fontSize:22}}>{r.emoji}</span>
-                            <div style={{flex:1}}>
-                              <div style={{fontSize:14,fontWeight:700,color:C.deep}}>{r.name}</div>
+	                          <button onClick={()=>{haptic(8);setExpandedRecipeIdx(_isOpen?null:i);setSwapRecipeIdx(null);_setRecipePrep(getWeaningPrepForStyle(_weaningStylePref));}}
+	                            style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"14px 16px",background:"none",border:"none",cursor:_cP,textAlign:"left"}}>
+	                            <span style={{fontSize:22}}>{r.emoji}</span>
+	                            <div style={{flex:1}}>
+	                              <div style={{fontSize:14,fontWeight:700,color:C.deep}}>{_displayName}</div>
                               <div style={{display:"flex",gap:4,marginTop:3}}>
                                 {r.iron && <span style={{fontSize:9,padding:"1px 6px",borderRadius:99,background:"rgba(111,168,152,0.1)",color:C.mint,fontWeight:700}}>Iron</span>}
                                 {r.allergens&&r.allergens.length>0 && <button onClick={(e)=>{e.stopPropagation();haptic(8);_setEduSection("allergens");setDaySubScreen("weaning_before");setDevFilter("weaning");}} style={{fontSize:9,padding:"2px 7px",borderRadius:99,background:"rgba(232,87,74,0.12)",color:"#c04040",fontWeight:700,border:"none",cursor:_cP}}>⚠️ Allergen: {r.allergens.join(", ")}</button>}
@@ -47719,43 +47935,18 @@ function App(){
                             </div>
                             <span style={{fontSize:12,color:C.lt,transform:_isOpen?"rotate(90deg)":"none",transition:"transform 0.15s"}}>›</span>
                           </button>
-                          {_isOpen && !_isSwapping && (
-                            <div style={{padding:"0 16px 16px",borderTop:`1px solid ${C.blush}`}}>
-                              <div style={{fontSize:10,fontWeight:700,color:C.lt,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:12,marginBottom:6}}>Ingredients</div>
-                              <div style={{fontSize:12,color:C.mid,lineHeight:1.7,marginBottom:12}}>
-                                {(r.ingredients||"").split(",").map((ing,j)=><div key={j}>• {ing.trim()}</div>)}
-                              </div>
-                              {r.method && (_weaningStylePref === "puree" || _weaningStylePref === "mixed") && (
-                                <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(139,126,200,0.06)",border:`1px solid rgba(139,126,200,0.15)`,marginBottom:8}}>
-                                  <div style={{fontSize:10,fontWeight:700,color:"#8B7EC8",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>🥄 Puree / spoon-fed</div>
-                                  <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>{r.method}</div>
-                                </div>
-                              )}
-                              {r.blw && (_weaningStylePref === "blw" || _weaningStylePref === "mixed") && (
-                                <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(111,168,152,0.06)",border:`1px solid rgba(111,168,152,0.15)`,marginBottom:12}}>
-                                  <div style={{fontSize:10,fontWeight:700,color:C.mint,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>👶 Baby-led (BLW)</div>
-                                  <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>{r.blw}</div>
-                                </div>
-                              )}
-                              {/* Allergen info link */}
-                              {r.allergens&&r.allergens.length>0 && (
-                                <button onClick={(e)=>{e.stopPropagation();haptic(8);_setEduSection("allergens");setDaySubScreen("weaning_before");setDevFilter("weaning");}}
-                                  style={{width:"100%",padding:"10px 12px",borderRadius:12,background:"rgba(232,87,74,0.06)",border:"1px solid rgba(232,87,74,0.15)",marginBottom:10,cursor:_cP,textAlign:"left",display:"flex",alignItems:"center",gap:8}}>
-                                  <span style={{fontSize:16}}>⚠️</span>
-                                  <div>
-                                    <div style={{fontSize:12,fontWeight:700,color:"#c04040"}}>Contains allergen: {r.allergens.join(", ")}</div>
-                                    <div style={{fontSize:11,color:C.mid}}>Tiny taste first · introduce in the morning · stay home 2 hours · tap to learn more →</div>
-                                  </div>
-                                </button>
-                              )}
-                              <div style={{display:"flex",gap:8}}>
-                                <button onClick={()=>{haptic(8);setSwapRecipeIdx(i);}}
-                                  style={{flex:1,padding:"12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP}}>
-                                  🔄 Change recipe
-                                </button>
-                              </div>
-                            </div>
-                          )}
+	                          {_isOpen && !_isSwapping && (
+	                            <div style={{padding:"0 16px 16px",borderTop:`1px solid ${C.blush}`}}>
+	                              <WeaningRecipePrepSheet
+		                                recipe={r}
+		                                prepMode={_recipePrep}
+		                                onPrepModeChange={(mode)=>_setRecipePrep(mode)}
+		                                onLog={()=>{haptic(15);setWeaningForm({food:_logName,date:todayStr(),reaction:"neutral",note:"",liked:null,editId:null});setShowWeaningForm(true);}}
+	                                onChange={()=>{haptic(8);setSwapRecipeIdx(i);}}
+	                                changeLabel="Change recipe"
+	                              />
+	                            </div>
+	                          )}
                           {_isSwapping && (
                             <div style={{padding:"12px 16px",borderTop:`1px solid ${C.blush}`,maxHeight:300,overflowY:"auto"}}>
                               <div style={{fontSize:11,fontWeight:700,color:C.mid,marginBottom:8}}>Pick a replacement:</div>
@@ -50288,7 +50479,7 @@ function App(){
               })()}
 
               {/* Night Weaning ready pointer — one-time, shown for babies 6mo+ with night feeds */}
-              {!nightWeanProg && age && (age.predictiveWeeks??age.totalWeeks) >= 26 && selDay===todayStr() && (()=>{
+              {!nightWeanProg && age && (age.predictiveWeeks??age.totalWeeks) >= 26 && hasAccess() && selDay===todayStr() && (()=>{
                 try {
                   if (localStorage.getItem("ob_nw_pointer_v1")) return null;
                   const _recentNightFeeds = getNightFeedEventsForDay(days, selDay, nextCalDay(selDay)).length;
@@ -50521,21 +50712,9 @@ function App(){
                     <span style={{fontFamily:"Georgia,serif",fontStyle:"italic",color:"var(--text-mid)",fontSize:14}}>Night Wakes</span>
                     <HelpBtn title="Night Wakes" body="Night wakes are tracked separately from daytime entries. Feeds and wakes after bedtime automatically move here. Stretches between wakes are colour-coded. green (3h+) is great, purple (<2h) may indicate hunger or discomfort. You can log soothing method, duration, and feed amount."/>
                   </div>
-                  <button onClick={()=>{
-                    // If bed timer is paused with a pending wake entry, edit that entry
-                    // instead of creating a duplicate. This prevents "two separate logs".
-                    const _pendingWakeId = (()=>{try{return bedPaused ? localStorage.getItem("bed_wake_entry_id") : null;}catch{return null;}})();
-                    if (_pendingWakeId) {
-                      const _pendingEntry = nightE.find(e=>e.id===_pendingWakeId);
-                      if (_pendingEntry) {
-                        setNightEditId(_pendingWakeId);
-                        setNwForm({time:_pendingEntry.time||nowTime(),ml:_pendingEntry.amount?String(mlToDisplay(_pendingEntry.amount,FU)):"",selfSettled:!!_pendingEntry.selfSettled,assisted:!!_pendingEntry.assisted,assistedType:_pendingEntry.assistedType||"milk",assistedNote:_pendingEntry.assistedNote||"",assistedDuration:_pendingEntry.assistedDuration?String(_pendingEntry.assistedDuration):"",settleDuration:_pendingEntry.settleDuration?String(_pendingEntry.settleDuration):"",settleTime:_pendingEntry.settleTime||"",note:_pendingEntry.note||""});
-                        setShowNightWake(true);
-                        return;
-                      }
-                    }
-                    setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",settleTime:"",note:""});setShowNightWake(true);
-                  }} style={{background:"var(--card-bg-alt)",border:_bN,borderRadius:99,padding:"4px 11px",fontSize:15,color:"#7b68ee",cursor:_cP,fontWeight:600}}>+ add</button>
+	                  <button onClick={()=>{
+	                    openPendingOrNewNightWakeDetails();
+	                  }} style={{background:"var(--card-bg-alt)",border:_bN,borderRadius:99,padding:"4px 11px",fontSize:15,color:"#7b68ee",cursor:_cP,fontWeight:600}}>+ add</button>
                 </div>
                 {nightE.length===0&&<div style={{textAlign:"center",color:"var(--text-lt)",fontSize:14,fontFamily:_fM,padding:"6px 0"}}>No night wakes logged</div>}
                 {(()=>{
@@ -51413,22 +51592,31 @@ function App(){
                         return (
                         <div data-testid="sleep-consultant-summary" style={{padding:"14px 14px",borderRadius:14,background:"rgba(111,168,152,0.07)",border:"1px solid rgba(111,168,152,0.18)",marginBottom:10}}>
                           <div style={{fontSize:17,fontWeight:800,color:C.deep,lineHeight:1.3,marginBottom:10}}>{_sleepConsultantSummary.headline}</div>
-                          {_secs.map((sec, si) => (
-                            <div key={si} style={{marginBottom:si < _secs.length - 1 ? 12 : 10}}>
-                              <div style={{fontSize:12,fontWeight:700,color:C.deep,marginBottom:5,display:"flex",alignItems:"center",gap:5}}>
-                                <span>{sec.icon}</span> {sec.title}
-                              </div>
-                              {sec.items.map((item, ii) => (
-                                <div key={ii} style={{fontSize:12.5,color:C.mid,lineHeight:1.55,paddingLeft:8,borderLeft:"2px solid " + (si === 0 ? "rgba(80,200,120,0.3)" : si === _secs.length - 1 ? "rgba(192,112,136,0.3)" : "rgba(123,104,238,0.2)"),marginBottom:4}}>
-                                  {item}
+                          {hasAccess() ? (
+                            <>
+                              {_secs.map((sec, si) => (
+                                <div key={si} style={{marginBottom:si < _secs.length - 1 ? 12 : 10}}>
+                                  <div style={{fontSize:12,fontWeight:700,color:C.deep,marginBottom:5,display:"flex",alignItems:"center",gap:5}}>
+                                    <span>{sec.icon}</span> {sec.title}
+                                  </div>
+                                  {sec.items.map((item, ii) => (
+                                    <div key={ii} style={{fontSize:12.5,color:C.mid,lineHeight:1.55,paddingLeft:8,borderLeft:"2px solid " + (si === 0 ? "rgba(80,200,120,0.3)" : si === _secs.length - 1 ? "rgba(192,112,136,0.3)" : "rgba(123,104,238,0.2)"),marginBottom:4}}>
+                                      {item}
+                                    </div>
+                                  ))}
                                 </div>
                               ))}
+                              <div style={{fontSize:13,color:C.deep,lineHeight:1.5,padding:"11px 12px",borderRadius:10,background:"rgba(111,168,152,0.10)",border:"1px solid rgba(111,168,152,0.16)",marginTop:6}}>
+                                <strong style={{color:C.mint,fontFamily:_fM,textTransform:"uppercase",letterSpacing:"0.06em",fontSize:10,display:"block",marginBottom:4}}>{_isEvening ? "Tonight" : "What OBubba will do"}</strong>
+                                {_sleepConsultantSummary.action}
+                              </div>
+                            </>
+                          ) : (
+                            <div style={{marginTop:8}}>
+                              <div style={{fontSize:12.5,color:C.mid,lineHeight:1.55,marginBottom:10}}>OBubba analysed last night's sleep, naps, wake windows, feeds and more. Unlock the full consultant-style breakdown to see exactly what happened and what to do next.</div>
+                              <button onClick={()=>triggerPaywall("sleep_debrief",true)} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",color:"white",fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI}}>See full sleep analysis</button>
                             </div>
-                          ))}
-                          <div style={{fontSize:13,color:C.deep,lineHeight:1.5,padding:"11px 12px",borderRadius:10,background:"rgba(111,168,152,0.10)",border:"1px solid rgba(111,168,152,0.16)",marginTop:6}}>
-                            <strong style={{color:C.mint,fontFamily:_fM,textTransform:"uppercase",letterSpacing:"0.06em",fontSize:10,display:"block",marginBottom:4}}>{_isEvening ? "Tonight" : "What OBubba will do"}</strong>
-                            {_sleepConsultantSummary.action}
-                          </div>
+                          )}
                         </div>
                         );
                       })()}
@@ -51628,7 +51816,37 @@ function App(){
                       <div>
 	                        <div style={{fontSize:12,color:C.mid,lineHeight:1.5,marginBottom:10}}>A gentle 7-night baseline-and-stepdown plan. No rush, no cold-turkey changes: OBubba only suggests reducing night milk when {babyName||"baby"} is growing well and daytime feeds are steady.</div>
                         <div style={{fontSize:11,color:C.lt,lineHeight:1.5,marginBottom:10,padding:"8px 10px",background:`${C.gold}10`,borderRadius:8,borderLeft:`3px solid ${C.gold}`}}>⚠️ Check with your {_healthContact} first if {babyName||"baby"} has reflux, CMPA, faltering growth, or any other concerns.</div>
-                        <button onClick={()=>{if(!hasAccess()){triggerPaywall("night_weaning",true);return;}haptic(15);setNightWeanProg({startedAt:new Date().toISOString(),currentNight:1,completedNights:[]});}} style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"none",background:hasAccess()?C.mint:C.ter,color:"#fff",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI}}>{hasAccess()?"Start tonight (Night 1: Baseline)":"🔒 Unlock Night Weaning — Premium"}</button>
+                        <button onClick={()=>{
+                          if(!hasAccess()){triggerPaywall("night_weaning",true);return;}
+                          haptic(15);
+                          // Growth & feed verification before starting
+                          const _nwName = babyName || "baby";
+                          const _nwAw = age ? (age.predictiveWeeks ?? age.totalWeeks) : 0;
+                          const _nwWarnings = [];
+                          // Check growth: any weight logged?
+                          if (!weights.length) _nwWarnings.push("No weight has been logged yet. Night weaning works best when you know " + _nwName + " is growing well.");
+                          else {
+                            const _lastW = [...weights].sort((a,b) => a.date.localeCompare(b.date)).slice(-1)[0];
+                            const _wAgeDays = _lastW ? Math.round((Date.now() - dateKeyMs(_lastW.date)) / 86400000) : 999;
+                            if (_wAgeDays > 42) _nwWarnings.push("Last weight was " + _wAgeDays + " days ago. A recent weigh-in helps make sure growth is on track before reducing night feeds.");
+                          }
+                          // Check daytime feeds: at least 4 feeds/day recently?
+                          const _nwRecentDays = getRecentDays(5, true);
+                          if (_nwRecentDays.length >= 3) {
+                            const _avgFeeds = _nwRecentDays.reduce((s, dk) => s + (days[dk]||[]).filter(e => e.type === "feed" && !e.night).length, 0) / _nwRecentDays.length;
+                            if (_avgFeeds < 4) _nwWarnings.push(_nwName + " is averaging " + Math.round(_avgFeeds) + " daytime feeds — ideally 4+ feeds/day should be established before reducing night milk.");
+                          }
+                          if (_nwWarnings.length) {
+                            showConfirm(
+                              "A few things to check first",
+                              _nwWarnings.join("\n\n") + "\n\nYou can still start, but speak to your " + _healthContact + " if you're unsure.",
+                              () => { setNightWeanProg({startedAt:new Date().toISOString(),currentNight:1,completedNights:[]}); setConfirmDialog(null); },
+                              "Start anyway"
+                            );
+                          } else {
+                            setNightWeanProg({startedAt:new Date().toISOString(),currentNight:1,completedNights:[]});
+                          }
+                        }} style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"none",background:hasAccess()?C.mint:C.ter,color:"#fff",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI}}>{hasAccess()?"Start tonight (Night 1: Baseline)":"🔒 Unlock Night Weaning — Premium"}</button>
                       </div>
                     ) : _isComplete ? (
                       <div>
@@ -51658,9 +51876,34 @@ function App(){
                         <div style={{fontSize:11,color:C.mid,lineHeight:1.5,padding:"8px 10px",background:"var(--card-bg-alt)",borderRadius:8,marginBottom:12,fontStyle:"italic"}}>💛 {_curStep.tip}</div>
                         <button onClick={()=>{
                           haptic(15);
-                          // Dedup so repeated taps on night 7 don't inflate _doneCount
                           const _done = Array.from(new Set([...(nightWeanProg.completedNights||[]), _curNight]));
                           const _next = Math.min(_curNight + 1, 7);
+                          // Adaptive nightly reassessment: check if last night was too hard
+                          const _nwLastNight = _lastNightMemo;
+                          const _nwWakeCount = _nwLastNight ? (_nwLastNight.wakeCount || 0) : 0;
+                          const _nwTotalAwake = _nwLastNight ? (_nwLastNight.totalAwakeMin || 0) : 0;
+                          const _nwName = babyName || "baby";
+                          // If night was significantly worse than expected, suggest pausing
+                          if (_curNight >= 3 && (_nwWakeCount >= 5 || _nwTotalAwake >= 90)) {
+                            showConfirm(
+                              "Tough night — should we pause?",
+                              _nwName + " had " + _nwWakeCount + " wakes and was awake for " + hm(_nwTotalAwake) + " last night. That's harder than expected at this stage.\n\nYou can:\n• Pause and repeat tonight's step (recommended if baby is struggling)\n• Continue to the next step if you feel it went OK overall",
+                              () => { setNightWeanProg({...nightWeanProg, currentNight:_next, completedNights:_done}); setConfirmDialog(null); },
+                              "Continue to Night " + _next,
+                              true // show cancel = "Repeat tonight"
+                            );
+                            return;
+                          }
+                          // If feeds are dropping and baby seems unsettled, check in
+                          if (_curNight >= 4 && _nwWakeCount >= 3 && _nwTotalAwake >= 45) {
+                            showConfirm(
+                              "Quick check-in",
+                              "Last night had " + _nwWakeCount + " wakes. That's within range for this stage, but if " + _nwName + " seems hungrier during the day or unsettled, it's OK to slow down.\n\nDoes " + _nwName + " seem OK during the day?",
+                              () => { setNightWeanProg({...nightWeanProg, currentNight:_next, completedNights:_done}); setConfirmDialog(null); },
+                              "Yes — continue"
+                            );
+                            return;
+                          }
                           setNightWeanProg({...nightWeanProg, currentNight:_next, completedNights:_done});
                         }} style={{width:"100%",padding:"10px 14px",borderRadius:10,border:"none",background:C.mint,color:"#fff",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
                           {_curNight === 7 ? "Finish program 🎉" : `Mark Night ${_curNight} complete → Night ${_curNight+1}`}
@@ -55879,21 +56122,23 @@ function App(){
                       {_dietaryPrefs.length > 0 && <div style={{fontSize:9,color:C.lt,alignSelf:"center",fontStyle:"italic",marginLeft:4}}>Approximate. Always check ingredients.</div>}
                     </div>
 
-                    {/* Recipe cards */}
-                    {_recipes.map((r,i)=>{
-                      const _locked = !_canAccess && i >= _freeLimit;
-                      const _isOpen = _recipeOpen === i;
-                      return (
-                        <div key={i} style={{marginBottom:6,borderRadius:14,border:`1px solid ${_isOpen?C.ter+"40":C.blush}`,overflow:"hidden",background:"var(--card-bg)",opacity:_locked?0.6:1}}>
+	                    {/* Recipe cards */}
+	                    {_recipes.map((r,i)=>{
+	                      const _locked = !_canAccess && i >= _freeLimit;
+	                      const _isOpen = _recipeOpen === i;
+	                      const _recipeDisplayName = getWeaningRecipeNameForStyle(r, _weaningStylePref) || r.name;
+	                      const _recipeLogName = getWeaningRecipeNameForStyle(r, _recipePrep === "blw" ? "blw" : "puree") || _recipeDisplayName;
+	                      return (
+	                        <div key={i} style={{marginBottom:6,borderRadius:14,border:`1px solid ${_isOpen?C.ter+"40":C.blush}`,overflow:"hidden",background:"var(--card-bg)",opacity:_locked?0.6:1}}>
                           <button onClick={()=>{
                             if(_locked){haptic();triggerPaywall("recipes", true);return;}
 	                            haptic(8);_setRecipeOpen(_isOpen?null:i);_setRecipePrep(getWeaningPrepForStyle(_weaningStylePref));
                           }}
                             style={{width:"100%",padding:"10px 14px",background:"none",border:"none",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:_cP,fontFamily:_fI,textAlign:"left"}}>
-                            <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}>
-                              <span style={_S.f18}>{_locked?"🔒":r.emoji}</span>
-                              <div style={{minWidth:0}}>
-                                <div style={{fontSize:13,fontWeight:600,color:_isOpen?C.ter:C.deep,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.name}</div>
+	                            <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}>
+	                              <span style={_S.f18}>{_locked?"🔒":r.emoji}</span>
+	                              <div style={{minWidth:0}}>
+	                                <div style={{fontSize:13,fontWeight:600,color:_isOpen?C.ter:C.deep,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{_recipeDisplayName}</div>
                                 <div style={{display:"flex",gap:4,marginTop:2,flexWrap:"wrap"}}>
                                   {r.iron && <span style={{fontSize:10,padding:"1px 5px",borderRadius:99,background:`${C.mint}15`,color:C.mint,fontWeight:600}}>IRON</span>}
 	                                  {r.vitC && <span style={{fontSize:10,padding:"1px 5px",borderRadius:99,background:"rgba(255,165,0,0.12)",color:"#d4a855",fontWeight:600}}>VIT C</span>}
@@ -55905,38 +56150,16 @@ function App(){
                             </div>
                             <span style={{fontSize:11,color:C.lt,flexShrink:0}}>{_locked?"💛":_isOpen?"▲":"▼"}</span>
                           </button>
-                          {_isOpen && !_locked && (
-                            <div style={{padding:"0 14px 14px",borderTop:`1px solid ${C.blush}`}}>
-                              <div style={{fontSize:11,color:C.mid,lineHeight:1.5,padding:"8px 0",borderBottom:`1px solid ${C.blush}`}}>
-                                <strong style={{color:C.deep}}>Ingredients:</strong> {r.ingredients}
-                              </div>
-                              <div style={{display:"flex",gap:6,margin:"8px 0"}}>
-                                {["method","blw"].map(mode=>(
-	                                  <button key={mode} data-testid={"weaning-recipe-prep-"+mode} onClick={()=>_setRecipePrep(mode)}
-	                                    style={{padding:"4px 12px",borderRadius:99,border:`1px solid ${_recipePrep===mode?C.ter:C.blush}`,background:_recipePrep===mode?C.ter+"12":"var(--card-bg)",color:_recipePrep===mode?C.ter:C.lt,fontSize:11,fontWeight:600,cursor:_cP}}>
-                                    {mode==="method"?"🥄 Puree/Spoon":"👶 BLW"}
-                                  </button>
-                                ))}
-                              </div>
-	                              <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>
-	                                {_recipePrep==="method"?r.method:r.blw}
-	                              </div>
-	                              {r.safety && (
-	                                <div data-testid="weaning-recipe-safety" style={{fontSize:11,color:C.mid,lineHeight:1.45,marginTop:8,padding:"8px 9px",borderRadius:12,background:"rgba(111,168,152,0.07)",border:"1px solid rgba(111,168,152,0.16)"}}>
-	                                  <strong style={{color:C.mint}}>Safety:</strong> {r.safety}
-	                                </div>
-	                              )}
-	                              {r.source && (
-	                                <div data-testid="weaning-recipe-source" style={{fontSize:10,color:C.lt,lineHeight:1.4,marginTop:6}}>
-	                                  Checked against {r.source}.
-	                                </div>
-	                              )}
-                              <button onClick={()=>{setWeaningForm({food:r.name,date:todayStr(),reaction:"neutral",note:"",liked:null});setShowWeaningForm(true);}}
-                                style={{marginTop:8,padding:"6px 14px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:11,fontWeight:700,cursor:_cP}}>
-                                Log this meal
-                              </button>
-                            </div>
-                          )}
+	                          {_isOpen && !_locked && (
+	                            <div style={{padding:"0 14px 14px",borderTop:`1px solid ${C.blush}`}}>
+	                              <WeaningRecipePrepSheet
+	                                recipe={r}
+	                                prepMode={_recipePrep}
+	                                onPrepModeChange={(mode)=>_setRecipePrep(mode)}
+	                                onLog={()=>{haptic(15);setWeaningForm({food:_recipeLogName,date:todayStr(),reaction:"neutral",note:"",liked:null,editId:null});setShowWeaningForm(true);}}
+	                              />
+	                            </div>
+	                          )}
                         </div>
                       );
                     })}
@@ -60162,12 +60385,25 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
 
       {/* ═══ SLEEP COACH FULL-SCREEN ═══ */}
       {showSleepCoach && (()=>{
+        // Age gate: sleep coaching is not appropriate for babies under 16 weeks (4 months)
+        const _ageW3 = age ? (age.predictiveWeeks ?? age.totalWeeks) : 0;
+        if (_ageW3 < 16) {
+          return (
+            <Sheet onClose={()=>setShowSleepCoach(false)} title="">
+              <div style={{textAlign:"center",padding:"20px 0"}}>
+                <div style={{fontSize:36,marginBottom:12}}>🧒</div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:8}}>Not quite ready yet</div>
+                <div style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:16}}>Sleep coaching isn't recommended before 4 months. {babyName||"Baby"}'s sleep cycles are still maturing — right now the best thing is responsive, gentle care. OBubba will let you know when the time is right.</div>
+                <button onClick={()=>setShowSleepCoach(false)} style={{padding:"12px 24px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>Got it</button>
+              </div>
+            </Sheet>
+          );
+        }
         const _scRaw3 = (()=>{try{return localStorage.getItem("ob_sleep_coach_v1");}catch{return null;}})();
         const _sc3 = _scRaw3 ? normaliseSleepCoachState(safeJsonObject(_scRaw3)) : null;
         if (_scRaw3 && !_sc3) { try{localStorage.removeItem("ob_sleep_coach_v1");}catch{} }
         const _hasActive3 = _sc3 && _sc3.style && _sc3.style !== "gradual";
         const _name3 = babyName || "Baby";
-        const _ageW3 = age ? (age.predictiveWeeks ?? age.totalWeeks) : 20;
 
         // Active plan day info
         let _dayNum3 = 0, _plan3 = null, _complete3 = false;
@@ -60654,6 +60890,11 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 </div>
                 );
               })}
+              {_isFreeUser && _fullReasons.length > 3 && (
+                <button onClick={()=>triggerPaywall("crying_helper",true)} style={{width:"100%",marginTop:8,padding:"12px",borderRadius:14,border:"1.5px solid rgba(155,139,184,0.3)",background:"rgba(155,139,184,0.06)",color:"#7B6BA0",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                  {_fullReasons.length - 3} more reasons found — unlock full analysis
+                </button>
+              )}
             </div>
 
             {/* What helped?. learning */}
@@ -62536,10 +62777,12 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               onChange={e=>setNwForm(f=>({...f,note:e.target.value}))}
               style={{width:"100%",fontSize:15,padding:"12px 14px",borderRadius:14,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,outline:_oN,fontFamily:_fI,marginBottom:20,boxSizing:_bBB}}/>
 
-            <button onClick={()=>{
-              haptic(20);
-              let saveTime = nwForm.time || nowTime();
-              // Auto-correct PM night wakes that fall before bedtime:
+	            <button onClick={()=>{
+	              haptic(20);
+	              let saveTime = nwForm.time || nowTime();
+	              const pendingWakeIdAtSave = (()=>{try{return localStorage.getItem("bed_wake_entry_id");}catch{return null;}})();
+	              const isPendingWakeDetailSave = !!(nightEditId && pendingWakeIdAtSave === nightEditId && (bedPaused || (()=>{try{return localStorage.getItem("bed_paused")==="1";}catch{return false;}})()));
+	              // Auto-correct PM night wakes that fall before bedtime:
               // if user enters "1:10" and it parses as 13:10 (PM), but
               // bedtime is 20:27 (PM), a 1pm wake makes no sense — they
               // meant 1:10 AM. Convert hours 12-17 → subtract 12.
@@ -62561,12 +62804,16 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               } catch {}
               const isMilkAssisted = nwForm.assisted && nwForm.assistedType==="milk";
               const mlVal = nwForm.selfSettled ? 0 : (parseFloat(nwForm.ml)||0) > 0 ? displayToMl(nwForm.ml,FU) : 0;
-              const noteStr = nwForm.selfSettled
-                ? (nwForm.note||"Self settled")
-                : nwForm.assisted
-                  ? [isMilkAssisted?"Assisted – milk":("Assisted – "+(nwForm.assistedNote||"assisted")), nwForm.note].filter(Boolean).join(" · ")
-                  : (nwForm.note||"");
-              // Log as "feed" if milk was given, "wake" otherwise
+	              const noteStr = nwForm.selfSettled
+	                ? (nwForm.note||"Self settled")
+	                : nwForm.assisted
+	                  ? [isMilkAssisted?"Assisted – milk":("Assisted – "+(nwForm.assistedNote||"assisted")), nwForm.note].filter(Boolean).join(" · ")
+	                  : (nwForm.note||"");
+	              const saveSettleTime = isPendingWakeDetailSave && !nwForm.settleTime ? nowTime() : (nwForm.settleTime || "");
+	              const pendingDetailDurationMins = isPendingWakeDetailSave ? pendingNightWakeDurationMins({time:saveTime, assistedDuration:nwForm.assistedDuration, settleDuration:nwForm.settleDuration, wakeDuration:nwForm.wakeDuration}, saveSettleTime) : 0;
+	              const assistedDurationVal = parseInt(nwForm.assistedDuration, 10) || (!nwForm.selfSettled && pendingDetailDurationMins ? pendingDetailDurationMins : 0);
+	              const settleDurationVal = parseInt(nwForm.settleDuration, 10) || (nwForm.selfSettled && pendingDetailDurationMins ? pendingDetailDurationMins : 0);
+	              // Log as "feed" if milk was given, "wake" otherwise
               const hadMilk = isMilkAssisted || mlVal > 0;
               // The "+ add" Night Wake button is intentionally permissive —
               // parents may be catching up on last night's wakes retroactively
@@ -62579,9 +62826,10 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 note: noteStr,
                 modifiedAt: Date.now(),
               };
-              if(nwForm.assistedDuration) entry.assistedDuration = parseInt(nwForm.assistedDuration);
-              if(nwForm.settleDuration) entry.settleDuration = parseInt(nwForm.settleDuration);
-              if(nwForm.settleTime) entry.settleTime = nwForm.settleTime;
+	              if(assistedDurationVal) entry.assistedDuration = assistedDurationVal;
+	              if(settleDurationVal) entry.settleDuration = settleDurationVal;
+	              if(assistedDurationVal || settleDurationVal) entry.wakeDuration = assistedDurationVal || settleDurationVal;
+	              if(saveSettleTime) entry.settleTime = saveSettleTime;
               if(nwForm.assisted) { entry.assistedType = nwForm.assistedType; if(nwForm.assistedNote) entry.assistedNote = nwForm.assistedNote; }
               setDays(d=>{
                 const _todayCal = todayStr();
@@ -62624,13 +62872,55 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 const combined = [...existing, entry];
                 return{...nextDays,[targetDay]:dedupEntries(combined)};
               });
-              setShowNightWake(false);
-              setNightEditId(null);
-              showToast(nightEditId?"🌟 Night Wake Updated ✓":"🌟 Night Wake Logged ✓",1200,1);
-              // Update cumulative awake tracker with this wake's duration. keeps pill in sync.
-              // Then restart LA with virtual start = bedtime + newTotalPausedSec (cumulative sleep model).
-              if(!nightEditId) {
-                try {
+	              setShowNightWake(false);
+	              setNightEditId(null);
+	              showToast(nightEditId?"🌟 Night Wake Updated ✓":"🌟 Night Wake Logged ✓",1200,1);
+	              // Update cumulative awake tracker with this wake's duration. keeps pill in sync.
+	              // Then restart LA with virtual start = bedtime + newTotalPausedSec (cumulative sleep model).
+	              if(isPendingWakeDetailSave) {
+	                try {
+	                  const _durationMins = parseInt(entry.assistedDuration || entry.settleDuration || entry.wakeDuration || 0, 10) || pendingDetailDurationMins || 0;
+	                  const _pauseStartMs = Number(bedPauseStart || (()=>{try{return localStorage.getItem("bed_pause_start");}catch{return 0;}})() || 0);
+	                  let _pauseDurSec = _durationMins > 0 ? _durationMins * 60 : (_pauseStartMs > 1000000000000 ? Math.max(0, Math.round((Date.now() - _pauseStartMs) / 1000)) : 0);
+	                  if (_pauseDurSec > 6*3600) _pauseDurSec = 6*3600;
+	                  const _existingPausedSec = Number(bedTotalPausedSec || (()=>{try{return localStorage.getItem("bed_total_paused_sec");}catch{return 0;}})() || 0);
+	                  const _newTotalPausedSec = _existingPausedSec + Math.max(0, _pauseDurSec);
+	                  setBedTotalPausedSec(_newTotalPausedSec);
+	                  bedTotalPausedSecRef.current = _newTotalPausedSec;
+	                  setBedPaused(false);
+	                  bedPausedRef.current = false;
+	                  setBedPauseStart(null);
+	                  bedPauseStartRef.current = null;
+	                  setBedPausedAtSec(0);
+	                  setNightElapsed(0);
+	                  try{
+	                    localStorage.setItem("bed_total_paused_sec",String(_newTotalPausedSec));
+	                    localStorage.removeItem("bed_paused");
+	                    localStorage.removeItem("bed_paused_sec");
+	                    localStorage.removeItem("bed_pause_start");
+	                    localStorage.removeItem("bed_wake_entry_id");
+	                  }catch{}
+	                  const _btdRestart = bedTimerDay || (()=>{try{return localStorage.getItem("bed_timer_day");}catch{return null;}})();
+	                  if(_isNative && _btdRestart) {
+	                    const _bedEntries = days[_btdRestart] || [];
+	                    const _bedE = _bedEntries.find(e => e.type === "sleep" && !e.night);
+	                    if(_bedE) {
+	                      const _bedMins = clockMins(_bedE.time);
+	                      if(_bedMins === null) return;
+	                      const _bedDate = new Date();
+	                      _bedDate.setHours(Math.floor(_bedMins/60),_bedMins%60,0,0);
+	                      if(_bedDate.getTime() > Date.now()+60000) _bedDate.setDate(_bedDate.getDate()-1);
+	                      const _virtualStart = _bedDate.getTime() + (_newTotalPausedSec * 1000);
+	                      const _la = window.Capacitor?.Plugins?.OBLiveActivity;
+	                      _la?.stop?.().catch(()=>{});
+	                      setTimeout(()=>{
+	                        _la?.start?.({type:'sleep',babyName:babyName||'Baby',startTime:_virtualStart}).catch(()=>{});
+	                      },150);
+	                    }
+	                  }
+	                } catch(_e){}
+	              } else if(!nightEditId) {
+	                try {
                   const _smins = parseInt(nwForm.assistedDuration)||parseInt(nwForm.settleDuration)||0;
                   if(_smins > 0 && bedTimerDay) {
                     const _newTotalPausedSec = (bedTotalPausedSec || 0) + (_smins * 60);

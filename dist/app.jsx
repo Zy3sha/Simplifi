@@ -17826,7 +17826,7 @@ function App(){
     } catch { return {}; }
   }
 	  async function verifyLogin(username, pin, preHashed) {
-	    await waitForFirebaseModule(2500);
+	    await waitForFirebaseModule(1500);
 	    const key = normaliseUsername(username);
 	    const loginPin = String(pin || "");
 	    if(!key) { setAuthError("Enter a username"); return false; }
@@ -17838,34 +17838,63 @@ function App(){
 	        await resetFirebaseIdentityForAccountSwitch("username-switch");
 	        _accountIdentityReset = true;
 	      }
-	      await ensureFirebaseUid(5000);
+	      await ensureFirebaseUid(3000);
 	      let data = null;
 	      let _secureLoginVerified = false;
 	      const _loginPayload = {username:key, pin:loginPin, preHashed:!!preHashed};
-	      let _serverLogin = await callAccountFunction("accountLogin", _loginPayload);
-	      if (_serverLogin && _serverLogin.ok && _serverLogin.account) {
-	        data = _serverLogin.account;
-	        _secureLoginVerified = true;
-	      } else if (_serverLogin && _serverLogin.error) {
-	        setAuthError(_serverLogin.error);
-	        return false;
+	      // Race: Cloud Function vs Firestore REST — whichever responds first wins.
+	      // Cloud Function is more secure (server-side PIN check) but slower (transatlantic).
+	      // Firestore REST is faster but requires client-side PIN verification.
+	      let _serverLogin = null;
+	      const _cfPromise = callAccountFunction("accountLogin", _loginPayload).catch(()=>null);
+	      const _fsPromise = fsGet("usernames", key).catch(()=>({exists:()=>false, error:true}));
+	      const _raceResult = await Promise.race([
+	        _cfPromise.then(r => r ? {source:"cf", result:r} : new Promise(()=>{})),
+	        _fsPromise.then(r => ({source:"fs", result:r})),
+	        new Promise(res => setTimeout(()=>res({source:"timeout", result:null}), 6000))
+	      ]);
+	      if (_raceResult.source === "cf" && _raceResult.result) {
+	        _serverLogin = _raceResult.result;
+	        if (_serverLogin.ok && _serverLogin.account) {
+	          data = _serverLogin.account;
+	          _secureLoginVerified = true;
+	        } else if (_serverLogin.error) {
+	          setAuthError(_serverLogin.error);
+	          return false;
+	        }
+	      }
+	      if (!data && _raceResult.source === "fs") {
+	        const snap = _raceResult.result;
+	        if (snap.error) { setAuthError("Could not reach your account. check your connection and try again"); return false; }
+	        if (snap.exists()) data = snap.data();
+	      }
+	      // If race didn't get data, wait for the slower one
+	      if (!data) {
+	        const _cfFallback = await _cfPromise;
+	        if (_cfFallback && _cfFallback.ok && _cfFallback.account) {
+	          data = _cfFallback.account;
+	          _secureLoginVerified = true;
+	        } else if (_cfFallback && _cfFallback.error) {
+	          setAuthError(_cfFallback.error);
+	          return false;
+	        }
+	      }
+	      if (!data) {
+	        const _fsFallback = await _fsPromise;
+	        if (_fsFallback.error) { setAuthError("Could not reach your account. check your connection and try again"); return false; }
+	        if (_fsFallback.exists()) data = _fsFallback.data();
 	      }
 	      if(!data) {
-	        const snap = await fsGet("usernames", key);
-	        if(snap.error) { setAuthError("Could not reach your account. check your connection and try again"); return false; }
-	        if(!snap.exists()) {
-	          try {
-	            const localUsername = (localStorage.getItem("family_username") || "").trim();
-	            const localCode = localStorage.getItem("backup_code") || "";
-	            if(localUsername && localCode && normaliseUsername(localUsername) === key) {
-	              setAuthError("This device has the account data, but the cloud sign-in record is missing. Open Account and repair sign-in.");
+		          try {
+		            const localUsername = (localStorage.getItem("family_username") || "").trim();
+		            const localCode = localStorage.getItem("backup_code") || "";
+		            if(localUsername && localCode && normaliseUsername(localUsername) === key) {
+		              setAuthError("This device has the account data, but the cloud sign-in record is missing. Open Account and repair sign-in.");
 	              return false;
 	            }
 	          } catch(e) {}
-	          setAuthError("Username not found");
-	          return false;
-	        }
-	        data = snap.data();
+		          setAuthError("Username not found");
+		          return false;
 	      }
 	      if(data.deleted) { setAuthError("Username not found"); return false; }
 	      try { _rememberAccountCreatedAt(data.createdAt || data.accountCreatedAt || data.createdAtClient); } catch {}
@@ -22579,9 +22608,19 @@ function App(){
                 }} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(212,168,85,0.3)",background:"rgba(212,168,85,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP}}>
                   <span style={{display:"inline-flex",alignItems:"center",gap:7}}><BubbaIcon name="timer" size={18}/>Night wake</span>
                 </button>
-                <button onClick={()=>{haptic();setShowNightWake(true);setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",settleTime:"",note:""});}} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(123,104,238,0.25)",background:"rgba(123,104,238,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP}}>
-                  <span style={{display:"inline-flex",alignItems:"center",gap:7}}><BubbaIcon name="log" size={18}/>Log details</span>
-                </button>
+	              <button onClick={()=>{
+	                haptic();
+	                if (!bedPaused) {
+	                  const pendingFromPause = pauseBedTimer();
+	                  if (pendingFromPause && pendingFromPause.night) {
+	                    openNightWakeDetailsForEntry(pendingFromPause, {livePending:true});
+	                    return;
+	                  }
+	                }
+	                openPendingOrNewNightWakeDetails();
+	              }} style={{flex:1,padding:"12px",borderRadius:12,border:"1.5px solid rgba(123,104,238,0.25)",background:"rgba(123,104,238,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP}}>
+	                  <span style={{display:"inline-flex",alignItems:"center",gap:7}}><BubbaIcon name="log" size={18}/>Log details</span>
+	                </button>
               </div>
               {/* Dream feed one-tap (visible 21:30-23:30, typical dream-feed hours) */}
               {(()=>{
@@ -31696,43 +31735,106 @@ function App(){
       return e;
     });
   }
+  function isPendingBedWakeEntry(entryOrId){
+    try {
+      const id = typeof entryOrId === "string" ? entryOrId : entryOrId && entryOrId.id;
+      if (!id) return false;
+      const paused = bedPaused || localStorage.getItem("bed_paused") === "1";
+      return paused && localStorage.getItem("bed_wake_entry_id") === id;
+    } catch { return false; }
+  }
+  function pendingNightWakeDurationMins(entry, settleTime){
+    try {
+      const explicit = parseInt(entry && (entry.assistedDuration || entry.settleDuration || entry.wakeDuration || entry.duration || 0), 10) || 0;
+      if (explicit > 0 && !isPendingBedWakeEntry(entry)) return explicit;
+      const pauseStartMs = Number(bedPauseStart || (()=>{try{return localStorage.getItem("bed_pause_start");}catch{return 0;}})() || 0);
+      if (pauseStartMs > 1000000000000) {
+        const mins = Math.max(0, Math.round((Date.now() - pauseStartMs) / 60000));
+        if (mins >= 0 && mins <= 360) return mins;
+      }
+      const wakeMins = clockMins(entry && entry.time || "");
+      const settleMins = clockMins(settleTime || "");
+      if (wakeMins !== null && settleMins !== null) {
+        let diff = settleMins - wakeMins;
+        if (diff < 0) diff += 24*60;
+        if (diff >= 0 && diff <= 360) return diff;
+      }
+    } catch {}
+    return 0;
+  }
+  function nightWakeFormFromEntry(entry = {}, opts = {}){
+    const livePending = !!opts.livePending || isPendingBedWakeEntry(entry);
+    const settleTime = livePending ? (entry.settleTime || nowTime()) : (entry.settleTime || "");
+    const duration = livePending ? pendingNightWakeDurationMins(entry, settleTime) : 0;
+    return {
+      time: entry.time || nowTime(),
+      ml: entry.amount ? String(mlToDisplay(entry.amount,fluidUnit)) : "",
+      selfSettled: !!entry.selfSettled,
+      assisted: !!entry.assisted,
+      assistedType: entry.assistedType || "milk",
+      assistedNote: entry.assistedNote || "",
+      assistedDuration: entry.assistedDuration ? String(entry.assistedDuration) : (!entry.selfSettled && duration ? String(duration) : ""),
+      settleDuration: entry.settleDuration ? String(entry.settleDuration) : (entry.selfSettled && duration ? String(duration) : ""),
+      settleTime,
+      note: entry.selfSettled ? (entry.note === "Self settled" ? "" : entry.note || "") : (entry.note || "").replace(/Assisted – [^·]*·?\s*/,"").replace(/Duration: \d+m\s*·?\s*/,"").trim()
+    };
+  }
+  function seedNightWakeResumeAnchor(form){
+    try {
+      const origMins = clockMins(form && form.time);
+      const origDur = parseInt(form && (form.assistedDuration || form.settleDuration || 0), 10) || 0;
+      if (origMins !== null) {
+        let resume = origMins + origDur;
+        if (resume >= 24*60) resume -= 24*60;
+        nwResumeAnchorRef.current = resume;
+      } else {
+        nwResumeAnchorRef.current = null;
+      }
+    } catch(_) {
+      nwResumeAnchorRef.current = null;
+    }
+  }
+  function openNightWakeDetailsForEntry(entry, opts = {}){
+    const form = nightWakeFormFromEntry(entry || {}, opts);
+    seedNightWakeResumeAnchor(form);
+    setNightEditId(entry && entry.id ? entry.id : null);
+    setNwForm(form);
+    setShowNightWake(true);
+  }
+  function openPendingOrNewNightWakeDetails(){
+    try {
+      const pendingId = localStorage.getItem("bed_wake_entry_id");
+      const paused = bedPaused || localStorage.getItem("bed_paused") === "1";
+      if (paused && pendingId) {
+        let pendingEntry = null;
+        Object.values(days || {}).some(arr => {
+          if (!Array.isArray(arr)) return false;
+          pendingEntry = arr.find(e => e && e.id === pendingId) || null;
+          return !!pendingEntry;
+        });
+        if (!pendingEntry) {
+          const pauseStartMs = Number(bedPauseStart || localStorage.getItem("bed_pause_start") || 0);
+          const pauseDate = pauseStartMs > 1000000000000 ? new Date(pauseStartMs) : new Date();
+          pendingEntry = {
+            id: pendingId,
+            type: "wake",
+            time: String(pauseDate.getHours()).padStart(2,"0") + ":" + String(pauseDate.getMinutes()).padStart(2,"0"),
+            night: true,
+            nightLocked: true,
+            note: "Night wake. settling..."
+          };
+        }
+        openNightWakeDetailsForEntry(pendingEntry, {livePending:true});
+        return true;
+      }
+    } catch {}
+    openNightWakeDetailsForEntry({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",settleTime:"",note:""});
+    return false;
+  }
   function openEdit(entry){
     // Night entries open in the night wake form
     if(entry.night && (entry.type==="wake" || entry.type==="feed")){
-      // Stamp the implied "resume time" = originalWakeTime + originalDuration.
-      // When the user edits the wake time, we'll preserve this resume anchor
-      // and recompute duration = resume - newWakeTime. Lets a parent fix a
-      // wake-time typo without manually recalculating how long they soothed.
-      try {
-        const _origMins = (()=>{
-          return clockMins(entry.time);
-        })();
-        const _origDur = parseInt(entry.assistedDuration || entry.settleDuration || 0) || 0;
-        if (_origMins !== null) {
-          let _resume = _origMins + _origDur;
-          // Cross-midnight: if resume goes past 24h, wrap
-          if (_resume >= 24*60) _resume -= 24*60;
-          nwResumeAnchorRef.current = _resume;
-        } else {
-          nwResumeAnchorRef.current = null;
-        }
-      } catch(_) {
-        nwResumeAnchorRef.current = null;
-      }
-      setNwForm({
-        time: entry.time||nowTime(),
-        ml: entry.amount ? String(mlToDisplay(entry.amount,fluidUnit)) : "",
-        selfSettled: !!entry.selfSettled,
-        assisted: !!entry.assisted,
-        assistedType: entry.assistedType||"milk",
-        assistedNote: entry.assistedNote||"",
-        assistedDuration: entry.assistedDuration ? String(entry.assistedDuration) : "",
-        settleDuration: entry.settleDuration ? String(entry.settleDuration) : "",
-        settleTime: entry.settleTime || "",
-        note: entry.selfSettled ? (entry.note==="Self settled"?"":entry.note||"") : (entry.note||"").replace(/Assisted – [^·]*·?\s*/,"").replace(/Duration: \d+m\s*·?\s*/,"").trim()
-      });
-      setNightEditId(entry.id);
-      setShowNightWake(true);
+      openNightWakeDetailsForEntry(entry, {livePending:isPendingBedWakeEntry(entry)});
       return;
     }
     const activityMeta=ACTIVITY_LOG_TYPES.find(a=>a.id===entry.type);
@@ -34764,8 +34866,8 @@ function App(){
     }
     // In midnight mode, we don't need bedTimerDay to route — entries go to todayStr().
     // Only bail if: already paused, OR (wake mode AND no bedTimerDay found)
-    if (bedPaused) { console.log("[OBubba] pauseBedTimer: already paused, ignoring"); return; }
-    if (!_effectiveBTD && dayBoundary === "wake") { console.log("[OBubba] pauseBedTimer: no bedTimerDay and wake mode, bailing. bedTimerDay=",bedTimerDay,"ls=",localStorage.getItem("bed_timer_day")); return; }
+    if (bedPaused) { console.log("[OBubba] pauseBedTimer: already paused, ignoring"); return null; }
+    if (!_effectiveBTD && dayBoundary === "wake") { console.log("[OBubba] pauseBedTimer: no bedTimerDay and wake mode, bailing. bedTimerDay=",bedTimerDay,"ls=",localStorage.getItem("bed_timer_day")); return null; }
     // For midnight mode with no _effectiveBTD, use todayStr() as the routing target
     if (!_effectiveBTD) _effectiveBTD = todayStr();
     haptic();
@@ -34816,6 +34918,7 @@ function App(){
       clearTimerNotification();
     } catch {}
     showToast(_isMorningWake ? "☀️ Morning wake logged." : "🌙 Night wake logged. tap Back to sleep when settled.",3000,1);
+    return _wakeEntry;
   }
   function resumeBedTimer(overrideSettleMethod, opts){
     // Check both React state AND localStorage (state may be stale from async setBedTimerDay)
@@ -42156,9 +42259,7 @@ function App(){
 		      return clockInsideSleepCurveInsetLab(item);
 		    };
 		    const clockDotSleepInsetLab = (item, visualKind) => {
-		      if (!clockIsInsideSleepCurveLab(item)) return 0;
-		      if (visualKind === "night-wake") return 8;
-		      return 8;
+		      return 0;
 		    };
 		    const clockTimelineSettlingFeedKeyLab = (item) => {
 		      if (!item || !item.entry || item.entry.type !== "feed" || !item.entry.night || item.entry.dreamFeed || item.entry.feedType === "solids" || item.entry.feedType === "pump") return "";
@@ -42197,7 +42298,7 @@ function App(){
 	      const closeMoment = item.laneCount > 1 || hasCloseClockMoment(item);
 	      const dotAngle = (item.start % 1440) / 1440 * 360 + (item.lane - (item.laneCount - 1) / 2) * (closeMoment ? 5.2 : 3.8);
 	      const dotSleepInset = clockDotSleepInsetLab(item, visualKind);
-	      const dotRadius = 94 - Math.floor(item.lane / 3) * (closeMoment ? 6 : 8) - dotSleepInset;
+	      const dotRadius = 98;
 	      const dotR = closeMoment ? (item.isNow ? 2.7 : 2.2) : (item.isNow ? 3 : 2.5);
 	      const dot = polar(120, 120, dotRadius, dotAngle);
 	      return {
@@ -43390,7 +43491,7 @@ function App(){
 	        return;
 	      }
 	      if (clockBedOnThisDay && !bedPaused) { openLogPanel("wake"); return; }
-	      if (clockBedOnThisDay && bedPaused) { setShowNightWake(true); return; }
+		      if (clockBedOnThisDay && bedPaused) { openPendingOrNewNightWakeDetails(); return; }
 	      setShowNapStartPicker(true);setNapCustomStart(nowTime());
 	    };
 	    const clockDetailSleepLabel = clockQuickSleepNeedsWake ? "Sleep" : "Wake Up";
@@ -43414,7 +43515,7 @@ function App(){
 	    };
 	    const clockDetailSleepLongAction = () => {
 	      if (clockQuickSleepNeedsWake) {
-	        if (clockBedOnThisDay) { setShowNightWake(true); return; }
+		        if (clockBedOnThisDay) { openPendingOrNewNightWakeDetails(); return; }
 	        setShowNapStartPicker(true);setNapCustomStart(nowTime());
 	        return;
 	      }
@@ -50640,21 +50741,9 @@ function App(){
                     <span style={{fontFamily:"Georgia,serif",fontStyle:"italic",color:"var(--text-mid)",fontSize:14}}>Night Wakes</span>
                     <HelpBtn title="Night Wakes" body="Night wakes are tracked separately from daytime entries. Feeds and wakes after bedtime automatically move here. Stretches between wakes are colour-coded. green (3h+) is great, purple (<2h) may indicate hunger or discomfort. You can log soothing method, duration, and feed amount."/>
                   </div>
-                  <button onClick={()=>{
-                    // If bed timer is paused with a pending wake entry, edit that entry
-                    // instead of creating a duplicate. This prevents "two separate logs".
-                    const _pendingWakeId = (()=>{try{return bedPaused ? localStorage.getItem("bed_wake_entry_id") : null;}catch{return null;}})();
-                    if (_pendingWakeId) {
-                      const _pendingEntry = nightE.find(e=>e.id===_pendingWakeId);
-                      if (_pendingEntry) {
-                        setNightEditId(_pendingWakeId);
-                        setNwForm({time:_pendingEntry.time||nowTime(),ml:_pendingEntry.amount?String(mlToDisplay(_pendingEntry.amount,FU)):"",selfSettled:!!_pendingEntry.selfSettled,assisted:!!_pendingEntry.assisted,assistedType:_pendingEntry.assistedType||"milk",assistedNote:_pendingEntry.assistedNote||"",assistedDuration:_pendingEntry.assistedDuration?String(_pendingEntry.assistedDuration):"",settleDuration:_pendingEntry.settleDuration?String(_pendingEntry.settleDuration):"",settleTime:_pendingEntry.settleTime||"",note:_pendingEntry.note||""});
-                        setShowNightWake(true);
-                        return;
-                      }
-                    }
-                    setNwForm({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",settleTime:"",note:""});setShowNightWake(true);
-                  }} style={{background:"var(--card-bg-alt)",border:_bN,borderRadius:99,padding:"4px 11px",fontSize:15,color:"#7b68ee",cursor:_cP,fontWeight:600}}>+ add</button>
+	                  <button onClick={()=>{
+	                    openPendingOrNewNightWakeDetails();
+	                  }} style={{background:"var(--card-bg-alt)",border:_bN,borderRadius:99,padding:"4px 11px",fontSize:15,color:"#7b68ee",cursor:_cP,fontWeight:600}}>+ add</button>
                 </div>
                 {nightE.length===0&&<div style={{textAlign:"center",color:"var(--text-lt)",fontSize:14,fontFamily:_fM,padding:"6px 0"}}>No night wakes logged</div>}
                 {(()=>{
@@ -62717,10 +62806,12 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               onChange={e=>setNwForm(f=>({...f,note:e.target.value}))}
               style={{width:"100%",fontSize:15,padding:"12px 14px",borderRadius:14,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,outline:_oN,fontFamily:_fI,marginBottom:20,boxSizing:_bBB}}/>
 
-            <button onClick={()=>{
-              haptic(20);
-              let saveTime = nwForm.time || nowTime();
-              // Auto-correct PM night wakes that fall before bedtime:
+	            <button onClick={()=>{
+	              haptic(20);
+	              let saveTime = nwForm.time || nowTime();
+	              const pendingWakeIdAtSave = (()=>{try{return localStorage.getItem("bed_wake_entry_id");}catch{return null;}})();
+	              const isPendingWakeDetailSave = !!(nightEditId && pendingWakeIdAtSave === nightEditId && (bedPaused || (()=>{try{return localStorage.getItem("bed_paused")==="1";}catch{return false;}})()));
+	              // Auto-correct PM night wakes that fall before bedtime:
               // if user enters "1:10" and it parses as 13:10 (PM), but
               // bedtime is 20:27 (PM), a 1pm wake makes no sense — they
               // meant 1:10 AM. Convert hours 12-17 → subtract 12.
@@ -62742,12 +62833,16 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               } catch {}
               const isMilkAssisted = nwForm.assisted && nwForm.assistedType==="milk";
               const mlVal = nwForm.selfSettled ? 0 : (parseFloat(nwForm.ml)||0) > 0 ? displayToMl(nwForm.ml,FU) : 0;
-              const noteStr = nwForm.selfSettled
-                ? (nwForm.note||"Self settled")
-                : nwForm.assisted
-                  ? [isMilkAssisted?"Assisted – milk":("Assisted – "+(nwForm.assistedNote||"assisted")), nwForm.note].filter(Boolean).join(" · ")
-                  : (nwForm.note||"");
-              // Log as "feed" if milk was given, "wake" otherwise
+	              const noteStr = nwForm.selfSettled
+	                ? (nwForm.note||"Self settled")
+	                : nwForm.assisted
+	                  ? [isMilkAssisted?"Assisted – milk":("Assisted – "+(nwForm.assistedNote||"assisted")), nwForm.note].filter(Boolean).join(" · ")
+	                  : (nwForm.note||"");
+	              const saveSettleTime = isPendingWakeDetailSave && !nwForm.settleTime ? nowTime() : (nwForm.settleTime || "");
+	              const pendingDetailDurationMins = isPendingWakeDetailSave ? pendingNightWakeDurationMins({time:saveTime, assistedDuration:nwForm.assistedDuration, settleDuration:nwForm.settleDuration, wakeDuration:nwForm.wakeDuration}, saveSettleTime) : 0;
+	              const assistedDurationVal = parseInt(nwForm.assistedDuration, 10) || (!nwForm.selfSettled && pendingDetailDurationMins ? pendingDetailDurationMins : 0);
+	              const settleDurationVal = parseInt(nwForm.settleDuration, 10) || (nwForm.selfSettled && pendingDetailDurationMins ? pendingDetailDurationMins : 0);
+	              // Log as "feed" if milk was given, "wake" otherwise
               const hadMilk = isMilkAssisted || mlVal > 0;
               // The "+ add" Night Wake button is intentionally permissive —
               // parents may be catching up on last night's wakes retroactively
@@ -62760,9 +62855,10 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 note: noteStr,
                 modifiedAt: Date.now(),
               };
-              if(nwForm.assistedDuration) entry.assistedDuration = parseInt(nwForm.assistedDuration);
-              if(nwForm.settleDuration) entry.settleDuration = parseInt(nwForm.settleDuration);
-              if(nwForm.settleTime) entry.settleTime = nwForm.settleTime;
+	              if(assistedDurationVal) entry.assistedDuration = assistedDurationVal;
+	              if(settleDurationVal) entry.settleDuration = settleDurationVal;
+	              if(assistedDurationVal || settleDurationVal) entry.wakeDuration = assistedDurationVal || settleDurationVal;
+	              if(saveSettleTime) entry.settleTime = saveSettleTime;
               if(nwForm.assisted) { entry.assistedType = nwForm.assistedType; if(nwForm.assistedNote) entry.assistedNote = nwForm.assistedNote; }
               setDays(d=>{
                 const _todayCal = todayStr();
@@ -62805,13 +62901,55 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 const combined = [...existing, entry];
                 return{...nextDays,[targetDay]:dedupEntries(combined)};
               });
-              setShowNightWake(false);
-              setNightEditId(null);
-              showToast(nightEditId?"🌟 Night Wake Updated ✓":"🌟 Night Wake Logged ✓",1200,1);
-              // Update cumulative awake tracker with this wake's duration. keeps pill in sync.
-              // Then restart LA with virtual start = bedtime + newTotalPausedSec (cumulative sleep model).
-              if(!nightEditId) {
-                try {
+	              setShowNightWake(false);
+	              setNightEditId(null);
+	              showToast(nightEditId?"🌟 Night Wake Updated ✓":"🌟 Night Wake Logged ✓",1200,1);
+	              // Update cumulative awake tracker with this wake's duration. keeps pill in sync.
+	              // Then restart LA with virtual start = bedtime + newTotalPausedSec (cumulative sleep model).
+	              if(isPendingWakeDetailSave) {
+	                try {
+	                  const _durationMins = parseInt(entry.assistedDuration || entry.settleDuration || entry.wakeDuration || 0, 10) || pendingDetailDurationMins || 0;
+	                  const _pauseStartMs = Number(bedPauseStart || (()=>{try{return localStorage.getItem("bed_pause_start");}catch{return 0;}})() || 0);
+	                  let _pauseDurSec = _durationMins > 0 ? _durationMins * 60 : (_pauseStartMs > 1000000000000 ? Math.max(0, Math.round((Date.now() - _pauseStartMs) / 1000)) : 0);
+	                  if (_pauseDurSec > 6*3600) _pauseDurSec = 6*3600;
+	                  const _existingPausedSec = Number(bedTotalPausedSec || (()=>{try{return localStorage.getItem("bed_total_paused_sec");}catch{return 0;}})() || 0);
+	                  const _newTotalPausedSec = _existingPausedSec + Math.max(0, _pauseDurSec);
+	                  setBedTotalPausedSec(_newTotalPausedSec);
+	                  bedTotalPausedSecRef.current = _newTotalPausedSec;
+	                  setBedPaused(false);
+	                  bedPausedRef.current = false;
+	                  setBedPauseStart(null);
+	                  bedPauseStartRef.current = null;
+	                  setBedPausedAtSec(0);
+	                  setNightElapsed(0);
+	                  try{
+	                    localStorage.setItem("bed_total_paused_sec",String(_newTotalPausedSec));
+	                    localStorage.removeItem("bed_paused");
+	                    localStorage.removeItem("bed_paused_sec");
+	                    localStorage.removeItem("bed_pause_start");
+	                    localStorage.removeItem("bed_wake_entry_id");
+	                  }catch{}
+	                  const _btdRestart = bedTimerDay || (()=>{try{return localStorage.getItem("bed_timer_day");}catch{return null;}})();
+	                  if(_isNative && _btdRestart) {
+	                    const _bedEntries = days[_btdRestart] || [];
+	                    const _bedE = _bedEntries.find(e => e.type === "sleep" && !e.night);
+	                    if(_bedE) {
+	                      const _bedMins = clockMins(_bedE.time);
+	                      if(_bedMins === null) return;
+	                      const _bedDate = new Date();
+	                      _bedDate.setHours(Math.floor(_bedMins/60),_bedMins%60,0,0);
+	                      if(_bedDate.getTime() > Date.now()+60000) _bedDate.setDate(_bedDate.getDate()-1);
+	                      const _virtualStart = _bedDate.getTime() + (_newTotalPausedSec * 1000);
+	                      const _la = window.Capacitor?.Plugins?.OBLiveActivity;
+	                      _la?.stop?.().catch(()=>{});
+	                      setTimeout(()=>{
+	                        _la?.start?.({type:'sleep',babyName:babyName||'Baby',startTime:_virtualStart}).catch(()=>{});
+	                      },150);
+	                    }
+	                  }
+	                } catch(_e){}
+	              } else if(!nightEditId) {
+	                try {
                   const _smins = parseInt(nwForm.assistedDuration)||parseInt(nwForm.settleDuration)||0;
                   if(_smins > 0 && bedTimerDay) {
                     const _newTotalPausedSec = (bedTotalPausedSec || 0) + (_smins * 60);

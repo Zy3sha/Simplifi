@@ -50,6 +50,7 @@ assert("Clock home lab log colours match the requested highlighter set", app.inc
 assert("Clock home lab Logs tab rows show colour badge, label, time and detail with nap location", app.includes("const entryLogEmojiLab = (entry)") && app.includes("const entryLogLabelLab = (entry)") && app.includes("const entryLogDetailLab = (entry)") && app.includes("const clockNapLocationLabelLab = (entry)") && app.includes('className={"ob-clock-row is-"+visualKind}') && app.includes('style={{"--ob-clock-row-accent":accent}}') && app.includes('className="ob-clock-row-icon"') && app.includes("<time>{clockLogRowTimeLab(item)}</time>") && app.includes("<em>{clockLogRowDetailLab(item)}</em>") && app.includes('clockLogJoinLab(duration ? hm(duration) : "", location)') && styles.includes("Clock lab Logs tab row format final lock") && styles.includes('"icon label time"') && styles.includes('"icon detail detail"') && styles.includes(".ob-clock-row-icon") && styles.includes("var(--ob-clock-row-accent"));
 assert("Night wake edit sheet can delete existing night wakes", app.includes('showConfirm("Delete night wake?"') && app.includes("This will remove the night wake") && app.includes('localStorage.getItem("bed_wake_entry_id") === id') && app.includes('localStorage.removeItem("bed_wake_entry_id")') && app.includes("setBedPaused(false)") && app.includes("delEntry(id, true)") && app.includes("setShowNightWake(false)") && app.includes("setNightEditId(null)") && app.includes("Delete night wake"));
 assert("Night wake edits preserve soothed details on the original day", app.includes("function preferDetailedNightWakeHistory") && app.includes("function nightWakeDetailScore") && app.includes("const nightWakeHistoryWinner = preferDetailedNightWakeHistory(local, remote);") && app.includes("const nightWakeHistoryWinner = previous ? preferDetailedNightWakeHistory(previous, entry) : null;") && app.includes("const nightWinner = preferDetailedNightWakeHistory(e, prev);") && app.includes("modifiedAt: Date.now(),") && app.includes("const _editedOriginalDay = nightEditId") && app.includes("targetDay = _editedOriginalDay;") && app.includes("Object.entries(d || {}).forEach(([dk, arr]) =>") && app.includes("x && x.id !== nightEditId") && app.includes("return{...nextDays,[targetDay]:dedupEntries(combined)};"));
+assert("Pending night wake details prefill settled time and resume the bedtime timer", app.includes("function isPendingBedWakeEntry(entryOrId)") && app.includes("function pendingNightWakeDurationMins(entry, settleTime)") && app.includes("function openPendingOrNewNightWakeDetails()") && app.includes("const pendingFromPause = pauseBedTimer();") && app.includes("const isPendingWakeDetailSave = !!(nightEditId && pendingWakeIdAtSave === nightEditId") && app.includes('localStorage.removeItem("bed_wake_entry_id");') && app.includes("bedPausedRef.current = false;") && app.includes("setNightElapsed(0);"));
 assert("Clock home lab follows the selected day boundary while keeping logs in sync with visible clock logs",
   app.includes("const prevEntriesForDay = (days[prevCalDay(dayKey)] || []).filter") &&
   app.includes("const nextEntriesForDay = (days[nextCalDay(dayKey)] || []).filter") &&
@@ -126,12 +127,12 @@ assert("Clock home lab keeps bedtime outside while night-wake arcs and feed/wake
   app.includes('const radius = isBedtimeOutsideArc ? 104 : visualKind === "night-wake" ? 100 : 93 - Math.min(item.lane, 2) * 15 - sleepInset;') &&
   app.includes('+(sleepInset?" is-sleep-overlap":"")') &&
   app.includes("const clockDotSleepInsetLab = (item, visualKind)") &&
-  app.includes('if (visualKind === "night-wake") return 8;') &&
+  app.includes("return 0;") &&
   app.includes("if (entryBelongsBeforeWakeDayStartLab(entry, wakeDayStartMinsLab)) return;") &&
   app.includes("if (entryBelongsBeforeWakeDayStartLab(entry, wakeCarryLimitMinsLab)) pushVisualEntry(entry, nextDayKey);") &&
   !app.includes('rawType === "feed" || rawType === "wake") return 26') &&
   app.includes("const dotSleepInset = clockDotSleepInsetLab(item, visualKind);") &&
-  app.includes("const dotRadius = 94 - Math.floor(item.lane / 3) * (closeMoment ? 6 : 8) - dotSleepInset;") &&
+  app.includes("const dotRadius = 98;") &&
   app.includes('+(dotSleepInset?" is-sleep-overlap":"")'));
 assert("Clock home lab shows bedtime continuation as the same outside solid bedtime colour",
   app.includes('"sleep-carry":{label:"Sleep continued"') &&
@@ -146,6 +147,7 @@ assert("Clock home lab shows bedtime continuation as the same outside solid bedt
   app.includes('!isBedtimeOutsideArc && <path d={arcD} className={"ob-clock-event-arc-cut is-"+visualKind}') &&
   styles.includes(".ob-clock-event-arc.is-sleep-carry.is-bedtime-outside") &&
   styles.includes("Clock lab outside bedtime visual weight final lock") &&
+  styles.includes("Clock lab outside bedtime visual weight final override") &&
   styles.includes("stroke-width:2.8px!important") &&
   styles.includes("stroke-dasharray:none!important") &&
   styles.includes("stroke:#FFBE68!important"));
