@@ -42813,17 +42813,17 @@ function App(){
 		      "You don't have to feel calm to offer comfort. Just take the next gentle step.",
 		      "If you need to put baby down safely and breathe for a minute, that is care too.",
 		      "Send a Bubba Hug to another parent awake tonight. No one should have to feel alone at 3am.",
-		      "Nighttime parenting can feel invisible. It still counts, and so do you.",
+		      "Nobody sees what you're doing right now. But it matters, and so do you.",
 		      "Babies don't measure love by sleep stretches.",
 		      "Your baby needing you tonight does not mean you are failing. It means they know you are safe.",
 		      "Some nights are just getting-through nights. That still counts as care.",
 		      "The dishes can wait. You and baby getting through this wake is enough.",
-		      "A hard night does not erase your progress.",
+		      "One bad night doesn't undo all the good ones. You're still doing brilliantly.",
 		      "Try unclenching your jaw for a second. Your body deserves a little care too.",
 		      "Another wake-up is hard. It is also another moment you are showing up.",
 		      "You are doing something deeply demanding with very little recovery. Please be gentle with yourself.",
-		      "Tonight is not forever. For now, just take the next safe step.",
-		      "You were not meant to do this without support.",
+		      "This won't last forever. For now, just get through this one wake.",
+		      "Nobody is meant to do this alone. Ask for help if you need it.",
 		      "Your body is holding a lot right now. One slow breath. That's all."
 		    ];
 		    const clockNapMessages = [
@@ -42832,17 +42832,17 @@ function App(){
 		      "Tiny reminder: you matter in this house too.",
 		      "You don't have to earn rest by finishing everything.",
 		      "This nap won't last forever. Neither will the hard days.",
-		      "A slower moment counts. Water, food, bathroom, one quiet minute.",
+		      "Have you had water? Food? Been to the loo? Do one of those before anything else.",
 		      "Your baby feels safest with you, not with a perfect house.",
 		      "If there is a hot drink waiting, you are allowed to drink it first.",
 		      "You've already done so much today, even if it doesn't look impressive on paper.",
 		      "If your body feels heavy, it's because you've been carrying a lot.",
-		      "The quiet feels strange sometimes when you have been needed all day.",
-		      "Rest is not laziness. It is part of keeping you well.",
+		      "It feels weird when the house goes quiet after being needed nonstop. That's OK.",
+		      "Resting while baby sleeps isn't lazy. It's how you keep going.",
 		      "Your baby does not need a superhuman parent. They need you, loved and supported too.",
-		      "Even sitting in silence for two minutes counts as care.",
+		      "Two minutes of just sitting with your eyes closed counts. Seriously.",
 		      "If you need a quieter corner, " + clockParentRoomPhrase + " is here.",
-		      "You are not behind. You are inside a very full season."
+		      "You're not behind on anything. This stage is just really full-on."
 			    ];
 			    const clockRoughNightMessages = [
 			      "After a hard night, lower the bar on purpose. Fed, safe and cuddled is enough today.",
@@ -42854,7 +42854,7 @@ function App(){
 			      "You are allowed to be gentle with yourself while you are gentle with your baby.",
 			      "If your patience feels thin, that is a signal to get support, not a reason to feel ashamed.",
 			      "Your baby does not need perfect energy from you. They need safe, steady, loved-enough care.",
-			      "You made it through the night. Let today be smaller.",
+			      "You made it through the night. Today doesn't have to be productive — just keep things simple.",
 			      "Feeling touched out does not make you a bad parent. It makes you human.",
 			      "After a rough night, you deserve food, water, backup, and a much lower bar."
 		    ];
@@ -42873,9 +42873,9 @@ function App(){
 		      "Feeling touched out does not make you a bad parent. It makes you human.",
 		      "Needing a pause does not mean you love your baby less.",
 		      "You can love your baby with your whole heart and still need your body back for a minute.",
-		      "A reset can be as small as standing outside for one minute.",
+		      "Step outside for one minute. Fresh air does more than you'd think.",
 		      "You are allowed to ask for help before everything feels too much.",
-		      "Today does not need to become a perfect memory. Safe and loved still counts.",
+		      "Today doesn't need to be Instagram-worthy. Safe and loved is more than enough.",
 		      "If you feel overwhelmed, put baby somewhere safe and take one minute to breathe. That is responsible, not selfish."
 		    ];
 		    const clockShortNapMessages = [
@@ -42906,7 +42906,7 @@ function App(){
 		      "You have made it through every hard phase so far. This one gets held one small moment at a time.",
 		      "The way you keep showing up matters more than you realise.",
 		      "Right now, this version of you deserves kindness too.",
-		      "You are not behind. You are inside a very full season.",
+		      "You're not behind on anything. This stage is just really full-on.",
 		      "Tiny reminder: you matter in this house too.",
 		      "You do not need to be perfect today. Enough care, enough safety, enough love is real parenting."
 		    ];
