@@ -879,6 +879,25 @@ function hasCompletedNapSpan(entry) {
     entry.end !== entry.start
   );
 }
+function entryLooksImportedForRepair(entry) {
+  if (!entry || typeof entry !== "object") return false;
+  const src = String(entry.src || "");
+  const note = String(entry.note || "");
+  return !!(
+    entry._importNeedsReview ||
+    src === "import" ||
+    src === "repair" ||
+    src.indexOf("import:") === 0 ||
+    /Imported from|Imported duration|Imported without|Inferred from import/i.test(note)
+  );
+}
+function importRepairShouldPromoteNapToSleep(entry) {
+  if (!entryLooksImportedForRepair(entry) || !entry || entry.type !== "nap" || !entry.start) return false;
+  const startHour = clockHour(entry.start);
+  if (startHour === null || (startHour < 18 && startHour >= 4)) return false;
+  if (!hasCompletedNapSpan(entry)) return true;
+  return minDiff(entry.start, entry.end) >= 90;
+}
 function safeTimestampMs(value, fallback = 0) {
   const min = 946684800000; // 2000-01-01
   const max = 4102444800000; // 2100-01-01
@@ -897,6 +916,17 @@ function safeDecimalRange(value, fallback = null, min = 0, max = 9999, decimals 
 function normaliseLogEntryTime(entry) {
   if (!entry || typeof entry !== "object" || Array.isArray(entry)) return null;
   const next = {...entry};
+  if (next._clockCarrySleep) {
+    const originalTime = clockStringFromAny(next._clockOriginalTime);
+    if (next.type === "sleep" && originalTime && (next.time === "00:00" || next.start === "00:00")) {
+      if (next.time === "00:00") next.time = originalTime;
+      if (next.start === "00:00") next.start = originalTime;
+    }
+    delete next._clockCarrySleep;
+    delete next._clockCarryKey;
+    delete next._clockOriginalDay;
+    delete next._clockOriginalTime;
+  }
   const fallback =
     clockStringFromAny(next.time) ||
     clockStringFromAny(next.start) ||
@@ -4517,8 +4547,8 @@ function diagnoseNightPattern(lastNight, context) {
         type: "bedtime_resistance",
         emoji: "🌙",
         title: "Bedtime was hard",
-        detail: "Bedtime resistance was logged last night (" + _bedtimeResistanceLabel + "). I am not treating that as a missed nap or a normal easy night; the debrief will hold it as settling context.",
-        actionTaken: "No schedule change today. Keep the last hour calm, offer comfort, and log how bedtime starts tonight.",
+        detail: "Bedtime was hard last night (" + _bedtimeResistanceLabel + "). That's useful information — it tells us something about how the day landed.",
+        actionTaken: "No big changes today. Keep the last hour before bed calm and gentle, and see how tonight goes.",
         bedtimeShiftMin: 0,
         confidence: "medium",
         bedtimeResistance: _bedtimeResistance
@@ -4529,7 +4559,7 @@ function diagnoseNightPattern(lastNight, context) {
       emoji: "🌟",
       title: "Dream night",
       detail: "No wakes logged last night. Longest stretch: " + (longestStretchMin > 60 ? Math.floor(longestStretchMin / 60) + "h " + (longestStretchMin % 60) + "m" : longestStretchMin + "m") + ".",
-      actionTaken: "I've kept tonight's bedtime on the same rhythm that worked last night.",
+      actionTaken: "Great night — keeping the same rhythm tonight since it clearly worked. 💛",
       bedtimeShiftMin: 0,
       confidence: "high"
     };
@@ -4551,7 +4581,7 @@ function diagnoseNightPattern(lastNight, context) {
         emoji: "😫",
         title: "Overtired false start",
         detail: "Baby woke " + _earlySignal + _settleText + ". The last wake window was " + hm(_lastWW) + " (age max ~" + hm(_maxWW) + "). That pattern may suggest baby was past their comfortable window, which can make linking sleep cycles harder.",
-        actionTaken: "I've brought tonight's bedtime forward by 15 minutes. When baby seems overtired, an earlier bedtime often helps.",
+        actionTaken: "Bedtime is moving 15 minutes earlier tonight — when babies are overtired, an earlier bedtime usually helps more than a later one.",
         bedtimeShiftMin: -15,
         confidence: "high",
         _lastWW
@@ -4571,7 +4601,7 @@ function diagnoseNightPattern(lastNight, context) {
         emoji: "😫",
         title: "Looks overtired",
         detail: "Early false start (" + earlyHardWakes[0].fromBedMin + " min after bed) AND " + _dawnWakesEarly.length + " hard wake" + (_dawnWakesEarly.length > 1 ? "s" : "") + " in the 3-5am window. Last wake window was " + hm(_lastWW) + " (age max ~" + hm(_maxWW) + "). Together, those patterns may suggest overtiredness.",
-        actionTaken: "I've brought tonight's bedtime forward by 15 minutes. When baby seems overtired, an earlier bedtime often helps.",
+        actionTaken: "Bedtime is moving 15 minutes earlier tonight — when babies are overtired, an earlier bedtime usually helps more than a later one.",
         bedtimeShiftMin: -15,
         confidence: "high",
         _lastWW
@@ -4582,8 +4612,8 @@ function diagnoseNightPattern(lastNight, context) {
       type: (_lastWW > 0 && _maxWW > 0) ? "undertired" : "false_start",
       emoji: "⏰",
       title: (_lastWW > 0 && _maxWW > 0) ? "Looks undertired" : "False start after bedtime",
-      detail: "Baby woke " + _earlySignal + _settleText + ". " + ((_lastWW > 0 && _maxWW > 0) ? "This may suggest they needed a little more awake time before bed. The last stretch before bed was " + hm(_lastWW) + "." : "That is a false-start signal, so I won't call it a normal night even if the wake count looks small."),
-      actionTaken: (_lastWW > 0 && _maxWW > 0) ? "I've pushed tonight's bedtime 15 minutes later so baby is a little more ready for sleep. Nothing else for you to change." : "No schedule change today. Keep the bedtime routine steady and log whether the early wake repeats.",
+      detail: "Baby woke " + _earlySignal + _settleText + ". " + ((_lastWW > 0 && _maxWW > 0) ? "This usually means they needed a bit more awake time before bed. The last stretch before bed was " + hm(_lastWW) + "." : "This is what's called a false start — it doesn't mean the night is ruined, just that bedtime might need tweaking."),
+      actionTaken: (_lastWW > 0 && _maxWW > 0) ? "Bedtime is shifting 15 minutes later tonight so baby has a bit more time to get properly sleepy. Nothing else to change." : "No changes today — just keep bedtime calm and consistent and see if it happens again.",
       bedtimeShiftMin: (_lastWW > 0 && _maxWW > 0) ? 15 : 0,
       confidence: earlyHardWakes.length >= 2 || earlyHardWakes[0].fromBedMin <= 90 ? "high" : "medium"
     };
@@ -4615,7 +4645,7 @@ function diagnoseNightPattern(lastNight, context) {
       emoji: "🌘",
       title: "Long wake night",
       detail: hm(_longWake.durationMin || lastNight.totalAwakeMin || 0) + " awake" + (_longWake.time ? " around " + fmt12(_longWake.time) : "") + " last night. " + _crossLogWhy + (_feedRefusalOrFussy ? " Baby seemed fussy or refused feeds during this wake." : ""),
-      actionTaken: "No routine change today. Keep naps, feeds and bedtime steady while OBubba checks whether the same cause shows up again.",
+      actionTaken: "No changes today — just keep things steady and see how tonight goes. If the same thing happens again, we'll know it's a pattern.",
       bedtimeShiftMin: 0,
       confidence: (_longWake.durationMin || 0) >= 60 || (lastNight.totalAwakeMin || 0) >= 75 ? "high" : "medium",
       crossLogWhy: _crossLogWhy,
@@ -4627,8 +4657,8 @@ function diagnoseNightPattern(lastNight, context) {
       type: "bedtime_resistance",
       emoji: "🌙",
       title: "Bedtime and night settling were hard",
-      detail: "Bedtime resistance was logged (" + _bedtimeResistanceLabel + "), and the night notes also mention difficult settling. I am reading this as a real unsettled-night signal, not a normal night.",
-      actionTaken: "Keep the routine steady today. OBubba will treat comfort, bedtime resistance and night wakes as one sleep story, not separate problems.",
+      detail: "Bedtime was hard (" + _bedtimeResistanceLabel + ") and the night was unsettled too. When both ends of the night are rough, it usually points to something in the day that needs adjusting.",
+      actionTaken: "Keep things calm and consistent today. OBubba is looking at the whole picture — bedtime, settling, and the night wakes together — and will suggest a change if the same thing keeps happening.",
       bedtimeShiftMin: 0,
       confidence: "high",
       bedtimeResistance: _bedtimeResistance
@@ -4689,7 +4719,7 @@ function diagnoseNightPattern(lastNight, context) {
       emoji: "🔁",
       title: "Cycle-linked wakes",
       detail: "Wakes clustered near 90-minute sleep cycle boundaries, all resettled quickly (avg " + avgResettleMin + "m). Baby is stirring between cycles, totally normal.",
-      actionTaken: "I've left the rhythm as-is. Quick resettles mean baby is learning to link cycles, this phase usually resolves on its own.",
+      actionTaken: "Nothing to change here — quick resettles are actually a good sign. Baby is learning to connect sleep cycles and this phase passes on its own.",
       bedtimeShiftMin: 0,
       confidence: "high"
     };
@@ -4702,7 +4732,7 @@ function diagnoseNightPattern(lastNight, context) {
       emoji: "🍼",
       title: "Feed-driven wakes",
       detail: "Every wake last night settled quickly with milk/breast. Genuine hunger wakes typically settle in under 20 min when fed.",
-      actionTaken: "I've kept the rhythm the same. If baby is over 4 months, a dream feed around 10pm can sometimes pre-empt the first wake, but night feeds at this age are normal.",
+      actionTaken: "No changes needed — hunger wakes are completely normal. If baby is over 4 months, you could try a dream feed around 10pm to see if it helps, but there's nothing wrong with feeding on demand at night.",
       bedtimeShiftMin: 0,
       confidence: "medium"
     };
@@ -5066,9 +5096,9 @@ function diagnoseFeedPattern(todayEntries, recent14, ageWeeks, weights, latestWe
     return {
       type: "dehydration_warning",
       emoji: "💧",
-      title: "Wet nappy count low · hydration check",
-      detail: "Hydration score " + latestWetNappies24h + "/" + _dehTarget + " in the last 24h (long overnight nappies count 2–3×). That's meaningfully below target for this age — worth a check.",
-      action: "Offer a feed now. If the hydration score doesn't improve in 12h, contact your " + _doctor + ". If baby is unusually sleepy or hard to rouse, call " + _helpLine + " today.",
+      title: "Fewer wet nappies than expected",
+      detail: "Only " + latestWetNappies24h + " wet nappies in the last 24 hours — at this age we'd expect at least " + _dehTarget + ". Worth keeping an eye on.",
+      action: "Offer a feed now and check again in a few hours. If wet nappies don't pick up, or baby seems unusually sleepy or hard to wake, call your " + _doctor + " today.",
       urgency: "high",
       confidence: "high"
     };
@@ -5205,9 +5235,9 @@ function diagnoseFeedPattern(todayEntries, recent14, ageWeeks, weights, latestWe
         return {
           type: "reverse_cycling",
           emoji: "🔄",
-          title: "Reverse cycling signal",
-          detail: "Night feeds are larger than day feeds (~" + Math.round(_nightAvg) + "ml vs " + Math.round(_dayAvg) + "ml). Baby is getting most of their calories at night, which reinforces night waking.",
-          action: "Increase day feed volumes by 20–30ml per bottle and offer more day feeds. Don't cut night feeds abruptly — let night volumes shrink naturally as day volumes grow.",
+          title: "Feeding more at night than during the day",
+          detail: _name + " is taking bigger feeds overnight (~" + Math.round(_nightAvg) + "ml) than during the day (~" + Math.round(_dayAvg) + "ml). When babies get most of their milk at night, it can keep the night waking going.",
+          action: "Try offering a little more during daytime feeds (20-30ml extra per bottle) and fitting in an extra daytime feed if you can. The night feeds will naturally shrink as the day ones grow — no need to cut them suddenly.",
           urgency: "medium",
           confidence: "high"
         };
@@ -7187,7 +7217,7 @@ const TOG_GUIDE = [
   {temp:"21–23°C",range:[21,23],tog:"1.0",clothing:"Long-sleeve bodysuit",emoji:"🌤️",color:"#7BA68C"},
   {temp:"18–20°C",range:[18,20],tog:"2.5",clothing:"Long-sleeve bodysuit + sleepsuit",emoji:"🌙",color:"#7B68EE"},
   {temp:"16–17°C",range:[16,17],tog:"2.5–3.5",clothing:"Long-sleeve bodysuit + sleepsuit",emoji:"❄️",color:"#7AABC4"},
-  {temp:"Under 16°C",range:[0,16],tog:"3.5+",clothing:"Warm the room or add a safe sleepwear layer",emoji:"🧊",color:"#A898AC"},
+  {temp:"Under 16°C",range:[0,16],tog:"3.5+",clothing:"Warm the room or add a safe sleepwear layer",emoji:"🧊",color:"#8A7888"},
 ];
 const TOG_SAFETY = [
   "Room temperature 16-20°C is commonly used as a safe sleep range (" + _guide.sleepSource + ")",
@@ -7217,7 +7247,7 @@ function getC(){
   return{
     ter:v('--ter')||"#C07088",
     mid:v('--text-mid')||"#7A6B7E",
-    lt:v('--text-lt')||"#A898AC",
+    lt:v('--text-lt')||"#8A7888",
     blush:v('--blush')||"#F0D0C8",
     rose:v('--rose')||"#E8B4C0",
     cream:v('--cream')||"#FFF8F2",
@@ -7895,7 +7925,7 @@ function TimeInput({label, value, onChange, previousMinutes=null, nightOnly=fals
       {label&&<label style={{fontSize:15,fontFamily:_fM,color:C.mid,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:4}}>{label}</label>}
       <button onClick={openPicker} type="button"
         style={{width:"100%",padding:"9px 12px",borderRadius:12,border:`1.5px solid ${borderColor}`,background:bgColor,fontSize:15,fontFamily:_fI,textAlign:"left",cursor:_cP,display:"flex",alignItems:"center",justifyContent:"space-between",boxSizing:_bBB,...inputStyle}}>
-        <span style={{color:parsed?C.deep:"#c8beb8"}}>{parsed ? fmt12(parsed) : fmt12(nowTime())}</span>
+        <span style={{color:parsed?C.deep:"#8A7A74"}}>{parsed ? fmt12(parsed) : fmt12(nowTime())}</span>
         <span style={{fontSize:14,opacity:0.5}}>🕐</span>
       </button>
 
@@ -9130,7 +9160,7 @@ class ErrorBoundary extends React.Component {
         ),
         React.createElement("div",{className:"ob-brand-display",style:{fontSize:26,color:"var(--text-deep, #5B4F5F)",lineHeight:1.25,marginBottom:10}},"Uh oh!"),
         React.createElement("div",{style:{fontSize:15,color:"var(--text-mid, #7A6B7E)",lineHeight:1.65,maxWidth:300,marginBottom:6}},"Looks like OBubba fell asleep..."),
-        React.createElement("div",{style:{fontSize:14,color:"var(--text-lt, #A898AC)",lineHeight:1.5,maxWidth:280,marginBottom:28}},"Hold tight. we'll be back from our nap ASAP. Your data is safe."),
+        React.createElement("div",{style:{fontSize:14,color:"var(--text-lt, #8A7888)",lineHeight:1.5,maxWidth:280,marginBottom:28}},"Hold tight. we'll be back from our nap ASAP. Your data is safe."),
         React.createElement("button",{onClick:()=>window.location.reload(),style:{padding:"14px 36px",borderRadius:99,border:"none",background:"rgba(192,112,136,0.55)",backdropFilter:"blur(16px)",WebkitBackdropFilter:"blur(16px)",color:"white",fontSize:16,fontWeight:700,cursor:"pointer",fontFamily:"inherit",boxShadow:"0 0 24px rgba(246,221,227,0.40), 0 0 48px rgba(217,207,243,0.25), 0 4px 16px rgba(192,112,136,0.20)",animation:"floatUp 3s ease-in-out infinite",letterSpacing:"0.01em"}},"Wake Up & Refresh"),
         React.createElement("div",{style:{fontSize:10,color:"var(--text-lt, #C8B8C0)",marginTop:24,fontFamily:"monospace",maxWidth:300,wordBreak:"break-all"}},String(this.state.error||""))
       );
@@ -10178,7 +10208,10 @@ function App(){
     let _inQuotes = false;
     for (let i = 0; i < csvText.length; i++) {
       const c = csvText[i];
-      if (c === '"') _inQuotes = !_inQuotes;
+      if (c === '"') {
+        if (_inQuotes && csvText[i+1] === '"') { _processed += c; i++; _processed += csvText[i]; continue; }
+        _inQuotes = !_inQuotes;
+      }
       else if ((c === '\n' || c === '\r') && _inQuotes) { _processed += ' '; continue; }
       _processed += c;
     }
@@ -10215,20 +10248,31 @@ function App(){
     // _slashFormat is set once at the top of importFromCSV by scanning
     // the data rows, so all calls to normDate within one import use a
     // consistent interpretation.
+    function importDateFromParts(year, month, day) {
+      let y = Number(year), mo = Number(month), d = Number(day);
+      if (y < 100) y += y >= 80 ? 1900 : 2000;
+      const key = `${String(y).padStart(4,"0")}-${String(mo).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+      return safeDateKey(key) || null;
+    }
     function normDate(s) {
       if (!s) return null;
-      s = s.trim();
-      if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.substring(0,10);
+      s = String(s).trim();
+      let ymd = s.match(/^(\d{4})[\/.-](\d{1,2})[\/.-](\d{1,2})/);
+      if (ymd) return importDateFromParts(ymd[1], ymd[2], ymd[3]);
       let m;
-      if ((m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/))) {
+      if ((m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})/))) {
         // Use detected format. _slashFormat === "dmy" means first = day.
         if (_slashFormat === "dmy") {
-          return `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
+          return importDateFromParts(m[3], m[2], m[1]);
         }
-        return `${m[3]}-${m[1].padStart(2,"0")}-${m[2].padStart(2,"0")}`;
+        return importDateFromParts(m[3], m[1], m[2]);
       }
-      if ((m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})/)))   return `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
-      if ((m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})/))) return `${m[3]}-${m[2].padStart(2,"0")}-${m[1].padStart(2,"0")}`;
+      if ((m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{2,4})/)))   return importDateFromParts(m[3], m[2], m[1]);
+      if ((m = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})/))) return importDateFromParts(m[3], m[2], m[1]);
+      if (/[A-Za-z]/.test(s)) {
+        const parsed = Date.parse(s);
+        if (Number.isFinite(parsed)) return localDateStr(new Date(parsed));
+      }
       return null;
     }
 
@@ -10237,15 +10281,17 @@ function App(){
     // the file is DD/MM/YYYY. If we don't find one, default to DD/MM
     // (UK bias) because the alternative silently misreads UK dates.
     let _slashFormat = "dmy"; // default
+    let _slashFormatLocked = false;
     for (const line of lines) {
       const _slashMatches = line.match(/(\d{1,2})\/(\d{1,2})\/\d{4}/g) || [];
       for (const _sm of _slashMatches) {
         const _parts = _sm.split("/");
         const _first = parseInt(_parts[0]);
         const _second = parseInt(_parts[1]);
-        if (_first > 12 && _second <= 12) { _slashFormat = "dmy"; break; }
-        if (_second > 12 && _first <= 12) { _slashFormat = "mdy"; break; }
+        if (_first > 12 && _second <= 12) { _slashFormat = "dmy"; _slashFormatLocked = true; break; }
+        if (_second > 12 && _first <= 12) { _slashFormat = "mdy"; _slashFormatLocked = true; break; }
       }
+      if (_slashFormatLocked) break;
     }
 
     // Extract HH:MM (24-hour) from any timestamp-like string. Accepts
@@ -10281,6 +10327,14 @@ function App(){
       const start = extractTime(pieces[0]) || clockStringFromAny(pieces[0]) || fallback;
       const end = extractTime(pieces[1]) || clockStringFromAny(pieces[1]) || fallback || start;
       return { start, end };
+    }
+    function importEndDateForRange(startDate, startTime, rawEnd, endTime) {
+      const explicit = normDate(rawEnd);
+      if (explicit) return explicit;
+      if (!startDate) return null;
+      const sm = clockMins(startTime), em = clockMins(endTime);
+      if (sm !== null && em !== null && em < sm) return nextCalDay(startDate);
+      return startDate;
     }
 
     const headerCols = parseCSVRow(lines[0]).map(h => h.toLowerCase().trim());
@@ -10461,8 +10515,8 @@ function App(){
 
         const startDate = normDate(startRaw);
         const startTime = extractTime(startRaw);
-        const endDate   = normDate(endRaw)   || startDate;
         const endTime   = extractTime(endRaw) || startTime;
+        const endDate   = importEndDateForRange(startDate, startTime, endRaw, endTime);
 
         if (!startDate || !startTime) { skipped++; continue; }
 
@@ -10550,7 +10604,7 @@ function App(){
               (toAbsMs(next.startDate, next.startTime) - toAbsMs(prev.endDate, prev.endTime)) / 60000
             );
             if (gapMins < 0) continue; // allow 0-gap (consecutive sleep = brief wake)
-            addEntry(prev.endDate, {
+            addEntry(dayBoundary === "wake" ? first.startDate : prev.endDate, {
               type: "wake",
               time: prev.endTime,
               night: true,
@@ -10608,8 +10662,8 @@ function App(){
         const notes = _iN >= 0 ? (cols[_iN]||"").trim() : "";
         const startDate = normDate(startRaw);
         const startTime = extractTime(startRaw);
-        const endDate = normDate(endRaw) || startDate;
         const endTime = extractTime(endRaw) || startTime;
+        const endDate = importEndDateForRange(startDate, startTime, endRaw, endTime);
         if (!startDate || !startTime) { skipped++; continue; }
         if (/feed|bottle|nurs|breast/i.test(activity)) {
           const isBreast = /nurs|breast/i.test(activity);
@@ -10674,7 +10728,7 @@ function App(){
               const p = chain[i-1], n = chain[i];
               if (!p.endTime || !n.startTime) continue;
               const g = Math.round((toAbsMs(n.startDate,n.startTime) - toAbsMs(p.endDate,p.endTime))/60000);
-              if (g > 0) addEntry(p.endDate, {type:"wake", time:p.endTime, night:true, assisted:true, assistedType:"milk", assistedDuration:g, settleDuration:g, note:"Imported from Baby Connect ("+g+"min soothed)"});
+              if (g > 0) addEntry(dayBoundary === "wake" ? first.startDate : p.endDate, {type:"wake", time:p.endTime, night:true, assisted:true, assistedType:"milk", assistedDuration:g, settleDuration:g, note:"Imported from Baby Connect ("+g+"min soothed)"});
             }
             const lh = clockHour(last.endTime);
             if (lh !== null && lh >= 4 && lh <= 12) addEntry(last.endDate, {type:"wake", time:last.endTime, night:false, note:"Imported from Baby Connect"});
@@ -10756,10 +10810,11 @@ function App(){
 	            continue;
 	          }
 	          const endMin = startMin + durMin;
+	          const endDate = endMin >= 1440 ? nextCalDay(dateStr) : dateStr;
 	          const eh = Math.floor(endMin/60) % 24;
 	          const em = endMin % 60;
 	          const endTime = String(eh).padStart(2,"0")+":"+String(em).padStart(2,"0");
-          _sleepRowsSB.push({startDate:dateStr, startTime:timeStr, endDate:dateStr, endTime, notes});
+          _sleepRowsSB.push({startDate:dateStr, startTime:timeStr, endDate, endTime, notes});
         } else if (/solid|meal|food/i.test(cat)) {
           addEntry(dateStr, {type:"feed", time:timeStr, feedType:"solids", amount:0, note:notes});
         } else {
@@ -10792,7 +10847,7 @@ function App(){
               const p = chain[i-1], n = chain[i];
               if (!p.endTime || !n.startTime) continue;
               const g = Math.round((toAbsMs(n.startDate,n.startTime) - toAbsMs(p.endDate,p.endTime))/60000);
-              if (g > 0) addEntry(p.endDate, {type:"wake", time:p.endTime, night:true, assisted:true, assistedType:"milk", assistedDuration:g, settleDuration:g, note:"Imported from Sprout ("+g+"min soothed)"});
+              if (g > 0) addEntry(dayBoundary === "wake" ? first.startDate : p.endDate, {type:"wake", time:p.endTime, night:true, assisted:true, assistedType:"milk", assistedDuration:g, settleDuration:g, note:"Imported from Sprout ("+g+"min soothed)"});
             }
             const lh = clockHour(last.endTime);
             if (lh !== null && lh >= 4 && lh <= 12) addEntry(last.endDate, {type:"wake", time:last.endTime, night:false, note:"Imported from Sprout"});
@@ -10831,6 +10886,50 @@ function App(){
         else skipped++;
       }
     }
+
+    function rehomeWakeModeNightImports() {
+      if (dayBoundary !== "wake") return;
+      const hasBedtimeOnDay = (dk) => {
+        const importedEntries = newDays[dk] || [];
+        const savedEntries = (activeChild && activeChild.days && activeChild.days[dk]) || [];
+        return [...importedEntries, ...savedEntries].some(e => e && e.type === "sleep" && !e.night);
+      };
+      Object.keys(newDays).forEach(dk => {
+        const prevDay = prevCalDay(dk);
+        if (!prevDay || prevDay === dk || !hasBedtimeOnDay(prevDay)) return;
+        const entries = newDays[dk] || [];
+        if (!entries.length) return;
+        const keep = [];
+        entries.forEach(entry => {
+          const mins = clockMins(entry && (entry.time || entry.start));
+          if (mins === null || mins >= 6 * 60) { keep.push(entry); return; }
+          const morningWakeBefore = entries.some(e => {
+            if (!e || e.type !== "wake" || e.night) return false;
+            const wm = clockMins(e.time || e.start);
+            return wm !== null && wm >= 4 * 60 && wm <= mins;
+          });
+          const isNightWake = entry.type === "wake" && (entry.night || entry.nightLocked);
+          const isNightMilk = entry.type === "feed" && entry.feedType !== "solids";
+          if (morningWakeBefore || (!isNightWake && !isNightMilk)) { keep.push(entry); return; }
+          const moved = entry.type === "feed" ? {...entry, night:true} : entry;
+          const movedSig = entrySignature(prevDay, moved);
+          const movedTimeKey = prevDay + "|" + (moved.time || moved.start || "");
+          if (_existingSigs.has(movedSig) || _existingSigs.has("_t|" + movedTimeKey)) {
+            duplicates++;
+            imported = Math.max(0, imported - 1);
+            return;
+          }
+          if (!newDays[prevDay]) newDays[prevDay] = [];
+          newDays[prevDay].push(moved);
+          _existingSigs.add(movedSig);
+          _existingSigs.add("_t|" + movedTimeKey);
+        });
+        if (keep.length) newDays[dk] = keep;
+        else delete newDays[dk];
+      });
+    }
+
+    rehomeWakeModeNightImports();
 
     // Post-process: infer morning wakes for days that don't have one
     // This is critical. predictions require a morning wake to calculate wake windows
@@ -11446,7 +11545,22 @@ function App(){
     const _cloudPremium = localStorage.getItem("ob_premium_cloud")==="1" && _cloudStillActive && (!_cloudUser || !_localUser || _cloudUser === _localUser);
     return _cloudPremium;
   }catch{return false;}})();
-  const _villageActive = (()=>{try{const ve=safeTimestampMs(localStorage.getItem("ob_village_end"), NaN);return Number.isFinite(ve) && ve>Date.now();}catch{return false;}})();
+  const _villageActive = (()=>{try{
+    // Check localStorage first, then fall back to cloud data (survives reinstall)
+    const ve = safeTimestampMs(localStorage.getItem("ob_village_end"), NaN);
+    if (Number.isFinite(ve) && ve > Date.now()) return true;
+    // Cloud fallback: check if active child has village claim
+    const _ac = activeChild || {};
+    if (_ac._villageEnd) {
+      const _cloudEnd = safeTimestampMs(_ac._villageEnd, NaN);
+      if (Number.isFinite(_cloudEnd) && _cloudEnd > Date.now()) {
+        // Restore to localStorage so next check is fast
+        try { localStorage.setItem("ob_village_end", _ac._villageEnd); localStorage.setItem("ob_village_unlocked", "1"); } catch {}
+        return true;
+      }
+    }
+    return false;
+  }catch{return false;}})();
   const[isPremium,setIsPremium]=useState(_cachedPremium || _villageActive);
   const[heroWhyOpen,setHeroWhyOpen]=useState(false);
   const[poopWhyOpen,setPoopWhyOpen]=useState(false);
@@ -14299,11 +14413,13 @@ function App(){
   const[claimError,setClaimError]=useState("");
   const claimCheckRef=useRef(null);
   const[familyCode,setFamilyCode]=useState(()=>{try{return localStorage.getItem("family_code")||null;}catch{return null;}});
+  const DAY_TOUR_STORAGE_KEY = "day_tut_v2";
   function queueAppTourAfterSetup(reason) {
     try {
       localStorage.setItem("ob_app_tour_pending_v1", reason || "setup");
       localStorage.removeItem("tut_v2");
       localStorage.removeItem("day_tut_v1");
+      localStorage.removeItem(DAY_TOUR_STORAGE_KEY);
     } catch {}
   }
   function clearPendingAppTour(markDone) {
@@ -14314,19 +14430,20 @@ function App(){
     } catch {}
   }
 			  const APP_TOUR_TARGETS = [
-			    ["today-hero", "quick-log-row", "nav-day"],
+			    ["clock-stage", "clock-home-lab", "nav-day"],
 			    ["care-primary-tools", "nav-insights"],
 			    ["nav-develop"],
 			    ["family-hub", "nav-settings"]
 			  ];
 		  const DAY_TOUR_TARGETS = [
-		    ["today-hero"],
-		    ["quick-log-row", "simple-actions"],
-		    ["detail-log-grid", "tile-schedule"]
+		    ["clock-stage", "clock-home-lab", "today-hero"],
+		    ["clock-home-log-buttons", "quick-log-row"],
+		    ["clock-panel-tabs", "today-plan-simple-card"],
+		    ["clock-stage", "clock-home-kindness"]
 		  ];
 			  const OB_APP_TOUR_JOURNEY = [
-			    { chapter:"Chapter 1", tab:"day", iconName:"timer", target:"Track", title:"Track the day", body:"Use Track for the clock, quick logs and live timers.\n\nOne tap is enough at 3am; details can come later." },
-			    { chapter:"Chapter 2", tab:"insights", iconName:"care", target:"Care", title:"Open the parent toolkit", body:"Care leads with the real tools: Weaning, Parent Room, Sleep Coach and Night Weaning.\n\nSleep, Feeding, Growth and Travel insights sit underneath." },
+			    { chapter:"Chapter 1", tab:"day", iconName:"timer", target:"Track clock", title:"Read the clock", body:"Track opens on the clock: the rim shows feeds, nappies, wakes, naps and bedtime in time order.\n\nLogged moments replace predictions as the day happens, with quick logs, Plan and Guidance right underneath." },
+			    { chapter:"Chapter 2", tab:"insights", iconName:"care", target:"Care", title:"Open the parent toolkit", body:"Care leads with the real tools: Bubba Care, Weaning, Parent Room, Sleep Coach and Night Weaning.\n\nSleep, Feeding, Growth and Travel insights sit underneath." },
 			    { chapter:"Chapter 3", tab:"develop", iconName:"growth", target:"Grow", title:"Support development gently", body:"Grow keeps activities, waves, milestones and teething together.\n\nIt is context, not another checklist." },
 			    { chapter:"Chapter 4", tab:"settings", iconName:"account", target:"Account", title:"Keep the app yours", body:"Account holds child settings, Share & Sync, Bubba Care sharing, Lock Bubba Care session, backups, preferences and replayable guides." }
 			  ];
@@ -16679,7 +16796,7 @@ function App(){
         // Keep device-level prefs + any keys not belonging to OBubba
         const keep = k === "ob_theme" || k === "ob_widget_theme" || k === "ob_locale";
         // Only clear keys that are known OBubba prefixes or explicit known keys
-        const isOBubba = k.startsWith("ob_") || k.startsWith("obubba") || k.startsWith("nap_") || k.startsWith("bed_") || k.startsWith("breast_") || k.startsWith("timer_") || k.startsWith("weaning_started_") || ["children_v1","active_child","backup_code","family_code","family_username","auth_verified","tut_v2","day_tut_v1","install_date_v1","onboarded_v2","needs_child_setup_v1","use_personal_recs_v1","fluid_unit_v1","measure_unit_v1","temp_unit_v1","reminders_v1","appointments_v1","pinned_notes_v1","meds_v1","saved_meds_v1","emergency_contacts_v1","carer_notes_v1","carer_comfort_v1","wellbeing_history_v1","wellbeing_date_v1","wb_response_v1","allergen_profile_v1","weekly_digest_v1","sched_override_v1","bridge_nap_days_v1","safe_sleep_shown_v1","digest_last_shown","parent_nudge_date","ww_adjust","last_breast_side","pred_accuracy_v1","_lastWidgetData","_hasBreast","child_sync_codes_v1","bn_v2","bw_v2","dob_v1","sex_v1","unborn_v1","ms_v1","bio_enabled","bio_pin","bio_user","recovery_email_v1","reclaim_username","obuddy_handoff_v1","obuddy_remind_12mo_v1","beta_banner_v1","beta_emailed_v1","trial_banner_date"].includes(k);
+        const isOBubba = k.startsWith("ob_") || k.startsWith("obubba") || k.startsWith("nap_") || k.startsWith("bed_") || k.startsWith("breast_") || k.startsWith("timer_") || k.startsWith("weaning_started_") || ["children_v1","active_child","backup_code","family_code","family_username","auth_verified","tut_v2","day_tut_v1","day_tut_v2","install_date_v1","onboarded_v2","needs_child_setup_v1","use_personal_recs_v1","fluid_unit_v1","measure_unit_v1","temp_unit_v1","reminders_v1","appointments_v1","pinned_notes_v1","meds_v1","saved_meds_v1","emergency_contacts_v1","carer_notes_v1","carer_comfort_v1","wellbeing_history_v1","wellbeing_date_v1","wb_response_v1","allergen_profile_v1","weekly_digest_v1","sched_override_v1","bridge_nap_days_v1","safe_sleep_shown_v1","digest_last_shown","parent_nudge_date","ww_adjust","last_breast_side","pred_accuracy_v1","_lastWidgetData","_hasBreast","child_sync_codes_v1","bn_v2","bw_v2","dob_v1","sex_v1","unborn_v1","ms_v1","bio_enabled","bio_pin","bio_user","recovery_email_v1","reclaim_username","obuddy_handoff_v1","obuddy_remind_12mo_v1","beta_banner_v1","beta_emailed_v1","trial_banner_date"].includes(k);
         if (!keep && isOBubba) { try { localStorage.removeItem(k); } catch {} }
       });
     } catch {}
@@ -16944,7 +17061,7 @@ function App(){
 	    if (tab === "day" && !daySubScreen && dayTutStep === -1 && tutStep === -1) {
 	      try {
         const mainDone = localStorage.getItem("tut_v2");
-        const dayDone = localStorage.getItem("day_tut_v1");
+        const dayDone = localStorage.getItem(DAY_TOUR_STORAGE_KEY);
         const daysLogged = Object.keys(days).filter(d=>(days[d]||[]).length>0).length;
         if (mainDone && !dayDone && daysLogged >= 1) {
           const _t = setTimeout(()=>setDayTutStep(0), 1200);
@@ -21108,17 +21225,27 @@ function App(){
       let _wp = null, _wpMs = null, _wpLabel = null;
       if (_ne && _ne.type && typeof _ne.targetMs === "number") {
         const _targetMs = _ne.targetMs;
-        const _safeTargetMs = _targetMs >= Date.now() - 5*60*1000 ? Math.max(_targetMs, Date.now() + 1000) : null;
+        const _isOverdue = _targetMs < Date.now();
+        const _overdueByMins = _isOverdue ? Math.round((Date.now() - _targetMs) / 60000) : 0;
         const _eventLabel = _ne.label || (_ne.type === "bed" ? "Bedtime" : ("Nap " + ((napsDone || 0) + 1)));
         const _eventTime = _ne.timeStr || (typeof _ne.timeMins === "number" ? fmt12(_ne.timeMins) : "");
-        _wp = _eventLabel + (_eventTime ? " ~" + _eventTime : "");
-        _wpLabel = _eventLabel;
-        _wpMs = _safeTargetMs;
+        // When overdue: show "Nap 1 ~2:30pm (overdue)" with null ms so widget doesn't countdown
+        // When upcoming: show target ms for widget countdown
+        if (_isOverdue) {
+          _wp = _eventLabel + (_eventTime ? " ~" + _eventTime : "") + " (overdue)";
+          _wpLabel = _eventLabel + " overdue";
+          _wpMs = null; // Don't give widget a target — it's past
+        } else {
+          _wp = _eventLabel + (_eventTime ? " ~" + _eventTime : "");
+          _wpLabel = _eventLabel;
+          _wpMs = _targetMs;
+        }
       } else if (bedMins && !hasBedtime) {
-        _wp = "Bed ~" + fmt12(bedMins);
-        _wpLabel = "Bedtime";
         var _bpD = new Date(); _bpD.setHours(Math.floor(bedMins/60)%24, bedMins%60, 0, 0);
-        if (_bpD.getTime() >= Date.now() - 5*60*1000) _wpMs = Math.max(_bpD.getTime(), Date.now() + 1000);
+        const _bedOverdue = _bpD.getTime() < Date.now();
+        _wp = "Bed ~" + fmt12(bedMins) + (_bedOverdue ? " (overdue)" : "");
+        _wpLabel = _bedOverdue ? "Bedtime overdue" : "Bedtime";
+        _wpMs = _bedOverdue ? null : _bpD.getTime();
       }
       tickDataRef.current.nextPrediction = _wp;
       tickDataRef.current.nextPredictionMs = _wpMs;
@@ -36703,8 +36830,8 @@ function App(){
     sections.push(`<div style="text-align:center;margin-bottom:24px">
       <div style="font-size:40px;margin-bottom:8px">👶</div>
       <h1 style="font-family:Georgia,serif;font-size:28px;color:#5B4F5F;margin:0">${nameHtml}'s Bubba Care</h1>
-      ${ageStr ? `<p style="color:#A898AC;margin:4px 0">${ageHtml} old</p>` : ""}
-      <p style="color:#ccc;font-size:12px;margin:2px 0">Generated ${new Date().toLocaleDateString(navigator.language||"en-GB", { weekday: "short", day: "numeric", month: "short" })} at ${fmt12(nowTime())}</p>
+      ${ageStr ? `<p style="color:#8A7888;margin:4px 0">${ageHtml} old</p>` : ""}
+      <p style="color:#999;font-size:12px;margin:2px 0">Generated ${new Date().toLocaleDateString(navigator.language||"en-GB", { weekday: "short", day: "numeric", month: "short" })} at ${fmt12(nowTime())}</p>
     </div>`);
 
     // IMPORTANT NOTES (allergies, medical)
@@ -36719,41 +36846,41 @@ function App(){
     sections.push(`<div style="background:#FFF8F2;border:1px solid #F0D0C8;border-radius:16px;padding:16px;margin-bottom:12px">
       <h2 style="color:#C07088;font-size:16px;margin:0 0 10px">🍼 Feeding</h2>
       <table style="width:100%;font-size:14px;color:#5B4F5F">
-        <tr><td style="padding:4px 0;color:#A898AC">Type</td><td style="padding:4px 0;font-weight:600">${htmlEscape(feedTypeLabel)}</td></tr>
-        ${avgAmount > 0 ? `<tr><td style="padding:4px 0;color:#A898AC">Typical amount</td><td style="padding:4px 0;font-weight:600">~${htmlEscape(fmtVol(avgAmount, FU))} per feed</td></tr>` : ""}
-        ${avgFeeds > 0 ? `<tr><td style="padding:4px 0;color:#A898AC">Typical frequency</td><td style="padding:4px 0;font-weight:600">~${avgFeeds} feeds/day</td></tr>` : ""}
-        ${lastFeed ? `<tr><td style="padding:4px 0;color:#A898AC">Last feed</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(lastFeed.time))}${lastFeed.amount ? ". " + htmlEscape(fmtVol(lastFeed.amount, FU)) : ""}${lastFeed.feedType === "breast" ? " (breast)" : ""}</td></tr>` : ""}
-        ${nextFeedEst ? `<tr><td style="padding:4px 0;color:#A898AC">Next feed around</td><td style="padding:4px 0;font-weight:600">~${fmt12(nextFeedEst)}</td></tr>` : ""}
+        <tr><td style="padding:4px 0;color:#8A7888">Type</td><td style="padding:4px 0;font-weight:600">${htmlEscape(feedTypeLabel)}</td></tr>
+        ${avgAmount > 0 ? `<tr><td style="padding:4px 0;color:#8A7888">Typical amount</td><td style="padding:4px 0;font-weight:600">~${htmlEscape(fmtVol(avgAmount, FU))} per feed</td></tr>` : ""}
+        ${avgFeeds > 0 ? `<tr><td style="padding:4px 0;color:#8A7888">Typical frequency</td><td style="padding:4px 0;font-weight:600">~${avgFeeds} feeds/day</td></tr>` : ""}
+        ${lastFeed ? `<tr><td style="padding:4px 0;color:#8A7888">Last feed</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(lastFeed.time))}${lastFeed.amount ? ". " + htmlEscape(fmtVol(lastFeed.amount, FU)) : ""}${lastFeed.feedType === "breast" ? " (breast)" : ""}</td></tr>` : ""}
+        ${nextFeedEst ? `<tr><td style="padding:4px 0;color:#8A7888">Next feed around</td><td style="padding:4px 0;font-weight:600">~${fmt12(nextFeedEst)}</td></tr>` : ""}
       </table>
       <p style="font-size:13px;color:#7A6B7E;margin:8px 0 4px;line-height:1.5">💡 <b>Feed every ${age&&age.totalWeeks<8?"2–3":"3–4"} hours</b>. or sooner if ${nameHtml} shows hunger cues (rooting, lip-smacking, hand-to-mouth). Don't worry about exact timing. follow ${nameHtml}'s lead.</p>
-      ${feedTypes.includes("breast") ? `<p style="font-size:12px;color:#A898AC;margin:8px 0 0">If breastfed: ${nameHtml} may feed on demand. Breast milk is stored in the fridge. use within 24 hours.</p>` : ""}
+      ${feedTypes.includes("breast") ? `<p style="font-size:12px;color:#8A7888;margin:8px 0 0">If breastfed: ${nameHtml} may feed on demand. Breast milk is stored in the fridge. use within 24 hours.</p>` : ""}
     </div>`);
 
     // NAPPIES
     sections.push(`<div style="background:#FFF9F0;border:1px solid #F0E0C8;border-radius:16px;padding:16px;margin-bottom:12px">
       <h2 style="color:#B08030;font-size:16px;margin:0 0 10px">💧💩 Nappies</h2>
       <table style="width:100%;font-size:14px;color:#5B4F5F">
-        <tr><td style="padding:4px 0;color:#A898AC">Today's nappies</td><td style="padding:4px 0;font-weight:600">${nappyCount} (${wetCount} wet${poopEntries.length ? ", " + poopEntries.length + " dirty" : ""})</td></tr>
-        ${lastNappy ? `<tr><td style="padding:4px 0;color:#A898AC">Last nappy</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(lastNappy.time))}. ${htmlEscape(lastNappy.poopType||"wet")}</td></tr>` : ""}
-        <tr><td style="padding:4px 0;color:#A898AC">Last poop</td><td style="padding:4px 0;font-weight:600;${poopDaysAgo!==null&&poopDaysAgo>=3?"color:#d4a020":""}">
+        <tr><td style="padding:4px 0;color:#8A7888">Today's nappies</td><td style="padding:4px 0;font-weight:600">${nappyCount} (${wetCount} wet${poopEntries.length ? ", " + poopEntries.length + " dirty" : ""})</td></tr>
+        ${lastNappy ? `<tr><td style="padding:4px 0;color:#8A7888">Last nappy</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(lastNappy.time))}. ${htmlEscape(lastNappy.poopType||"wet")}</td></tr>` : ""}
+        <tr><td style="padding:4px 0;color:#8A7888">Last poop</td><td style="padding:4px 0;font-weight:600;${poopDaysAgo!==null&&poopDaysAgo>=3?"color:#d4a020":""}">
           ${lastPoop ? htmlEscape(fmt12(lastPoop.time)) + " today" : poopDaysAgo !== null ? poopDaysAgo + " day" + (poopDaysAgo===1?"":"s") + " ago" : "Not logged"}
         </td></tr>
-        <tr><td style="padding:4px 0;color:#A898AC">Hydration target</td><td style="padding:4px 0;font-weight:600">${wetCount} wet · ${_ccHydScore}/${_ccHydTarget} hydration score${_ccHydOk?" ✅":""}</td></tr>
+        <tr><td style="padding:4px 0;color:#8A7888">Hydration target</td><td style="padding:4px 0;font-weight:600">${wetCount} wet · ${_ccHydScore}/${_ccHydTarget} hydration score${_ccHydOk?" ✅":""}</td></tr>
       </table>
-      <p style="font-size:12px;color:#A898AC;margin:8px 0 0">Target is age-adjusted (${_ccHydTarget}+ hydration score in 24h). A long overnight nappy counts as 2–3. ${_ccCheckGuidance}</p>
+      <p style="font-size:12px;color:#8A7888;margin:8px 0 0">Target is age-adjusted (${_ccHydTarget}+ hydration score in 24h). A long overnight nappy counts as 2–3. ${_ccCheckGuidance}</p>
     </div>`);
 
     // SLEEP & ROUTINE
     sections.push(`<div style="background:#F0F8F5;border:1px solid #d4ede6;border-radius:16px;padding:16px;margin-bottom:12px">
       <h2 style="color:#6fa898;font-size:16px;margin:0 0 10px">😴 Sleep & Routine</h2>
       <table style="width:100%;font-size:14px;color:#5B4F5F">
-        ${wakeEntry ? `<tr><td style="padding:4px 0;color:#A898AC">Woke up today</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(wakeEntry.time))}</td></tr>` : ""}
-        ${ww ? `<tr><td style="padding:4px 0;color:#A898AC">Wake window</td><td style="padding:4px 0;font-weight:600">${htmlEscape(ww.label)} between sleeps</td></tr>` : ""}
-        ${lastNap ? `<tr><td style="padding:4px 0;color:#A898AC">Last nap</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(lastNap.start))} – ${htmlEscape(fmt12(lastNap.end))} (${htmlEscape(hm(minDiff(lastNap.start, lastNap.end)))})</td></tr>` : ""}
-        ${pred ? `<tr><td style="padding:4px 0;color:#A898AC">Next nap window</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(pred.napStart_min))} – ${htmlEscape(fmt12(pred.napStart_max))}</td></tr>` : ""}
-        ${bed ? `<tr><td style="padding:4px 0;color:#A898AC">${bed.estimated?"Estimated bedtime":"Predicted bedtime"}</td><td style="padding:4px 0;font-weight:600">${bed.estimated?"~":""}${htmlEscape(fmt12(bed.time))}</td></tr>` : ""}
+        ${wakeEntry ? `<tr><td style="padding:4px 0;color:#8A7888">Woke up today</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(wakeEntry.time))}</td></tr>` : ""}
+        ${ww ? `<tr><td style="padding:4px 0;color:#8A7888">Wake window</td><td style="padding:4px 0;font-weight:600">${htmlEscape(ww.label)} between sleeps</td></tr>` : ""}
+        ${lastNap ? `<tr><td style="padding:4px 0;color:#8A7888">Last nap</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(lastNap.start))} – ${htmlEscape(fmt12(lastNap.end))} (${htmlEscape(hm(minDiff(lastNap.start, lastNap.end)))})</td></tr>` : ""}
+        ${pred ? `<tr><td style="padding:4px 0;color:#8A7888">Next nap window</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(pred.napStart_min))} – ${htmlEscape(fmt12(pred.napStart_max))}</td></tr>` : ""}
+        ${bed ? `<tr><td style="padding:4px 0;color:#8A7888">${bed.estimated?"Estimated bedtime":"Predicted bedtime"}</td><td style="padding:4px 0;font-weight:600">${bed.estimated?"~":""}${htmlEscape(fmt12(bed.time))}</td></tr>` : ""}
       </table>
-      <p style="font-size:12px;color:#A898AC;margin:8px 0 0">Watch for tired cues: yawning, rubbing eyes, looking away, fussing. Put ${nameHtml} down when you see these signs. don't wait until they're overtired.</p>
+      <p style="font-size:12px;color:#8A7888;margin:8px 0 0">Watch for tired cues: yawning, rubbing eyes, looking away, fussing. Put ${nameHtml} down when you see these signs. don't wait until they're overtired.</p>
     </div>`);
 
     // SAFE SLEEP. country-aware source label
@@ -36840,11 +36967,11 @@ function App(){
         <b>Non-emergency:</b> ${nonEmergencyLabelHtml}<br>
         <b>If concerned:</b> Contact ${healthContactHtml}
       </div>
-      <p style="font-size:12px;color:#A898AC;margin:8px 0 0">If ${nameHtml} is unresponsive, has difficulty breathing, has a high temperature (${feverTempHtml}+ in under 3 months), a rash that doesn't fade under pressure, or you're worried. please call ${emergNumHtml}.</p>
+      <p style="font-size:12px;color:#8A7888;margin:8px 0 0">If ${nameHtml} is unresponsive, has difficulty breathing, has a high temperature (${feverTempHtml}+ in under 3 months), a rash that doesn't fade under pressure, or you're worried. please call ${emergNumHtml}.</p>
     </div>`);
 
     // Footer
-    sections.push(`<div style="text-align:center;padding:16px 0;color:#ccc;font-size:11px">
+    sections.push(`<div style="text-align:center;padding:16px 0;color:#999;font-size:11px">
       Generated by OBubba · obubba.com<br>
       Safe sleep advice: ${safeSleepSourceHtml}
     </div>`);
@@ -36867,7 +36994,7 @@ function App(){
     sections.push(`<div style="text-align:center;margin:16px 0 8px;padding:16px;background:#f8f4f0;border-radius:16px">
       <div style="font-size:13px;font-weight:700;color:#5B4F5F;margin-bottom:8px">📱 Bubba Care</div>
       <img src="${qrUrlHtml}" alt="QR Code" style="width:150px;height:150px;border-radius:8px;border:2px solid #e8ddd5"/>
-      <div style="font-size:12px;color:#A898AC;margin-top:8px">Scan the QR code or tap the link below</div>
+      <div style="font-size:12px;color:#8A7888;margin-top:8px">Scan the QR code or tap the link below</div>
       <a href="${carerPortalUrlHtml}" style="display:inline-block;margin-top:8px;padding:10px 20px;border-radius:99px;background:linear-gradient(135deg,#C07088,#a85a44);color:white;font-size:14px;font-weight:700;text-decoration:none">Open Bubba Care →</a>
       <div style="font-size:10px;color:#C0A8B0;margin-top:8px">Carers can log feeds, naps & nappies. you'll review them in the app</div>
     </div>`);
@@ -36991,11 +37118,21 @@ function App(){
     } catch(e) { showCareTokenError(e); return; }
 
     // Village unlock: first Bubba Care share = 7 days premium
+    // Persisted to BOTH localStorage AND cloud to prevent reset-by-reinstall exploit
     const _villageUnlock = ()=>{try {
-      if (!localStorage.getItem("ob_village_unlocked")) {
+      const _alreadyClaimed = localStorage.getItem("ob_village_unlocked") || (activeChild && activeChild._villageClaimed);
+      if (!_alreadyClaimed) {
         localStorage.setItem("ob_village_unlocked", "1");
         const villageEnd = new Date(Date.now() + 7*24*60*60*1000).toISOString();
         localStorage.setItem("ob_village_end", villageEnd);
+        // Persist to cloud so it survives reinstall
+        try {
+          setChildren(prev => {
+            const cid = resolvedActiveId;
+            if (!cid || !prev[cid]) return prev;
+            return {...prev, [cid]: {...prev[cid], _villageClaimed: true, _villageEnd: villageEnd}};
+          });
+        } catch {}
         showToast("🏘️ Village activated! 7 days of premium. because it takes a village.", 4000, 1);
       }
     } catch {}};
@@ -38905,14 +39042,12 @@ function App(){
             repaired++;
           }
         }
-        // Fix naps that should be bedtimes (sleep starting after 6pm)
+        // Fix old imported naps that were really bedtime rows. Manual bridge
+        // naps after 6pm must stay naps.
         patched[dk] = (patched[dk] || []).map(e => {
-          if (e.type === "nap" && e.start) {
-            const sh = clockHour(e.start);
-            if (sh !== null && (sh >= 18 || sh < 4)) {
-              repaired++;
-              return {...e, type: "sleep", time: e.start, night: false};
-            }
+          if (importRepairShouldPromoteNapToSleep(e)) {
+            repaired++;
+            return {...e, type: "sleep", time: e.start, night: false};
           }
           return e;
         });
@@ -41115,6 +41250,7 @@ function App(){
 	    const clockLabTodayKey = todayStr();
 	    const clockLabIsToday = dayKey === clockLabTodayKey;
 	    const entriesForDay = (days[dayKey] || []).filter(e => e && e.type && !e._deleted);
+	    const prevEntriesForDay = (days[prevCalDay(dayKey)] || []).filter(e => e && e.type && !e._deleted);
 	    const nextEntriesForDay = (days[nextCalDay(dayKey)] || []).filter(e => e && e.type && !e._deleted);
 	    const isClockLabRealLog = (entry) => !!(entry && entry.type && !entry._placeholder && !entry.estimated && !entry.predicted && entry.source !== "prediction" && entry.src !== "prediction");
 	    const isClockLabLoggedBedtime = (entry) => !!(isClockLabRealLog(entry) && entry.type === "sleep" && !entry.night && (entry.time || entry.start));
@@ -41174,32 +41310,53 @@ function App(){
 	    const td = tickDataRef.current || {};
 	    const rawNextEvent = td.nextEvent || null;
 	    const rawNextMins = typeof rawNextEvent?.timeMins === "number" ? rawNextEvent.timeMins : clockLabMins(rawNextEvent?.timeStr || rawNextEvent?.time || "");
+	    const clockBedtimeOverdueKeepMins = 4 * 60;
 	    const clockLabPredictionIsCurrent = (event, mins) => {
 	      if (!clockLabIsToday || activeTimer || !event || mins === null) return false;
 	      const kind = event.type === "bed" ? "sleep" : event.type;
 	      if (kind === "sleep" && clockBedtimeLogged) return false;
-	      if (typeof event.targetMs === "number" && Number.isFinite(event.targetMs) && event.targetMs < Date.now() - (kind === "nap" ? 45 : 5) * 60000 && !event.overdue) return false;
-	      if (kind === "sleep" && mins < nowMins - 5) return false;
+	      if (kind === "sleep") {
+	        if (typeof event.targetMs === "number" && Number.isFinite(event.targetMs)) {
+	          if (event.targetMs <= Date.now() && event.targetMs >= Date.now() - clockBedtimeOverdueKeepMins * 60000) return true;
+	          if (event.targetMs < Date.now() - clockBedtimeOverdueKeepMins * 60000 && !event.overdue) return false;
+	        }
+	        if (event.overdue) return true;
+	        if (mins < nowMins - clockBedtimeOverdueKeepMins) return false;
+	        return mins >= nowMins - clockBedtimeOverdueKeepMins;
+	      }
+	      if (typeof event.targetMs === "number" && Number.isFinite(event.targetMs) && event.targetMs < Date.now() - 45 * 60000 && !event.overdue) return false;
 	      if (kind === "nap" && event.overdue) return true;
-	      return mins >= nowMins - (kind === "nap" ? 45 : 5);
+	      return mins >= nowMins - 45;
 	    };
 			    const nextEvent = clockLabPredictionIsCurrent(rawNextEvent, rawNextMins) ? rawNextEvent : null;
 			    const nextMins = nextEvent ? rawNextMins : null;
 			    const nextDue = !!(nextEvent && nextEvent.type === "nap" && (nextEvent.overdue || (nextMins !== null && nowMins >= nextMins)));
 			    const nextCountdown = nextEvent && nextMins !== null ? Math.max(0, nextMins - nowMins) : null;
-			    const clockPredictionCountdownTextLab = (mins, overdue = false) => {
+			    const clockOverdueTextLab = (mins, targetMs) => {
+			      let overdueMins = null;
+			      if (typeof targetMs === "number" && Number.isFinite(targetMs) && targetMs < Date.now()) {
+			        overdueMins = Math.max(1, Math.round((Date.now() - targetMs) / 60000));
+			      } else {
+			        const raw = Number(mins);
+			        if (Number.isFinite(raw) && raw < nowMins) overdueMins = Math.max(1, Math.round(nowMins - raw));
+			      }
+			      return overdueMins ? "overdue by " + hm(overdueMins) : "";
+			    };
+			    const clockPredictionCountdownTextLab = (mins, overdue = false, targetMs = null) => {
 			      const raw = Number(mins);
 			      if (!Number.isFinite(raw)) return "";
+			      const overdueText = overdue || raw < nowMins || (typeof targetMs === "number" && Number.isFinite(targetMs) && targetMs < Date.now()) ? clockOverdueTextLab(raw, targetMs) : "";
+			      if (overdueText) return overdueText;
 			      const remaining = overdue ? 0 : Math.max(0, Math.round(raw - nowMins));
 			      return remaining <= 0 ? "now" : "in " + hm(remaining);
 			    };
 			    const clockPredictionDetailLab = (item) => {
 			      if (!item) return "";
-			      const countdownText = item.countdownText || clockPredictionCountdownTextLab(item.start, item.overdue);
+			      const countdownText = item.countdownText || clockPredictionCountdownTextLab(item.start, item.overdue, item.targetMs);
 			      const timeText = item.time || "";
 			      return [countdownText, timeText].filter(Boolean).join(" · ");
 			    };
-			    const clockPredictionCountdownOnlyLab = (item) => item ? (item.countdownText || clockPredictionCountdownTextLab(item.start, item.overdue)) : "";
+			    const clockPredictionCountdownOnlyLab = (item) => item ? (item.countdownText || clockPredictionCountdownTextLab(item.start, item.overdue, item.targetMs)) : "";
 			    const clockPredictionTimeOnlyLab = (item) => item ? (item.time || (Number.isFinite(Number(item.start)) ? clockLabFmt12(mtp24h(Number(item.start))) : "")) : "";
 			    const clockCenterFriendlyTitleLab = (event, fallback = "") => {
 			      const type = event?.type === "bed" ? "sleep" : event?.type;
@@ -41211,7 +41368,7 @@ function App(){
 			        if (/bridge/i.test(label)) return "Nap window";
 			        return "Nap soon";
 			      }
-			      if (type === "sleep") return event?.overdue ? "Bedtime" : "Bedtime soon";
+			      if (type === "sleep") return event?.overdue || (typeof event?.targetMs === "number" && event.targetMs <= Date.now()) ? "Bedtime" : "Bedtime soon";
 			      if (/bridge/i.test(label)) return "Nap window";
 			      return label || "Next up";
 			    };
@@ -41220,7 +41377,7 @@ function App(){
 			      if (nextEvent) {
 			        const type = nextEvent.type === "bed" ? "sleep" : nextEvent.type;
 			        const title = clockCenterFriendlyTitleLab(nextEvent, type === "sleep" ? "bedtime" : type === "nap" ? "nap" : "next");
-			        return {title, sub:clockPredictionCountdownOnlyLab({start:nextMins, overdue:!!nextEvent.overdue, time:nextEvent.timeStr || (nextMins !== null ? clockLabFmt12(mtp24h(nextMins)) : "")})};
+			        return {title, sub:clockPredictionCountdownOnlyLab({start:nextMins, overdue:!!nextEvent.overdue, targetMs:nextEvent.targetMs, time:nextEvent.timeStr || (nextMins !== null ? clockLabFmt12(mtp24h(nextMins)) : "")})};
 			      }
 			      if (typeof td.nextNapMins === "number" && clockLabPredictionIsCurrent({type:"nap",label:"Nap " + ((td.napsDone || 0) + 1), overdue:td.nextNapMins <= nowMins}, td.nextNapMins)) {
 			        return {title:td.nextNapMins <= nowMins ? "Nap now" : "Nap " + ((td.napsDone || 0) + 1), sub:clockPredictionCountdownOnlyLab({start:td.nextNapMins, overdue:td.nextNapMins <= nowMins, time:clockLabFmt12(mtp24h(td.nextNapMins))})};
@@ -41263,6 +41420,7 @@ function App(){
 	      wake:{label:"Wake",color:"#FFF34D",glow:"rgba(255,243,77,0.50)",icon:"sun"},
 	      "night-wake":{label:"Night wake",color:"#00D9FF",glow:"rgba(0,217,255,0.58)",icon:"moon"},
 	      sleep:{label:"Bedtime",color:"#FF9B3A",glow:"rgba(255,155,58,0.50)",icon:"moon"},
+	      "sleep-carry":{label:"Sleep continued",color:"#91A4D8",glow:"rgba(145,164,216,0.28)",icon:"moon"},
 	      pump:{label:"Pump",color:"#B45CFF",glow:"rgba(180,92,255,0.50)",icon:"pump"},
 	      medicine:{label:"Medicine",color:"#FF6B4A",glow:"rgba(255,107,74,0.48)",icon:"wellbeing"},
 	      tummy:{label:"Solids",color:"#00E676",glow:"rgba(0,230,118,0.46)",icon:"sparkle"}
@@ -41274,6 +41432,7 @@ function App(){
 	      wake:{label:"Wake",color:"#FFF34D",glow:"rgba(255,243,77,0.44)",icon:"sun"},
 	      "night-wake":{label:"Night wake",color:"#00D9FF",glow:"rgba(0,217,255,0.52)",icon:"moon"},
 	      sleep:{label:"Bedtime",color:"#FF9B3A",glow:"rgba(255,155,58,0.44)",icon:"moon"},
+	      "sleep-carry":{label:"Sleep continued",color:"#7197BD",glow:"rgba(113,151,189,0.24)",icon:"moon"},
 	      pump:{label:"Pump",color:"#B45CFF",glow:"rgba(180,92,255,0.44)",icon:"pump"},
 	      medicine:{label:"Medicine",color:"#FF6B4A",glow:"rgba(255,107,74,0.44)",icon:"wellbeing"},
 	      tummy:{label:"Solids",color:"#00E676",glow:"rgba(0,230,118,0.42)",icon:"sparkle"}
@@ -41288,7 +41447,7 @@ function App(){
       const mins = clockLabMins(raw);
       return mins === null ? null : mins;
     };
-	    const clockSleepEndLab = (entry, start) => {
+	    const clockSleepEndInEntriesLab = (entry, start, sameEntries, followingEntries, activeDayKey = dayKey) => {
 	      if (!entry || entry.type !== "sleep") return null;
 	      const rawStart = entry.time || entry.start || activeSleepStart || "";
 	      if (entry.end && entry.end !== rawStart) {
@@ -41299,23 +41458,25 @@ function App(){
 	        const end = clockLabMins(entry.wakeTime);
 	        if (end !== null) return {time:entry.wakeTime, mins:end <= start ? end + 1440 : end, source:"entry"};
 	      }
-	      if (clockBedOnThisDay && rawStart && (rawStart === activeSleepStart || entry.time === activeSleepStart || entry.start === activeSleepStart)) {
+	      const isActiveSleepForDay = !!(activeBedTimerDay && activeBedTimerDay === activeDayKey);
+	      if (isActiveSleepForDay && rawStart && (rawStart === activeSleepStart || entry.time === activeSleepStart || entry.start === activeSleepStart)) {
 	        return {time:nowTime(), mins:Math.max(start + 6, start + clockLabMinDiff(rawStart, nowTime())), source:"active"};
 	      }
-	      const sameDayWake = entriesForDay
+	      const sameDayWake = (sameEntries || [])
 	        .filter(e => e && e.type === "wake" && !e.night && e.time && clockLabMins(e.time) !== null && clockLabMins(e.time) > start)
 	        .sort((a,b)=>clockLabMins(a.time)-clockLabMins(b.time))[0];
 	      if (sameDayWake) {
 	        const end = clockLabMins(sameDayWake.time);
 	        if (end !== null) return {time:sameDayWake.time, mins:end, source:"same-day-wake"};
 	      }
-	      const nextMorningWake = clockLabFindMorningWake(nextEntriesForDay);
+	      const nextMorningWake = clockLabFindMorningWake(followingEntries);
 	      if (nextMorningWake && nextMorningWake.time) {
 	        const end = clockLabMins(nextMorningWake.time);
 	        if (end !== null) return {time:nextMorningWake.time, mins:end <= start ? end + 1440 : end, source:"morning-wake"};
 	      }
 	      return null;
 	    };
+	    const clockSleepEndLab = (entry, start) => clockSleepEndInEntriesLab(entry, start, entriesForDay, nextEntriesForDay, dayKey);
 	    const isActiveClockNapLab = (entry) => !!(entry && entry.type === "nap" && clockNapOnThisDay && !hasCompletedNapSpan(entry) && (entry.id === napEntryId || entry.start === napStartT || entry._active));
 	    const clockActiveNapElapsedSecLab = () => Math.max(0, Math.floor(Number(napSec) || 0));
 	    const clockNapDurationLab = (entry) => {
@@ -41392,7 +41553,7 @@ function App(){
 		      if (!entry) return "Log";
 		      if (clockIsNightWakeTimelineEntryLab(entry) && entry.type === "feed" && isNightWakeTimedLab(entry)) {
 		        const duration = clockNightWakeDurationLab(entry);
-		        return (entry.dreamFeed ? "Dream feed" : "Night feed") + (duration ? " · " + hm(duration) : "") + (entry.amount ? " · " + entry.amount + "ml" : "");
+		        return (entry.dreamFeed ? "Dream feed" : "Night wake") + (duration ? " · " + hm(duration) : "") + (entry.amount ? " · " + entry.amount + "ml" : "");
 		      }
 		      if (entry.type === "feed") return (entry.feedType === "breast" ? "Breast feed" : entry.feedType === "solids" ? "Solids" : "Feed") + (entry.amount ? " · " + entry.amount + "ml" : "");
 	      if (entry.type === "poop") return "Nappy" + (entry.poopType ? " · " + entry.poopType : "");
@@ -41417,7 +41578,7 @@ function App(){
 		      }
 		      return eventMeta[entry.type]?.label || String(entry.type || "Log");
 		    };
-		    const entryVisualKindLab = (entry) => entry && clockIsNightWakeTimelineEntryLab(entry) && (entry.type === "wake" || (entry.type === "feed" && isNightWakeTimedLab(entry))) ? "night-wake" : entry && entry.type === "feed" && entry.feedType === "pump" ? "pump" : entry && entry.type === "feed" && entry.feedType === "solids" ? "tummy" : entry?.type;
+		    const entryVisualKindLab = (entry) => entry && entry._clockCarrySleep ? "sleep-carry" : entry && clockIsNightWakeTimelineEntryLab(entry) && (entry.type === "wake" || (entry.type === "feed" && isNightWakeTimedLab(entry))) ? "night-wake" : entry && entry.type === "feed" && entry.feedType === "pump" ? "pump" : entry && entry.type === "feed" && entry.feedType === "solids" ? "tummy" : entry?.type;
 	    const clockRangeLab = (start, end) => {
 	      const a = clockLabFmt12(start);
 	      const b = clockLabFmt12(end);
@@ -41450,6 +41611,54 @@ function App(){
 	        if (start && sleepEnd) return clockRangeLab(start, sleepEnd.time);
 		      }
 		      return clockLabFmt12(entry.time || entry.start || "");
+		    };
+		    const clockItemDurationMinsLab = (item) => {
+		      if (!item || !Number.isFinite(item.start) || !Number.isFinite(item.end)) return 0;
+		      return Math.max(0, Math.min(16 * 60, Math.round(item.end - item.start)));
+		    };
+		    const clockItemTimeRangeLab = (item) => {
+		      if (!item || !item.entry) return "";
+		      if (isTimedClockEntry(item.entry) && Number.isFinite(item.start) && Number.isFinite(item.end)) {
+		        return clockRangeLab(mtp24h(((item.start % 1440) + 1440) % 1440), mtp24h(((item.end % 1440) + 1440) % 1440));
+		      }
+		      return entryTimeRangeLab(item.entry);
+		    };
+		    const clockItemLabelLab = (item) => {
+		      if (!item || !item.entry) return "Log";
+		      if (item.entry._clockCarrySleep) {
+		        const mins = clockItemDurationMinsLab(item);
+		        return "Sleep continued" + (mins ? " · " + hm(mins) : "");
+		      }
+		      if (entryVisualKindLab(item.entry) === "sleep") {
+		        const mins = clockItemDurationMinsLab(item);
+		        return "Bedtime" + (mins ? " · " + hm(mins) : "");
+		      }
+		      return entryLabelLab(item.entry);
+		    };
+		    const clockItemDetailLab = (item) => {
+		      if (!item || !item.entry) return "";
+		      if (item.entry._clockCarrySleep) {
+		        const original = clockLabFmt12(item.entry._clockOriginalTime || item.entry.time || item.entry.start || "");
+		        const mins = clockItemDurationMinsLab(item);
+		        return clockLogJoinLab(original ? "from " + original + " bedtime" : "from previous bedtime", mins ? hm(mins) : "");
+		      }
+		      if (entryVisualKindLab(item.entry) === "sleep") {
+		        const mins = clockItemDurationMinsLab(item);
+		        return mins ? hm(mins) : "sleep";
+		      }
+		      if (item.entry.type === "wake" && clockIsNightWakeTimelineEntryLab(item.entry)) {
+		        const feeds = clockNightWakeSettlingFeedMapLab.get(String(item.entry.id || item.index)) || [];
+		        if (feeds.length) {
+		          const feedDetail = feeds.map(feed => {
+		            const amount = clockLogAmountLab(feed.amount || feed.ml);
+		            const method = feed.feedType === "breast" ? "Breast" : "Milk";
+		            return clockLogJoinLab(method, amount);
+		          }).filter(Boolean).join(" · ");
+		          const duration = clockNightWakeDurationLab(item.entry);
+		          return clockLogJoinLab(duration ? "Soothed " + hm(duration) : "", feedDetail);
+		        }
+		      }
+		      return entryLogDetailLab(item.entry);
 		    };
 		    const clockLogJoinLab = (...parts) => parts.map(part => String(part || "").replace(/\s+/g, " ").trim()).filter(Boolean).join(" · ");
 		    const clockLogTextLab = (value, max = 38) => {
@@ -41512,6 +41721,7 @@ function App(){
 		      if (!entry) return "Log";
 		      if (entry.type === "feed") {
 		        if (entry.night && entry.dreamFeed) return "Dream feed";
+		        if (entry.night && isNightWakeTimedLab(entry)) return "Night wake";
 		        if (entry.night) return "Night feed";
 		        if (entry.feedType === "breast") return "Breastfeed";
 		        if (entry.feedType === "pump") return "Pump";
@@ -41583,30 +41793,78 @@ function App(){
     };
     const clockEventEntriesLab = (() => {
       const seen = new Set();
-      // Each day shows its own entries only. No cross-day merging.
-      // In wake-to-wake mode, night wakes live on bedTimerDay (yesterday)
-      // and show when viewing that day. Today shows today's entries only.
-      return entriesForDay.map(entry => ({entry, sourceDay:dayKey}))
-        .filter(item => isClockLabRealLog(item.entry) && ["feed","poop","nap","wake","sleep","medicine","tummy"].includes(item.entry.type))
-        .filter(item => {
-          const entry = item.entry;
-          const visualKind = entryVisualKindLab(entry);
-          const key = [entry.id || "", entry.type, visualKind, entry.feedType || "", entry.time || entry.start || "", entry.end || "", entry.night ? "night" : "day"].join("|");
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
+      const out = [];
+      const allowedTypes = ["feed","poop","nap","wake","sleep","medicine","tummy"];
+      const pushVisualEntry = (entry, sourceDay, opts = {}) => {
+        if (!isClockLabRealLog(entry) || !allowedTypes.includes(entry.type)) return;
+        const visualKind = entryVisualKindLab(entry);
+        const key = [
+          sourceDay,
+          entry.id || "",
+          entry.type,
+          visualKind,
+          entry.feedType || "",
+          entry.time || entry.start || "",
+          entry.end || "",
+          entry.night ? "night" : "day",
+          opts.visualStart ?? "",
+          opts.visualEnd ?? "",
+          opts.visualOnly ? "visual" : "log"
+        ].join("|");
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push({entry, sourceDay, visualStart:opts.visualStart, visualEnd:opts.visualEnd, visualOnly:!!opts.visualOnly});
+      };
+      const entryIsWakeModeAfterMidnightNight = (entry) => {
+        if (dayBoundary !== "wake" || !entry) return false;
+        const mins = entryStartMins(entry);
+        if (mins === null || mins >= 13 * 60) return false;
+        return !!(entry.night || entry.nightLocked || clockIsLegacyNightWakeTimeLab(entry) || isNightWakeTimedLab(entry));
+      };
+      entriesForDay.forEach(entry => {
+        if (entryIsWakeModeAfterMidnightNight(entry)) return;
+        if (entry && entry.type === "sleep") {
+          const start = entryStartMins(entry);
+          const end = start !== null ? entryEndMins(entry, start) : null;
+          pushVisualEntry(entry, dayKey, start !== null && end !== null && end > 1440 ? {visualStart:start, visualEnd:1440} : {});
+          return;
+        }
+        pushVisualEntry(entry, dayKey);
+      });
+      if (dayBoundary === "wake") {
+        const prevDayKey = prevCalDay(dayKey);
+        prevEntriesForDay.forEach(entry => {
+          if (entryIsWakeModeAfterMidnightNight(entry)) pushVisualEntry(entry, prevDayKey);
         });
+        prevEntriesForDay.filter(isClockLabLoggedBedtime).forEach(entry => {
+          const start = entryStartMins(entry);
+          if (start === null) return;
+          const sleepEnd = clockSleepEndInEntriesLab(entry, start, prevEntriesForDay, entriesForDay, prevDayKey);
+          const end = sleepEnd ? Math.max(start + 6, sleepEnd.mins) : null;
+          const carryEnd = end !== null ? Math.min(1440, Math.max(0, end - 1440)) : 0;
+          if (carryEnd <= 5) return;
+          const carryEntry = {
+            ...entry,
+            _clockCarrySleep:true,
+            _clockCarryKey:(entry.id || "sleep") + "-clock-carry-" + dayKey,
+            _clockOriginalDay:prevDayKey,
+            _clockOriginalTime:entry.time || entry.start || ""
+          };
+          pushVisualEntry(carryEntry, prevDayKey, {visualStart:0, visualEnd:carryEnd, visualOnly:true});
+        });
+      }
+      return out;
     })();
 	    const clockEvents = clockEventEntriesLab
 	      .map((item, index) => {
 	        const entry = item.entry;
-        const start = entryStartMins(entry);
+        const start = Number.isFinite(item.visualStart) ? item.visualStart : entryStartMins(entry);
         if (start === null) return null;
         const bucket = Math.round(start / 5) * 5;
-        const end = entryEndMins(entry,start);
+        const end = Number.isFinite(item.visualEnd) ? item.visualEnd : entryEndMins(entry,start);
         const nowForEvent = end > 1440 && nowMins < start ? nowMins + 1440 : nowMins;
         const isNow = nowForEvent >= start && nowForEvent <= end;
-        return {entry,index,sourceDay:item.sourceDay,start,bucket,end,isNow};
+        return {entry,index,sourceDay:item.sourceDay,start,bucket,end,isNow,visualOnly:item.visualOnly};
       })
       .filter(Boolean)
       .sort((a,b)=>a.start-b.start || a.index-b.index);
@@ -41618,11 +41876,11 @@ function App(){
 		    clockEvents.forEach(item => {
 		      item.laneCount = bucketCounts[item.bucket] || 1;
 		    });
-		    const clockSleepCurveItemsLab = clockEvents.filter(item => entryVisualKindLab(item.entry) === "sleep" && isTimedClockEntry(item.entry));
+		    const clockSleepCurveItemsLab = clockEvents.filter(item => ["sleep","sleep-carry"].includes(entryVisualKindLab(item.entry)) && isTimedClockEntry(item.entry));
 		    const clockLogNestsInsideSleepCurveLab = (item, sleepItem) => {
 		      if (!item || !sleepItem || item === sleepItem) return false;
 		      const kind = entryVisualKindLab(item.entry);
-		      if (!kind || kind === "sleep") return false;
+		      if (!kind || kind === "sleep" || kind === "sleep-carry") return false;
 		      const sleepStart = sleepItem.start;
 		      const sleepEnd = Math.max(sleepItem.end, sleepItem.start + 6);
 		      const itemIsAfterBedtime = item.start >= sleepStart;
@@ -41634,10 +41892,33 @@ function App(){
 		      if (itemEnd <= itemStart) itemEnd = itemStart + 1;
 		      return itemStart < sleepEnd && itemEnd > sleepStart;
 		    };
-		    const clockInsideSleepCurveInsetLab = (item) => clockSleepCurveItemsLab.some(sleepItem => clockLogNestsInsideSleepCurveLab(item, sleepItem)) ? 8 : 0;
-		    const clockRenderEvents = [...clockEvents].sort((a,b)=>{
+		    const clockIsInsideSleepCurveLab = (item) => clockSleepCurveItemsLab.some(sleepItem => clockLogNestsInsideSleepCurveLab(item, sleepItem));
+		    const clockInsideSleepCurveInsetLab = (item) => clockIsInsideSleepCurveLab(item) ? 8 : 0;
+		    const clockArcSleepInsetLab = (item, visualKind) => {
+		      if (visualKind === "sleep" || visualKind === "sleep-carry") return 0;
+		      if (visualKind === "night-wake" && clockIsInsideSleepCurveLab(item)) return 0;
+		      return clockInsideSleepCurveInsetLab(item);
+		    };
+		    const clockDotSleepInsetLab = (item, visualKind) => {
+		      if (!clockIsInsideSleepCurveLab(item)) return 0;
+		      if (visualKind === "night-wake") return 8;
+		      return 8;
+		    };
+		    const clockTimelineSettlingFeedKeyLab = (item) => {
+		      if (!item || !item.entry || item.entry.type !== "feed" || !item.entry.night || item.entry.dreamFeed || item.entry.feedType === "solids" || item.entry.feedType === "pump") return "";
+		      const feedStart = item.start;
+		      const wake = clockEvents.find(other => {
+		        if (!other || other === item || !other.entry || other.entry.type !== "wake" || !clockIsNightWakeTimelineEntryLab(other.entry)) return false;
+		        const wakeStart = other.start;
+		        const wakeEnd = Math.max(other.end, wakeStart + 1);
+		        return feedStart >= wakeStart - 2 && feedStart <= wakeEnd + 20;
+		      });
+		      return wake ? String(wake.entry.id || wake.index) : "";
+		    };
+		    const clockRenderEvents = [...clockEvents].filter(item => !clockTimelineSettlingFeedKeyLab(item)).sort((a,b)=>{
 	      const layer = (item) => {
 	        const kind = entryVisualKindLab(item.entry);
+	        if (kind === "sleep-carry") return -1;
 	        if (kind === "sleep") return 0;
 	        if (kind === "nap") return 1;
 	        if (isTimedClockEntry(item.entry)) return kind === "night-wake" ? 4 : 2;
@@ -41656,19 +41937,79 @@ function App(){
 	    ));
 	    // Morning wake must be from TODAY's entries, not overnight entries pulled from yesterday or legacy night-wake dots.
 	    const clockDayWakeItem = clockEvents.find(item => item.entry.type === "wake" && !item.entry.night && !clockIsLegacyNightWakeTimeLab(item.entry) && item.sourceDay === dayKey);
-	    // Wake-to-wake mode: anchor at morning wake so overnight sorts after daytime.
-	    // Midnight-to-midnight mode: anchor at 0 — pure chronological (00:00 → 23:59).
-	    const clockOrderAnchor = dayBoundary === "midnight" ? 0 : (clockDayWakeItem ? clockDayWakeItem.start : 5 * 60);
+	    // The clock is always a visual calendar day: midnight → midnight.
+	    // Sleep analysis can still use wake-to-wake grouping underneath.
+	    const clockOrderAnchor = 0;
 	    const clockOrderMins = (item) => item.start < clockOrderAnchor ? item.start + 1440 : item.start;
-	    const clockLogRows = [...clockEvents].sort((a,b)=>clockOrderMins(a)-clockOrderMins(b) || a.index-b.index);
-	    const recentRows = [...clockLogRows].slice(-5).reverse();
+	    const clockLogAllowedTypes = ["feed","poop","nap","wake","sleep","medicine","tummy"];
+	    const clockLogOrderAnchor = dayBoundary === "midnight" ? 0 : (clockDayWakeItem ? clockDayWakeItem.start : 5 * 60);
+	    const clockLogOrderMins = (item) => item.start < clockLogOrderAnchor ? item.start + 1440 : item.start;
+	    const clockLogRows = entriesForDay
+	      .map((entry, index) => {
+	        if (!isClockLabRealLog(entry) || !clockLogAllowedTypes.includes(entry.type)) return null;
+	        const start = entryStartMins(entry);
+	        if (start === null) return null;
+	        const end = entryEndMins(entry, start);
+	        const nowForLog = end > 1440 && nowMins < start ? nowMins + 1440 : nowMins;
+	        const isNow = nowForLog >= start && nowForLog <= end;
+	        return {entry,index,sourceDay:dayKey,start,bucket:Math.round(start / 5) * 5,end,isNow,visualOnly:false};
+	      })
+	      .filter(Boolean)
+	      .sort((a,b)=>clockLogOrderMins(a)-clockLogOrderMins(b) || a.index-b.index);
+	    const clockNightWakeSettlingFeedKeyLab = (item) => {
+	      if (!item || !item.entry || item.entry.type !== "feed" || !item.entry.night || item.entry.dreamFeed || item.entry.feedType === "solids" || item.entry.feedType === "pump") return "";
+	      const feedStart = clockLogOrderMins(item);
+	      const wake = clockLogRows.find(other => {
+	        if (!other || other === item || !other.entry || other.entry.type !== "wake" || !clockIsNightWakeTimelineEntryLab(other.entry)) return false;
+	        const wakeStart = clockLogOrderMins(other);
+	        const wakeEnd = other.end < clockLogOrderAnchor ? other.end + 1440 : other.end;
+	        return feedStart >= wakeStart - 2 && feedStart <= wakeEnd + 20;
+	      });
+	      return wake ? String(wake.entry.id || wake.index) : "";
+	    };
+	    const clockNightWakeSettlingFeedMapLab = (() => {
+	      const map = new Map();
+	      clockLogRows.forEach(item => {
+	        const key = clockNightWakeSettlingFeedKeyLab(item);
+	        if (!key) return;
+	        const list = map.get(key) || [];
+	        list.push(item.entry);
+	        map.set(key, list);
+	      });
+	      return map;
+	    })();
+	    const clockVisibleLogRows = clockLogRows.filter(item => !clockNightWakeSettlingFeedKeyLab(item));
+	    const clockLogEntriesLab = clockLogRows.map(item => item.entry);
+	    const clockLogDayWakeItem = clockLogRows.find(item => item.entry.type === "wake" && !item.entry.night && !clockIsLegacyNightWakeTimeLab(item.entry) && item.sourceDay === dayKey);
+	    const recentRows = [...clockVisibleLogRows].slice(-5).reverse();
+	    const clockLogIsActiveBedtimeLab = (entry) => !!(entry && entry.type === "sleep" && clockBedOnThisDay && activeSleepStart && (entry.time === activeSleepStart || entry.start === activeSleepStart || entry.id === activeSleepEntry?.id));
+	    const clockLogRowLabelLab = (item) => clockLogIsActiveBedtimeLab(item?.entry) ? "Bedtime started" : entryLogLabelLab(item?.entry);
+	    const clockLogRowTimeLab = (item) => {
+	      if (!item || !item.entry) return "";
+	      if (clockLogIsActiveBedtimeLab(item.entry)) return clockLabFmt12(item.entry.time || item.entry.start || activeSleepStart);
+	      return entryTimeRangeLab(item.entry);
+	    };
+	    const clockLogRowDetailLab = (item) => {
+	      if (!item || !item.entry) return "";
+	      if (clockLogIsActiveBedtimeLab(item.entry)) return clockLogJoinLab("sleep timer running", hm(Math.max(1, Math.floor(clockLabBedElapsedSec / 60))));
+	      const feeds = clockNightWakeSettlingFeedMapLab.get(String(item.entry.id || item.index)) || [];
+	      const detail = entryLogDetailLab(item.entry);
+	      if (item.entry.type !== "wake" || !clockIsNightWakeTimelineEntryLab(item.entry) || !feeds.length) return detail;
+	      const feedDetail = feeds.map(feed => {
+	        const amount = clockLogAmountLab(feed.amount || feed.ml);
+	        const method = feed.feedType === "breast" ? "Breast" : "Milk";
+	        return clockLogJoinLab(method, amount);
+	      }).filter(Boolean).join(" · ");
+	      const duration = clockNightWakeDurationLab(item.entry);
+	      return clockLogJoinLab(duration ? "Soothed " + hm(duration) : "", feedDetail);
+	    };
 	    const clockWakeWindowItems = (() => {
 	      const out = [];
-	      let awakeStart = clockDayWakeItem ? clockDayWakeItem.start : null;
+	      let awakeStart = clockLogDayWakeItem ? clockLogDayWakeItem.start : null;
 	      clockLogRows.forEach(item => {
 	        const type = item.entry.type;
-	        const start = clockOrderMins(item);
-	        const end = item.end < clockOrderAnchor ? item.end + 1440 : item.end;
+	        const start = clockLogOrderMins(item);
+	        const end = item.end < clockLogOrderAnchor ? item.end + 1440 : item.end;
 	        if (type === "wake" && !item.entry.night && !clockIsLegacyNightWakeTimeLab(item.entry) && item.sourceDay === dayKey) {
 	          awakeStart = start;
 	          return;
@@ -41713,12 +42054,12 @@ function App(){
 		      const id = clockPredictionTipId(item);
 		      setClockLabTip(current => current && current.kind === "prediction" && (!id || current.id === id) ? null : current);
 		    };
-		    const clockMergedNapEntries = getMergedCompletedDayNaps(entriesForDay);
-			    const clockTotalMilkMl = entriesForDay.filter(e => e.type === "feed" && e.feedType !== "solids").reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
-		    const clockTotalNappies = entriesForDay.filter(e => e.type === "poop").length;
+		    const clockMergedNapEntries = getMergedCompletedDayNaps(clockLogEntriesLab);
+			    const clockTotalMilkMl = clockLogEntriesLab.filter(e => e.type === "feed" && e.feedType !== "solids").reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+		    const clockTotalNappies = clockLogEntriesLab.filter(e => e.type === "poop").length;
 		    const clockTotalNapMins = clockMergedNapEntries.reduce((sum, entry) => sum + Math.max(0, minDiff(entry.start, entry.end)), 0);
-		    const clockTotalNightWakeMins = clockEvents.filter(item => isNightWakeTimedLab(item.entry)).reduce((sum, item) => sum + Math.max(0, Math.min(180, item.end - item.start)), 0);
-		    const clockTotalNightSleepGrossMins = clockEvents.filter(item => item.entry.type === "sleep").reduce((sum, item) => sum + Math.max(0, Math.min(16 * 60, item.end - item.start)), 0);
+		    const clockTotalNightWakeMins = clockLogRows.filter(item => isNightWakeTimedLab(item.entry)).reduce((sum, item) => sum + Math.max(0, Math.min(180, item.end - item.start)), 0);
+		    const clockTotalNightSleepGrossMins = clockLogRows.filter(item => item.entry.type === "sleep").reduce((sum, item) => sum + Math.max(0, Math.min(16 * 60, item.end - item.start)), 0);
 		    const clockTotalNightSleepMins = Math.max(0, clockTotalNightSleepGrossMins - Math.min(clockTotalNightSleepGrossMins, clockTotalNightWakeMins));
 		    const clockTotalAwakeMins = clockWakeWindowItems.reduce((sum, item) => sum + Math.max(0, item.duration || 0), 0);
 		    const clockTotals = [
@@ -42923,7 +43264,7 @@ function App(){
 	        tone:"routine",
 	        icon:"🌙",
 	        title:"Bedtime not happening?",
-	        body:"Use the old Track bedtime-resistance read: calm reset, short routine, or start the bed timer.",
+	        body:"Choose a calmer bedtime path: reset gently, shorten the routine, or start the sleep timer.",
 	        cta:"choose path",
 	        onClick:openBedtimeResistanceOptions
 	      });
@@ -43026,16 +43367,16 @@ function App(){
 	      if (!item || !item.entry) return;
 	      setClockLabTip(item);
 	    };
-	    const showClockLabTipFromPress = (item, ev) => {
-	      try{ev && ev.stopPropagation && ev.stopPropagation();}catch{}
-	      if (!item || !item.entry) return;
-	      haptic(12);
-	      // If this item is already showing and pinned, go straight to edit
-	      if (clockLabTip && clockLabTip.pinned && clockLabTip.entry && clockLabTip.entry.id === item.entry.id && !clockLabTipUsesMeta(clockLabTip)) {
-	        editClockLabLog(item.entry, ev);
-	        return;
-	      }
-	      setClockLabTip({...item, pinned:true});
+    const showClockLabTipFromPress = (item, ev) => {
+      try{ev && ev.stopPropagation && ev.stopPropagation();}catch{}
+      if (!item || !item.entry) return;
+      haptic(12);
+      // If this item is already showing and pinned, go straight to edit
+      if (clockLabTip && clockLabTip.pinned && clockLabTip.entry && clockLabTip.entry.id === item.entry.id && clockLabTipCanEdit(clockLabTip)) {
+        editClockLabLog(item.entry, ev);
+        return;
+      }
+      setClockLabTip({...item, pinned:true});
 	    };
     const hideClockLabTip = (item) => {
       setClockLabTip(current => {
@@ -43045,16 +43386,17 @@ function App(){
 	      });
 	    };
 	    const clockLabTipUsesMeta = (tip) => !!(tip && (tip.kind === "wake-window" || tip.kind === "prediction" || tip.kind === "presence"));
-	    const clockLabTipCanEdit = (tip) => !!(tip && tip.entry && !clockLabTipUsesMeta(tip));
+    const clockLabTipCanEdit = (tip) => !!(tip && tip.entry && !tip.visualOnly && !tip.entry._clockCarrySleep && !clockLabTipUsesMeta(tip));
 	    const clockLabTipDetail = (tip) => {
 	      if (clockLabTipUsesMeta(tip)) return tip.detail || "";
 	      if (!tip || !tip.entry) return "";
-	      return clockLogJoinLab(entryTimeRangeLab(tip.entry), entryLogDetailLab(tip.entry));
+	      return clockLogJoinLab(clockItemTimeRangeLab(tip), clockItemDetailLab(tip));
 	    };
-	    const clockLabLogAria = (item) => clockLogJoinLab(entryLabelLab(item?.entry), entryTimeRangeLab(item?.entry), entryLogDetailLab(item?.entry), "Tap for details and edit");
+	    const clockLabLogAria = (item) => clockLogJoinLab(clockItemLabelLab(item), clockItemTimeRangeLab(item), clockItemDetailLab(item), clockLabTipCanEdit(item) ? "Tap for details and edit" : "Tap for details");
     const editClockLabLog = (entry, ev) => {
       try{ev && ev.stopPropagation && ev.stopPropagation();}catch{}
       if (!entry) return;
+      if (entry._clockCarrySleep) return;
       haptic();
       openEdit(entry);
     };
@@ -43169,15 +43511,15 @@ function App(){
             </div>
           ))}
         </div>
-	        {clockLogRows.length ? clockLogRows.map(item => {
+	        {clockVisibleLogRows.length ? clockVisibleLogRows.map(item => {
 	          const visualKind = entryVisualKindLab(item.entry) || "log";
 	          const accent = eventMeta[visualKind]?.color || "#C07088";
 	          return (
 	            <button type="button" key={(item.entry.id||item.index)+"clock-row"} className={"ob-clock-row is-"+visualKind} style={{"--ob-clock-row-accent":accent}} onClick={(ev)=>editClockLabLog(item.entry, ev)}>
 	              <span className="ob-clock-row-icon" aria-hidden="true"><span>{entryLogEmojiLab(item.entry)}</span></span>
-	              <b>{entryLogLabelLab(item.entry)}</b>
-	              <time>{entryTimeRangeLab(item.entry)}</time>
-	              <em>{entryLogDetailLab(item.entry)}</em>
+	              <b>{clockLogRowLabelLab(item)}</b>
+	              <time>{clockLogRowTimeLab(item)}</time>
+	              <em>{clockLogRowDetailLab(item)}</em>
 	            </button>
 	          );
 	        }) : <p>No logs yet today. Tap Feed, Nappy, Nap or Wake below.</p>}
@@ -43191,7 +43533,7 @@ function App(){
             </div>
           </section>
 	        <section className="ob-clock-rhythm-card">
-	          <section className="ob-clock-stage" aria-label="Clock timeline">
+	          <section className="ob-clock-stage" data-tour-id="clock-stage" aria-label="Clock timeline">
           <svg viewBox="0 0 240 240" className="ob-clock-svg" role="img" aria-label="Today clock with coloured logs">
             <defs>
               <radialGradient id="obClockFaceGlow" cx="50%" cy="42%" r="62%">
@@ -43282,18 +43624,19 @@ function App(){
 	              const meta = eventMeta[visualKind] || eventMeta.tummy;
 	              const isTimedLog = isTimedClockEntry(item.entry);
               if (isTimedLog) {
-                const sleepInset = visualKind === "sleep" ? 0 : clockInsideSleepCurveInsetLab(item);
-                const radius = 93 - Math.min(item.lane, 2) * 15 - sleepInset;
+                const sleepInset = clockArcSleepInsetLab(item, visualKind);
+                const isCarrySleepArc = visualKind === "sleep-carry";
+                const radius = isCarrySleepArc ? 112 : 93 - Math.min(item.lane, 2) * 15 - sleepInset;
                 const arcD = arcPath(item.start,item.end,radius);
-                const arcTitle = entryLabelLab(item.entry) + " · " + entryTimeRangeLab(item.entry);
-                if (visualKind === "sleep" || visualKind === "nap") {
+                const arcTitle = clockItemLabelLab(item) + " · " + clockItemTimeRangeLab(item);
+                if (visualKind === "sleep" || visualKind === "sleep-carry" || visualKind === "nap") {
                   return (
-                    <g key={(item.entry.id || item.index)+"clock-"+visualKind+"-arc"} className={"ob-clock-event-arc-group ob-clock-"+visualKind+"-arc-group"+(sleepInset?" is-sleep-overlap":"")} role="button" aria-label={clockLabLogAria(item)} tabIndex="0" onMouseEnter={()=>showClockLabTip(item)} onMouseLeave={()=>hideClockLabTip(item)} onFocus={()=>showClockLabTip(item)} onBlur={()=>hideClockLabTip(item)} onClick={(ev)=>showClockLabTipFromPress(item, ev)} onKeyDown={(ev)=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();showClockLabTipFromPress(item, ev);}}}>
-                      <path d={arcD} className="ob-clock-event-arc-hit" stroke="rgba(255,255,255,0.001)" strokeWidth="13" pointerEvents="stroke" aria-hidden="true"/>
+                    <g key={(item.entry.id || item.index)+"clock-"+visualKind+"-arc"} className={"ob-clock-event-arc-group ob-clock-"+visualKind+"-arc-group"+(sleepInset?" is-sleep-overlap":"")+(isCarrySleepArc?" is-carry-outside":"")} role="button" aria-label={clockLabLogAria(item)} tabIndex="0" onMouseEnter={()=>showClockLabTip(item)} onMouseLeave={()=>hideClockLabTip(item)} onFocus={()=>showClockLabTip(item)} onBlur={()=>hideClockLabTip(item)} onClick={(ev)=>showClockLabTipFromPress(item, ev)} onKeyDown={(ev)=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();showClockLabTipFromPress(item, ev);}}}>
+                      <path d={arcD} className="ob-clock-event-arc-hit" stroke="rgba(255,255,255,0.001)" strokeWidth={isCarrySleepArc ? "12" : "13"} pointerEvents="stroke" aria-hidden="true"/>
                       <path d={arcD} className={"ob-clock-event-arc is-"+visualKind+" is-hollow"+(item.isNow?" is-now":"")} style={{"--ob-clock-event-glow":meta.glow}} stroke={meta.color} aria-hidden="true">
                         <title>{arcTitle}</title>
                       </path>
-                      <path d={arcD} className={"ob-clock-event-arc-cut is-"+visualKind} aria-hidden="true"/>
+                      {!isCarrySleepArc && <path d={arcD} className={"ob-clock-event-arc-cut is-"+visualKind} aria-hidden="true"/>}
                     </g>
                   );
                 }
@@ -43321,7 +43664,7 @@ function App(){
 		              }
 		              const closeMoment = item.laneCount > 1 || hasCloseClockMoment(item);
 		              const dotAngle = (item.start % 1440) / 1440 * 360 + (item.lane - (item.laneCount - 1) / 2) * (closeMoment ? 5.2 : 3.8);
-		              const dotSleepInset = clockInsideSleepCurveInsetLab(item);
+		              const dotSleepInset = clockDotSleepInsetLab(item, visualKind);
 		              const dotRadius = 94 - Math.floor(item.lane / 3) * (closeMoment ? 6 : 8) - dotSleepInset;
 		              const dotR = closeMoment ? (item.isNow ? 2.7 : 2.2) : (item.isNow ? 3 : 2.5);
 	              const dot = polar(120,120,dotRadius,dotAngle);
@@ -43335,7 +43678,7 @@ function App(){
 		              const _dotKind = _isOvernightWake ? "night-wake" : visualKind;
 		              return (
 		                <g key={(item.entry.id || item.index)+"clock-dot"} className={"ob-clock-event-dot-group"+(dotSleepInset?" is-sleep-overlap":"")} role="button" aria-label={clockLabLogAria(item)} tabIndex="0" onMouseEnter={()=>showClockLabTip(item)} onMouseLeave={()=>hideClockLabTip(item)} onFocus={()=>showClockLabTip(item)} onBlur={()=>hideClockLabTip(item)} onClick={(ev)=>showClockLabTipFromPress(item, ev)} onKeyDown={(ev)=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();showClockLabTipFromPress(item, ev);}}}>
-	                  <title>{entryLabelLab(item.entry)} · {entryTimeRangeLab(item.entry)}</title>
+	                  <title>{clockItemLabelLab(item)} · {clockItemTimeRangeLab(item)}</title>
 	                  <circle cx={dot.x.toFixed(2)} cy={dot.y.toFixed(2)} r={Math.max(7.2, dotR + 3.4)} className="ob-clock-event-hit" aria-hidden="true"/>
 	                  <circle cx={dot.x.toFixed(2)} cy={dot.y.toFixed(2)} r={dotR} className={"ob-clock-event-dot is-"+_dotKind+(item.isNow?" is-now":"")+(closeMoment?" is-close":"")} style={{"--ob-clock-event-glow":_dotGlow,"--ob-clock-dot-fill":_dotColor}} fill={_dotColor} stroke={_dotColor} aria-hidden="true"/>
 	                </g>
@@ -43407,7 +43750,7 @@ function App(){
 		          {clockLabTip && (
 			            <div className={"ob-clock-tip"+(clockLabTip.kind==="presence"?" is-presence":"")+(clockLabTipCanEdit(clockLabTip)?" is-editable":"")} role="status" onClick={(ev)=>{ev.stopPropagation();}}>
 			              <span style={{background:clockLabTipUsesMeta(clockLabTip) ? clockLabTip.color : eventMeta[entryVisualKindLab(clockLabTip.entry)]?.color || "#C07088"}}/>
-			              <b>{clockLabTipUsesMeta(clockLabTip) ? clockLabTip.label : entryLabelLab(clockLabTip.entry)}</b>
+			              <b>{clockLabTipUsesMeta(clockLabTip) ? clockLabTip.label : clockItemLabelLab(clockLabTip)}</b>
 			              <em>{clockLabTipDetail(clockLabTip)}</em>
 			              {clockLabTipCanEdit(clockLabTip) && (
 			                <button type="button" className="ob-clock-tip-edit" data-testid="clock-log-tip-edit" onClick={(ev)=>editClockLabLog(clockLabTip.entry, ev)}>Edit</button>
@@ -43433,7 +43776,7 @@ function App(){
               <span aria-hidden="true">🍼</span>
               <b>Dream feed</b>
             </button>
-            <button type="button" onClick={()=>{haptic();logMorningWakeNextDay();}}>
+            <button type="button" className="is-morning-wake" onClick={()=>{haptic();logMorningWakeNextDay();}}>
               <span aria-hidden="true">☀️</span>
               <b>Morning wake</b>
             </button>
@@ -43483,7 +43826,7 @@ function App(){
             </div>
           )}
         </section>
-        <nav className="ob-clock-tabs" aria-label="Clock home sections">
+        <nav className="ob-clock-tabs" data-tour-id="clock-panel-tabs" aria-label="Clock home sections">
           {["logs","plan","guidance"].map(panel => {
             const isActive = clockLabPanel === panel;
             const isGuidanceNew = panel === "guidance" && clockGuidanceHasNew;
@@ -44646,10 +44989,10 @@ function App(){
 	        <div style={{position:"fixed",inset:0,zIndex:9990,background:"rgba(3,7,18,0.78)",backdropFilter:"blur(10px)",WebkitBackdropFilter:"blur(10px)",display:"flex",alignItems:"center",justifyContent:"center",padding:"calc(env(safe-area-inset-top,0px) + 16px) 12px calc(env(safe-area-inset-bottom,0px) + 16px)"}} onClick={()=>{setShowTutPrompt(false);clearPendingAppTour(true);}}>
 	          <div className="ob-tour-journey-sheet" role="dialog" aria-modal="true" aria-label="OBubba app tour" onClick={e=>e.stopPropagation()}>
 	            <div className="ob-tour-journey-handle"/>
-	            <div className="ob-tour-journey-hero">
+		              <div className="ob-tour-journey-hero">
 	              <OBubbaMascot type="happy" size={96} alt="OBubba" style={{margin:"0 auto"}}/>
-		              <div className="ob-tour-journey-title">Your OBubba map</div>
-		              <p className="ob-tour-journey-copy">A quick route through Track, Care, Grow and Account, so the useful bits are easy to find when your hands are full.</p>
+		              <div className="ob-tour-journey-title">Your OBubba clock map</div>
+		              <p className="ob-tour-journey-copy">A quick route through the clock, Care, Grow and Account, so the useful bits are easy to find when your hands are full.</p>
 	            </div>
 	            <div className="ob-tour-journey-list">
 	              {OB_APP_TOUR_JOURNEY.map((item,i)=>(
@@ -44666,7 +45009,7 @@ function App(){
 	              ))}
 	            </div>
 	            <button className="ob-tour-journey-primary" onClick={()=>{setShowTutPrompt(false);clearPendingAppTour(false);setTab("day");setDaySubScreen(null);setTodayPanel("log");setTutStep(0);}}>Start OBubba tour</button>
-	            <button className="ob-tour-journey-secondary" onClick={()=>{setShowTutPrompt(false);clearPendingAppTour(true);}}>Maybe later</button>
+	            <button className="ob-tour-journey-secondary" onClick={()=>{setShowTutPrompt(false);clearPendingAppTour(true);}}>Not now</button>
 	          </div>
 	        </div>
 	      )}
@@ -44876,13 +45219,14 @@ function App(){
       {dayTutStep >= 0 && (()=>{
 	        const _bn3 = babyName || "your baby";
 		        const DAY_TUT_STEPS = [
-		          { icon:"🧠", title:"The top card", body:"This card reads the day and shows what matters now.\n\nIt changes as you log feeds, nappies, naps, wake-ups and bedtime." },
-		          { icon:"⚡", title:"One-tap logs", body:"Use the quick row for messy moments.\n\nThe main buttons stay visible. More actions open only when you need them." },
-		          { icon:"📋", title:"Details and schedule", body:"Detailed log keeps the full history. Schedule Builder helps shape wake, naps and bedtime." },
+		          { icon:"🕰️", title:"Read the clock", body:"The clock is Track.\n\nDots are quick moments like feeds, nappies and wakes. Arcs are things with duration: naps, bedtime sleep, and night wakes when you have added settled or soothed time. Softer arcs are predictions until real logs replace them." },
+		          { icon:"⚡", title:"Log without decoding", body:"Use One-tap logs when your hands are full.\n\nTap to add the moment now, hold for details. If a nap or bedtime timer is running, stop it from the active timer controls or the clock centre so accidental taps do not rewrite the day." },
+		          { icon:"📋", title:"Logs, Plan, Guidance", body:"Logs is the saved history. Plan is what OBubba thinks may come next, and it updates as real logs arrive.\n\nGuidance is for the short sleep, feed and care read when something actually needs your attention." },
+		          { icon:"✨", title:"Bubba Hug at night", body:"In night mode, fireflies around the clock are other parents awake at the same quiet time.\n\nTap a firefly to send a Bubba Hug. Day mode stays clear, but a day-mode parent can still appear as a firefly to someone using night mode." },
 		        ];
 
         const dismissDayTut = () => {
-          try{localStorage.setItem("day_tut_v1","1");}catch{}
+          try{localStorage.setItem(DAY_TOUR_STORAGE_KEY,"1");}catch{}
           setDayTutStep(-1);
         };
 	        const nextDayStep = () => {
@@ -45594,12 +45938,15 @@ function App(){
               const _retryRemaining = _retryAt > Date.now() ? Math.ceil((_retryAt - Date.now())/60000) : 0;
               // Nap is overdue: either the event says so, or wake window exceeded
               const _napIsOverdue = !_retryRemaining && ((_ne2 && _ne2.overdue) || (_showAsNap && _awakeMins2 > (age ? getWakeWindow(age.predictiveWeeks??age.totalWeeks).max : 180)));
+              const _bedOverdueText = isBed && isOverdue && _ne2 && typeof _ne2.targetMs === "number" && _ne2.targetMs < Date.now()
+                ? Math.max(1, Math.round((Date.now() - _ne2.targetMs) / 60000)) + "m late"
+                : "";
               const icon = _retryRemaining ? "timer" : _napIsOverdue ? "nap" : (isBedNow||isBed) && !_showAsNap ? "moon" : isNapNow ? "nap" : "timer";
               const label = _retryRemaining ? "Retry nap" : _showAsNap ? "Nap" : isBed ? "Bedtime" : (_isBridgeNap ? "Bridge" : "Nap");
               const pillBg = _retryRemaining ? C.mint : _napIsOverdue ? C.gold : isOverdue ? C.gold : isNow ? (isBedNow?C.sky:C.mint) : "var(--card-bg)";
               const pillColor = _retryRemaining ? "white" : _napIsOverdue ? "white" : isOverdue ? "white" : isNow ? "white" : (_showAsNap ? C.mint : isBed ? C.sky : C.mint);
               const pillBorder = _retryRemaining ? "none" : _napIsOverdue ? "none" : isNow || isOverdue ? "none" : "1px solid var(--card-border)";
-              const valueText = _retryRemaining ? _retryRemaining+"m" : _napIsOverdue ? "Overdue" : isOverdue ? "Overdue" : isNow ? "Now!" : (countdown!==null ? fmtCountdown(countdown) : "–");
+              const valueText = _retryRemaining ? _retryRemaining+"m" : _napIsOverdue ? "Overdue" : _bedOverdueText || (isOverdue ? "Overdue" : isNow ? "Now!" : (countdown!==null ? fmtCountdown(countdown) : "–"));
               const pillClass = [
                 "ob-countdown-pill",
                 isNow || _retryRemaining ? "is-now" : "",
@@ -46613,7 +46960,12 @@ function App(){
 	                  {age && (()=>{
 	                    const w = age.predictiveWeeks ?? age.totalWeeks;
 	                    const _name = babyName || "Baby";
-	                    const _currentPhase = DEV_PHASES.slice().reverse().find(p => w >= p.windowStart);
+	                    const _activePhaseNow = DEV_PHASES.find(p => w >= p.windowStart && w <= p.windowEnd);
+	                    const _lastCompletedPhase = DEV_PHASES.slice().reverse().find(p => w > p.windowEnd);
+	                    const _nextPhase = DEV_PHASES.find(p => w < p.windowStart);
+	                    const _currentPhase = _activePhaseNow || _lastCompletedPhase;
+	                    const _inCalmPhase = !_activePhaseNow && _lastCompletedPhase && _nextPhase;
+	                    const _weeksUntilNext = _nextPhase ? Math.max(0, Math.round(_nextPhase.windowStart - w)) : null;
 	                    const _suitable = DEV_ACTIVITIES.filter(a => w >= a.weeks[0] && w <= a.weeks[1]);
 	                    const _doy = Math.floor((new Date() - new Date(new Date().getFullYear(),0,0)) / 86400000);
 	                    const _todayActs = _suitable.length >= 2 ? [_suitable[_doy%_suitable.length],_suitable[(_doy+7)%_suitable.length]] : _suitable.slice(0,2);
@@ -46626,8 +46978,22 @@ function App(){
 	                          <div style={{fontSize:14,fontWeight:700,color:C.deep}}>🧠 This Week's Development</div>
 	                          <button onClick={()=>{haptic();setTab("develop");setDevFilter("phases");}} style={{background:"none",border:"none",fontSize:11,fontWeight:600,color:C.ter,cursor:_cP,fontFamily:_fI,padding:0}}>Waves →</button>
 	                        </div>
-	                        {_currentPhase && <div style={{fontSize:13,color:C.mid,marginBottom:6,lineHeight:1.5}}>{_currentPhase.name}. {_currentPhase.summary || _currentPhase.reframe}</div>}
-	                        {_nearPhase && <div style={{fontSize:12,color:C.ter,fontWeight:600,marginBottom:6,lineHeight:1.5}}>A development wave may be showing up around now. {_name} might need more reassurance, simpler routines or extra chances to practise.</div>}
+	                        {_inCalmPhase ? (
+	                          <div style={{marginBottom:6}}>
+	                            <div style={{fontSize:13,color:C.mint,fontWeight:600,marginBottom:4}}>☀️ Calm phase — settled period</div>
+	                            <div style={{fontSize:12.5,color:C.mid,lineHeight:1.55}}>{_name} is between development waves right now. The last wave ({_lastCompletedPhase.name}) has settled, and the skills from it are consolidating. This is a great time to enjoy the rhythm, practise new skills, and build on what {_name} has learned.</div>
+	                            {_weeksUntilNext !== null && _weeksUntilNext > 0 && <div style={{fontSize:11,color:C.lt,marginTop:4}}>Next wave ({_nextPhase.name}) expected in about {_weeksUntilNext} week{_weeksUntilNext === 1 ? "" : "s"}.</div>}
+	                          </div>
+	                        ) : _activePhaseNow ? (
+	                          <div style={{marginBottom:6}}>
+	                            <div style={{fontSize:13,color:C.ter,fontWeight:600,marginBottom:4}}>🌊 Wave {_activePhaseNow.phase}: {_activePhaseNow.name}</div>
+	                            <div style={{fontSize:12.5,color:C.mid,lineHeight:1.55}}>{_activePhaseNow.summary || _activePhaseNow.reframe}</div>
+	                            <div style={{fontSize:11,color:C.lt,marginTop:4}}>{_activePhaseNow.fussy}</div>
+	                          </div>
+	                        ) : _currentPhase ? (
+	                          <div style={{fontSize:13,color:C.mid,marginBottom:6,lineHeight:1.5}}>{_currentPhase.name}. {_currentPhase.summary || _currentPhase.reframe}</div>
+	                        ) : null}
+	                        {_nearPhase && !_inCalmPhase && <div style={{fontSize:12,color:C.ter,fontWeight:600,marginBottom:6,lineHeight:1.5}}>A development wave may be showing up around now. {_name} might need more reassurance, simpler routines or extra chances to practise.</div>}
 	                        {_todayActs.length > 0 && (
 	                          <div style={{borderTop:"1px solid "+C.blush,paddingTop:10,marginTop:4}}>
 	                            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
@@ -47319,13 +47685,13 @@ function App(){
                               <div style={{fontSize:12,color:C.mid,lineHeight:1.7,marginBottom:12}}>
                                 {(r.ingredients||"").split(",").map((ing,j)=><div key={j}>• {ing.trim()}</div>)}
                               </div>
-                              {r.method && (
+                              {r.method && (_weaningStylePref === "puree" || _weaningStylePref === "mixed") && (
                                 <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(139,126,200,0.06)",border:`1px solid rgba(139,126,200,0.15)`,marginBottom:8}}>
                                   <div style={{fontSize:10,fontWeight:700,color:"#8B7EC8",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>🥄 Puree / spoon-fed</div>
                                   <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>{r.method}</div>
                                 </div>
                               )}
-                              {r.blw && (
+                              {r.blw && (_weaningStylePref === "blw" || _weaningStylePref === "mixed") && (
                                 <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(111,168,152,0.06)",border:`1px solid rgba(111,168,152,0.15)`,marginBottom:12}}>
                                   <div style={{fontSize:10,fontWeight:700,color:C.mint,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>👶 Baby-led (BLW)</div>
                                   <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>{r.blw}</div>
@@ -47515,13 +47881,13 @@ function App(){
                               <div style={{fontSize:12,color:C.mid,lineHeight:1.7,marginBottom:12}}>
                                 {(r.ingredients||"").split(",").map((ing,j)=><div key={j}>• {ing.trim()}</div>)}
                               </div>
-                              {r.method && (
+                              {r.method && (_weaningStylePref === "puree" || _weaningStylePref === "mixed") && (
                                 <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(139,126,200,0.06)",border:`1px solid rgba(139,126,200,0.15)`,marginBottom:8}}>
                                   <div style={{fontSize:10,fontWeight:700,color:"#8B7EC8",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>🥄 Puree / spoon-fed</div>
                                   <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>{r.method}</div>
                                 </div>
                               )}
-                              {r.blw && (
+                              {r.blw && (_weaningStylePref === "blw" || _weaningStylePref === "mixed") && (
                                 <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(111,168,152,0.06)",border:`1px solid rgba(111,168,152,0.15)`,marginBottom:12}}>
                                   <div style={{fontSize:10,fontWeight:700,color:C.mint,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>👶 Baby-led (BLW)</div>
                                   <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>{r.blw}</div>
@@ -51023,6 +51389,8 @@ function App(){
 	                    const _teethRecent = (() => { try { const t = activeChild.teething || []; return t.filter(x => x.date && (Date.now() - new Date(x.date).getTime()) < 14*86400000).length; } catch { return 0; } })();
 	                    const _disruptionActive = !!normaliseDisruptionModePayload(disruptionMode);
 	                    const _regression = (() => { try { return detectSleepRegression(); } catch { return null; } })();
+	                    // Split night no longer gets its own early return — flows through the
+	                    // structured analysis (What looks good / Nap analysis / Why woke) like all other types
 	                    // HEADLINE
 	                    const _headline = _nightCount === 0 ? _name + " slept through"
 	                      : _longestStr >= 300 ? "Strong night with " + _nightCount + " wake" + (_nightCount === 1 ? "" : "s")
@@ -51047,10 +51415,10 @@ function App(){
 	                      const _napUnderTarget = _yProfile && _yNapMins < _yProfile.idealTotalMin;
 	                      _napNotes.push(_yNaps.length + " nap" + (_yNaps.length===1?"":"s") + " totalling " + _hmStr(_yNapMins) + (_yTarget ? " (target ~" + _hmStr(_yTarget) + ")" : ""));
 	                      _yNaps.forEach((n,i) => _napNotes.push("Nap " + (i+1) + ": " + _hmStr(minDiff(n.start, n.end))));
-	                      if (_napOverTarget) _napNotes.push("Day sleep was over target — this reduces overnight sleep pressure and can cause lighter sleep or longer wakes");
-	                      if (_napUnderTarget) _napNotes.push("Day sleep fell short — overtiredness can build by bedtime, causing harder settling and more wakes");
-	                      if (_longNaps.length && !_napOverTarget) _napNotes.push("One long nap (" + _hmStr(Math.max(..._napDurs)) + ") — some babies funnel sleep into one anchor nap. If nights stay settled, this is fine");
-	                      if (_shortNaps >= 2) _napNotes.push(_shortNaps + " naps under 30min — try slightly shorter wake windows before those naps");
+	                      if (_napOverTarget) _napNotes.push("A bit more day sleep than usual — this can make overnight sleep lighter because the sleep tank was already quite full");
+	                      if (_napUnderTarget) _napNotes.push("Day sleep was on the short side — by bedtime the tiredness can stack up and actually make settling harder");
+	                      if (_longNaps.length && !_napOverTarget) _napNotes.push("One long nap (" + _hmStr(Math.max(..._napDurs)) + ") — some babies just need one big nap and that's their thing. If nights are fine, don't worry about it");
+	                      if (_shortNaps >= 2) _napNotes.push(_shortNaps + " naps under 30min — try putting baby down a little earlier for those naps");
 	                    }
 	                    // WHY BABY WOKE — cross-reference ALL data
 	                    const _wakeNotes = [];
@@ -51060,14 +51428,14 @@ function App(){
 	                      if (_longestWake && (_longestWake.durationMin||0) >= 20) {
 	                        _wakeNotes.push(_hmStr(_longestWake.durationMin) + " awake" + (_longestWake.time ? " around " + fmt12(_longestWake.time) : ""));
 	                      }
-	                      if (_yProfile && _yNapMins > _yProfile.idealTotalMax) _wakeNotes.push("Too much day sleep (" + _hmStr(_yNapMins) + " vs ~" + _hmStr(_yTarget) + " target) — less sleep pressure at bedtime means lighter overnight sleep");
-	                      else if (_lastWW > 0 && _ww && _lastWW < (_ww.min||0)) _wakeNotes.push("Final wake window was short (" + _hmStr(_lastWW) + " vs " + _hmStr(_ww.min) + "–" + _hmStr(_ww.max) + " guideline) — not enough sleep pressure built before bed");
+	                      if (_yProfile && _yNapMins > _yProfile.idealTotalMax) _wakeNotes.push("Too much day sleep (" + _hmStr(_yNapMins) + " vs ~" + _hmStr(_yTarget) + " target) — this can make overnight sleep lighter because there's less sleep drive built up");
+	                      else if (_lastWW > 0 && _ww && _lastWW < (_ww.min||0)) _wakeNotes.push("Final wake window was short (" + _hmStr(_lastWW) + " vs " + _hmStr(_ww.min) + "–" + _hmStr(_ww.max) + " guideline) — baby may not have been tired enough when bedtime came");
 	                      else if (_lastWW > 0 && _ww && _lastWW > (_ww.max||999)) _wakeNotes.push("Final wake window ran long (" + _hmStr(_lastWW) + ") — " + _name + " may have arrived at bedtime overtired, which makes sleep lighter");
-	                      if (_teethRecent > 0) _wakeNotes.push("Teething logged recently — discomfort causes lighter sleep, especially in the second half of the night");
-	                      if (_disruptionActive) _wakeNotes.push("Disruption mode active (illness/teething) — wakes are expected and usually temporary");
-	                      if (_regression) _wakeNotes.push(_regression.label + " — developmental regressions temporarily disrupt sleep, usually passes in 2-4 weeks");
-	                      if (_yNightFeeds.length >= 2) _wakeNotes.push(_yNightFeeds.length + " night feeds — if daytime intake is good, some may be comfort feeds");
-	                      if (_yFeedMl > 0 && _yFeedMl < 400 && age && (age.predictiveWeeks??age.totalWeeks) >= 12) _wakeNotes.push("Daytime intake was low (" + Math.round(_yFeedMl) + "ml) — some wakes may be genuine hunger");
+	                      if (_teethRecent > 0) _wakeNotes.push("Teething logged recently — sore gums can make the second half of the night rougher");
+	                      if (_disruptionActive) _wakeNotes.push("Baby is unwell or teething — extra wakes are completely expected right now and will pass");
+	                      if (_regression) _wakeNotes.push(_regression.label + " — this is a normal brain development phase and usually settles in 2-4 weeks");
+	                      if (_yNightFeeds.length >= 2) _wakeNotes.push(_yNightFeeds.length + " night feeds — if daytime feeds are going well, some of these may be for comfort rather than hunger");
+	                      if (_yFeedMl > 0 && _yFeedMl < 400 && age && (age.predictiveWeeks??age.totalWeeks) >= 12) _wakeNotes.push("Daytime intake was low (" + Math.round(_yFeedMl) + "ml) — some of these wakes might be real hunger — worth checking tomorrow's daytime feeds");
 	                      // Reverse cycling check
 	                      const _yNightMl = _yNightFeeds.reduce((s,w) => s + (w.feedAmount || w.ml || 0), 0);
 	                      if (_yNightMl > 0 && _yFeedMl > 0 && _yNightMl > _yFeedMl * 0.6) _wakeNotes.push("More milk overnight than during the day — " + _name + " may be reverse cycling (tanking up at night instead of day)");
@@ -51087,30 +51455,30 @@ function App(){
 	                        }
 	                      } catch {}
 	                      // Late bedtime
-	                      if (lastNight.bedtimeMins && lastNight.bedtimeMins > 21 * 60) _wakeNotes.push("Late bedtime (" + fmt12(lastNight.bedtimeStr || "") + ") — overtired babies often sleep lighter, not deeper");
+	                      if (lastNight.bedtimeMins && lastNight.bedtimeMins > 21 * 60) _wakeNotes.push("Late bedtime (" + fmt12(lastNight.bedtimeStr || "") + ") — when babies are overtired they actually sleep worse, not better");
 	                      // Separation anxiety (8-10mo)
 	                      const _aw = age ? (age.predictiveWeeks ?? age.totalWeeks) : 0;
-	                      if (_aw >= 32 && _aw <= 44 && _nightCount >= 2 && !_yNightFeeds.length) _wakeNotes.push("At " + fmtAge(age) + " separation anxiety is common — wakes without hunger that settle with your presence are typical");
+	                      if (_aw >= 32 && _aw <= 44 && _nightCount >= 2 && !_yNightFeeds.length) _wakeNotes.push("At " + fmtAge(age) + " separation anxiety is really common at this age — waking up and needing to know you're there is completely normal");
 	                      // Growth spurt windows
 	                      const _gsWindows = [3,6,12,19,26,36,52];
 	                      const _inGrowthSpurt = _gsWindows.some(gw => _aw >= gw - 1 && _aw <= gw + 1);
-	                      if (_inGrowthSpurt && _yNightFeeds.length >= 2) _wakeNotes.push("Growth spurt window — increased hunger wakes are normal and usually last 2-3 days");
+	                      if (_inGrowthSpurt && _yNightFeeds.length >= 2) _wakeNotes.push("Growth spurt window — extra hunger wakes are completely normal during a growth spurt — usually settles in 2-3 days");
 	                      // Illness recovery
 	                      try {
 	                        const _dm = disruptionMode;
 	                        if (_dm && typeof _dm === "object" && _dm.ts) {
 	                          const _daysOff = Math.round((Date.now() - _dm.ts) / 86400000);
-	                          if (_daysOff >= 3 && _daysOff <= 10) _wakeNotes.push("Recently unwell (" + _daysOff + " days ago) — habits from illness (extra feeds, more holding) can linger after baby feels better");
+	                          if (_daysOff >= 3 && _daysOff <= 10) _wakeNotes.push("Recently unwell (" + _daysOff + " days ago) — the extra cuddles and feeds from when they were poorly can stick around for a bit even after they're feeling better");
 	                        }
 	                      } catch {}
-	                      if (!_wakeNotes.length) _wakeNotes.push("No single cause stands out. If this repeats for 3+ nights, a clearer pattern will emerge");
+	                      if (!_wakeNotes.length) _wakeNotes.push("Nothing obvious jumps out from the logs. If this happens again over the next few nights, the picture will get clearer");
 	                    }
 	                    // WHAT OBUBBA WILL DO
 	                    const _planH = new Date().getHours();
 	                    const _planIsEvening = _planH >= 17 || _planH < 6;
 	                    let _action;
 	                    if (_nightCount === 0 || (diagnosis && diagnosis.type === "great_night")) {
-	                      _action = "No changes needed. OBubba will keep the same rhythm today.";
+	                      _action = "Everything worked well — no changes needed. Just keep doing what you're doing. 💛";
 	                    } else if (_planIsEvening) {
 	                      _action = diagnosis && diagnosis.type === "split_night"
 	                        ? "Tonight: keep resettles dark, brief and boring. No talking, no eye contact. Short feed if needed."
@@ -51128,7 +51496,7 @@ function App(){
 	                      if (diagnosis && diagnosis.type === "late_bedtime") _acts.push("Move bedtime 15-20min earlier tonight");
 	                      if (diagnosis && diagnosis.type === "illness_recovery") _acts.push("Gently return to pre-illness routine — consistency for a week usually resets the pattern");
 	                      if (diagnosis && diagnosis.type === "nap_bed_gap_long") _acts.push("Consider a short bridge nap or earlier bedtime to close the gap");
-	                      if (!_acts.length) _acts.push("Keep today steady — OBubba will only adjust when the pattern repeats");
+	                      if (!_acts.length) _acts.push("No big changes needed — just keep today's routine as normal and we'll see how tonight goes");
 	                      _action = _acts.join(". ") + ".";
 	                    }
 	                    // Build sections for structured rendering
@@ -51180,10 +51548,10 @@ function App(){
                         );
                       })()}
 
-                      <details data-testid="care-sleep-debrief-proof-drawer" className="ob-care-data-drawer" style={{padding:0,margin:"10px 0 0"}}>
+	                      <details data-testid="care-sleep-debrief-proof-drawer" className="ob-care-data-drawer" style={{padding:0,margin:"10px 0 0"}}>
                         <summary className="ob-care-data-summary">
                           <span>Why OBubba thinks this</span>
-                          <small>optional proof</small>
+                          <small>More detail · tap to read · optional proof</small>
 	                        </summary>
 	                        <div className="ob-care-data-body">
 
@@ -56497,7 +56865,7 @@ function App(){
                   <div style={{fontSize:10,color:C.lt,marginTop:1}}>Replay guide</div>
                 </div>
               </button>
-		              <button data-testid="replay-track-tour" onClick={(e)=>{e.preventDefault();e.stopPropagation();setTab("day");setDaySubScreen(null);setDayTutStep(0);try{localStorage.removeItem("day_tut_v1");}catch{}}} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 12px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"left"}}>
+		              <button data-testid="replay-track-tour" onClick={(e)=>{e.preventDefault();e.stopPropagation();setTab("day");setDaySubScreen(null);setDayTutStep(0);try{localStorage.removeItem("day_tut_v1");localStorage.removeItem(DAY_TOUR_STORAGE_KEY);}catch{}}} style={{display:"flex",alignItems:"center",gap:10,padding:"12px 12px",borderRadius:14,border:`1px solid ${C.blush}`,background:"var(--card-bg-alt)",cursor:_cP,textAlign:"left"}}>
                 <span style={{fontSize:22,flexShrink:0}}>☀️</span>
                 <div style={_S.flex1}>
 	                  <div style={{fontSize:12,fontWeight:700,color:C.deep}}>Track Tour</div>
@@ -57285,7 +57653,7 @@ function App(){
                 ? "We're preparing to launch on Google Play."
                 : "We're preparing to launch on the App Store and Google Play."}
             </div>
-            <div style={{fontSize:13,color:"#A898AC",lineHeight:1.6,marginBottom:18}}>
+            <div style={{fontSize:13,color:"#8A7888",lineHeight:1.6,marginBottom:18}}>
               Some features may not work perfectly in the browser as they're designed for the native app. Everything will be fully working once we launch.
             </div>
             <div style={{background:"rgba(192,112,136,0.06)",border:"1px solid rgba(192,112,136,0.15)",borderRadius:16,padding:"14px",marginBottom:18}}>
@@ -57295,7 +57663,7 @@ function App(){
                 Email hello@obubba.com
               </a>
             </div>
-            <button onClick={()=>{setShowBetaBanner(false);try{localStorage.setItem("beta_banner_v1",String(Date.now()));}catch{};}} style={{width:"100%",padding:"12px",borderRadius:99,border:"1px solid #F0D0C8",background:"none",color:"#A898AC",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
+            <button onClick={()=>{setShowBetaBanner(false);try{localStorage.setItem("beta_banner_v1",String(Date.now()));}catch{};}} style={{width:"100%",padding:"12px",borderRadius:99,border:"1px solid #F0D0C8",background:"none",color:"#8A7888",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
               Got it. let me explore!
             </button>
           </div>
@@ -59859,9 +60227,19 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
 	              setShowWeaningForm(false);
 	              const al = _foodInfo.allergens;
               // Start 2-hour allergen observation timer if new allergen introduced
+              // AND prompt parent to confirm all clear after the observation period
               if (al.length > 0) {
 	                const _newAllergens = al.filter(a => !allergenIntroduced(weaningEvidence||weaning||[], a));
-                if (_newAllergens.length > 0) {
+                if (_newAllergens.length > 0 && weaningForm.reaction !== "allergic") {
+                  // Immediate prompt: remind parent to watch for reactions
+                  setTimeout(() => {
+                    showConfirm(
+                      "🛡️ Allergen watch started",
+                      _foodTrim + " contains " + _newAllergens.join(", ") + ". Watch " + (babyName || "baby") + " for 2 hours for any signs of reaction (rash, swelling, vomiting).\n\nOBubba will remind you to confirm all clear.",
+                      () => { setConfirmDialog(null); },
+                      "Got it"
+                    );
+                  }, 500);
                   try {
                     const _allergenTimer = normaliseAllergenTimerPayload({allergens:_newAllergens, food:_foodTrim, startMs:Date.now()});
                     if (_allergenTimer) localStorage.setItem("ob_allergen_timer", JSON.stringify(_allergenTimer));
@@ -60666,7 +61044,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               try{if(navigator.share){await safeNavigatorShare({title:"OBubba",text:"Hey! I've been using OBubba and it genuinely helped. Worth trying: "+OBUBBA_DOWNLOAD_URL});}}catch{}
               setShowPassItOn(false);
             }} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#C07088,#a85a44)",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:8}}>Share OBubba 💛</button>
-            <button onClick={()=>{try{localStorage.setItem("ob_pass_it_on_v1","1");}catch{}setShowPassItOn(false);}} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Maybe later</button>
+            <button onClick={()=>{try{localStorage.setItem("ob_pass_it_on_v1","1");}catch{}setShowPassItOn(false);}} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Not now</button>
           </div>
         </div>
       )}
@@ -60679,7 +61057,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:700,color:"#5B4F5F",marginBottom:8}}>OBubba noticed something</div>
             <div style={{fontSize:14,color:"#8A7F87",lineHeight:1.7,marginBottom:20}}>We've been watching {babyName||"your baby"}'s sleep this week and spotted an interesting pattern forming. Open Premium to see what your data is telling you.</div>
             <button onClick={()=>{try{localStorage.setItem("ob_curiosity_shown","1");}catch{}setShowCuriosityGap(false);triggerPaywall("curiosity_gap");}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#C07088,#a85a44)",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:8}}>Start Free Trial</button>
-            <button onClick={()=>{try{localStorage.setItem("ob_curiosity_shown","1");}catch{}setShowCuriosityGap(false);}} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Maybe Later</button>
+            <button onClick={()=>{try{localStorage.setItem("ob_curiosity_shown","1");}catch{}setShowCuriosityGap(false);}} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Not now</button>
           </div>
         </div>
       )}
@@ -60723,7 +61101,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             <div style={{fontSize:14,color:"#8A7F87",lineHeight:1.7,marginBottom:16}}>{premiumGateInfo.description}</div>
             <div style={{fontSize:13,color:"#6A6070",lineHeight:1.6,marginBottom:16,padding:"10px 14px",background:"rgba(155,139,184,0.06)",borderRadius:12}}>For less than a coffee a month, unlock personalised predictions, sleep analysis, growth charts, and more for {babyName||"your baby"}.</div>
             <button onClick={()=>{setPremiumGateInfo(null);triggerPaywall(premiumGateInfo.context||"general");}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:8,boxShadow:"0 4px 20px rgba(155,139,184,0.3)"}}>Subscribe. {_fallbackPlanPrice("monthly")}/month</button>
-            <button onClick={()=>setPremiumGateInfo(null)} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Maybe later</button>
+            <button onClick={()=>setPremiumGateInfo(null)} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Not now</button>
           </div>
         </div>
       )}
@@ -60737,7 +61115,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             <div style={{fontSize:14,color:"#8A7F87",lineHeight:1.7,marginBottom:8}}>Has someone in the family asked for the 100th time if {babyName||"baby"} has been fed, how long they slept, how many nappies? {"\u{1F4AD}"}</div>
             <div style={{fontSize:14,color:"#6A6070",lineHeight:1.7,marginBottom:16}}>Well{"\u2026"} for just {_fallbackPlanPrice("monthly")}/month, let{"\u2019"}s put grandma{"\u2019"}s mind at ease with a beautiful daily snapshot card. Or not {"\u2014"} I don{"\u2019"}t want to tell you how to live {"\u{1F440}"}</div>
             <button onClick={()=>{setFamilyShareGate(false);triggerPaywall("family_share");}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",color:"white",fontSize:15,fontWeight:700,cursor:"pointer",marginBottom:8,boxShadow:"0 4px 20px rgba(155,139,184,0.3)"}}>Subscribe {"\u2192"}</button>
-            <button onClick={()=>setFamilyShareGate(false)} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Maybe later</button>
+            <button onClick={()=>setFamilyShareGate(false)} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"transparent",color:"#A89898",fontSize:13,cursor:"pointer"}}>Not now</button>
           </div>
         </div>
       )}
@@ -61347,7 +61725,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             ))}
 
             <button onClick={()=>setShowYouTime(false)} style={{width:"100%",marginTop:4,padding:"10px",borderRadius:99,border:"none",background:"transparent",color:C.lt,fontSize:12,cursor:_cP}}>
-              Maybe later
+              Not now
             </button>
           </div>
         </div>
@@ -64998,8 +65376,8 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               }} style={{width:"100%",padding:"12px",borderRadius:99,border:`1.5px solid #F0D0C8`,background:"none",color:"#5B4F5F",fontSize:14,fontWeight:600,cursor:_cP,fontFamily:"inherit"}}>
                 👤 Share with profile picture
               </button>
-              <button onClick={()=>setMsSharePrompt(null)} style={{width:"100%",padding:"10px",background:"none",border:"none",color:"#A898AC",fontSize:13,cursor:_cP,fontFamily:"inherit"}}>
-                Maybe later
+              <button onClick={()=>setMsSharePrompt(null)} style={{width:"100%",padding:"10px",background:"none",border:"none",color:"#8A7888",fontSize:13,cursor:_cP,fontFamily:"inherit"}}>
+                Not now
               </button>
             </div>
           </div>

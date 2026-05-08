@@ -16767,6 +16767,28 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .o
   stroke:#00D9FF!important;
   filter:drop-shadow(0 0 6px rgba(0,217,255,0.68)) drop-shadow(0 0 16px rgba(0,217,255,0.36))!important;
 }
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc.is-sleep-carry,
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc.is-sleep-carry.is-hollow,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-event-arc.is-sleep-carry,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-event-arc.is-sleep-carry.is-hollow,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-event-arc.is-sleep-carry,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-event-arc.is-sleep-carry.is-hollow{
+  stroke:#91A4D8!important;
+  stroke-width:3.6px!important;
+  stroke-dasharray:4 7!important;
+  stroke-linecap:round!important;
+  opacity:.78!important;
+  filter:drop-shadow(0 0 5px rgba(145,164,216,0.38)) drop-shadow(0 0 14px rgba(145,164,216,0.18))!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-event-arc.is-sleep-carry,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-event-arc.is-sleep-carry.is-hollow{
+  stroke:#7197BD!important;
+  filter:drop-shadow(0 0 5px rgba(113,151,189,0.30)) drop-shadow(0 0 13px rgba(113,151,189,0.14))!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-sleep-carry-arc-group .ob-clock-event-arc,
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc-group.is-carry-outside .ob-clock-event-arc{
+  pointer-events:none!important;
+}
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot.is-now,
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot-group:hover .ob-clock-event-dot,
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot-group:focus-visible .ob-clock-event-dot{

@@ -841,7 +841,7 @@ exports.feedReminder = onSchedule("every 30 minutes", async () => {
 });
 
 // ── No feed all day: alert if it's past 10am and zero feeds logged today ──
-exports.noFeedAlert = onSchedule("every 1 hours", async () => {
+exports.noFeedAlert = onSchedule("every 4 hours", async () => {
   // No server-wide time gate — the scheduled function runs every hour UTC,
   // and we compute each user's local hour inside the loop below using their
   // stored tzOffsetMin. Without this, a UTC-scheduled 10am-8pm gate meant
@@ -880,7 +880,7 @@ exports.noFeedAlert = onSchedule("every 1 hours", async () => {
 
 // ── Morning wake reminder: feed logged but no wake ──────────────
 // If a feed is logged today but no morning wake, nudge the parent
-exports.noWakeAlert = onSchedule("every 1 hours", async () => {
+exports.noWakeAlert = onSchedule("every 4 hours", async () => {
   // Per-user local-time gate: see feedReminder/noFeedAlert comments.
 
   await forEachFcmToken(async (doc, uid) => {
@@ -988,7 +988,7 @@ exports.onNewUser = onDocumentCreated("fcm_tokens/{uid}", async (event) => {
 });
 
 // ── Process scheduled pushes ────────────────────────────────────
-exports.processScheduledPushes = onSchedule("every 5 minutes", async () => {
+exports.processScheduledPushes = onSchedule("every 15 minutes", async () => {
   const now = new Date();
   const pending = await db
     .collection("scheduled_pushes")
@@ -1013,7 +1013,7 @@ exports.processScheduledPushes = onSchedule("every 5 minutes", async () => {
 });
 
 // ── Weekly digest: Monday morning summary ───────────────────────
-exports.weeklyDigest = onSchedule("every 1 hours", async () => {
+exports.weeklyDigest = onSchedule("every day 08:00", async () => {
   await forEachFcmToken(async (doc, uid) => {
     try {
       const actDoc = await db.collection("user_activity").doc(uid).get();
@@ -1042,7 +1042,7 @@ exports.weeklyDigest = onSchedule("every 1 hours", async () => {
 });
 
 // ── Monthly birthday: celebrate baby turning X months ────────────
-exports.monthlyBirthday = onSchedule("every 1 hours", async () => {
+exports.monthlyBirthday = onSchedule("every day 09:00", async () => {
   await forEachFcmToken(async (doc, uid) => {
     try {
       const actDoc = await db.collection("user_activity").doc(uid).get();
@@ -1081,7 +1081,7 @@ exports.monthlyBirthday = onSchedule("every 1 hours", async () => {
 });
 
 // ── New development phase: notify when baby enters a wonder week/phase ──
-exports.developmentPhase = onSchedule("every 1 hours", async () => {
+exports.developmentPhase = onSchedule("every day 08:30", async () => {
   // Wonder Weeks leap starts (in weeks from due date)
   const leapWeeks = [5, 8, 12, 19, 26, 37, 46, 55, 64, 75];
   const leapNames = [
@@ -1126,7 +1126,7 @@ exports.developmentPhase = onSchedule("every 1 hours", async () => {
 });
 
 // ── New milestones unlocked: notify when milestones enter baby's window ──
-exports.milestonesUnlocked = onSchedule("every 1 hours", async () => {
+exports.milestonesUnlocked = onSchedule("every day 09:30", async () => {
   await forEachFcmToken(async (doc, uid) => {
     try {
       const actDoc = await db.collection("user_activity").doc(uid).get();
@@ -1163,7 +1163,7 @@ exports.milestonesUnlocked = onSchedule("every 1 hours", async () => {
 });
 
 // ── Re-engagement: gentle nudge if inactive for 3+ days ─────────
-exports.reEngagement = onSchedule("every 1 hours", async () => {
+exports.reEngagement = onSchedule("every day 10:00", async () => {
   const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
 
   await forEachFcmToken(async (doc, uid) => {
@@ -1233,19 +1233,20 @@ exports.cleanupPushLog = onSchedule("every day 03:00", async () => {
 	});
 
 // ── Cleanup: purge expired anonymous Bubba Hugs and clock presence ─────────────────
-exports.cleanupBubbaHugs = onSchedule("every 1 hours", async () => {
+// cleanupBubbaHugs: reduced to daily. Hugs disabled, only presence docs need cleanup.
+exports.cleanupBubbaHugs = onSchedule("every day 04:00", async () => {
   const cutoffMs = Date.now();
-  const old = await db.collection("bubba_hugs")
+  const oldPresence = await db.collection("bubba_presence")
     .where("expiresAtMs", "<", cutoffMs)
     .limit(200)
     .get();
-  const oldPresence = await db.collection("bubba_presence")
+  const oldHugs = await db.collection("bubba_hugs")
     .where("expiresAtMs", "<", cutoffMs)
     .limit(200)
     .get();
 
   const batch = db.batch();
-  old.docs.forEach(doc => batch.delete(doc.ref));
   oldPresence.docs.forEach(doc => batch.delete(doc.ref));
-  if (old.docs.length > 0 || oldPresence.docs.length > 0) await batch.commit();
+  oldHugs.docs.forEach(doc => batch.delete(doc.ref));
+  if (oldPresence.docs.length > 0 || oldHugs.docs.length > 0) await batch.commit();
 });

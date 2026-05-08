@@ -19,7 +19,7 @@
   var MESSAGES = {
     "en-GB": {
       "nav.track": "Track",
-      "nav.understand": "Understand",
+      "nav.understand": "Care",
       "nav.grow": "Grow",
       "nav.account": "Account",
       "account.preferences": "Preferences",
@@ -54,7 +54,7 @@
     },
     "es-ES": {
       "nav.track": "Registrar",
-      "nav.understand": "Entender",
+      "nav.understand": "Cuidar",
       "nav.grow": "Crecer",
       "nav.account": "Cuenta",
       "account.preferences": "Preferencias",
@@ -89,7 +89,7 @@
     },
     "fr-FR": {
       "nav.track": "Suivre",
-      "nav.understand": "Comprendre",
+      "nav.understand": "Soins",
       "nav.grow": "Grandir",
       "nav.account": "Compte",
       "account.preferences": "Préférences",
@@ -124,7 +124,7 @@
     },
     "de-DE": {
       "nav.track": "Erfassen",
-      "nav.understand": "Verstehen",
+      "nav.understand": "Pflege",
       "nav.grow": "Wachsen",
       "nav.account": "Konto",
       "account.preferences": "Einstellungen",
@@ -159,7 +159,7 @@
     },
     "it-IT": {
       "nav.track": "Registra",
-      "nav.understand": "Capire",
+      "nav.understand": "Cura",
       "nav.grow": "Crescere",
       "nav.account": "Account",
       "account.preferences": "Preferenze",
@@ -194,7 +194,7 @@
     },
     "pt-BR": {
       "nav.track": "Registrar",
-      "nav.understand": "Entender",
+      "nav.understand": "Cuidar",
       "nav.grow": "Crescer",
       "nav.account": "Conta",
       "account.preferences": "Preferências",
@@ -229,7 +229,7 @@
     },
     "nl-NL": {
       "nav.track": "Bijhouden",
-      "nav.understand": "Begrijpen",
+      "nav.understand": "Zorg",
       "nav.grow": "Groeien",
       "nav.account": "Account",
       "account.preferences": "Voorkeuren",
@@ -264,7 +264,7 @@
     },
     "pl-PL": {
       "nav.track": "Rejestruj",
-      "nav.understand": "Zrozum",
+      "nav.understand": "Opieka",
       "nav.grow": "Rozwój",
       "nav.account": "Konto",
       "account.preferences": "Preferencje",
@@ -299,7 +299,7 @@
     },
     "zh-Hans": {
       "nav.track": "记录",
-      "nav.understand": "了解",
+      "nav.understand": "照护",
       "nav.grow": "成长",
       "nav.account": "账户",
       "account.preferences": "偏好设置",

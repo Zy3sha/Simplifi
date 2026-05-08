@@ -33,7 +33,7 @@ input::placeholder{opacity:1}
   --card-shadow:0 1px 0 rgba(255,255,255,0.82) inset,0 -1px 0 rgba(255,255,255,0.28) inset,0 18px 44px rgba(91,64,54,0.12),0 6px 18px rgba(192,112,136,0.08);
   --card-shadow-elevated:0 1px 0 rgba(255,255,255,0.90) inset,0 -1px 0 rgba(255,255,255,0.30) inset,0 24px 62px rgba(91,64,54,0.16),0 10px 28px rgba(192,112,136,0.10);
   --specular:linear-gradient(105deg,transparent 2%,rgba(255,242,235,0.35) 15%,rgba(255,255,255,0.55) 42%,rgba(255,255,255,0.55) 58%,rgba(250,235,228,0.35) 85%,transparent 98%);
-  --text-deep:#5B4F4F;--text-mid:#7A6B6B;--text-lt:#A89898;
+  --text-deep:#5B4F4F;--text-mid:#6B5A5A;--text-lt:#8A7878;
   --blush:#F0D0C8;--rose:#E8B8B0;--cream:#FFF8F2;--warm:#FFFAF6;
   --ter:#C07088;--mint:#6fa898;--sky:#7aabc4;--gold:#d4a855;
   --placeholder:#C8B8B4;
@@ -63,7 +63,7 @@ body.dark-mode{
   --card-shadow:0 0 20px rgba(255,180,70,0.16),inset 0 1.5px 0 rgba(255,200,120,0.20),0 6px 18px rgba(0,0,0,0.32),0 16px 40px rgba(0,0,0,0.24);
   --card-shadow-elevated:0 0 28px rgba(255,180,70,0.22),inset 0 2px 0 rgba(255,200,120,0.26),0 10px 28px rgba(0,0,0,0.38),0 20px 48px rgba(0,0,0,0.28);
   --specular:linear-gradient(105deg,transparent 2%,rgba(255,190,90,0.10) 15%,rgba(255,210,130,0.22) 42%,rgba(255,220,150,0.24) 58%,rgba(255,190,90,0.10) 85%,transparent 98%);
-  --text-deep:#F0F2F5;--text-mid:#B0BEC9;--text-lt:#7E8FA0;
+  --text-deep:#F0F2F5;--text-mid:#C4D0DA;--text-lt:#A0B0C0;
   --blush:rgba(255,190,90,0.22);--rose:rgba(255,180,70,0.16);
   --cream:#080e1c;--warm:#162236;
   --ter:#d98b72;--mint:#7bc4ad;--sky:#8dbdd5;--gold:#e0b86a;
@@ -873,7 +873,7 @@ body.dark-mode{
   --blush:rgba(255,255,255,0.16);
   --rose:rgba(255,255,255,0.12);
   --text-mid:#c1cad7;
-  --text-lt:#8996a6;
+  --text-lt:#A0B0C0;
   --glass-blur:34px;
   --glass-sat:1.8;
 }
@@ -1126,7 +1126,7 @@ body.dark-mode{
   --gold:#d7b982!important;
   --text-deep:#f4f7fb!important;
   --text-mid:#c3ccd8!important;
-  --text-lt:#8995a5!important;
+  --text-lt:#A0B0C0!important;
   --glass-blur:38px!important;
   --glass-sat:1.85!important;
 }
@@ -1519,7 +1519,7 @@ body.dark-mode{
   --chip-bg-active:rgba(255,255,255,0.16)!important;
   --text-deep:#f7f9fc!important;
   --text-mid:#c8d0dc!important;
-  --text-lt:#8f9aaa!important;
+  --text-lt:#A0B0C0!important;
   --ter:#f0b39e!important;
   --gold:#f2cf91!important;
   --blush:rgba(255,255,255,0.16)!important;
@@ -7081,7 +7081,7 @@ body:not(.dark-mode){
   --ob-calm-icon-fill:rgba(232,248,255,0.86)!important;
   --text-deep:#403640!important;
   --text-mid:#665A66!important;
-  --text-lt:#897B87!important;
+  --text-lt:#7A6B78!important;
   --ter:#B24F79!important;
   --sky:#287EA8!important;
   --mint:#3D8677!important;
@@ -8001,6 +8001,11 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-actions button{
   gap:7px!important;
   font:800 12.5px/1.1 inherit!important;
 }
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-actions button.is-morning-wake{
+  grid-column:1 / -1!important;
+  justify-self:center!important;
+  width:calc((100% - 8px) / 2)!important;
+}
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-actions span{
   font-size:18px!important;
   line-height:1!important;
@@ -8206,6 +8211,9 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-panel-soft{
   body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-actions button{
     min-height:42px!important;
     font-size:11.5px!important;
+  }
+  body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-actions button.is-morning-wake{
+    width:calc((100% - 6px) / 2)!important;
   }
   body[data-clock-home-lab="1"] .ob-app-root .ob-clock-guidance-actions{
     grid-template-columns:1fr!important;
@@ -8992,7 +9000,7 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"].dark-mode{
   --card-border:rgba(139,189,208,0.46)!important;
   --text-deep:#403640!important;
   --text-mid:#665A66!important;
-  --text-lt:#897B87!important;
+  --text-lt:#7A6B78!important;
   --ter:#B24F79!important;
   --sky:#287EA8!important;
   --mint:#3D8677!important;
@@ -9173,7 +9181,7 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"].light-mode{
   --card-border:rgba(139,189,208,0.46)!important;
   --text-deep:#403640!important;
   --text-mid:#665A66!important;
-  --text-lt:#897B87!important;
+  --text-lt:#7A6B78!important;
   --ter:#B24F79!important;
   --sky:#287EA8!important;
   --mint:#3D8677!important;
@@ -14590,7 +14598,7 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"].dark-mode{
   --card-border:rgba(139,189,208,0.46)!important;
   --text-deep:#403640!important;
   --text-mid:#665A66!important;
-  --text-lt:#897B87!important;
+  --text-lt:#7A6B78!important;
   --ter:#B24F79!important;
   --sky:#287EA8!important;
   --mint:#3D8677!important;
@@ -16758,6 +16766,28 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-event-arc.is-night-wake{
   stroke:#00D9FF!important;
   filter:drop-shadow(0 0 6px rgba(0,217,255,0.68)) drop-shadow(0 0 16px rgba(0,217,255,0.36))!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc.is-sleep-carry,
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc.is-sleep-carry.is-hollow,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-event-arc.is-sleep-carry,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-event-arc.is-sleep-carry.is-hollow,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-event-arc.is-sleep-carry,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-event-arc.is-sleep-carry.is-hollow{
+  stroke:#91A4D8!important;
+  stroke-width:3.6px!important;
+  stroke-dasharray:4 7!important;
+  stroke-linecap:round!important;
+  opacity:.78!important;
+  filter:drop-shadow(0 0 5px rgba(145,164,216,0.38)) drop-shadow(0 0 14px rgba(145,164,216,0.18))!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-event-arc.is-sleep-carry,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-event-arc.is-sleep-carry.is-hollow{
+  stroke:#7197BD!important;
+  filter:drop-shadow(0 0 5px rgba(113,151,189,0.30)) drop-shadow(0 0 13px rgba(113,151,189,0.14))!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-sleep-carry-arc-group .ob-clock-event-arc,
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc-group.is-carry-outside .ob-clock-event-arc{
+  pointer-events:none!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot.is-now,
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot-group:hover .ob-clock-event-dot,

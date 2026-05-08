@@ -95,7 +95,7 @@ assert("breastfeeding insight validates entry clock", app.includes("const entryM
 assert("nap-stop short-nap clustering validates end clocks", app.includes("const _endM2 = clockMins(end || \"\");") && app.includes("const em = clockMins(n.end || n.start || \"\");"));
 assert("schedule maker personal wake windows validate nap clocks", app.includes("const startMins = clockMins(n.start);") && app.includes("if(startMins!==null) dayTimeline.push") && app.includes("if(startMins!==null) dl2.push"));
 assert("schedule adjustment validates manual wake and bed clocks", app.includes("wakeRequested = clockMins(wakeStr);") && app.includes("bedRequested = clockMins(bedStr);"));
-assert("import repair validates inferred wake and bedtime clocks", app.includes("const h = clockHour(t);") && app.includes("const ftMins = clockMins(ft);") && app.includes("const sh = clockHour(e.start);"));
+assert("import repair validates inferred wake and bedtime clocks", app.includes("const h = clockHour(t);") && app.includes("const ftMins = clockMins(ft);") && app.includes("const startHour = clockHour(entry.start);"));
 assert("import repair sorts candidate wakes through the shared clock parser", app.includes("function entryClockSortMins(entry, fallback = 1440)") && app.includes("}).sort((a, b) => entryClockSortMins(a) - entryClockSortMins(b));") && !app.includes('(a.time || a.start || "").localeCompare(b.time || b.start || "")'));
 assert("witching-hour predictor validates feed clocks", app.includes("const h = clockHour(feeds[j].time || \"\");"));
 assert("quickstart generated feed time uses safe wake hour", app.includes("const _amFeedH = (clockHour(_obWakeTime) ?? 7) + 1;"));
