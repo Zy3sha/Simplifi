@@ -178,7 +178,6 @@ body.dark-mode.girl header{background:rgba(45,31,42,0.60)!important}
     linear-gradient(145deg,rgba(255,255,255,0.28),rgba(255,255,255,0.06) 42%,rgba(255,255,255,0.18)),
     var(--card-bg);
   backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-sat));
-  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-sat));
   border:1px solid var(--card-border);border-radius:min(24px, 6vw);
   box-shadow:var(--card-shadow);
   contain:content;
@@ -194,7 +193,7 @@ body.dark-mode .glass-card::after{background:linear-gradient(90deg,transparent,r
 
 .glass-entry{
   position:relative;
-  backdrop-filter:blur(16px) saturate(1.5);-webkit-backdrop-filter:blur(16px) saturate(1.5);
+  backdrop-filter:blur(16px) saturate(1.5);
   box-shadow:
     -4px -4px 6px -5px rgba(217,168,192,0.35),
     4px 4px 6px -5px rgba(192,160,220,0.25)!important;
@@ -278,7 +277,6 @@ div[role="navigation"][aria-label="Main navigation"]{
     linear-gradient(145deg,rgba(255,255,255,0.44),rgba(255,255,255,0.16)),
     var(--nav-bg)!important;
   backdrop-filter:blur(26px) saturate(1.65)!important;
-  -webkit-backdrop-filter:blur(26px) saturate(1.65)!important;
   box-shadow:var(--nav-shadow)!important;
 }
 body.dark-mode div[role="navigation"][aria-label="Main navigation"]{
@@ -431,8 +429,7 @@ body.dark-mode .ob-hero:not(.prio-glow){
 }
 
 /* ═══ EDGE GLOW — light concentrated at the border, not filling interior ═══ */
-@keyframes candlePulse{
-  0%,100%{opacity:0.8}
+
   50%{opacity:1}
 }
 
@@ -554,9 +551,7 @@ div[style*="borderRadius:18"][style*="gap:4"] button[style]{
 
 /* Sheets / Modals — these DO get blur since they're overlay */
 div[style*="borderRadius:\"24px 24px 0 0\""],div[style*="borderRadius:24px 24px 0 0"]{
-  backdrop-filter:blur(30px) saturate(1.6);-webkit-backdrop-filter:blur(30px) saturate(1.6)}
-body.light-mode div[style*="borderRadius:\"24px 24px 0 0\""],body:not(.dark-mode) div[style*="borderRadius:\"24px 24px 0 0\""]{
-  background:radial-gradient(ellipse 80% 40% at 50% 0%,rgba(246,221,227,0.18),transparent 55%),rgba(255,252,250,0.92)!important;
+  backdrop-filter:blur(30px) saturate(1.6);
   box-shadow:0 -8px 40px rgba(246,221,227,0.25),0 -12px 64px rgba(217,207,243,0.15),inset 0 1px 0 rgba(255,255,255,0.70)!important}
 body.dark-mode div[style*="borderRadius:\"24px 24px 0 0\""]{
   background:rgba(14,22,42,0.92)!important;box-shadow:0 -8px 40px rgba(0,0,0,0.40),inset 0 1px 0 rgba(255,200,120,0.16),0 0 30px rgba(255,180,70,0.08)!important}
@@ -595,19 +590,7 @@ body.dark-mode div[style*="gridTemplateColumns:\"1fr 1fr 1fr 1fr\""]>div{
     4px 4px 5px -5px rgba(255,150,40,0.28)!important}
 
 /* Tutorial / Forgot PIN — blur only on overlay */
-div[style*="animation:\"tutPop"]{backdrop-filter:blur(30px) saturate(1.6);-webkit-backdrop-filter:blur(30px) saturate(1.6)}
-body.light-mode div[style*="animation:\"tutPop"],body:not(.dark-mode) div[style*="animation:\"tutPop"]{
-  box-shadow:0 0 30px rgba(255,255,255,0.65),0 0 56px rgba(246,221,227,0.35),0 0 84px rgba(217,207,243,0.22),0 28px 72px rgba(207,195,236,0.18)!important}
-div[style*="borderRadius:24"][style*="maxWidth:340"]{backdrop-filter:blur(30px) saturate(1.6);-webkit-backdrop-filter:blur(30px) saturate(1.6)}
-
-/* ═══ WELCOME PAGE ═══ */
-
-/* Hero image */
-div[style*="borderRadius:36"][style*="overflow:\"hidden\""][style*="animation"]{border:2px solid rgba(255,255,255,0.50)!important}
-body.light-mode div[style*="borderRadius:36"][style*="overflow:\"hidden\""][style*="animation"],body:not(.dark-mode) div[style*="borderRadius:36"][style*="overflow:\"hidden\""][style*="animation"]{
-  box-shadow:inset 0 1px 0 rgba(255,255,255,0.85),0 0 28px rgba(255,255,255,0.60),0 0 56px rgba(246,221,227,0.38),0 0 84px rgba(217,207,243,0.24),0 24px 52px rgba(207,195,236,0.18)!important}
-body.dark-mode div[style*="borderRadius:36"][style*="overflow:\"hidden\""][style*="animation"]{
-  box-shadow:inset 0 1px 0 rgba(255,200,120,0.20),0 0 44px rgba(255,180,70,0.22),0 0 80px rgba(255,155,45,0.12),0 24px 52px rgba(0,0,0,0.30)!important;border-color:rgba(255,190,90,0.30)!important}
+div[style*="animation:\"tutPop"]{backdrop-filter:blur(30px) saturate(1.6);border-color:rgba(255,190,90,0.30)!important}
 
 /* Get Started — yellow/orange glow */
 body.light-mode button[style*="borderRadius:18"][style*="padding:\"19px\""],body:not(.dark-mode) button[style*="borderRadius:18"][style*="padding:\"19px\""]{
@@ -757,13 +740,7 @@ body.dark-mode .prio-glow {
 .ob-sheet-overlay{animation:overlayFadeIn 0.2s ease both}
 .ob-sheet-content{animation:sheetSlideUp 0.28s cubic-bezier(0.23,1,0.32,1) both}
 .ob-sheet-content{max-height:var(--ob-sheet-max-h)!important}
-.ob-responsive-dialog{max-height:var(--ob-dialog-max-h)!important;overflow-y:auto;-webkit-overflow-scrolling:touch}
-.ob-notes-hero{
-  background:
-    radial-gradient(ellipse 90% 70% at 12% 0%,rgba(255,255,255,0.40),transparent 62%),
-    radial-gradient(ellipse 70% 60% at 96% 12%,rgba(122,171,196,0.12),transparent 60%),
-    linear-gradient(145deg,rgba(255,255,255,0.24),rgba(255,255,255,0.06)),
-    var(--card-bg)!important;
+.ob-responsive-dialog{max-height:var(--ob-dialog-max-h)!important;overflow-y:auto;
 }
 .ob-quick-action{
   min-height:48px;
@@ -1441,7 +1418,6 @@ div[role="navigation"][aria-label="Main navigation"]{
   padding:6px 7px calc(env(safe-area-inset-bottom,0px) + 6px)!important;
   background:linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.07)),rgba(18,25,37,0.66)!important;
   backdrop-filter:blur(44px) saturate(1.85)!important;
-  -webkit-backdrop-filter:blur(44px) saturate(1.85)!important;
 }
 button.ob-main-tab-btn{
   min-height:45px!important;
@@ -2757,7 +2733,6 @@ body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]
   background:
     var(--ob-night-control-face) padding-box,
     var(--ob-night-control-rim) border-box!important;
-  -webkit-backdrop-filter:blur(18px) saturate(1.06)!important;
   backdrop-filter:blur(18px) saturate(1.06)!important;
   box-shadow:
     inset 0 1px 0 rgba(255,176,124,0.105),
@@ -2810,7 +2785,6 @@ body.dark-mode .ob-app-root .ob-sheet-overlay,
 body.dark-mode .ob-app-root div[style*="position: fixed"][style*="backdrop-filter"],
 body.dark-mode .ob-app-root div[style*="position: fixed"][style*="backdropFilter"]{
   background:rgba(0,6,16,0.66)!important;
-  -webkit-backdrop-filter:blur(4px) saturate(1.02)!important;
   backdrop-filter:blur(4px) saturate(1.02)!important;
 }
 body.dark-mode .ob-app-root .ob-night-sheet-surface,
@@ -2824,7 +2798,6 @@ body.dark-mode .ob-app-root div[style*="background:var(--bg-solid)"][style*="bor
   background:
     var(--ob-night-modal-face) padding-box,
     var(--ob-night-modal-rim) border-box!important;
-  -webkit-backdrop-filter:blur(8px) saturate(1.04)!important;
   backdrop-filter:blur(8px) saturate(1.04)!important;
   box-shadow:
     inset 0 1px 0 rgba(255,200,158,0.105),
@@ -2848,7 +2821,6 @@ body.dark-mode .ob-app-root div[style*="background: var(--bg-solid)"][style*="bo
   background:var(--ob-night-modal-field)!important;
   border-color:rgba(255,171,108,0.14)!important;
   color:#F8F2EC!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.055),
@@ -2877,7 +2849,6 @@ body.dark-mode .ob-app-root div[style*="background: var(--bg-solid)"][style*="bo
   background:var(--ob-night-modal-panel)!important;
   border-color:rgba(255,171,108,0.12)!important;
   color:#F1DFCE!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
   box-shadow:
     inset 0 1px 0 rgba(255,205,166,0.075),
@@ -3300,7 +3271,6 @@ body.dark-mode .ob-app-root .ob-plan-screen-order.is-simple-plan.ob-plan-unified
   display:flex;
   gap:7px;
   overflow-x:auto;
-  -webkit-overflow-scrolling:touch;
   scrollbar-width:none;
   margin-top:10px;
   padding-bottom:2px;
@@ -3926,7 +3896,6 @@ body:not(.dark-mode) .ob-app-root div[style*="background:var(--picker-bg)"][styl
   background:
     linear-gradient(180deg,rgba(255,252,248,0.95),rgba(255,248,242,0.935)) padding-box,
     linear-gradient(135deg,rgba(255,255,255,0.82),rgba(201,112,90,0.18),rgba(111,168,152,0.12)) border-box!important;
-  -webkit-backdrop-filter:blur(20px) saturate(1.25)!important;
   backdrop-filter:blur(20px) saturate(1.25)!important;
 }
 body.dark-mode .ob-app-root .ob-sheet-content,
@@ -3939,7 +3908,6 @@ body.dark-mode .ob-app-root div[style*="background:var(--picker-bg)"][style*="bo
   background:
     linear-gradient(180deg,rgba(9,21,37,0.992),rgba(5,15,28,0.988)) padding-box,
     linear-gradient(135deg,rgba(255,184,118,0.24),rgba(255,108,42,0.16),rgba(116,157,188,0.08),rgba(202,73,30,0.14)) border-box!important;
-  -webkit-backdrop-filter:blur(7px) saturate(1.02)!important;
   backdrop-filter:blur(7px) saturate(1.02)!important;
 }
 
@@ -3980,7 +3948,6 @@ body.dark-mode .ob-app-root div[style*="background:var(--card-bg-alt)"][style*="
   background:
     var(--ob-night-opaque-face) padding-box,
     var(--ob-night-opaque-rim) border-box!important;
-  -webkit-backdrop-filter:blur(6px) saturate(1.02)!important;
   backdrop-filter:blur(6px) saturate(1.02)!important;
   box-shadow:
     inset 0 1px 0 rgba(255,213,176,0.105),
@@ -4025,7 +3992,6 @@ body.dark-mode .ob-app-root [role="button"]:not(.ob-icon-dismiss):not(.ob-carous
   background:
     linear-gradient(180deg,rgba(21,43,68,0.985),rgba(12,27,46,0.976)) padding-box,
     var(--ob-night-opaque-rim) border-box!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
   box-shadow:
     inset 0 1px 0 rgba(255,205,166,0.095),
@@ -4120,7 +4086,6 @@ body.dark-mode .ob-app-root .ob-night-wake-tip{
 }
 .ob-global-toast{
   background:rgba(255,255,255,0.998)!important;
-  -webkit-backdrop-filter:blur(5px) saturate(1.05)!important;
   backdrop-filter:blur(5px) saturate(1.05)!important;
 }
 @keyframes obBubbaHugFlash{
@@ -4180,7 +4145,6 @@ body.dark-mode .ob-app-root div[data-entry-id].ob-today-log-entry{
   background:
     linear-gradient(180deg,rgba(20,32,49,0.998),rgba(10,19,34,0.996)) padding-box,
     linear-gradient(135deg,rgba(241,232,255,0.74),rgba(162,126,255,0.62),rgba(205,139,255,0.38),rgba(92,133,190,0.12)) border-box!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
   box-shadow:
     inset 0 1px 0 rgba(244,236,255,0.16),
@@ -4213,7 +4177,6 @@ body.dark-mode .ob-app-root .ob-weaning-plan-card{
   background:
     var(--ob-night-passcode-face) padding-box,
     var(--ob-night-passcode-rim) border-box!important;
-  -webkit-backdrop-filter:blur(5px) saturate(1.05)!important;
   backdrop-filter:blur(5px) saturate(1.05)!important;
   box-shadow:
     inset 0 1px 0 rgba(255,231,210,0.18),
@@ -4230,7 +4193,6 @@ body.dark-mode .ob-app-root [role="button"]:not(.ob-icon-dismiss):not(.ob-carous
   background:
     var(--ob-night-passcode-face) padding-box,
     var(--ob-night-passcode-rim) border-box!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
   box-shadow:
     inset 0 1px 0 rgba(255,230,208,0.20),
@@ -4243,7 +4205,6 @@ body.dark-mode .ob-app-root [role="button"]:not(.ob-icon-dismiss):not(.ob-carous
 .ob-app-root button.ob-widget-theme-swatch,
 body.dark-mode .ob-app-root button.ob-widget-theme-swatch{
   background:var(--ob-swatch-bg)!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
 }
 
@@ -4258,7 +4219,6 @@ body.dark-mode .ob-app-root button.ob-widget-theme-swatch{
   border:1.5px solid var(--ob-swatch-rim,rgba(192,112,136,0.34))!important;
   background:transparent!important;
   background-image:none!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.78),
@@ -4278,7 +4238,6 @@ body.dark-mode .ob-app-root button.ob-widget-theme-swatch .ob-widget-theme-face{
   opacity:1!important;
   mix-blend-mode:normal!important;
   filter:none!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.68),
@@ -4336,7 +4295,6 @@ body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]
   border:1px solid transparent!important;
   background:transparent!important;
   box-shadow:none!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
 }
 .ob-app-root div[role="navigation"][aria-label="Main navigation"] button.ob-main-tab-btn[aria-current="page"],
@@ -4461,8 +4419,7 @@ body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]
    WebView :active feedback can be too brief, especially at night, so App adds
    .ob-pressing for one short beat after touch. Keep the glow local to the
    clicked control and use a persistent spotlight only for the selected dock tab. */
-@keyframes obButtonPressPop{
-  0%{filter:brightness(1);transform:scale(0.985)}
+
   42%{filter:brightness(1.16);transform:scale(0.965)}
   100%{filter:brightness(1.04);transform:scale(0.985)}
 }
@@ -4536,8 +4493,7 @@ body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]
 }
 
 /* Retired Track status card readability guard. */
-@keyframes obSimpleActionGlow{
-  0%{box-shadow:0 0 0 0 var(--ob-action-glow),0 0 0 var(--ob-action-glow),var(--card-shadow);transform:translateY(0) scale(1);}
+
   42%{box-shadow:0 0 0 3px var(--ob-action-glow),0 0 16px var(--ob-action-glow),var(--card-shadow);transform:translateY(1px) scale(0.975);}
   100%{box-shadow:0 0 0 2px rgba(255,255,255,0),0 0 6px var(--ob-action-glow),var(--card-shadow);transform:translateY(0) scale(1);}
 }
@@ -5107,7 +5063,6 @@ body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]
   border:1px solid transparent!important;
   background:transparent!important;
   box-shadow:none!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
 }
 .ob-app-root div[role="navigation"][aria-label="Main navigation"] button.ob-main-tab-btn[aria-current="page"],
@@ -5180,7 +5135,6 @@ body.dark-mode .ob-app-root button.ob-widget-theme-swatch{
   border:1.5px solid var(--ob-swatch-rim,rgba(192,112,136,0.34))!important;
   background:transparent!important;
   background-image:none!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.78),
@@ -5200,7 +5154,6 @@ body.dark-mode .ob-app-root button.ob-widget-theme-swatch .ob-widget-theme-face{
   opacity:1!important;
   mix-blend-mode:normal!important;
   filter:none!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.68),
@@ -5258,7 +5211,6 @@ body.dark-mode .ob-app-root button.ob-widget-theme-swatch .ob-widget-theme-face{
   border-radius:9px!important;
   background:var(--ob-swatch-bg)!important;
   pointer-events:none!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.66),
@@ -5296,7 +5248,6 @@ body.dark-mode .ob-app-root button.ob-poop-colour-swatch{
   border:0!important;
   background:transparent!important;
   box-shadow:none!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
 }
 .ob-app-root button.ob-poop-colour-swatch .ob-poop-colour-dot,
@@ -5311,7 +5262,6 @@ body.dark-mode .ob-app-root button.ob-poop-colour-swatch{
   border:0!important;
   background:transparent!important;
   box-shadow:none!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
 }
 .ob-app-root button.ob-poop-colour-swatch .ob-poop-colour-dot,
@@ -5338,7 +5288,6 @@ body.dark-mode .ob-app-root button.ob-poop-colour-swatch .ob-poop-colour-dot{
   background:
     linear-gradient(135deg,rgba(255,255,255,0.96),rgba(236,252,248,0.92)) padding-box,
     linear-gradient(135deg,rgba(153,230,214,0.88),rgba(218,207,246,0.52)) border-box!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.82),
@@ -5369,7 +5318,6 @@ body.dark-mode .ob-app-root button.ob-poop-colour-swatch .ob-poop-colour-dot{
   border:0!important;
   color:#A7647A!important;
   box-shadow:none!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
 }
 body.dark-mode .ob-app-root button.ob-countdown-pill{
@@ -5399,7 +5347,6 @@ body.dark-mode .ob-app-root button.ob-nap-refused-link{
 .ob-app-root button.ob-widget-theme-swatch{
   background:var(--ob-swatch-bg)!important;
   border:1.5px solid rgba(255,255,255,0.78)!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
   background-clip:border-box!important;
   overflow:visible!important;
@@ -5435,7 +5382,6 @@ body.dark-mode .ob-app-root button.ob-widget-theme-swatch{
    global night-mode button styling is making ordinary buttons uniform. */
 .ob-app-root button.ob-widget-theme-swatch{
   background:var(--ob-swatch-bg)!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.72),
@@ -5475,7 +5421,6 @@ body.dark-mode .ob-app-root button.ob-poop-colour-swatch{
   border-radius:12px!important;
   background:transparent!important;
   box-shadow:none!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
   color:var(--text-mid)!important;
 }
@@ -5716,7 +5661,6 @@ body[data-kb-open="1"] .ob-keyboard-safe-sheet:focus-within{
   opacity:1!important;
   background:rgba(255,255,255,0.72)!important;
   border-color:rgba(155,120,142,0.28)!important;
-  -webkit-backdrop-filter:blur(18px) saturate(1.16)!important;
   backdrop-filter:blur(18px) saturate(1.16)!important;
   box-shadow:0 12px 28px rgba(91,64,54,0.12),0 0 18px rgba(246,221,227,0.18),inset 0 1px 0 rgba(255,255,255,0.62)!important;
 }
@@ -5749,7 +5693,6 @@ body.dark-mode .ob-app-root .ob-today-nudge-card{
   background:
     linear-gradient(180deg,rgba(18,39,65,0.996),rgba(8,21,39,0.992)) padding-box,
     linear-gradient(135deg,rgba(255,210,166,0.76),rgba(255,139,86,0.50),rgba(255,236,214,0.18),rgba(255,108,62,0.28)) border-box!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
   box-shadow:
     inset 0 1px 0 rgba(255,231,210,0.17),
@@ -5800,7 +5743,6 @@ body.dark-mode .ob-app-root div[style*="background:var(--card-bg-solid)"][style*
   background:
     var(--ob-night-unified-face) padding-box,
     var(--ob-night-unified-rim) border-box!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
   box-shadow:
     inset 0 1px 0 rgba(255,231,210,0.17),
@@ -5820,7 +5762,6 @@ body.dark-mode .ob-app-root div[style*="background:var(--picker-bg)"][style*="bo
   background:
     linear-gradient(180deg,rgba(10,24,43,0.998),rgba(5,15,29,0.996)) padding-box,
     var(--ob-night-unified-rim) border-box!important;
-  -webkit-backdrop-filter:blur(3px) saturate(1.02)!important;
   backdrop-filter:blur(3px) saturate(1.02)!important;
   box-shadow:
     inset 0 1px 0 rgba(255,231,210,0.16),
@@ -5835,7 +5776,6 @@ body.dark-mode .ob-app-root [role="button"]:not(.ob-icon-dismiss):not(.ob-carous
   background:
     var(--ob-night-unified-face-soft) padding-box,
     var(--ob-night-unified-rim) border-box!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
   box-shadow:
     inset 0 1px 0 rgba(255,231,210,0.18),
@@ -5848,7 +5788,6 @@ body.dark-mode .ob-app-root [role="button"]:not(.ob-icon-dismiss):not(.ob-carous
 .ob-app-root button.ob-widget-theme-swatch,
 body.dark-mode .ob-app-root button.ob-widget-theme-swatch{
   background:var(--ob-swatch-bg)!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
 }
 
@@ -5863,7 +5802,6 @@ body.dark-mode .ob-app-root button.ob-widget-theme-swatch{
   border:1.5px solid var(--ob-swatch-rim,rgba(192,112,136,0.34))!important;
   background:transparent!important;
   background-image:none!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.78),
@@ -5883,7 +5821,6 @@ body.dark-mode .ob-app-root button.ob-widget-theme-swatch .ob-widget-theme-face{
   opacity:1!important;
   mix-blend-mode:normal!important;
   filter:none!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.68),
@@ -5941,7 +5878,6 @@ body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]
   border:1px solid transparent!important;
   background:transparent!important;
   box-shadow:none!important;
-  -webkit-backdrop-filter:none!important;
   backdrop-filter:none!important;
 }
 .ob-app-root div[role="navigation"][aria-label="Main navigation"] button.ob-main-tab-btn[aria-current="page"],
@@ -6536,7 +6472,6 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-
   background:transparent!important;
   box-shadow:none!important;
   backdrop-filter:none!important;
-  -webkit-backdrop-filter:none!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-rhythm-card::before,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-rhythm-card::before{
@@ -6931,7 +6866,6 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-kindness-card{
   border:1px solid rgba(255,255,255,0.08)!important;
   border-radius:16px!important;
   backdrop-filter:blur(12px)!important;
-  -webkit-backdrop-filter:blur(12px)!important;
 }
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-kindness-card{
   background:rgba(90,70,100,0.04)!important;
@@ -7289,7 +7223,6 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-kindness{
   background:radial-gradient(circle at 18px 50%,rgba(239,247,255,0.15),transparent 31px),linear-gradient(180deg,rgba(20,30,48,0.66),rgba(8,13,24,0.50))!important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.09),0 10px 24px rgba(0,0,0,0.18),0 0 26px rgba(78,104,255,0.08)!important;
   backdrop-filter:blur(16px)!important;
-  -webkit-backdrop-filter:blur(16px)!important;
   box-sizing:border-box!important;
   text-align:left!important;
 }
@@ -7368,7 +7301,6 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-kindness-card{
   background:radial-gradient(circle at 18px 50%,rgba(239,247,255,0.15),transparent 31px),linear-gradient(180deg,rgba(20,30,48,0.66),rgba(8,13,24,0.50))!important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.09),0 10px 24px rgba(0,0,0,0.18),0 0 26px rgba(78,104,255,0.08)!important;
   backdrop-filter:blur(16px)!important;
-  -webkit-backdrop-filter:blur(16px)!important;
   box-sizing:border-box!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-kindness-card i{
@@ -7439,7 +7371,6 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-kindness{
     linear-gradient(180deg,rgba(20,30,48,0.66),rgba(8,13,24,0.50))!important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.09),0 10px 24px rgba(0,0,0,0.18),0 0 26px rgba(78,104,255,0.08)!important;
   backdrop-filter:blur(16px)!important;
-  -webkit-backdrop-filter:blur(16px)!important;
   box-sizing:border-box!important;
   text-align:left!important;
 }
@@ -7518,7 +7449,6 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-kindness{
     0 12px 28px rgba(0,0,0,0.20),
     0 0 30px rgba(78,104,255,0.09)!important;
   backdrop-filter:blur(16px)!important;
-  -webkit-backdrop-filter:blur(16px)!important;
   box-sizing:border-box!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-kindness::before{
@@ -8056,7 +7986,6 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-
   background:transparent!important;
   box-shadow:none!important;
   backdrop-filter:none!important;
-  -webkit-backdrop-filter:none!important;
 }
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-rhythm-card::before{
   content:none!important;
@@ -8354,7 +8283,6 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-
     0 22px 44px rgba(131,105,78,0.14),
     0 8px 18px rgba(99,112,151,0.08)!important;
   backdrop-filter:blur(18px) saturate(1.03)!important;
-  -webkit-backdrop-filter:blur(18px) saturate(1.03)!important;
 }
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-rhythm-card::before{
   box-shadow:
@@ -8512,7 +8440,6 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-
     inset 0 1px 0 rgba(255,255,255,0.78),
     0 18px 34px rgba(131,105,78,0.12)!important;
   backdrop-filter:blur(16px) saturate(1.03)!important;
-  -webkit-backdrop-filter:blur(16px) saturate(1.03)!important;
 }
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-log-instruction{
   border-bottom:1px solid rgba(180,153,116,0.16)!important;
@@ -8642,7 +8569,6 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-rhythm-card{
     inset 0 0 0 1px rgba(255,255,255,0.025),
     0 24px 46px rgba(0,0,0,0.30)!important;
   backdrop-filter:blur(18px) saturate(1.04)!important;
-  -webkit-backdrop-filter:blur(18px) saturate(1.04)!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-rhythm-card::before{
   border-radius:29px!important;
@@ -8884,7 +8810,6 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-panel{
     inset 0 1px 0 rgba(240,230,213,0.055),
     0 18px 34px rgba(0,0,0,0.24)!important;
   backdrop-filter:blur(16px) saturate(1.02)!important;
-  -webkit-backdrop-filter:blur(16px) saturate(1.02)!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-strip{
   border-radius:26px!important;
@@ -9036,7 +8961,6 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions{
   overflow-y:hidden!important;
   padding:0 2px 2px!important;
   scroll-snap-type:x proximity!important;
-  -webkit-overflow-scrolling:touch!important;
   scrollbar-width:none!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions::-webkit-scrollbar{
@@ -9249,7 +9173,6 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions{
   overflow-x:auto!important;
   overflow-y:hidden!important;
   scroll-snap-type:x proximity;
-  -webkit-overflow-scrolling:touch;
   padding:2px 3px 4px!important;
   scrollbar-width:none;
 }
@@ -11075,7 +10998,6 @@ body.dark-mode .ob-app-root .ob-header-glass{
     0 0 24px rgba(229,120,166,0.10),
     0 0 22px rgba(255,158,92,0.08)!important;
   backdrop-filter:blur(7px) saturate(1.13)!important;
-  -webkit-backdrop-filter:blur(7px) saturate(1.13)!important;
 }
 body.dark-mode .ob-app-root .ob-header-glass [data-testid="ob-header-brand-left"],
 body.dark-mode .ob-app-root .ob-header-glass [data-testid="ob-header-child-center"] > div:last-child > div:first-child{
@@ -11308,8 +11230,7 @@ body.dark-mode .ob-app-root .ob-day-tool-sub{
 body.dark-mode .ob-app-root .ob-day-tool-title{
   color:#F5F0F5!important;
 }
-@keyframes obButtonPressPop{
-  0%{filter:brightness(1);transform:scale(0.985)}
+
   42%{filter:brightness(1.16);transform:scale(0.965)}
   100%{filter:brightness(1.04);transform:scale(0.985)}
 }
@@ -12528,7 +12449,6 @@ body[data-kb-open="1"] .ob-app-root :where(input,textarea,select):focus{
     radial-gradient(ellipse 100% 92% at 50% 100%,rgba(190,232,255,0.18),transparent 66%)!important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.82),0 10px 24px rgba(75,99,128,0.10)!important;
   backdrop-filter:blur(var(--glass-blur,14px))!important;
-  -webkit-backdrop-filter:blur(var(--glass-blur,14px))!important;
   box-sizing:border-box!important;
 }
 .ob-app-root .ob-soft-sleep-card.is-compact{
@@ -12979,7 +12899,6 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-
   background:transparent!important;
   box-shadow:none!important;
   backdrop-filter:none!important;
-  -webkit-backdrop-filter:none!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-rhythm-card::before,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-rhythm-card::before{
@@ -13743,7 +13662,6 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-rhythm-card > .ob-clock-kin
     linear-gradient(180deg,rgba(20,30,48,0.64),rgba(8,13,24,0.48))!important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 10px 20px rgba(0,0,0,0.13)!important;
   backdrop-filter:blur(14px)!important;
-  -webkit-backdrop-filter:blur(14px)!important;
   overflow:hidden!important;
   text-align:center!important;
 }
@@ -13945,7 +13863,6 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-guidance-notices{
   background:linear-gradient(180deg,rgba(18,28,50,0.58),rgba(9,14,28,0.46))!important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.07),0 10px 22px rgba(0,0,0,0.16)!important;
   backdrop-filter:blur(18px)!important;
-  -webkit-backdrop-filter:blur(18px)!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-guidance-notices-head{
   display:flex!important;
@@ -14111,7 +14028,6 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-lab > .ob-clock-kindness-no
     linear-gradient(180deg,rgba(20,30,48,0.68),rgba(8,13,24,0.54))!important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 10px 22px rgba(0,0,0,0.14)!important;
   backdrop-filter:blur(14px)!important;
-  -webkit-backdrop-filter:blur(14px)!important;
   overflow:hidden!important;
   text-align:center!important;
 }
@@ -14353,7 +14269,6 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-
   border-color:rgba(255,255,255,0.56)!important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.78),0 16px 36px rgba(65,84,104,0.12),0 4px 18px rgba(255,255,255,0.26)!important;
   backdrop-filter:blur(22px) saturate(1.42)!important;
-  -webkit-backdrop-filter:blur(22px) saturate(1.42)!important;
 }
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-header-glass{
   background:linear-gradient(180deg,rgba(255,255,255,0.72),rgba(232,248,255,0.48)) padding-box,linear-gradient(135deg,rgba(255,255,255,0.72),rgba(217,243,255,0.36)) border-box!important;
@@ -14366,7 +14281,6 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-
   border-radius:24px!important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.86),0 12px 26px rgba(65,84,104,0.09)!important;
   backdrop-filter:blur(18px) saturate(1.36)!important;
-  -webkit-backdrop-filter:blur(18px) saturate(1.36)!important;
 }
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-kindness-card p{
   color:#211E2E!important;
@@ -14448,7 +14362,6 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-
   border-color:rgba(255,255,255,0.54)!important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.76),0 14px 30px rgba(65,84,104,0.10)!important;
   backdrop-filter:blur(18px) saturate(1.34)!important;
-  -webkit-backdrop-filter:blur(18px) saturate(1.34)!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root div[role="navigation"][aria-label="Main navigation"]{
   background:var(--nav-bg)!important;
@@ -14517,7 +14430,6 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-
   border-color:rgba(255,255,255,0.62)!important;
   box-shadow:inset 0 1px 0 rgba(255,255,255,0.82),0 16px 34px rgba(65,84,104,0.10),0 4px 16px rgba(202,232,246,0.18)!important;
   backdrop-filter:blur(20px) saturate(1.34)!important;
-  -webkit-backdrop-filter:blur(20px) saturate(1.34)!important;
 }
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-total-grid > div,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-row,
@@ -14578,7 +14490,6 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .o
   border-color:rgba(240,181,104,0.28)!important;
   box-shadow:inset 0 1px 0 rgba(255,225,179,0.08),0 18px 34px rgba(0,0,0,0.28),0 0 26px rgba(64,103,255,0.08)!important;
   backdrop-filter:blur(18px) saturate(1.18)!important;
-  -webkit-backdrop-filter:blur(18px) saturate(1.18)!important;
 }
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-total-grid > div,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-row,
@@ -15216,8 +15127,17 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-plinth{
   vector-effect:non-scaling-stroke!important;
 }
 @keyframes obClockPresenceBehindGlassFloat{
-  0%,100%{transform:translateY(0) scale(0.97);opacity:0.72;}
-  50%{transform:translateY(-2.4px) scale(1.04);opacity:0.94;}
+  0%{transform:translate(0,0) scale(0.95);opacity:0.65;}
+  25%{transform:translate(2px,-3px) scale(1.02);opacity:0.88;}
+  50%{transform:translate(-1px,-5px) scale(1.06);opacity:0.95;}
+  75%{transform:translate(-3px,-2px) scale(0.98);opacity:0.80;}
+  100%{transform:translate(0,0) scale(0.95);opacity:0.65;}
+}
+@keyframes obClockPresenceBehindGlassDrift{
+  0%{transform:translate(0,0) scale(0.70);opacity:0.35;}
+  33%{transform:translate(3px,-4px) scale(0.82);opacity:0.50;}
+  66%{transform:translate(-2px,-6px) scale(0.75);opacity:0.42;}
+  100%{transform:translate(0,0) scale(0.70);opacity:0.35;}
 }
 @keyframes obClockFireflyLantern{
   0%,100%{opacity:0.76;filter:drop-shadow(0 0 6px rgba(255,190,104,0.46));}
@@ -15287,6 +15207,13 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-glass-under-shadow{
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-presence-glyph{
   opacity:0.78!important;
   mix-blend-mode:screen!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-presence-glyph.is-behind-glass{
+  opacity:0.40!important;
+  mix-blend-mode:screen!important;
+  animation:obClockPresenceBehindGlassDrift 6.5s ease-in-out infinite!important;
+  animation-delay:var(--ob-presence-delay,0s)!important;
+  will-change:transform,opacity!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-presence-firefly{
   transform-box:fill-box!important;

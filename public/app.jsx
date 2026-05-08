@@ -17975,8 +17975,8 @@ function App(){
 	      }
 	      if (!data && _raceResult.source === "fs") {
 	        const snap = _raceResult.result;
-	        if (snap.error) { setAuthError("Could not reach your account. check your connection and try again"); return false; }
-	        if (snap.exists()) data = snap.data();
+	        // Don't bail on FS error yet — CF might still succeed
+	        if (!snap.error && snap.exists()) data = snap.data();
 	      }
 	      // If race didn't get data, wait for the slower one
 	      if (!data) {
@@ -17991,8 +17991,26 @@ function App(){
 	      }
 	      if (!data) {
 	        const _fsFallback = await _fsPromise;
-	        if (_fsFallback.error) { setAuthError("Could not reach your account. check your connection and try again"); return false; }
-	        if (_fsFallback.exists()) data = _fsFallback.data();
+	        if (!_fsFallback.error && _fsFallback.exists()) {
+	          data = _fsFallback.data();
+	        }
+	      }
+	      // Both failed — retry once with fresh auth token
+	      if (!data) {
+	        try {
+	          // Clear cached token so _ensureAuthToken gets a fresh one
+	          window._obRestToken = null;
+	          window._obRestTokenExp = 0;
+	          try { localStorage.removeItem("ob_rest_token"); } catch {}
+	          const _retrySnap = await fsGet("usernames", key);
+	          if (_retrySnap && !_retrySnap.error && _retrySnap.exists()) {
+	            data = _retrySnap.data();
+	          }
+	        } catch {}
+	      }
+	      if (!data) {
+	        setAuthError("Could not reach your account. Check your connection and try again.");
+	        return false;
 	      }
 	      if(!data) {
 		          try {
