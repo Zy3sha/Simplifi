@@ -6686,6 +6686,17 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc.is-sleep{
   stroke:#FFBE68!important;
   filter:drop-shadow(0 0 6px rgba(255,190,104,0.42)) drop-shadow(0 0 18px rgba(255,155,58,0.30)) drop-shadow(0 5px 9px rgba(0,0,0,0.26))!important;
 }
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc.is-bedtime-outside,
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc.is-sleep-carry.is-bedtime-outside,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-event-arc.is-bedtime-outside{
+  fill:none!important;
+  stroke:#FFBE68!important;
+  stroke-width:5.6px!important;
+  stroke-linecap:round!important;
+  opacity:0.98!important;
+  vector-effect:non-scaling-stroke!important;
+  filter:drop-shadow(0 0 6px rgba(255,190,104,0.52)) drop-shadow(0 0 17px rgba(255,155,58,0.30))!important;
+}
 
 /* Clock home import lock: use existing Track hero surfaces without duplicating the visual language. */
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-kindness-note{

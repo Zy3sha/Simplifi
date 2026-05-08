@@ -41793,6 +41793,7 @@ function App(){
       const seen = new Set();
       const out = [];
       const allowedTypes = ["feed","poop","nap","wake","sleep","medicine","tummy"];
+      const clipBedtimeAtMidnightLab = dayBoundary === "midnight";
       const pushVisualEntry = (entry, sourceDay, opts = {}) => {
         if (!isClockLabRealLog(entry) || !allowedTypes.includes(entry.type)) return;
         const visualKind = entryVisualKindLab(entry);
@@ -41824,7 +41825,7 @@ function App(){
         if (entry && entry.type === "sleep") {
           const start = entryStartMins(entry);
           const end = start !== null ? entryEndMins(entry, start) : null;
-          pushVisualEntry(entry, dayKey, start !== null && end !== null && end > 1440 ? {visualStart:start, visualEnd:1440} : {});
+          pushVisualEntry(entry, dayKey, clipBedtimeAtMidnightLab && start !== null && end !== null && end > 1440 ? {visualStart:start, visualEnd:1440} : {});
           return;
         }
         pushVisualEntry(entry, dayKey);
@@ -43627,17 +43628,19 @@ function App(){
               if (isTimedLog) {
                 const sleepInset = clockArcSleepInsetLab(item, visualKind);
                 const isCarrySleepArc = visualKind === "sleep-carry";
-                const radius = isCarrySleepArc ? 112 : 93 - Math.min(item.lane, 2) * 15 - sleepInset;
+                const isBedtimeOutsideArc = visualKind === "sleep" || visualKind === "sleep-carry";
+                const arcMeta = isBedtimeOutsideArc ? eventMeta.sleep : meta;
+                const radius = isBedtimeOutsideArc ? 104 : visualKind === "night-wake" ? 100 : 93 - Math.min(item.lane, 2) * 15 - sleepInset;
                 const arcD = arcPath(item.start,item.end,radius);
                 const arcTitle = clockItemLabelLab(item) + " · " + clockItemTimeRangeLab(item);
                 if (visualKind === "sleep" || visualKind === "sleep-carry" || visualKind === "nap") {
                   return (
-                    <g key={(item.entry.id || item.index)+"clock-"+visualKind+"-arc"} className={"ob-clock-event-arc-group ob-clock-"+visualKind+"-arc-group"+(sleepInset?" is-sleep-overlap":"")+(isCarrySleepArc?" is-carry-outside":"")} role="button" aria-label={clockLabLogAria(item)} tabIndex="0" onMouseEnter={()=>showClockLabTip(item)} onMouseLeave={()=>hideClockLabTip(item)} onFocus={()=>showClockLabTip(item)} onBlur={()=>hideClockLabTip(item)} onClick={(ev)=>showClockLabTipFromPress(item, ev)} onKeyDown={(ev)=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();showClockLabTipFromPress(item, ev);}}}>
-                      <path d={arcD} className="ob-clock-event-arc-hit" stroke="rgba(255,255,255,0.001)" strokeWidth={isCarrySleepArc ? "12" : "13"} pointerEvents="stroke" aria-hidden="true"/>
-                      <path d={arcD} className={"ob-clock-event-arc is-"+visualKind+" is-hollow"+(item.isNow?" is-now":"")} style={{"--ob-clock-event-glow":meta.glow}} stroke={meta.color} aria-hidden="true">
+                    <g key={(item.entry.id || item.index)+"clock-"+visualKind+"-arc"} className={"ob-clock-event-arc-group ob-clock-"+visualKind+"-arc-group"+(sleepInset?" is-sleep-overlap":"")+(isCarrySleepArc?" is-carry-outside":"")+(isBedtimeOutsideArc?" is-bedtime-outside":"")} role="button" aria-label={clockLabLogAria(item)} tabIndex="0" onMouseEnter={()=>showClockLabTip(item)} onMouseLeave={()=>hideClockLabTip(item)} onFocus={()=>showClockLabTip(item)} onBlur={()=>hideClockLabTip(item)} onClick={(ev)=>showClockLabTipFromPress(item, ev)} onKeyDown={(ev)=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();showClockLabTipFromPress(item, ev);}}}>
+                      <path d={arcD} className="ob-clock-event-arc-hit" stroke="rgba(255,255,255,0.001)" strokeWidth={isBedtimeOutsideArc ? "14" : "13"} pointerEvents="stroke" aria-hidden="true"/>
+                      <path d={arcD} className={"ob-clock-event-arc is-"+visualKind+(isBedtimeOutsideArc?" is-bedtime-outside is-sleep":" is-hollow")+(item.isNow?" is-now":"")} style={{"--ob-clock-event-glow":arcMeta.glow}} stroke={arcMeta.color} aria-hidden="true">
                         <title>{arcTitle}</title>
                       </path>
-                      {!isCarrySleepArc && <path d={arcD} className={"ob-clock-event-arc-cut is-"+visualKind} aria-hidden="true"/>}
+                      {!isBedtimeOutsideArc && <path d={arcD} className={"ob-clock-event-arc-cut is-"+visualKind} aria-hidden="true"/>}
                     </g>
                   );
                 }
@@ -51148,11 +51151,17 @@ function App(){
 	                      const _isFalseStart = diagnosis && (diagnosis.type === "false_start" || diagnosis.type === "overtired_false_start" || (diagnosis.type === "undertired" && _hasFalseStartSignal) || (diagnosis.type === "overtired" && _hasFalseStartSignal));
 	                      if (_isFalseStart) {
 	                        const _fsWake = _wakes.find(w => w.fromBedMin <= 120);
-	                        _wakeNotes.push("False start — " + _name + " woke " + (_fsWake ? _fsWake.fromBedMin + " minutes" : "within 1-2 hours") + " after going down. This is one of the clearest sleep signals: it almost always means the last stretch of awake time before bed was either too long (overtired) or too short (not sleepy enough).");
+	                        const _fsMinutes = _fsWake ? _fsWake.fromBedMin : null;
 	                        if (_lastWW > 0 && _ww) {
-	                          if (_lastWW > (_ww.max||999)) _wakeNotes.push("The last wake window was " + _hmStr(_lastWW) + " which is longer than the guideline (" + _hmStr(_ww.min) + "–" + _hmStr(_ww.max) + "). " + _name + " was probably overtired — try a shorter final stretch tomorrow.");
-	                          else if (_lastWW < (_ww.min||0)) _wakeNotes.push("The last wake window was only " + _hmStr(_lastWW) + " — shorter than the guideline (" + _hmStr(_ww.min) + "–" + _hmStr(_ww.max) + "). " + _name + " might not have been tired enough. Try stretching the last window by 10-15 minutes.");
-	                          else _wakeNotes.push("The last wake window was " + _hmStr(_lastWW) + " which is within the guideline (" + _hmStr(_ww.min) + "–" + _hmStr(_ww.max) + "). The wind-down routine itself might be the clue — was it calm enough? Too stimulating?");
+	                          if (_lastWW > (_ww.max||999)) {
+	                            _wakeNotes.push("False start — " + _name + " woke " + (_fsMinutes ? _fsMinutes + " minutes" : "soon") + " after going down because the last wake window was too long. " + _hmStr(_lastWW) + " awake before bed vs the " + _hmStr(_ww.min) + "–" + _hmStr(_ww.max) + " guideline. When babies are overtired, they actually find it harder to stay asleep.");
+	                          } else if (_lastWW < (_ww.min||0)) {
+	                            _wakeNotes.push("False start — " + _name + " woke " + (_fsMinutes ? _fsMinutes + " minutes" : "soon") + " after going down because the last wake window was too short. Only " + _hmStr(_lastWW) + " awake before bed vs the " + _hmStr(_ww.min) + "–" + _hmStr(_ww.max) + " guideline. " + _name + " wasn't tired enough to stay asleep past the first sleep cycle.");
+	                          } else {
+	                            _wakeNotes.push("False start — " + _name + " woke " + (_fsMinutes ? _fsMinutes + " minutes" : "soon") + " after going down. The last wake window was " + _hmStr(_lastWW) + " (" + _hmStr(_ww.min) + "–" + _hmStr(_ww.max) + " guideline) so the timing looks OK. The wind-down routine might be the clue — was it calm and quiet enough? Screens, bright lights, or excitement in the last 30 minutes can trigger a false start even when the timing is right.");
+	                          }
+	                        } else {
+	                          _wakeNotes.push("False start — " + _name + " woke " + (_fsMinutes ? _fsMinutes + " minutes" : "soon") + " after going down. This usually points to the last stretch of awake time before bed or the wind-down routine.");
 	                        }
 	                      } else if (diagnosis && diagnosis.type === "split_night") {
 	                        _wakeNotes.push("Long awake stretch in the middle of the night. This usually means too much total sleep in 24 hours, or the last wake window didn't build enough sleep pressure.");

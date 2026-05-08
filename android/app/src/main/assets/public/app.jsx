@@ -41793,6 +41793,7 @@ function App(){
       const seen = new Set();
       const out = [];
       const allowedTypes = ["feed","poop","nap","wake","sleep","medicine","tummy"];
+      const clipBedtimeAtMidnightLab = dayBoundary === "midnight";
       const pushVisualEntry = (entry, sourceDay, opts = {}) => {
         if (!isClockLabRealLog(entry) || !allowedTypes.includes(entry.type)) return;
         const visualKind = entryVisualKindLab(entry);
@@ -41820,20 +41821,16 @@ function App(){
         return !!(entry.night || entry.nightLocked || clockIsLegacyNightWakeTimeLab(entry) || isNightWakeTimedLab(entry));
       };
       entriesForDay.forEach(entry => {
-        if (entryIsWakeModeAfterMidnightNight(entry)) return;
         if (entry && entry.type === "sleep") {
           const start = entryStartMins(entry);
           const end = start !== null ? entryEndMins(entry, start) : null;
-          pushVisualEntry(entry, dayKey, start !== null && end !== null && end > 1440 ? {visualStart:start, visualEnd:1440} : {});
+          pushVisualEntry(entry, dayKey, clipBedtimeAtMidnightLab && start !== null && end !== null && end > 1440 ? {visualStart:start, visualEnd:1440} : {});
           return;
         }
         pushVisualEntry(entry, dayKey);
       });
-      if (dayBoundary === "wake") {
+      if (dayBoundary === "midnight") {
         const prevDayKey = prevCalDay(dayKey);
-        prevEntriesForDay.forEach(entry => {
-          if (entryIsWakeModeAfterMidnightNight(entry)) pushVisualEntry(entry, prevDayKey);
-        });
         prevEntriesForDay.filter(isClockLabLoggedBedtime).forEach(entry => {
           const start = entryStartMins(entry);
           if (start === null) return;
@@ -43627,17 +43624,19 @@ function App(){
               if (isTimedLog) {
                 const sleepInset = clockArcSleepInsetLab(item, visualKind);
                 const isCarrySleepArc = visualKind === "sleep-carry";
-                const radius = isCarrySleepArc ? 112 : 93 - Math.min(item.lane, 2) * 15 - sleepInset;
+                const isBedtimeOutsideArc = visualKind === "sleep" || visualKind === "sleep-carry";
+                const arcMeta = isBedtimeOutsideArc ? eventMeta.sleep : meta;
+                const radius = isBedtimeOutsideArc ? 104 : 93 - Math.min(item.lane, 2) * 15 - sleepInset;
                 const arcD = arcPath(item.start,item.end,radius);
                 const arcTitle = clockItemLabelLab(item) + " · " + clockItemTimeRangeLab(item);
                 if (visualKind === "sleep" || visualKind === "sleep-carry" || visualKind === "nap") {
                   return (
-                    <g key={(item.entry.id || item.index)+"clock-"+visualKind+"-arc"} className={"ob-clock-event-arc-group ob-clock-"+visualKind+"-arc-group"+(sleepInset?" is-sleep-overlap":"")+(isCarrySleepArc?" is-carry-outside":"")} role="button" aria-label={clockLabLogAria(item)} tabIndex="0" onMouseEnter={()=>showClockLabTip(item)} onMouseLeave={()=>hideClockLabTip(item)} onFocus={()=>showClockLabTip(item)} onBlur={()=>hideClockLabTip(item)} onClick={(ev)=>showClockLabTipFromPress(item, ev)} onKeyDown={(ev)=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();showClockLabTipFromPress(item, ev);}}}>
-                      <path d={arcD} className="ob-clock-event-arc-hit" stroke="rgba(255,255,255,0.001)" strokeWidth={isCarrySleepArc ? "12" : "13"} pointerEvents="stroke" aria-hidden="true"/>
-                      <path d={arcD} className={"ob-clock-event-arc is-"+visualKind+" is-hollow"+(item.isNow?" is-now":"")} style={{"--ob-clock-event-glow":meta.glow}} stroke={meta.color} aria-hidden="true">
+                    <g key={(item.entry.id || item.index)+"clock-"+visualKind+"-arc"} className={"ob-clock-event-arc-group ob-clock-"+visualKind+"-arc-group"+(sleepInset?" is-sleep-overlap":"")+(isCarrySleepArc?" is-carry-outside":"")+(isBedtimeOutsideArc?" is-bedtime-outside":"")} role="button" aria-label={clockLabLogAria(item)} tabIndex="0" onMouseEnter={()=>showClockLabTip(item)} onMouseLeave={()=>hideClockLabTip(item)} onFocus={()=>showClockLabTip(item)} onBlur={()=>hideClockLabTip(item)} onClick={(ev)=>showClockLabTipFromPress(item, ev)} onKeyDown={(ev)=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();showClockLabTipFromPress(item, ev);}}}>
+                      <path d={arcD} className="ob-clock-event-arc-hit" stroke="rgba(255,255,255,0.001)" strokeWidth={isBedtimeOutsideArc ? "14" : "13"} pointerEvents="stroke" aria-hidden="true"/>
+                      <path d={arcD} className={"ob-clock-event-arc is-"+visualKind+(isBedtimeOutsideArc?" is-bedtime-outside is-sleep":" is-hollow")+(item.isNow?" is-now":"")} style={{"--ob-clock-event-glow":arcMeta.glow}} stroke={arcMeta.color} aria-hidden="true">
                         <title>{arcTitle}</title>
                       </path>
-                      {!isCarrySleepArc && <path d={arcD} className={"ob-clock-event-arc-cut is-"+visualKind} aria-hidden="true"/>}
+                      {!isBedtimeOutsideArc && <path d={arcD} className={"ob-clock-event-arc-cut is-"+visualKind} aria-hidden="true"/>}
                     </g>
                   );
                 }
@@ -51098,8 +51097,10 @@ function App(){
 	                    // Split night no longer gets its own early return — flows through the
 	                    // structured analysis (What looks good / Nap analysis / Why woke) like all other types
 	                    // HEADLINE
+	                    // Check for false start signal from intelligence layer (engine may return "undertired" type)
+	                    const _headlineFalseStart = (lastNight.intelligenceSignals || []).some(s => s.type === "false_start") || (lastNight.wakes || []).some(w => w.fromBedMin <= 120 && w.durationMin >= 10);
 	                    const _headline = _nightCount === 0 ? _name + " slept through"
-	                      : diagnosis && (diagnosis.type === "false_start" || diagnosis.type === "overtired_false_start") ? "False start — woke soon after bedtime"
+	                      : (diagnosis && (diagnosis.type === "false_start" || diagnosis.type === "overtired_false_start")) || (diagnosis && (diagnosis.type === "undertired" || diagnosis.type === "overtired") && _headlineFalseStart) ? "False start — " + _name + " woke soon after bedtime"
 	                      : _longestStr >= 300 ? "Strong night with " + _nightCount + " wake" + (_nightCount === 1 ? "" : "s")
 	                      : _nightCount <= 1 ? "Mostly settled night"
 	                      : diagnosis && diagnosis.type === "split_night" ? "Long wake — not a broken routine"
@@ -51140,7 +51141,11 @@ function App(){
 	                        _wakeNotes.push(_hmStr(_longestWake.durationMin) + " awake" + (_longestWake.time ? " around " + fmt12(_longestWake.time) : ""));
 	                      }
 	                      // Diagnosis-specific explanations — these are the most important
-	                      if (diagnosis && (diagnosis.type === "false_start" || diagnosis.type === "overtired_false_start")) {
+	                      // Note: the engine returns "undertired" (not "false_start") when wake window data exists,
+	                      // even though the root cause IS a false start. Check intelligence signals too.
+	                      const _hasFalseStartSignal = (lastNight.intelligenceSignals || []).some(s => s.type === "false_start") || (lastNight.wakes || []).some(w => w.fromBedMin <= 120 && w.durationMin >= 10);
+	                      const _isFalseStart = diagnosis && (diagnosis.type === "false_start" || diagnosis.type === "overtired_false_start" || (diagnosis.type === "undertired" && _hasFalseStartSignal) || (diagnosis.type === "overtired" && _hasFalseStartSignal));
+	                      if (_isFalseStart) {
 	                        const _fsWake = _wakes.find(w => w.fromBedMin <= 120);
 	                        _wakeNotes.push("False start — " + _name + " woke " + (_fsWake ? _fsWake.fromBedMin + " minutes" : "within 1-2 hours") + " after going down. This is one of the clearest sleep signals: it almost always means the last stretch of awake time before bed was either too long (overtired) or too short (not sleepy enough).");
 	                        if (_lastWW > 0 && _ww) {
@@ -51209,10 +51214,11 @@ function App(){
 	                    if (_nightCount === 0 || (diagnosis && diagnosis.type === "great_night")) {
 	                      _action = "Everything worked well — no changes needed. Just keep doing what you're doing. 💛";
 	                    } else if (_planIsEvening) {
+	                      const _eveningFalseStart = (lastNight.intelligenceSignals || []).some(s => s.type === "false_start") || (lastNight.wakes || []).some(w => w.fromBedMin <= 120 && w.durationMin >= 10);
 	                      _action = diagnosis && diagnosis.type === "split_night"
 	                        ? "Tonight: keep resettles dark, brief and boring. No talking, no eye contact. Short feed if needed."
-	                        : diagnosis && (diagnosis.type === "false_start" || diagnosis.type === "overtired_false_start")
-	                          ? "Tonight: resettle without a feed if " + _name + " wakes within 2 hours of bedtime. Dark and calm."
+	                        : (diagnosis && (diagnosis.type === "false_start" || diagnosis.type === "overtired_false_start")) || _eveningFalseStart
+	                          ? "Tonight: if " + _name + " wakes within 2 hours of bedtime, resettle without a feed — keep it dark and calm. This is almost always about sleep pressure, not hunger."
 	                          : "Tonight: dark room, boring resettles, same calm response each time.";
 	                    } else {
 	                      const _acts = [];
