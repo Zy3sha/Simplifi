@@ -15507,15 +15507,26 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .o
 /* Clock lab mobile arc info final lock: tapping a log arc opens the card, then the card owns editing. */
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-tip.is-editable{
   pointer-events:auto!important;
-  grid-template-columns:12px minmax(0,1fr) minmax(58px,auto) auto!important;
+  grid-template-columns:12px minmax(0,1fr) auto!important;
+  grid-template-areas:"dot label edit" ". detail edit"!important;
+  row-gap:2px!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-tip.is-editable > span{
+  grid-area:dot!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-tip.is-editable b{
+  grid-area:label!important;
+  max-width:100%!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-tip.is-editable .ob-clock-tip-edit{
   display:inline-flex!important;
   align-items:center!important;
   justify-content:center!important;
   white-space:nowrap!important;
+  grid-area:edit!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-tip.is-editable em{
+  grid-area:detail!important;
   min-width:0!important;
   overflow:visible!important;
   text-overflow:clip!important;

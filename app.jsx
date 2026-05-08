@@ -1290,7 +1290,16 @@ function normaliseWeaningPayload(value) {
   return normaliseArrayPayload(value, 1000).map(entry => {
     const food = safeTextPayload(entry.food, "", 100).replace(/\s+/g, " ").trim();
     if (!food) return null;
-    const allergens = reconcileWeaningAllergensForFood(food, entry.allergens);
+    const foodInfo = (() => { try { return analyseWeaningFoodInput(food); } catch { return null; } })();
+    const allergens = getWeaningInferredAllergensForFood(food, entry.allergens || [], foodInfo);
+    const ingredients = normaliseWeaningIngredientsPayload([
+      ...(Array.isArray(entry.ingredients) ? entry.ingredients : []),
+      ...((foodInfo && Array.isArray(foodInfo.ingredients)) ? foodInfo.ingredients : [])
+    ]);
+    const tags = normaliseWeaningTagsPayload([
+      ...(Array.isArray(entry.tags || entry.weaningTags) ? (entry.tags || entry.weaningTags) : []),
+      ...((foodInfo && Array.isArray(foodInfo.tags)) ? foodInfo.tags : [])
+    ]);
     return {
       id: safeChildId(entry.id),
       food,
@@ -1300,8 +1309,8 @@ function normaliseWeaningPayload(value) {
       note: safeTextPayload(entry.note, "", 500).trim(),
       liked: entry.liked === true ? true : entry.liked === false ? false : null,
       allergens,
-      ingredients: normaliseWeaningIngredientsPayload(entry.ingredients),
-      tags: normaliseWeaningTagsPayload(entry.tags || entry.weaningTags)
+      ingredients,
+      tags
     };
   }).filter(Boolean);
 }
@@ -3265,9 +3274,14 @@ function detectAllergens(food) {
     .replace(/(rice|oat|baby|corn|quinoa|millet) cereal/g, "$1 grain")
     .replace(/(rice|almond|oat|coconut|chickpea|corn) flour/g, "$1")
     .replace(/coconut (milk|cream|yoghurt|yogurt|butter)/g, "coconut");
+  const _hay = " " + _stripped.replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim() + " ";
+  const _hasAllergenWord = (term) => {
+    const needle = String(term || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim();
+    return !!needle && _hay.includes(" " + needle + " ");
+  };
   const matched = new Set();
   Object.entries(ALLERGENS).forEach(([name, words]) => {
-    if (words.some(w => _stripped.includes(w))) matched.add(name);
+    if (words.some(w => _hasAllergenWord(w))) matched.add(name);
   });
   // Deduplicate squid → molluscs (not shellfish) when both match
   if (matched.has("shellfish") && matched.has("molluscs") && /\bsquid\b/.test(_stripped) &&
@@ -3318,7 +3332,6 @@ function normaliseAllergenId(value) {
 
 function allergensForWeaningEntry(entry) {
   if (!entry) return [];
-  const detected = new Set();
   const text = [
     entry.food,
     entry.name,
@@ -3329,14 +3342,9 @@ function allergensForWeaningEntry(entry) {
     entry.productType,
     entry.brand
   ].filter(Boolean).join(" ");
-  detectAllergens(text).forEach(a => detected.add(a));
-  if (Array.isArray(entry.allergens)) {
-    entry.allergens.forEach(a => {
-      const id = normaliseAllergenId(a);
-      if (id) detected.add(id);
-    });
-  }
-  return reconcileWeaningAllergensForFood(text, [...detected]);
+  const foodText = String(entry.food || entry.name || entry.title || entry.note || entry.recipe || text || "").trim();
+  const foodInfo = (() => { try { return analyseWeaningFoodInput(foodText || text); } catch { return null; } })();
+  return getWeaningInferredAllergensForFood(foodText || text, entry.allergens || [], foodInfo);
 }
 
 function normaliseSolidFoodLog(foodText) {
@@ -3360,6 +3368,7 @@ function getWeaningEvidenceFromLogs(weaningLog, daysObj) {
     if (!entry) return;
     const food = String(entry.food || entry.name || entry.title || entry.note || entry.recipe || "").trim();
     if (!food) return;
+    const foodInfo = (() => { try { return analyseWeaningFoodInput(food); } catch { return null; } })();
     const date = entry.date || entry.day || "";
     const key = [date, normaliseWeaningName(food)].join("|");
     if (seen.has(key)) return;
@@ -3368,9 +3377,15 @@ function getWeaningEvidenceFromLogs(weaningLog, daysObj) {
       ...entry,
       food,
       date,
-      allergens: allergensForWeaningEntry({...entry, food}),
-      ingredients: normaliseWeaningIngredientsPayload(entry.ingredients),
-      tags: normaliseWeaningTagsPayload(entry.tags || entry.weaningTags),
+      allergens: getWeaningInferredAllergensForFood(food, entry.allergens || [], foodInfo),
+      ingredients: normaliseWeaningIngredientsPayload([
+        ...(Array.isArray(entry.ingredients) ? entry.ingredients : []),
+        ...((foodInfo && Array.isArray(foodInfo.ingredients)) ? foodInfo.ingredients : [])
+      ]),
+      tags: normaliseWeaningTagsPayload([
+        ...(Array.isArray(entry.tags || entry.weaningTags) ? (entry.tags || entry.weaningTags) : []),
+        ...((foodInfo && Array.isArray(foodInfo.tags)) ? foodInfo.tags : [])
+      ]),
       source: entry.source || source
     });
   };
@@ -6685,6 +6700,124 @@ function getWeaningPrepForStyle(value) {
   return normaliseWeaningStylePref(value) === "blw" ? "blw" : "method";
 }
 
+function splitWeaningRecipeIngredients(recipe) {
+  return String((recipe && recipe.ingredients) || "")
+    .split(",")
+    .map(item => item.replace(/\s+/g, " ").trim())
+    .filter(Boolean)
+    .slice(0, 12);
+}
+
+function splitWeaningRecipeSteps(recipe) {
+  const source = String((recipe && recipe.method) || (recipe && recipe.blw) || "").replace(/\s+/g, " ").trim();
+  if (!source) return [];
+  const parts = source.split(/(?<=[.!?])\s+/).map(step => step.trim()).filter(Boolean);
+  return (parts.length ? parts : [source]).slice(0, 8);
+}
+
+function getWeaningRecipePrepCopy(recipe, prepMode) {
+  const mode = prepMode === "blw" ? "blw" : "method";
+  const source = mode === "blw" ? (recipe && recipe.blw) : (recipe && recipe.method);
+  const fallback = mode === "blw"
+    ? ((recipe && recipe.blw) || "Serve as soft, safe finger food for baby's stage.")
+    : ((recipe && recipe.method) || "Prepare until soft, then mash or blend for baby's stage.");
+  return safeTextPayload(source || fallback, fallback, 320).replace(/\s+/g, " ").trim();
+}
+
+function getWeaningRecipeAllergenLabels(recipe) {
+  const seen = new Set();
+  return (Array.isArray(recipe && recipe.allergens) ? recipe.allergens : [])
+    .map(a => normaliseAllergenId(a) || safeStorageToken(a, "", 32))
+    .filter(Boolean)
+    .filter(a => {
+      if (seen.has(a)) return false;
+      seen.add(a);
+      return true;
+    })
+    .map(weaningAllergenLabel)
+    .filter(Boolean);
+}
+
+function getWeaningRecipeSafetyCopy(recipe) {
+  const allergenLabels = getWeaningRecipeAllergenLabels(recipe);
+  const safety = safeTextPayload(recipe && recipe.safety, "", 260).replace(/\s+/g, " ").trim();
+  const parts = [];
+  parts.push(safety || "Serve seated upright and supervised. Texture should be soft enough for baby's stage.");
+  if (allergenLabels.length) {
+    parts.push("Contains " + allergenLabels.join(", ") + ". Introduce one new allergen early in the day and watch after the first taste.");
+  } else {
+    parts.push("No major allergen words are listed for this recipe.");
+  }
+  return parts.join(" ");
+}
+
+function WeaningRecipePrepSheet({recipe, prepMode="method", onPrepModeChange, onLog, logLabel="Log this food", onChange, changeLabel="Change recipe"}) {
+  if (!recipe) return null;
+  const mode = prepMode === "blw" ? "blw" : "method";
+  const ingredients = splitWeaningRecipeIngredients(recipe);
+  const steps = splitWeaningRecipeSteps(recipe);
+  const allergenLabels = getWeaningRecipeAllergenLabels(recipe);
+  const prepCopy = getWeaningRecipePrepCopy(recipe, mode);
+  return (
+    <div className="ob-weaning-recipe-prep-sheet" data-testid="weaning-recipe-prep-sheet">
+      <section className="ob-weaning-recipe-section is-prep" data-testid="weaning-recipe-prep-first">
+        <div className="ob-weaning-recipe-section-head">
+          <span>1</span>
+          <div>
+            <b>Prep first</b>
+            <em>{mode === "blw" ? "finger food shape" : "spoon or mash texture"}</em>
+          </div>
+        </div>
+        <div className="ob-weaning-recipe-prep-toggle">
+          {["method","blw"].map(option => (
+            <button key={option} type="button" data-testid={"weaning-recipe-prep-"+option} aria-pressed={mode===option?"true":"false"} onClick={()=>onPrepModeChange && onPrepModeChange(option)} className={mode===option?"is-selected":""}>
+              {option === "method" ? "Spoon / mash" : "Baby-led"}
+            </button>
+          ))}
+        </div>
+        <p>{prepCopy}</p>
+      </section>
+
+      <section className="ob-weaning-recipe-section" data-testid="weaning-recipe-ingredients">
+        <div className="ob-weaning-recipe-section-head">
+          <span>2</span>
+          <div><b>Ingredients</b><em>what to get out</em></div>
+        </div>
+        <ul>
+          {ingredients.length ? ingredients.map((ing, i) => <li key={i}>{ing}</li>) : <li>Check the recipe pack or ingredient list.</li>}
+        </ul>
+      </section>
+
+      <section className="ob-weaning-recipe-section" data-testid="weaning-recipe-steps">
+        <div className="ob-weaning-recipe-section-head">
+          <span>3</span>
+          <div><b>Steps</b><em>cook it safely</em></div>
+        </div>
+        <ol>
+          {steps.length ? steps.map((step, i) => <li key={i}>{step}</li>) : <li>Follow the preparation guidance and serve at a safe texture.</li>}
+        </ol>
+      </section>
+
+      <section className="ob-weaning-recipe-section is-safety" data-testid="weaning-recipe-safety">
+        <div className="ob-weaning-recipe-section-head">
+          <span>4</span>
+          <div><b>Safety/allergens</b><em>quick check before serving</em></div>
+        </div>
+        <p>{getWeaningRecipeSafetyCopy(recipe)}</p>
+        <div className="ob-weaning-recipe-allergen-chips">
+          {allergenLabels.length ? allergenLabels.map(a => <span key={a}>{a}</span>) : <span>No listed major allergen</span>}
+        </div>
+        {recipe.source && <small data-testid="weaning-recipe-source">Checked against {recipe.source}.</small>}
+      </section>
+
+      <div className="ob-weaning-recipe-actions">
+        {onLog && <button type="button" data-testid="weaning-recipe-log-food" className="is-primary" onClick={onLog}>{logLabel}</button>}
+        {onChange && <button type="button" className="is-secondary" onClick={onChange}>{changeLabel}</button>}
+      </div>
+    </div>
+  );
+}
+
 function normaliseWeaningName(name) {
   return String(name || "").toLowerCase().replace(/[&+]/g, " ").replace(/\s+/g, " ").trim();
 }
@@ -6883,6 +7016,38 @@ function weaningSearchHasTerm(searchText, term) {
   return !!needle && searchText.includes(" " + needle + " ");
 }
 
+const WEANING_RECIPE_MATCH_STOP_WORDS = new Set(["and","with","the","for","baby","babys","again","try","tried","today","first","soft","cooked","puree","purée","mash","mashed","fingers","finger"]);
+
+function weaningSignificantFoodTokens(value) {
+  return normaliseWeaningSearchText(value).trim().split(/\s+/)
+    .map(t => t.trim())
+    .filter(t => t.length >= 3 && !WEANING_RECIPE_MATCH_STOP_WORDS.has(t));
+}
+
+function weaningRecipeMatchesFoodInput(foodText, recipe) {
+  const foodKey = normaliseWeaningName(foodText);
+  const recipeKey = normaliseWeaningName(recipe && recipe.name);
+  if (!foodKey || !recipeKey) return false;
+  if (foodKey === recipeKey) return true;
+  if (recipeKey.length >= 10 && foodKey.includes(recipeKey)) return true;
+  const foodTokens = weaningSignificantFoodTokens(foodKey);
+  if (foodTokens.length < 3) return false;
+  const recipeTokens = new Set(weaningSignificantFoodTokens(recipeKey));
+  if (!recipeTokens.size) return false;
+  const matchedTokens = foodTokens.filter(token => recipeTokens.has(token)).length;
+  return matchedTokens === foodTokens.length && matchedTokens / recipeTokens.size >= 0.75;
+}
+
+function getWeaningInferredAllergensForFood(foodText, savedAllergens = [], foodInfo = null) {
+  const food = safeTextPayload(foodText, "", 120).replace(/\s+/g, " ").trim();
+  if (!food) return [];
+  const info = foodInfo || (() => { try { return analyseWeaningFoodInput(food); } catch { return null; } })();
+  const inferred = reconcileWeaningAllergensForFood(food, (info && Array.isArray(info.allergens)) ? info.allergens : detectAllergens(food));
+  const recognised = !!(info && (info.recognised || (Array.isArray(info.ingredients) && info.ingredients.length) || (Array.isArray(info.recipeMatches) && info.recipeMatches.length)));
+  if (recognised || inferred.length) return inferred;
+  return reconcileWeaningAllergensForFood(food, savedAllergens);
+}
+
 function analyseWeaningFoodInput(foodText) {
   const food = safeTextPayload(foodText, "", 100).replace(/\s+/g, " ").trim();
   const searchText = normaliseWeaningSearchText(food);
@@ -6908,8 +7073,7 @@ function analyseWeaningFoodInput(foodText) {
   scanIngredients(food);
   const foodKey = normaliseWeaningName(food);
   (Array.isArray(WEANING_RECIPES) ? WEANING_RECIPES : []).forEach(recipe => {
-    const recipeKey = normaliseWeaningName(recipe && recipe.name);
-    if (!recipeKey || !(foodKey === recipeKey || recipeKey.includes(foodKey) || foodKey.includes(recipeKey))) return;
+    if (!weaningRecipeMatchesFoodInput(foodKey, recipe)) return;
     recipeMatches.push(recipe);
     tagSet.add("recipe");
     addTags(recipe.tags);
@@ -13066,16 +13230,28 @@ function App(){
     const aw = age.predictiveWeeks ?? age.totalWeeks;
     const canShowEarly = aw >= 17 || weaningStarted || (weaning || []).length > 0;
     if (!canShowEarly) return null;
-    const isToday = dayKey === todayStr();
-    const entriesForDay = days[dayKey] || [];
-    const solidEntries = entriesForDay.filter(e => e.type === "feed" && e.feedType === "solids");
-    const weaningLogsToday = (weaning || []).filter(w => w && w.date === dayKey);
-    const loggedFoodsToday = (() => {
-      const seen = new Set();
-      return [
-        ...solidEntries.map(e => e.food || e.note || e.title || "Solids"),
-        ...weaningLogsToday.map(w => w.food || w.name || w.note || "")
-      ].map(f => safeTextPayload(f, "", 80).replace(/\s+/g, " ").trim())
+	    const isToday = dayKey === todayStr();
+	    const entriesForDay = days[dayKey] || [];
+	    const solidEntries = entriesForDay.filter(e => e.type === "feed" && e.feedType === "solids");
+	    const weaningLogsToday = (weaning || []).filter(w => w && w.date === dayKey);
+	    const activeAllergenTimerFoodToday = (() => {
+	      try {
+	        const timer = normaliseAllergenTimerPayload(safeJsonObject(localStorage.getItem("ob_allergen_timer")));
+	        if (!timer) return "";
+	        const start = new Date(timer.startMs);
+	        if (localDateStr(start) !== dayKey) return "";
+	        const elapsed = Math.floor((Date.now() - timer.startMs) / 60000);
+	        if (elapsed < 0 || elapsed > 120) return "";
+	        return safeTextPayload(timer.food, "", 100).replace(/\s+/g, " ").trim();
+	      } catch { return ""; }
+	    })();
+	    const loggedFoodsToday = (() => {
+	      const seen = new Set();
+	      return [
+	        ...solidEntries.map(e => e.food || e.note || e.title || "Solids"),
+	        ...weaningLogsToday.map(w => w.food || w.name || w.note || ""),
+	        activeAllergenTimerFoodToday
+	      ].map(f => safeTextPayload(f, "", 80).replace(/\s+/g, " ").trim())
         .filter(Boolean)
         .filter(f => {
           const key = normaliseWeaningName(f);
@@ -13085,10 +13261,12 @@ function App(){
         })
         .slice(0, 4);
     })();
-    const loggedNames = new Set([
-      ...solidEntries.map(e => normaliseWeaningName(e.note || e.food || "")),
-      ...weaningLogsToday.map(w => normaliseWeaningName(w.food || ""))
-    ].filter(Boolean));
+	    const loggedNames = new Set([
+	      ...solidEntries.map(e => normaliseWeaningName(e.note || e.food || "")),
+	      ...weaningLogsToday.map(w => normaliseWeaningName(w.food || "")),
+	      normaliseWeaningName(activeAllergenTimerFoodToday)
+	    ].filter(Boolean));
+	    const loggedFoodCountToday = loggedFoodsToday.length;
     const loggedFoodMatches = (recipeName) => {
       const recipeKey = normaliseWeaningName(recipeName || "");
       if (!recipeKey) return false;
@@ -13140,9 +13318,9 @@ function App(){
       title: "Food plan cleared for today",
       body: "No solid recommendation is showing now. Add one back from This Week when you want it.",
       cta: "Choose foods",
-      solidCount: solidEntries.length + weaningLogsToday.length,
-      loggedFoodsToday,
-      loggedWeaningEntryToday: weaningLogsToday[0] || null
+	      solidCount: loggedFoodCountToday,
+	      loggedFoodsToday,
+	      loggedWeaningEntryToday: weaningLogsToday[0] || null
     };
     const source = available.length ? available : pool.filter(r => {
       const k = normaliseWeaningName(r && r.name);
@@ -13153,9 +13331,9 @@ function App(){
       title: "Food plan cleared for today",
       body: "No solid recommendation is showing now. Add one back from This Week when you want it.",
       cta: "Choose foods",
-      solidCount: solidEntries.length + weaningLogsToday.length,
-      loggedFoodsToday,
-      loggedWeaningEntryToday: weaningLogsToday[0] || null
+	      solidCount: loggedFoodCountToday,
+	      loggedFoodsToday,
+	      loggedWeaningEntryToday: weaningLogsToday[0] || null
     };
     const recipe = source[Math.abs(weanNudge || 0) % source.length] || source[0];
     const recipeKey = normaliseWeaningName(recipe && recipe.name);
@@ -13181,9 +13359,9 @@ function App(){
       sourceLabel: visibleWeekRecipes.length ? "from This Week" : "from your shopping plan",
       newAllergens,
       ratio,
-      solidCount: solidEntries.length + weaningLogsToday.length,
-      loggedFoodsToday,
-      loggedWeaningEntryToday: weaningLogsToday[0] || null
+	      solidCount: loggedFoodCountToday,
+	      loggedFoodsToday,
+	      loggedWeaningEntryToday: weaningLogsToday[0] || null
     };
   }
   function addTodaysWeaningPlanItem(plan) {
@@ -14472,10 +14650,11 @@ function App(){
 		    ["clock-stage", "clock-home-kindness"]
 		  ];
 			  const OB_APP_TOUR_JOURNEY = [
-			    { chapter:"Chapter 1", tab:"day", iconName:"timer", target:"Track clock", title:"Read the clock", body:"Track opens on the clock: the rim shows feeds, nappies, wakes, naps and bedtime in time order.\n\nLogged moments replace predictions as the day happens, with quick logs, Plan and Guidance right underneath." },
-			    { chapter:"Chapter 2", tab:"insights", iconName:"care", target:"Care", title:"Open the parent toolkit", body:"Care leads with the real tools: Bubba Care, Weaning, Parent Room, Sleep Coach and Night Weaning.\n\nSleep, Feeding, Growth and Travel insights sit underneath." },
-			    { chapter:"Chapter 3", tab:"develop", iconName:"growth", target:"Grow", title:"Support development gently", body:"Grow keeps activities, waves, milestones and teething together.\n\nIt is context, not another checklist." },
-			    { chapter:"Chapter 4", tab:"settings", iconName:"account", target:"Account", title:"Keep the app yours", body:"Account holds child settings, Share & Sync, Bubba Care sharing, Lock Bubba Care session, backups, preferences and replayable guides." }
+			    { chapter:"Step 1", tab:"day", iconName:"timer", target:"Start here", title:"Log what happens", body:"Tap feed, nap, nappy or wake as they happen. The clock fills in around you — no spreadsheets, no perfect timing needed. Even one or two logs a day is enough to start." },
+			    { chapter:"Step 2", tab:"day", iconName:"today", target:"Days 3–5", title:"OBubba learns the rhythm", body:"After a few ordinary days, OBubba starts spotting patterns — when naps work best, how feeds affect sleep, what bedtime actually looks like. You don't have to do anything different. Just keep logging." },
+			    { chapter:"Step 3", tab:"insights", iconName:"care", target:"Care tab", title:"See what OBubba found", body:"Sleep analysis tells you exactly why last night went the way it did. Feeding insights flag what's working. Nap analysis shows what to adjust. All in plain English, not charts and jargon." },
+			    { chapter:"Step 4", tab:"insights", iconName:"care", target:"Parent Room", title:"Look after yourself too", body:"Parenting is relentless. The Parent Room has breathing exercises, wellbeing check-ins, and gentle reminders that you matter in this house too. You're not just a carer — you're a person who needs care." },
+			    { chapter:"Step 5", tab:"settings", iconName:"care", target:"Share & Sync", title:"Connect your village", body:"Partner Sync keeps both parents on the same page — every log, every prediction, shared in real time. Bubba Care gives grandparents or nursery a live care guide with QR code. No repeating yourself." }
 			  ];
 
   const[childSyncCodes,setChildSyncCodes]=useState(()=>{
@@ -31468,11 +31647,8 @@ function App(){
 	    if (!entry || entry.feedType !== "solids") return [];
 	    const _food = safeTextPayload(entry.food || entry.note, "", 100).replace(/\s+/g, " ").trim();
 	    if (!_food) return [];
-	    const _allergens = [
-	      ...new Set((Array.isArray(entry.allergens) && entry.allergens.length ? entry.allergens : detectAllergens(_food))
-	        .map(a => normaliseAllergenId(a))
-	        .filter(Boolean))
-	    ];
+	    const _foodInfo = (() => { try { return analyseWeaningFoodInput(_food); } catch { return null; } })();
+	    const _allergens = getWeaningInferredAllergensForFood(_food, entry.allergens || [], _foodInfo);
 	    if (!_allergens.length) return [];
 	    const _newAllergens = _allergens.filter(a => !allergenIntroduced(weaningEvidence || weaning || [], a));
 	    if (_newAllergens.length) {
@@ -41822,6 +41998,62 @@ function App(){
         const wake = clockLabFindMorningWake(nextEntriesForDay);
         return wake ? entryStartMins(wake) : null;
       })();
+      const loggedSolidFoodKeysLab = new Set(entriesForDay
+        .filter(entry => entry && entry.type === "feed" && entry.feedType === "solids")
+        .map(entry => normaliseWeaningName(entry.food || entry.note || entry.title || ""))
+        .filter(Boolean));
+	      const mirrorWeaningJournalEntryLab = (entry) => {
+	        const food = safeTextPayload(entry && entry.food, "", 100).replace(/\s+/g, " ").trim();
+	        const key = normaliseWeaningName(food);
+	        if (!food || !key || loggedSolidFoodKeysLab.has(key)) return null;
+        const time = safeClockText(entry && entry.mealTime, "") || "12:00";
+        return {
+          id:"weaning-journal-"+safeTextPayload(entry && entry.id, key, 72),
+          type:"feed",
+          feedType:"solids",
+          time,
+          amount:0,
+          food,
+          note:food,
+          weaningEmoji:getWeaningFoodEmoji(food, "🥄"),
+          allergens:getWeaningInferredAllergensForFood(food, entry && entry.allergens || []),
+          ingredients:normaliseWeaningIngredientsPayload(entry && entry.ingredients || []),
+          weaningTags:normaliseWeaningTagsPayload(entry && (entry.tags || entry.weaningTags) || []),
+	          _weaningJournalMirror:true
+	        };
+	      };
+	      const mirrorActiveAllergenTimerEntryLab = () => {
+	        try {
+	          const raw = localStorage.getItem("ob_allergen_timer");
+	          if (!raw) return null;
+	          const timer = normaliseAllergenTimerPayload(safeJsonObject(raw));
+	          if (!timer) return null;
+	          const start = new Date(timer.startMs);
+	          if (localDateStr(start) !== dayKey) return null;
+	          const food = safeTextPayload(timer.food, "", 100).replace(/\s+/g, " ").trim();
+	          const key = normaliseWeaningName(food);
+	          if (!food || !key || loggedSolidFoodKeysLab.has(key)) return null;
+	          const timerAllergens = recomputeAllergenTimerAllergens(timer);
+	          if (!timerAllergens.length) return null;
+	          const elapsed = Math.floor((Date.now() - timer.startMs) / 60000);
+	          if (elapsed < 0 || elapsed > 120) return null;
+	          const time = `${String(start.getHours()).padStart(2,"0")}:${String(start.getMinutes()).padStart(2,"0")}`;
+	          return {
+	            id:"weaning-allergen-watch-"+safeTextPayload(String(timer.startMs), key, 72),
+	            type:"feed",
+	            feedType:"solids",
+	            time,
+	            amount:0,
+	            food,
+	            note:food,
+	            weaningEmoji:getWeaningFoodEmoji(food, "🥄"),
+	            allergens:timerAllergens,
+	            ingredients:normaliseWeaningIngredientsPayload(analyseWeaningFoodInput(food).ingredients || []),
+	            weaningTags:normaliseWeaningTagsPayload(analyseWeaningFoodInput(food).tags || []),
+	            _weaningAllergenWatchMirror:true
+	          };
+	        } catch { return null; }
+	      };
       const entryBelongsBeforeWakeDayStartLab = (entry, startMins) => {
         if (dayBoundary !== "wake" || !entry || startMins === null) return false;
         const mins = entryStartMins(entry);
@@ -41838,6 +42070,16 @@ function App(){
         }
         pushVisualEntry(entry, dayKey);
       });
+	      (Array.isArray(weaning) ? weaning : []).forEach(entry => {
+	        if (safeDateKey(entry && entry.date) !== dayKey) return;
+	        const mirrorEntry = mirrorWeaningJournalEntryLab(entry);
+	        if (mirrorEntry) {
+	          pushVisualEntry(mirrorEntry, dayKey);
+	          loggedSolidFoodKeysLab.add(normaliseWeaningName(mirrorEntry.food || mirrorEntry.note || ""));
+	        }
+	      });
+	      const activeAllergenMirror = mirrorActiveAllergenTimerEntryLab();
+	      if (activeAllergenMirror) pushVisualEntry(activeAllergenMirror, dayKey);
       if (dayBoundary === "wake") {
         const nextDayKey = nextCalDay(dayKey);
         const wakeCarryLimitMinsLab = nextWakeDayStartMinsLab ?? 13 * 60;
@@ -44805,8 +45047,8 @@ function App(){
 	            <div className="ob-tour-journey-handle"/>
 		              <div className="ob-tour-journey-hero">
 	              <OBubbaMascot type="happy" size={96} alt="OBubba" style={{margin:"0 auto"}}/>
-		              <div className="ob-tour-journey-title">Your OBubba clock map</div>
-		              <p className="ob-tour-journey-copy">A quick route through the clock, Care, Grow and Account, so the useful bits are easy to find when your hands are full.</p>
+		              <div className="ob-tour-journey-title">How OBubba helps</div>
+		              <p className="ob-tour-journey-copy">You don't need to learn the app first. Just start logging — OBubba does the rest. Here's what happens next.</p>
 	            </div>
 	            <div className="ob-tour-journey-list">
 	              {OB_APP_TOUR_JOURNEY.map((item,i)=>(
@@ -46877,7 +47119,7 @@ function App(){
                         )}
 
                         {weaningStarted && (
-                          <details data-testid="weaning-progress-glance" style={{marginTop:12,borderTop:"1px solid var(--card-border)",paddingTop:10}}>
+	                          <details data-testid="weaning-progress-glance" open style={{marginTop:12,borderTop:"1px solid var(--card-border)",paddingTop:10}}>
                             <summary style={{cursor:_cP,listStyle:"none",display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:12,fontWeight:850,color:C.mid}}>
                               <span>Progress at a glance</span>
                               <span style={{fontSize:11,color:C.lt}}>{_uniqueFoodsGuide} foods · {_allergensDoneGuide}/{ALLERGEN_GUIDE.length} allergens</span>
@@ -47384,8 +47626,8 @@ function App(){
                                 {_done ? "✓" : ""}
                               </span>
                             </button>
-                            <button onClick={()=>{haptic(8);setExpandedRecipeIdx(_isOpen?null:i);setSwapRecipeIdx(null);}}
-                              style={{flex:1,width:"100%",display:"flex",alignItems:"center",gap:10,padding:"14px 16px",background:"none",border:"none",cursor:_cP,textAlign:"left",opacity:_done?0.82:1}}>
+	                            <button onClick={()=>{haptic(8);setExpandedRecipeIdx(_isOpen?null:i);setSwapRecipeIdx(null);_setRecipePrep(getWeaningPrepForStyle(_weaningStylePref));}}
+	                              style={{flex:1,width:"100%",display:"flex",alignItems:"center",gap:10,padding:"14px 16px",background:"none",border:"none",cursor:_cP,textAlign:"left",opacity:_done?0.82:1}}>
                               <span style={{fontSize:22}}>{r.emoji}</span>
                               <div style={{flex:1}}>
                                 <div style={{fontSize:14,fontWeight:700,color:C.deep,textDecoration:_done?"line-through":"none",textDecorationThickness:2,textDecorationColor:C.mint+"99"}}>{r.name}</div>
@@ -47400,47 +47642,19 @@ function App(){
                             </button>
                           </div>
 
-                          {_isOpen && !_isSwapping && (
-                            <div style={{padding:"0 16px 16px",borderTop:`1px solid ${C.blush}`}}>
-                              <div style={{fontSize:10,fontWeight:700,color:C.lt,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:12,marginBottom:6}}>Ingredients</div>
-                              <div style={{fontSize:12,color:C.mid,lineHeight:1.7,marginBottom:12}}>
-                                {(r.ingredients||"").split(",").map((ing,j)=><div key={j}>• {ing.trim()}</div>)}
-                              </div>
-                              {r.method && (_weaningStylePref === "puree" || _weaningStylePref === "mixed") && (
-                                <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(139,126,200,0.06)",border:`1px solid rgba(139,126,200,0.15)`,marginBottom:8}}>
-                                  <div style={{fontSize:10,fontWeight:700,color:"#8B7EC8",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>🥄 Puree / spoon-fed</div>
-                                  <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>{r.method}</div>
-                                </div>
-                              )}
-                              {r.blw && (_weaningStylePref === "blw" || _weaningStylePref === "mixed") && (
-                                <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(111,168,152,0.06)",border:`1px solid rgba(111,168,152,0.15)`,marginBottom:12}}>
-                                  <div style={{fontSize:10,fontWeight:700,color:C.mint,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>👶 Baby-led (BLW)</div>
-                                  <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>{r.blw}</div>
-                                </div>
-                              )}
-                              {/* Allergen info link */}
-                              {r.allergens&&r.allergens.length>0 && (
-                                <button onClick={(e)=>{e.stopPropagation();haptic(8);_setEduSection("allergens");setDaySubScreen("weaning_before");setDevFilter("weaning");}}
-                                  style={{width:"100%",padding:"10px 12px",borderRadius:12,background:"rgba(232,87,74,0.06)",border:"1px solid rgba(232,87,74,0.15)",marginBottom:10,cursor:_cP,textAlign:"left",display:"flex",alignItems:"center",gap:8}}>
-                                  <span style={{fontSize:16}}>⚠️</span>
-                                  <div>
-                                    <div style={{fontSize:12,fontWeight:700,color:"#c04040"}}>Contains allergen: {r.allergens.join(", ")}</div>
-                                    <div style={{fontSize:11,color:C.mid}}>Tiny taste first · introduce in the morning · stay home 2 hours · tap to learn more →</div>
-                                  </div>
-                                </button>
-                              )}
-                              <div style={{display:"flex",gap:8}}>
-                                <button onClick={()=>{haptic(15);setWeaningForm({food:r.name,date:todayStr(),reaction:"neutral",note:"",liked:null});setShowWeaningForm(true);}}
-                                  style={{flex:1,padding:"12px",borderRadius:12,border:"none",background:`linear-gradient(135deg,${C.ter},#a85a44)`,color:"white",fontSize:13,fontWeight:700,cursor:_cP}}>
-                                  {_done ? "Add reaction / notes" : "✓ Log this meal"}
-                                </button>
-                                <button onClick={()=>{haptic(8);setSwapRecipeIdx(i);}}
-                                  style={{padding:"12px 16px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP}}>
-                                  🔄 Change
-                                </button>
-                              </div>
-                            </div>
-                          )}
+	                          {_isOpen && !_isSwapping && (
+	                            <div style={{padding:"0 16px 16px",borderTop:`1px solid ${C.blush}`}}>
+	                              <WeaningRecipePrepSheet
+	                                recipe={r}
+	                                prepMode={_recipePrep}
+	                                onPrepModeChange={(mode)=>_setRecipePrep(mode)}
+	                                onLog={()=>{haptic(15);setWeaningForm({food:r.name,date:todayStr(),reaction:"neutral",note:"",liked:null,editId:null});setShowWeaningForm(true);}}
+	                                logLabel={_done ? "Add reaction / notes" : "Log this food"}
+	                                onChange={()=>{haptic(8);setSwapRecipeIdx(i);}}
+	                                changeLabel="Change"
+	                              />
+	                            </div>
+	                          )}
 
                           {/* Swap picker */}
                           {_isSwapping && (
@@ -47583,8 +47797,8 @@ function App(){
                       const _isSwapping = swapRecipeIdx === i;
                       return (
                         <div key={r.name} className="glass-card" style={{padding:0,marginBottom:8,overflow:"hidden"}}>
-                          <button onClick={()=>{haptic(8);setExpandedRecipeIdx(_isOpen?null:i);setSwapRecipeIdx(null);}}
-                            style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"14px 16px",background:"none",border:"none",cursor:_cP,textAlign:"left"}}>
+	                          <button onClick={()=>{haptic(8);setExpandedRecipeIdx(_isOpen?null:i);setSwapRecipeIdx(null);_setRecipePrep(getWeaningPrepForStyle(_weaningStylePref));}}
+	                            style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"14px 16px",background:"none",border:"none",cursor:_cP,textAlign:"left"}}>
                             <span style={{fontSize:22}}>{r.emoji}</span>
                             <div style={{flex:1}}>
                               <div style={{fontSize:14,fontWeight:700,color:C.deep}}>{r.name}</div>
@@ -47596,43 +47810,18 @@ function App(){
                             </div>
                             <span style={{fontSize:12,color:C.lt,transform:_isOpen?"rotate(90deg)":"none",transition:"transform 0.15s"}}>›</span>
                           </button>
-                          {_isOpen && !_isSwapping && (
-                            <div style={{padding:"0 16px 16px",borderTop:`1px solid ${C.blush}`}}>
-                              <div style={{fontSize:10,fontWeight:700,color:C.lt,textTransform:"uppercase",letterSpacing:"0.06em",marginTop:12,marginBottom:6}}>Ingredients</div>
-                              <div style={{fontSize:12,color:C.mid,lineHeight:1.7,marginBottom:12}}>
-                                {(r.ingredients||"").split(",").map((ing,j)=><div key={j}>• {ing.trim()}</div>)}
-                              </div>
-                              {r.method && (_weaningStylePref === "puree" || _weaningStylePref === "mixed") && (
-                                <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(139,126,200,0.06)",border:`1px solid rgba(139,126,200,0.15)`,marginBottom:8}}>
-                                  <div style={{fontSize:10,fontWeight:700,color:"#8B7EC8",textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>🥄 Puree / spoon-fed</div>
-                                  <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>{r.method}</div>
-                                </div>
-                              )}
-                              {r.blw && (_weaningStylePref === "blw" || _weaningStylePref === "mixed") && (
-                                <div style={{padding:"10px 12px",borderRadius:12,background:"rgba(111,168,152,0.06)",border:`1px solid rgba(111,168,152,0.15)`,marginBottom:12}}>
-                                  <div style={{fontSize:10,fontWeight:700,color:C.mint,textTransform:"uppercase",letterSpacing:"0.06em",marginBottom:4}}>👶 Baby-led (BLW)</div>
-                                  <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>{r.blw}</div>
-                                </div>
-                              )}
-                              {/* Allergen info link */}
-                              {r.allergens&&r.allergens.length>0 && (
-                                <button onClick={(e)=>{e.stopPropagation();haptic(8);_setEduSection("allergens");setDaySubScreen("weaning_before");setDevFilter("weaning");}}
-                                  style={{width:"100%",padding:"10px 12px",borderRadius:12,background:"rgba(232,87,74,0.06)",border:"1px solid rgba(232,87,74,0.15)",marginBottom:10,cursor:_cP,textAlign:"left",display:"flex",alignItems:"center",gap:8}}>
-                                  <span style={{fontSize:16}}>⚠️</span>
-                                  <div>
-                                    <div style={{fontSize:12,fontWeight:700,color:"#c04040"}}>Contains allergen: {r.allergens.join(", ")}</div>
-                                    <div style={{fontSize:11,color:C.mid}}>Tiny taste first · introduce in the morning · stay home 2 hours · tap to learn more →</div>
-                                  </div>
-                                </button>
-                              )}
-                              <div style={{display:"flex",gap:8}}>
-                                <button onClick={()=>{haptic(8);setSwapRecipeIdx(i);}}
-                                  style={{flex:1,padding:"12px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP}}>
-                                  🔄 Change recipe
-                                </button>
-                              </div>
-                            </div>
-                          )}
+	                          {_isOpen && !_isSwapping && (
+	                            <div style={{padding:"0 16px 16px",borderTop:`1px solid ${C.blush}`}}>
+	                              <WeaningRecipePrepSheet
+	                                recipe={r}
+	                                prepMode={_recipePrep}
+	                                onPrepModeChange={(mode)=>_setRecipePrep(mode)}
+	                                onLog={()=>{haptic(15);setWeaningForm({food:r.name,date:todayStr(),reaction:"neutral",note:"",liked:null,editId:null});setShowWeaningForm(true);}}
+	                                onChange={()=>{haptic(8);setSwapRecipeIdx(i);}}
+	                                changeLabel="Change recipe"
+	                              />
+	                            </div>
+	                          )}
                           {_isSwapping && (
                             <div style={{padding:"12px 16px",borderTop:`1px solid ${C.blush}`,maxHeight:300,overflowY:"auto"}}>
                               <div style={{fontSize:11,fontWeight:700,color:C.mid,marginBottom:8}}>Pick a replacement:</div>
@@ -55782,38 +55971,16 @@ function App(){
                             </div>
                             <span style={{fontSize:11,color:C.lt,flexShrink:0}}>{_locked?"💛":_isOpen?"▲":"▼"}</span>
                           </button>
-                          {_isOpen && !_locked && (
-                            <div style={{padding:"0 14px 14px",borderTop:`1px solid ${C.blush}`}}>
-                              <div style={{fontSize:11,color:C.mid,lineHeight:1.5,padding:"8px 0",borderBottom:`1px solid ${C.blush}`}}>
-                                <strong style={{color:C.deep}}>Ingredients:</strong> {r.ingredients}
-                              </div>
-                              <div style={{display:"flex",gap:6,margin:"8px 0"}}>
-                                {["method","blw"].map(mode=>(
-	                                  <button key={mode} data-testid={"weaning-recipe-prep-"+mode} onClick={()=>_setRecipePrep(mode)}
-	                                    style={{padding:"4px 12px",borderRadius:99,border:`1px solid ${_recipePrep===mode?C.ter:C.blush}`,background:_recipePrep===mode?C.ter+"12":"var(--card-bg)",color:_recipePrep===mode?C.ter:C.lt,fontSize:11,fontWeight:600,cursor:_cP}}>
-                                    {mode==="method"?"🥄 Puree/Spoon":"👶 BLW"}
-                                  </button>
-                                ))}
-                              </div>
-	                              <div style={{fontSize:12,color:C.mid,lineHeight:1.6}}>
-	                                {_recipePrep==="method"?r.method:r.blw}
-	                              </div>
-	                              {r.safety && (
-	                                <div data-testid="weaning-recipe-safety" style={{fontSize:11,color:C.mid,lineHeight:1.45,marginTop:8,padding:"8px 9px",borderRadius:12,background:"rgba(111,168,152,0.07)",border:"1px solid rgba(111,168,152,0.16)"}}>
-	                                  <strong style={{color:C.mint}}>Safety:</strong> {r.safety}
-	                                </div>
-	                              )}
-	                              {r.source && (
-	                                <div data-testid="weaning-recipe-source" style={{fontSize:10,color:C.lt,lineHeight:1.4,marginTop:6}}>
-	                                  Checked against {r.source}.
-	                                </div>
-	                              )}
-                              <button onClick={()=>{setWeaningForm({food:r.name,date:todayStr(),reaction:"neutral",note:"",liked:null});setShowWeaningForm(true);}}
-                                style={{marginTop:8,padding:"6px 14px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:11,fontWeight:700,cursor:_cP}}>
-                                Log this meal
-                              </button>
-                            </div>
-                          )}
+	                          {_isOpen && !_locked && (
+	                            <div style={{padding:"0 14px 14px",borderTop:`1px solid ${C.blush}`}}>
+	                              <WeaningRecipePrepSheet
+	                                recipe={r}
+	                                prepMode={_recipePrep}
+	                                onPrepModeChange={(mode)=>_setRecipePrep(mode)}
+	                                onLog={()=>{haptic(15);setWeaningForm({food:r.name,date:todayStr(),reaction:"neutral",note:"",liked:null,editId:null});setShowWeaningForm(true);}}
+	                              />
+	                            </div>
+	                          )}
                         </div>
                       );
                     })}
@@ -56353,11 +56520,11 @@ function App(){
                         ))}
                       </div>
                       <div style={{display:"flex",flexDirection:"column",gap:4}}>
-		                        {[...weaning].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,6).map((w,i)=>{
+		                        {[...weaning].sort((a,b)=>String(b.date||"").localeCompare(String(a.date||"")) || String(b.mealTime||"").localeCompare(String(a.mealTime||""))).slice(0,24).map((w,i)=>{
 		                          const _wInfo = analyseWeaningFoodInput(w.food || "");
 		                          const _wIngredients = normaliseWeaningIngredientsPayload((_wInfo.ingredients&&_wInfo.ingredients.length?_wInfo.ingredients:w.ingredients) || []);
 		                          const _wTags = normaliseWeaningTagsPayload((w.tags&&w.tags.length?w.tags:_wInfo.tags) || []).filter(t=>!["allergen","label_check","choking_check"].includes(t)).slice(0,4);
-		                          const _wAllergens = reconcileWeaningAllergensForFood(w.food || "", (_wInfo.allergens&&_wInfo.allergens.length?_wInfo.allergens:w.allergens) || []).slice(0,4);
+		                          const _wAllergens = getWeaningInferredAllergensForFood(w.food || "", w.allergens || [], _wInfo).slice(0,4);
 		                          const _editLoggedFood = () => {
 		                            haptic(8);
 		                            setWeaningForm({
@@ -59784,7 +59951,7 @@ function App(){
             <div style={{width:36,height:4,background:C.blush,borderRadius:99,margin:"0 auto 16px"}}/>
             <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:16}}>🥄 {weaningForm.editId ? "Edit Food" : "Log Food"}</div>
             <div style={{fontSize:13,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>What food?</div>
-            <input placeholder="e.g. Avocado, sweet potato, banana..." value={weaningForm.food} maxLength={100} onChange={e=>setWeaningForm(f=>({...f,food:safeTextPayload(e.target.value, "", 100)}))} autoFocus style={{width:"100%",fontSize:16,padding:"12px 14px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,outline:_oN,marginBottom:detectAllergens(weaningForm.food).length?6:14,boxSizing:_bBB,fontFamily:_fI}}/>
+            <input placeholder="e.g. Avocado, sweet potato, banana..." value={weaningForm.food} maxLength={100} onChange={e=>setWeaningForm(f=>({...f,food:safeTextPayload(e.target.value, "", 100)}))} autoFocus style={{width:"100%",fontSize:16,padding:"12px 14px",borderRadius:12,border:`1.5px solid ${C.blush}`,background:"var(--card-bg-alt)",color:C.deep,outline:_oN,marginBottom:analyseWeaningFoodInput(weaningForm.food).allergens.length?6:14,boxSizing:_bBB,fontFamily:_fI}}/>
             {(()=>{
               const _foodInfo = analyseWeaningFoodInput(weaningForm.food);
               if (!_foodInfo.food) return null;
@@ -59886,7 +60053,7 @@ function App(){
             })()}
             {(()=>{
               const _isHoney = (weaningForm.food||"").toLowerCase().includes("honey");
-              const allergens = detectAllergens(weaningForm.food);
+              const allergens = analyseWeaningFoodInput(weaningForm.food).allergens;
               if (_isHoney && age && age.months < 12) return (
                 <div style={{background:"rgba(232,87,74,0.08)",borderRadius:12,padding:"10px 12px",marginBottom:14,border:"1.5px solid rgba(232,87,74,0.3)"}}>
                   <div style={{fontSize:12,fontWeight:700,color:"#c04040",marginBottom:3}}>🚫 Honey is not safe under 12 months</div>
@@ -59928,7 +60095,7 @@ Mild reactions: localised rash, slight swelling around mouth. give your {_doctor
 Severe: breathing changes, swelling of face/throat, very pale or floppy. please call {_emergNum} for help.</div>
                 {/* Cross-reactivity warning */}
                 {(()=>{
-                  const al = detectAllergens(weaningForm.food);
+                  const al = analyseWeaningFoodInput(weaningForm.food).allergens;
                   if (!al.length) return null;
                   const warnings = al.map(a => getCrossReactivityWarning(a)).filter(Boolean);
                   if (!warnings.length) return null;
@@ -59968,9 +60135,26 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               }
               // Flip weaningStarted flag if this is the first food logged
               if(!weaningStarted){try{localStorage.setItem("weaning_started_"+resolvedActiveId,"1");}catch{}setWeaningStarted(true);}
-              // Also add to today's log as a solids feed entry (only if logging for today, not historical catch-up)
+              // Also add to today's Track log as a solids entry. Keep this direct
+              // so wake-to-wake/night routing cannot make a weaning food vanish.
               if (!_editId && _wDate === todayStr()) {
-                quickAddLog("feed",{type:"feed",feedType:"solids",time:_wTime,...normaliseSolidFoodLog(_foodTrim),skipWeaningMirror:true});
+                setDays(d => {
+                  const _arr = d[_wDate] || [];
+                  const _foodKey = normaliseWeaningName(_foodTrim);
+                  const _exists = _arr.some(e => e && e.type === "feed" && e.feedType === "solids" && _weaningFoodKeysMatch(_foodKey, e.food || e.note || e.title || ""));
+                  if (_exists) return d;
+                  const _solidLog = {
+                    id:uid(),
+                    type:"feed",
+                    feedType:"solids",
+                    time:_wTime,
+                    amount:0,
+                    ...normaliseSolidFoodLog(_foodTrim),
+                    source:"weaning_journal",
+                    modifiedAt:Date.now()
+                  };
+                  return {...d, [_wDate]: [..._arr, _solidLog]};
+                });
               }
               if (_recognisedBrandFood) {
 	                setWeanWeekRecipes(prev => {
