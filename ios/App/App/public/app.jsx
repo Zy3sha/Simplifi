@@ -17975,8 +17975,8 @@ function App(){
 	      }
 	      if (!data && _raceResult.source === "fs") {
 	        const snap = _raceResult.result;
-	        if (snap.error) { setAuthError("Could not reach your account. check your connection and try again"); return false; }
-	        if (snap.exists()) data = snap.data();
+	        // Don't bail on FS error yet — CF might still succeed
+	        if (!snap.error && snap.exists()) data = snap.data();
 	      }
 	      // If race didn't get data, wait for the slower one
 	      if (!data) {
@@ -17991,8 +17991,26 @@ function App(){
 	      }
 	      if (!data) {
 	        const _fsFallback = await _fsPromise;
-	        if (_fsFallback.error) { setAuthError("Could not reach your account. check your connection and try again"); return false; }
-	        if (_fsFallback.exists()) data = _fsFallback.data();
+	        if (!_fsFallback.error && _fsFallback.exists()) {
+	          data = _fsFallback.data();
+	        }
+	      }
+	      // Both failed — retry once with fresh auth token
+	      if (!data) {
+	        try {
+	          // Clear cached token so _ensureAuthToken gets a fresh one
+	          window._obRestToken = null;
+	          window._obRestTokenExp = 0;
+	          try { localStorage.removeItem("ob_rest_token"); } catch {}
+	          const _retrySnap = await fsGet("usernames", key);
+	          if (_retrySnap && !_retrySnap.error && _retrySnap.exists()) {
+	            data = _retrySnap.data();
+	          }
+	        } catch {}
+	      }
+	      if (!data) {
+	        setAuthError("Could not reach your account. Check your connection and try again.");
+	        return false;
 	      }
 	      if(!data) {
 		          try {
@@ -44620,7 +44638,12 @@ function App(){
             </div>
           )}
 
-          {authLoading && <div style={{textAlign:"center",padding:"16px 0",fontSize:13,color:C.mid,fontFamily:_fM}}>{isLogin?"Signing in...":"Creating account..."}</div>}
+          {authLoading && <div style={{textAlign:"center",padding:"24px 0"}}>
+            <div style={{width:32,height:32,border:"3px solid "+C.blush,borderTopColor:C.ter,borderRadius:"50%",margin:"0 auto 12px",animation:"spin 0.8s linear infinite"}}/>
+            <div style={{fontSize:14,fontWeight:600,color:C.deep}}>{isLogin?"Signing you in...":"Creating your account..."}</div>
+            <div style={{fontSize:11,color:C.lt,marginTop:4}}>This can take a few seconds</div>
+            <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+          </div>}
           {authError&&<div style={{fontSize:13,color:C.ter,textAlign:"center",marginTop:10,fontWeight:600}}>{authError}</div>}
           {isLogin && !authLoading ? (
             <button onClick={()=>handleAuth(authPin)} disabled={authPin.length!==4}
@@ -51601,7 +51624,7 @@ function App(){
 	                    // Check for false start signal from intelligence layer (engine may return "undertired" type)
 	                    const _headlineFalseStart = (lastNight.intelligenceSignals || []).some(s => s.type === "false_start") || (lastNight.wakes || []).some(w => w.fromBedMin <= 120 && w.durationMin >= 10);
 	                    const _headline = _nightCount === 0 ? _name + " slept through"
-	                      : (diagnosis && (diagnosis.type === "false_start" || diagnosis.type === "overtired_false_start")) || (diagnosis && (diagnosis.type === "undertired" || diagnosis.type === "overtired") && _headlineFalseStart) ? "False start — " + _name + " woke soon after bedtime"
+	                      : _headlineFalseStart ? "False start — " + _name + " woke soon after bedtime"
 	                      : _longestStr >= 300 ? "Strong night with " + _nightCount + " wake" + (_nightCount === 1 ? "" : "s")
 	                      : _nightCount <= 1 ? "Mostly settled night"
 	                      : diagnosis && diagnosis.type === "split_night" ? "Long wake — not a broken routine"
