@@ -39057,7 +39057,7 @@ function App(){
         _diagCtx.recentTeethingCount = _recentTeeth.length;
         // Populate lastNapEndMin for nap-to-bedtime gap detection
         try {
-          const _bedDk = _lastNight?._bedDayKey || prevCalDay(todayStr());
+          const _bedDk = _bedDayKey || prevCalDay(todayStr());
           const _napsForCtx = (days[_bedDk] || []).filter(isValidCompletedNap).sort((a,b) => timeVal(a) - timeVal(b));
           const _lastNapCtx = _napsForCtx.length ? _napsForCtx[_napsForCtx.length - 1] : null;
           if (_lastNapCtx && _lastNapCtx.end) {
@@ -42191,6 +42191,52 @@ function App(){
 	      !isTimedClockEntry(other.entry) &&
 	      clockMinuteGap(item.start, other.start) <= 18
 	    ));
+	    const clockDotPointLab = (item) => {
+	      if (!item || !item.entry || isTimedClockEntry(item.entry)) return null;
+	      const visualKind = entryVisualKindLab(item.entry);
+	      const closeMoment = item.laneCount > 1 || hasCloseClockMoment(item);
+	      const dotAngle = (item.start % 1440) / 1440 * 360 + (item.lane - (item.laneCount - 1) / 2) * (closeMoment ? 5.2 : 3.8);
+	      const dotSleepInset = clockDotSleepInsetLab(item, visualKind);
+	      const dotRadius = 94 - Math.floor(item.lane / 3) * (closeMoment ? 6 : 8) - dotSleepInset;
+	      const dotR = closeMoment ? (item.isNow ? 2.7 : 2.2) : (item.isNow ? 3 : 2.5);
+	      const dot = polar(120, 120, dotRadius, dotAngle);
+	      return {
+	        ...dot,
+	        dotR,
+	        hitR:closeMoment ? Math.max(5.1, dotR + 2.8) : Math.max(7.2, dotR + 3.4),
+	        closeMoment,
+	        dotSleepInset,
+	        visualKind
+	      };
+	    };
+	    const clockNearestDotItemFromPressLab = (ev, fallbackItem) => {
+	      try {
+	        if (!ev || typeof ev.clientX !== "number" || typeof ev.clientY !== "number") return fallbackItem;
+	        const svg = ev.currentTarget && (ev.currentTarget.ownerSVGElement || (ev.currentTarget.closest && ev.currentTarget.closest("svg")));
+	        if (!svg || !svg.createSVGPoint || !svg.getScreenCTM) return fallbackItem;
+	        const matrix = svg.getScreenCTM();
+	        if (!matrix) return fallbackItem;
+	        const point = svg.createSVGPoint();
+	        point.x = ev.clientX;
+	        point.y = ev.clientY;
+	        const local = point.matrixTransform(matrix.inverse());
+	        let best = null;
+	        clockRenderEvents.forEach(candidate => {
+	          if (!candidate || !candidate.entry || isTimedClockEntry(candidate.entry)) return;
+	          const dot = clockDotPointLab(candidate);
+	          if (!dot) return;
+	          const dx = local.x - dot.x;
+	          const dy = local.y - dot.y;
+	          const distance = Math.sqrt(dx * dx + dy * dy);
+	          if (!best || distance < best.distance) best = {item:candidate, dot, distance};
+	        });
+	        if (!best) return fallbackItem;
+	        const limit = Math.max(best.dot.hitR + 2.4, best.dot.closeMoment ? 8.2 : 11.2);
+	        return best.distance <= limit ? best.item : fallbackItem;
+	      } catch {
+	        return fallbackItem;
+	      }
+	    };
 	    // Morning wake must be from TODAY's entries, not overnight entries pulled from yesterday or legacy night-wake dots.
 	    const clockDayWakeItem = clockEvents.find(item => item.entry.type === "wake" && !item.entry.night && !clockIsLegacyNightWakeTimeLab(item.entry) && item.sourceDay === dayKey);
 	    // The clock is always a visual calendar day: midnight → midnight.
@@ -43628,14 +43674,15 @@ function App(){
 	    };
     const showClockLabTipFromPress = (item, ev) => {
       try{ev && ev.stopPropagation && ev.stopPropagation();}catch{}
-      if (!item || !item.entry) return;
+      const pressItem = item && item.entry && !isTimedClockEntry(item.entry) ? clockNearestDotItemFromPressLab(ev, item) : item;
+      if (!pressItem || !pressItem.entry) return;
       haptic(12);
       // If this item is already showing and pinned, go straight to edit
-      if (clockLabTip && clockLabTip.pinned && clockLabTip.entry && clockLabTip.entry.id === item.entry.id && clockLabTipCanEdit(clockLabTip)) {
-        editClockLabLog(item.entry, ev);
+      if (clockLabTip && clockLabTip.pinned && clockLabTip.entry && clockLabTip.entry.id === pressItem.entry.id && clockLabTipCanEdit(clockLabTip)) {
+        editClockLabLog(pressItem.entry, ev);
         return;
       }
-      setClockLabTip({...item, pinned:true});
+      setClockLabTip({...pressItem, pinned:true});
 	    };
     const hideClockLabTip = (item) => {
       setClockLabTip(current => {
@@ -43923,12 +43970,9 @@ function App(){
 	                  </g>
 	                );
 		              }
-		              const closeMoment = item.laneCount > 1 || hasCloseClockMoment(item);
-		              const dotAngle = (item.start % 1440) / 1440 * 360 + (item.lane - (item.laneCount - 1) / 2) * (closeMoment ? 5.2 : 3.8);
-		              const dotSleepInset = clockDotSleepInsetLab(item, visualKind);
-		              const dotRadius = 94 - Math.floor(item.lane / 3) * (closeMoment ? 6 : 8) - dotSleepInset;
-		              const dotR = closeMoment ? (item.isNow ? 2.7 : 2.2) : (item.isNow ? 3 : 2.5);
-	              const dot = polar(120,120,dotRadius,dotAngle);
+		              const dotPoint = clockDotPointLab(item);
+		              if (!dotPoint) return null;
+		              const {closeMoment, dotSleepInset, dotR, hitR} = dotPoint;
 	              // Legacy one-tap wake fallback: explicit night wakes stay pink, but a real morning wake must stay yellow.
 	              const _dotMins = item.start % 1440;
 	              const _isMorningWakeDot = item.entry.type === "wake" && !item.entry.night && item === clockDayWakeItem;
@@ -43940,8 +43984,8 @@ function App(){
 		              return (
 		                <g key={(item.entry.id || item.index)+"clock-dot"} className={"ob-clock-event-dot-group"+(dotSleepInset?" is-sleep-overlap":"")} role="button" aria-label={clockLabLogAria(item)} tabIndex="0" onMouseEnter={()=>showClockLabTip(item)} onMouseLeave={()=>hideClockLabTip(item)} onFocus={()=>showClockLabTip(item)} onBlur={()=>hideClockLabTip(item)} onClick={(ev)=>showClockLabTipFromPress(item, ev)} onKeyDown={(ev)=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();showClockLabTipFromPress(item, ev);}}}>
 	                  <title>{clockItemLabelLab(item)} · {clockItemTimeRangeLab(item)}</title>
-	                  <circle cx={dot.x.toFixed(2)} cy={dot.y.toFixed(2)} r={Math.max(7.2, dotR + 3.4)} className="ob-clock-event-hit" aria-hidden="true"/>
-	                  <circle cx={dot.x.toFixed(2)} cy={dot.y.toFixed(2)} r={dotR} className={"ob-clock-event-dot is-"+_dotKind+(item.isNow?" is-now":"")+(closeMoment?" is-close":"")} style={{"--ob-clock-event-glow":_dotGlow,"--ob-clock-dot-fill":_dotColor}} fill={_dotColor} stroke={_dotColor} aria-hidden="true"/>
+	                  <circle cx={dotPoint.x.toFixed(2)} cy={dotPoint.y.toFixed(2)} r={hitR.toFixed(2)} className="ob-clock-event-hit" aria-hidden="true"/>
+	                  <circle cx={dotPoint.x.toFixed(2)} cy={dotPoint.y.toFixed(2)} r={dotR} className={"ob-clock-event-dot is-"+_dotKind+(item.isNow?" is-now":"")+(closeMoment?" is-close":"")} style={{"--ob-clock-event-glow":_dotGlow,"--ob-clock-dot-fill":_dotColor}} fill={_dotColor} stroke={_dotColor} aria-hidden="true"/>
 	                </g>
 	              );
 	            })}
@@ -50363,7 +50407,7 @@ function App(){
               })()}
 
               {/* Night Weaning ready pointer — one-time, shown for babies 6mo+ with night feeds */}
-              {!nightWeanProg && age && (age.predictiveWeeks??age.totalWeeks) >= 26 && selDay===todayStr() && (()=>{
+              {!nightWeanProg && age && (age.predictiveWeeks??age.totalWeeks) >= 26 && hasAccess() && selDay===todayStr() && (()=>{
                 try {
                   if (localStorage.getItem("ob_nw_pointer_v1")) return null;
                   const _recentNightFeeds = getNightFeedEventsForDay(days, selDay, nextCalDay(selDay)).length;
@@ -60226,12 +60270,25 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
 
       {/* ═══ SLEEP COACH FULL-SCREEN ═══ */}
       {showSleepCoach && (()=>{
+        // Age gate: sleep coaching is not appropriate for babies under 16 weeks (4 months)
+        const _ageW3 = age ? (age.predictiveWeeks ?? age.totalWeeks) : 0;
+        if (_ageW3 < 16) {
+          return (
+            <Sheet onClose={()=>setShowSleepCoach(false)} title="">
+              <div style={{textAlign:"center",padding:"20px 0"}}>
+                <div style={{fontSize:36,marginBottom:12}}>🧒</div>
+                <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:8}}>Not quite ready yet</div>
+                <div style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:16}}>Sleep coaching isn't recommended before 4 months. {babyName||"Baby"}'s sleep cycles are still maturing — right now the best thing is responsive, gentle care. OBubba will let you know when the time is right.</div>
+                <button onClick={()=>setShowSleepCoach(false)} style={{padding:"12px 24px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>Got it</button>
+              </div>
+            </Sheet>
+          );
+        }
         const _scRaw3 = (()=>{try{return localStorage.getItem("ob_sleep_coach_v1");}catch{return null;}})();
         const _sc3 = _scRaw3 ? normaliseSleepCoachState(safeJsonObject(_scRaw3)) : null;
         if (_scRaw3 && !_sc3) { try{localStorage.removeItem("ob_sleep_coach_v1");}catch{} }
         const _hasActive3 = _sc3 && _sc3.style && _sc3.style !== "gradual";
         const _name3 = babyName || "Baby";
-        const _ageW3 = age ? (age.predictiveWeeks ?? age.totalWeeks) : 20;
 
         // Active plan day info
         let _dayNum3 = 0, _plan3 = null, _complete3 = false;
@@ -60718,6 +60775,11 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 </div>
                 );
               })}
+              {_isFreeUser && _fullReasons.length > 3 && (
+                <button onClick={()=>triggerPaywall("crying_helper",true)} style={{width:"100%",marginTop:8,padding:"12px",borderRadius:14,border:"1.5px solid rgba(155,139,184,0.3)",background:"rgba(155,139,184,0.06)",color:"#7B6BA0",fontSize:13,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+                  {_fullReasons.length - 3} more reasons found — unlock full analysis
+                </button>
+              )}
             </div>
 
             {/* What helped?. learning */}

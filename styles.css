@@ -13338,9 +13338,10 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-
 
 /* Clock lab neon marker final lock: night wakes use the same small marker language as every other point log. */
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-hit{
-  fill:transparent!important;
+  fill:rgba(255,255,255,0.001)!important;
   stroke:transparent!important;
   pointer-events:all!important;
+  touch-action:manipulation!important;
   cursor:pointer!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot{
