@@ -7,6 +7,20 @@
 		"iosScheme": "https",
 		"hostname": "app.obubba.com"
 	},
+	"android": {
+		"backgroundColor": "#F0DDD6",
+		"allowMixedContent": false,
+		"captureInput": true,
+		"webContentsDebuggingEnabled": false
+	},
+	"ios": {
+		"scheme": "OBubba",
+		"contentInset": "always",
+		"allowsLinkPreview": true,
+		"backgroundColor": "#F0DDD6",
+		"preferredContentMode": "mobile",
+		"limitsNavigationsToAppBoundDomains": true
+	},
 	"plugins": {
 		"PushNotifications": {
 			"presentationOptions": [
@@ -74,20 +88,6 @@
 		},
 		"Network": {},
 		"Badge": {}
-	},
-	"ios": {
-		"scheme": "OBubba",
-		"contentInset": "always",
-		"allowsLinkPreview": true,
-		"backgroundColor": "#F0DDD6",
-		"preferredContentMode": "mobile",
-		"limitsNavigationsToAppBoundDomains": true
-	},
-	"android": {
-		"backgroundColor": "#F0DDD6",
-		"allowMixedContent": false,
-		"captureInput": true,
-		"webContentsDebuggingEnabled": false
 	},
 	"packageClassList": [
 		"SignInWithApple",

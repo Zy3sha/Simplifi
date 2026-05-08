@@ -6400,7 +6400,7 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-
   stroke:var(--ob-day-blue)!important;
 }
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-event-arc{
-  filter:blur(0.04px) drop-shadow(0 0 7px var(--ob-clock-event-glow,rgba(152,176,224,0.18))) drop-shadow(0 0 20px color-mix(in srgb,var(--ob-clock-event-glow,rgba(152,176,224,0.18)) 54%,transparent)) drop-shadow(0 5px 10px rgba(126,107,78,0.12))!important;
+  filter:drop-shadow(0 0 6px var(--ob-clock-event-glow,rgba(152,176,224,0.22)))!important;
 }
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-event-dot.is-feed{fill:var(--ob-day-feed)!important;}
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-event-dot.is-poop{fill:var(--ob-day-sage)!important;}
@@ -6725,7 +6725,7 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc.is-sleep,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-event-arc.is-sleep{
   fill:none!important;
   stroke:#FFBE68!important;
-  filter:drop-shadow(0 0 6px rgba(255,190,104,0.42)) drop-shadow(0 0 18px rgba(255,155,58,0.30)) drop-shadow(0 5px 9px rgba(0,0,0,0.26))!important;
+  filter:drop-shadow(0 0 8px rgba(255,190,104,0.40))!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc.is-sleep.is-hollow,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-event-arc.is-sleep.is-hollow{
@@ -6733,7 +6733,7 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .o
   stroke-width:11.5px!important;
   stroke-linecap:round!important;
   opacity:0.98!important;
-  filter:drop-shadow(0 0 8px rgba(255,190,104,0.50)) drop-shadow(0 0 20px rgba(255,155,58,0.34)) drop-shadow(0 5px 9px rgba(0,0,0,0.28))!important;
+  filter:drop-shadow(0 0 10px rgba(255,190,104,0.45))!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc-cut.is-sleep{
   fill:none!important;
@@ -6756,13 +6756,13 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-wake-arc{
   opacity:0.96!important;
   cursor:pointer!important;
   vector-effect:non-scaling-stroke!important;
-  filter:drop-shadow(0 0 5px rgba(0,217,255,0.82)) drop-shadow(0 0 15px rgba(0,217,255,0.56)) drop-shadow(0 0 28px rgba(0,217,255,0.26))!important;
+  filter:drop-shadow(0 0 8px rgba(0,217,255,0.50))!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-wake-arc:hover,
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-wake-arc:focus-visible{
   stroke-width:7.4px!important;
   opacity:1!important;
-  filter:drop-shadow(0 0 7px rgba(0,217,255,0.96)) drop-shadow(0 0 20px rgba(0,217,255,0.72)) drop-shadow(0 0 36px rgba(0,217,255,0.34))!important;
+  filter:drop-shadow(0 0 10px rgba(0,217,255,0.60))!important;
 }
 @media (max-width:370px){
   body[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-strip{
@@ -6845,7 +6845,7 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot.is-tummy{stroke:#
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc.is-sleep{
   fill:none!important;
   stroke:#FFBE68!important;
-  filter:drop-shadow(0 0 6px rgba(255,190,104,0.42)) drop-shadow(0 0 18px rgba(255,155,58,0.30)) drop-shadow(0 5px 9px rgba(0,0,0,0.26))!important;
+  filter:drop-shadow(0 0 8px rgba(255,190,104,0.40))!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc.is-bedtime-outside,
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc.is-sleep-carry.is-bedtime-outside,
@@ -13252,7 +13252,7 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc.is-sleep,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-event-arc.is-sleep{
   fill:none!important;
   stroke:#FFBE68!important;
-  filter:drop-shadow(0 0 6px rgba(255,190,104,0.42)) drop-shadow(0 0 18px rgba(255,155,58,0.30)) drop-shadow(0 5px 9px rgba(0,0,0,0.26))!important;
+  filter:drop-shadow(0 0 8px rgba(255,190,104,0.40))!important;
 }
 @media (max-width:370px){
   body[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-strip{
@@ -13533,12 +13533,14 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-active-timer-orbit{
   transform-box:view-box!important;
   animation:obClockTimerDotOrbit 18s linear infinite!important;
   pointer-events:none!important;
+  will-change:transform!important;
+  contain:layout style!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-active-timer-dot{
   fill:var(--ob-clock-timer-dot,#FFBE68)!important;
-  stroke:rgba(255,255,255,0.62)!important;
-  stroke-width:1px!important;
-  filter:drop-shadow(0 0 6px var(--ob-clock-timer-glow,rgba(255,190,104,0.56))) drop-shadow(0 0 13px var(--ob-clock-timer-glow,rgba(255,190,104,0.32)))!important;
+  stroke:rgba(255,255,255,0.50)!important;
+  stroke-width:0.8px!important;
+  filter:drop-shadow(0 0 5px var(--ob-clock-timer-glow,rgba(255,190,104,0.40)))!important;
 }
 @media (prefers-reduced-motion: reduce){
   body[data-clock-home-lab="1"] .ob-app-root .ob-clock-active-timer-orbit{
