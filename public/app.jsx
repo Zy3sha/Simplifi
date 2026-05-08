@@ -51098,8 +51098,10 @@ function App(){
 	                    // Split night no longer gets its own early return — flows through the
 	                    // structured analysis (What looks good / Nap analysis / Why woke) like all other types
 	                    // HEADLINE
+	                    // Check for false start signal from intelligence layer (engine may return "undertired" type)
+	                    const _headlineFalseStart = (lastNight.intelligenceSignals || []).some(s => s.type === "false_start") || (lastNight.wakes || []).some(w => w.fromBedMin <= 120 && w.durationMin >= 10);
 	                    const _headline = _nightCount === 0 ? _name + " slept through"
-	                      : diagnosis && (diagnosis.type === "false_start" || diagnosis.type === "overtired_false_start") ? "False start — woke soon after bedtime"
+	                      : (diagnosis && (diagnosis.type === "false_start" || diagnosis.type === "overtired_false_start")) || (diagnosis && (diagnosis.type === "undertired" || diagnosis.type === "overtired") && _headlineFalseStart) ? "False start — " + _name + " woke soon after bedtime"
 	                      : _longestStr >= 300 ? "Strong night with " + _nightCount + " wake" + (_nightCount === 1 ? "" : "s")
 	                      : _nightCount <= 1 ? "Mostly settled night"
 	                      : diagnosis && diagnosis.type === "split_night" ? "Long wake — not a broken routine"
@@ -51140,7 +51142,11 @@ function App(){
 	                        _wakeNotes.push(_hmStr(_longestWake.durationMin) + " awake" + (_longestWake.time ? " around " + fmt12(_longestWake.time) : ""));
 	                      }
 	                      // Diagnosis-specific explanations — these are the most important
-	                      if (diagnosis && (diagnosis.type === "false_start" || diagnosis.type === "overtired_false_start")) {
+	                      // Note: the engine returns "undertired" (not "false_start") when wake window data exists,
+	                      // even though the root cause IS a false start. Check intelligence signals too.
+	                      const _hasFalseStartSignal = (lastNight.intelligenceSignals || []).some(s => s.type === "false_start") || (lastNight.wakes || []).some(w => w.fromBedMin <= 120 && w.durationMin >= 10);
+	                      const _isFalseStart = diagnosis && (diagnosis.type === "false_start" || diagnosis.type === "overtired_false_start" || (diagnosis.type === "undertired" && _hasFalseStartSignal) || (diagnosis.type === "overtired" && _hasFalseStartSignal));
+	                      if (_isFalseStart) {
 	                        const _fsWake = _wakes.find(w => w.fromBedMin <= 120);
 	                        _wakeNotes.push("False start — " + _name + " woke " + (_fsWake ? _fsWake.fromBedMin + " minutes" : "within 1-2 hours") + " after going down. This is one of the clearest sleep signals: it almost always means the last stretch of awake time before bed was either too long (overtired) or too short (not sleepy enough).");
 	                        if (_lastWW > 0 && _ww) {
@@ -51209,10 +51215,11 @@ function App(){
 	                    if (_nightCount === 0 || (diagnosis && diagnosis.type === "great_night")) {
 	                      _action = "Everything worked well — no changes needed. Just keep doing what you're doing. 💛";
 	                    } else if (_planIsEvening) {
+	                      const _eveningFalseStart = (lastNight.intelligenceSignals || []).some(s => s.type === "false_start") || (lastNight.wakes || []).some(w => w.fromBedMin <= 120 && w.durationMin >= 10);
 	                      _action = diagnosis && diagnosis.type === "split_night"
 	                        ? "Tonight: keep resettles dark, brief and boring. No talking, no eye contact. Short feed if needed."
-	                        : diagnosis && (diagnosis.type === "false_start" || diagnosis.type === "overtired_false_start")
-	                          ? "Tonight: resettle without a feed if " + _name + " wakes within 2 hours of bedtime. Dark and calm."
+	                        : (diagnosis && (diagnosis.type === "false_start" || diagnosis.type === "overtired_false_start")) || _eveningFalseStart
+	                          ? "Tonight: if " + _name + " wakes within 2 hours of bedtime, resettle without a feed — keep it dark and calm. This is almost always about sleep pressure, not hunger."
 	                          : "Tonight: dark room, boring resettles, same calm response each time.";
 	                    } else {
 	                      const _acts = [];
