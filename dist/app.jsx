@@ -12957,12 +12957,15 @@ function App(){
   const [recipeNutrientFilter, setRecipeNutrientFilter] = useState("all");
   const [_recipeOpen, _setRecipeOpen] = useState(null);
   const [_recipePrep, _setRecipePrep] = useState("method");
-  const [_weaningStylePref, _setWeaningStylePref] = useState(()=>{
-    try{ return normaliseWeaningStylePref(localStorage.getItem("ob_weaning_style_pref_"+resolvedActiveId)); }catch{ return "mixed"; }
-  });
-  useEffect(()=>{
-    try{ _setWeaningStylePref(normaliseWeaningStylePref(localStorage.getItem("ob_weaning_style_pref_"+resolvedActiveId))); }catch{ _setWeaningStylePref("mixed"); }
-  }, [resolvedActiveId]);
+	  const [_weaningStylePref, _setWeaningStylePref] = useState(()=>{
+	    try{ return normaliseWeaningStylePref(localStorage.getItem("ob_weaning_style_pref_"+resolvedActiveId)); }catch{ return "mixed"; }
+	  });
+	  useEffect(()=>{
+	    let safe = "mixed";
+	    try{ safe = normaliseWeaningStylePref(localStorage.getItem("ob_weaning_style_pref_"+resolvedActiveId)); }catch{}
+	    _setWeaningStylePref(safe);
+	    _setRecipePrep(getWeaningPrepForStyle(safe));
+	  }, [resolvedActiveId]);
   const setWeaningStylePref = (value) => {
     const safe = normaliseWeaningStylePref(value);
     _setWeaningStylePref(safe);
@@ -47315,15 +47318,16 @@ function App(){
                             style={{width:"100%",boxSizing:_bBB,padding:"11px 12px",borderRadius:14,border:"1.5px solid var(--card-border)",background:"var(--card-bg-alt)",color:C.deep,fontSize:14,outline:_oN,fontFamily:_fI,marginBottom:_q.length>=2?10:0}}/>
                           {_q.length >= 2 && (
                             <div data-testid="weaning-recipe-search-results" style={{display:"flex",flexDirection:"column",gap:8}}>
-                              {_results.length ? _results.map((r,i)=>{
-                                const _inThis = _thisNameSet.has(normaliseWeaningName(r.name));
-                                const _inNext = _nextNameSet.has(normaliseWeaningName(r.name));
-                                return (
+	                              {_results.length ? _results.map((r,i)=>{
+	                                const _inThis = _thisNameSet.has(normaliseWeaningName(r.name));
+	                                const _inNext = _nextNameSet.has(normaliseWeaningName(r.name));
+	                                const _displayName = getWeaningRecipeNameForStyle(r, _weaningStylePref) || r.name;
+	                                return (
                                   <div key={r.name+"_"+i} style={{display:"grid",gridTemplateColumns:"minmax(0,1fr)",gap:8,padding:"11px",borderRadius:14,border:"1px solid var(--card-border)",background:"rgba(255,255,255,0.34)"}}>
                                     <div style={{display:"flex",alignItems:"flex-start",gap:9,minWidth:0}}>
-                                      <span style={{fontSize:21,flexShrink:0}}>{r.emoji}</span>
-                                      <div style={{minWidth:0,flex:1}}>
-                                        <div style={{fontSize:13.5,fontWeight:850,color:C.deep,lineHeight:1.25}}>{r.name}</div>
+	                                      <span style={{fontSize:21,flexShrink:0}}>{r.emoji}</span>
+	                                      <div style={{minWidth:0,flex:1}}>
+	                                        <div style={{fontSize:13.5,fontWeight:850,color:C.deep,lineHeight:1.25}}>{_displayName}</div>
                                         <div style={{fontSize:11,color:C.lt,lineHeight:1.45,marginTop:3}}>
                                           {r._ingredientHit ? "Ingredient match: " + r._ingredientHit : r.iron ? "Iron-rich idea" : r.allergens&&r.allergens.length ? "Includes allergen guidance" : "Age-suitable recipe"}
                                           {r.allergens&&r.allergens.length ? " · allergen: " + r.allergens.join(", ") : ""}
@@ -47545,10 +47549,11 @@ function App(){
                           Pick the recipes you'd like to try this week. Don't worry — you can change them anytime.
                         </div>
                       </div>
-	                      <div style={{fontSize:10,fontWeight:700,color:C.gold,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8,paddingLeft:4}}>Tap to select recipes. pick as many as you want this week</div>
-	                      {_scored3.slice(0, 12).map((r,i) => {
-	                        const _selected = _currentNames.has(normaliseWeaningName(r && r.name));
-	                        return (
+		                      <div style={{fontSize:10,fontWeight:700,color:C.gold,textTransform:"uppercase",letterSpacing:"0.08em",marginBottom:8,paddingLeft:4}}>Tap to select recipes. pick as many as you want this week</div>
+		                      {_scored3.slice(0, 12).map((r,i) => {
+		                        const _selected = _currentNames.has(normaliseWeaningName(r && r.name));
+		                        const _displayName = getWeaningRecipeNameForStyle(r, _weaningStylePref) || r.name;
+		                        return (
                           <button key={i} onClick={()=>{
 	                            haptic(8);
 	                            if (_selected) {
@@ -47560,9 +47565,9 @@ function App(){
 	                              _saveWeek(next);
 	                            }
                           }} className="glass-card" style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"12px 16px",marginBottom:6,cursor:_cP,textAlign:"left",border:_selected?`2px solid ${C.ter}`:"1.5px solid var(--card-border)",background:_selected?"rgba(192,112,136,0.06)":"var(--card-bg)"}}>
-                            <span style={{fontSize:20}}>{r.emoji}</span>
-                            <div style={{flex:1}}>
-                              <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{r.name}</div>
+	                            <span style={{fontSize:20}}>{r.emoji}</span>
+	                            <div style={{flex:1}}>
+	                              <div style={{fontSize:13,fontWeight:700,color:C.deep}}>{_displayName}</div>
                               <div style={{display:"flex",gap:4,marginTop:2}}>
                                 {r.iron && <span style={{fontSize:8,padding:"1px 5px",borderRadius:99,background:"rgba(111,168,152,0.1)",color:C.mint,fontWeight:700}}>Iron</span>}
                                 {r.allergens&&r.allergens.length>0 && <button onClick={(e)=>{e.stopPropagation();haptic(8);_setEduSection("allergens");setDaySubScreen("weaning_before");setDevFilter("weaning");}} style={{fontSize:8,padding:"2px 5px",borderRadius:99,background:"rgba(232,87,74,0.12)",color:"#c04040",fontWeight:700,border:"none",cursor:_cP}}>⚠️ Allergen: {r.allergens.join(", ")}</button>}
@@ -47610,10 +47615,12 @@ function App(){
                         );
                         return null;
                       }
-                      const _isOpen = expandedRecipeIdx === i;
-                      const _isSwapping = swapRecipeIdx === i;
-                      const _done = _isDone(r);
-                      return (
+	                      const _isOpen = expandedRecipeIdx === i;
+	                      const _isSwapping = swapRecipeIdx === i;
+	                      const _done = _isDone(r);
+	                      const _displayName = getWeaningRecipeNameForStyle(r, _weaningStylePref) || r.name;
+	                      const _logName = getWeaningRecipeNameForStyle(r, _recipePrep === "blw" ? "blw" : "puree") || _displayName;
+	                      return (
                         <div key={r.name} className="glass-card" style={{padding:0,marginBottom:8,overflow:"hidden",border:_done?`1.5px solid ${C.mint}55`:"1.5px solid var(--card-border)",background:_done?"linear-gradient(135deg, rgba(111,168,152,0.12), var(--card-bg))":"var(--card-bg)"}}>
                           <div style={{display:"flex",alignItems:"stretch"}}>
                             <button
@@ -47628,9 +47635,9 @@ function App(){
                             </button>
 	                            <button onClick={()=>{haptic(8);setExpandedRecipeIdx(_isOpen?null:i);setSwapRecipeIdx(null);_setRecipePrep(getWeaningPrepForStyle(_weaningStylePref));}}
 	                              style={{flex:1,width:"100%",display:"flex",alignItems:"center",gap:10,padding:"14px 16px",background:"none",border:"none",cursor:_cP,textAlign:"left",opacity:_done?0.82:1}}>
-                              <span style={{fontSize:22}}>{r.emoji}</span>
-                              <div style={{flex:1}}>
-                                <div style={{fontSize:14,fontWeight:700,color:C.deep,textDecoration:_done?"line-through":"none",textDecorationThickness:2,textDecorationColor:C.mint+"99"}}>{r.name}</div>
+	                              <span style={{fontSize:22}}>{r.emoji}</span>
+	                              <div style={{flex:1}}>
+	                                <div style={{fontSize:14,fontWeight:700,color:C.deep,textDecoration:_done?"line-through":"none",textDecorationThickness:2,textDecorationColor:C.mint+"99"}}>{_displayName}</div>
                                 <div style={{display:"flex",gap:4,marginTop:3,flexWrap:"wrap"}}>
                                   {_done && <span style={{fontSize:9,padding:"1px 6px",borderRadius:99,background:"rgba(111,168,152,0.12)",color:C.mint,fontWeight:700}}>Done</span>}
                                   {r.iron && <span style={{fontSize:9,padding:"1px 6px",borderRadius:99,background:"rgba(111,168,152,0.1)",color:C.mint,fontWeight:700}}>Iron</span>}
@@ -47645,10 +47652,10 @@ function App(){
 	                          {_isOpen && !_isSwapping && (
 	                            <div style={{padding:"0 16px 16px",borderTop:`1px solid ${C.blush}`}}>
 	                              <WeaningRecipePrepSheet
-	                                recipe={r}
-	                                prepMode={_recipePrep}
-	                                onPrepModeChange={(mode)=>_setRecipePrep(mode)}
-	                                onLog={()=>{haptic(15);setWeaningForm({food:r.name,date:todayStr(),reaction:"neutral",note:"",liked:null,editId:null});setShowWeaningForm(true);}}
+		                                recipe={r}
+		                                prepMode={_recipePrep}
+		                                onPrepModeChange={(mode)=>_setRecipePrep(mode)}
+		                                onLog={()=>{haptic(15);setWeaningForm({food:_logName,date:todayStr(),reaction:"neutral",note:"",liked:null,editId:null});setShowWeaningForm(true);}}
 	                                logLabel={_done ? "Add reaction / notes" : "Log this food"}
 	                                onChange={()=>{haptic(8);setSwapRecipeIdx(i);}}
 	                                changeLabel="Change"
@@ -47792,16 +47799,18 @@ function App(){
                           </div>
                         );
                         return null;
-                      }
-                      const _isOpen = expandedRecipeIdx === i;
-                      const _isSwapping = swapRecipeIdx === i;
-                      return (
+	                      }
+	                      const _isOpen = expandedRecipeIdx === i;
+	                      const _isSwapping = swapRecipeIdx === i;
+	                      const _displayName = getWeaningRecipeNameForStyle(r, _weaningStylePref) || r.name;
+	                      const _logName = getWeaningRecipeNameForStyle(r, _recipePrep === "blw" ? "blw" : "puree") || _displayName;
+	                      return (
                         <div key={r.name} className="glass-card" style={{padding:0,marginBottom:8,overflow:"hidden"}}>
 	                          <button onClick={()=>{haptic(8);setExpandedRecipeIdx(_isOpen?null:i);setSwapRecipeIdx(null);_setRecipePrep(getWeaningPrepForStyle(_weaningStylePref));}}
 	                            style={{width:"100%",display:"flex",alignItems:"center",gap:10,padding:"14px 16px",background:"none",border:"none",cursor:_cP,textAlign:"left"}}>
-                            <span style={{fontSize:22}}>{r.emoji}</span>
-                            <div style={{flex:1}}>
-                              <div style={{fontSize:14,fontWeight:700,color:C.deep}}>{r.name}</div>
+	                            <span style={{fontSize:22}}>{r.emoji}</span>
+	                            <div style={{flex:1}}>
+	                              <div style={{fontSize:14,fontWeight:700,color:C.deep}}>{_displayName}</div>
                               <div style={{display:"flex",gap:4,marginTop:3}}>
                                 {r.iron && <span style={{fontSize:9,padding:"1px 6px",borderRadius:99,background:"rgba(111,168,152,0.1)",color:C.mint,fontWeight:700}}>Iron</span>}
                                 {r.allergens&&r.allergens.length>0 && <button onClick={(e)=>{e.stopPropagation();haptic(8);_setEduSection("allergens");setDaySubScreen("weaning_before");setDevFilter("weaning");}} style={{fontSize:9,padding:"2px 7px",borderRadius:99,background:"rgba(232,87,74,0.12)",color:"#c04040",fontWeight:700,border:"none",cursor:_cP}}>⚠️ Allergen: {r.allergens.join(", ")}</button>}
@@ -47813,10 +47822,10 @@ function App(){
 	                          {_isOpen && !_isSwapping && (
 	                            <div style={{padding:"0 16px 16px",borderTop:`1px solid ${C.blush}`}}>
 	                              <WeaningRecipePrepSheet
-	                                recipe={r}
-	                                prepMode={_recipePrep}
-	                                onPrepModeChange={(mode)=>_setRecipePrep(mode)}
-	                                onLog={()=>{haptic(15);setWeaningForm({food:r.name,date:todayStr(),reaction:"neutral",note:"",liked:null,editId:null});setShowWeaningForm(true);}}
+		                                recipe={r}
+		                                prepMode={_recipePrep}
+		                                onPrepModeChange={(mode)=>_setRecipePrep(mode)}
+		                                onLog={()=>{haptic(15);setWeaningForm({food:_logName,date:todayStr(),reaction:"neutral",note:"",liked:null,editId:null});setShowWeaningForm(true);}}
 	                                onChange={()=>{haptic(8);setSwapRecipeIdx(i);}}
 	                                changeLabel="Change recipe"
 	                              />
@@ -51479,22 +51488,31 @@ function App(){
                         return (
                         <div data-testid="sleep-consultant-summary" style={{padding:"14px 14px",borderRadius:14,background:"rgba(111,168,152,0.07)",border:"1px solid rgba(111,168,152,0.18)",marginBottom:10}}>
                           <div style={{fontSize:17,fontWeight:800,color:C.deep,lineHeight:1.3,marginBottom:10}}>{_sleepConsultantSummary.headline}</div>
-                          {_secs.map((sec, si) => (
-                            <div key={si} style={{marginBottom:si < _secs.length - 1 ? 12 : 10}}>
-                              <div style={{fontSize:12,fontWeight:700,color:C.deep,marginBottom:5,display:"flex",alignItems:"center",gap:5}}>
-                                <span>{sec.icon}</span> {sec.title}
-                              </div>
-                              {sec.items.map((item, ii) => (
-                                <div key={ii} style={{fontSize:12.5,color:C.mid,lineHeight:1.55,paddingLeft:8,borderLeft:"2px solid " + (si === 0 ? "rgba(80,200,120,0.3)" : si === _secs.length - 1 ? "rgba(192,112,136,0.3)" : "rgba(123,104,238,0.2)"),marginBottom:4}}>
-                                  {item}
+                          {hasAccess() ? (
+                            <>
+                              {_secs.map((sec, si) => (
+                                <div key={si} style={{marginBottom:si < _secs.length - 1 ? 12 : 10}}>
+                                  <div style={{fontSize:12,fontWeight:700,color:C.deep,marginBottom:5,display:"flex",alignItems:"center",gap:5}}>
+                                    <span>{sec.icon}</span> {sec.title}
+                                  </div>
+                                  {sec.items.map((item, ii) => (
+                                    <div key={ii} style={{fontSize:12.5,color:C.mid,lineHeight:1.55,paddingLeft:8,borderLeft:"2px solid " + (si === 0 ? "rgba(80,200,120,0.3)" : si === _secs.length - 1 ? "rgba(192,112,136,0.3)" : "rgba(123,104,238,0.2)"),marginBottom:4}}>
+                                      {item}
+                                    </div>
+                                  ))}
                                 </div>
                               ))}
+                              <div style={{fontSize:13,color:C.deep,lineHeight:1.5,padding:"11px 12px",borderRadius:10,background:"rgba(111,168,152,0.10)",border:"1px solid rgba(111,168,152,0.16)",marginTop:6}}>
+                                <strong style={{color:C.mint,fontFamily:_fM,textTransform:"uppercase",letterSpacing:"0.06em",fontSize:10,display:"block",marginBottom:4}}>{_isEvening ? "Tonight" : "What OBubba will do"}</strong>
+                                {_sleepConsultantSummary.action}
+                              </div>
+                            </>
+                          ) : (
+                            <div style={{marginTop:8}}>
+                              <div style={{fontSize:12.5,color:C.mid,lineHeight:1.55,marginBottom:10}}>OBubba analysed last night's sleep, naps, wake windows, feeds and more. Unlock the full consultant-style breakdown to see exactly what happened and what to do next.</div>
+                              <button onClick={()=>triggerPaywall("sleep_debrief",true)} style={{width:"100%",padding:"12px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",color:"white",fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI}}>See full sleep analysis</button>
                             </div>
-                          ))}
-                          <div style={{fontSize:13,color:C.deep,lineHeight:1.5,padding:"11px 12px",borderRadius:10,background:"rgba(111,168,152,0.10)",border:"1px solid rgba(111,168,152,0.16)",marginTop:6}}>
-                            <strong style={{color:C.mint,fontFamily:_fM,textTransform:"uppercase",letterSpacing:"0.06em",fontSize:10,display:"block",marginBottom:4}}>{_isEvening ? "Tonight" : "What OBubba will do"}</strong>
-                            {_sleepConsultantSummary.action}
-                          </div>
+                          )}
                         </div>
                         );
                       })()}
@@ -55945,21 +55963,23 @@ function App(){
                       {_dietaryPrefs.length > 0 && <div style={{fontSize:9,color:C.lt,alignSelf:"center",fontStyle:"italic",marginLeft:4}}>Approximate. Always check ingredients.</div>}
                     </div>
 
-                    {/* Recipe cards */}
-                    {_recipes.map((r,i)=>{
-                      const _locked = !_canAccess && i >= _freeLimit;
-                      const _isOpen = _recipeOpen === i;
-                      return (
-                        <div key={i} style={{marginBottom:6,borderRadius:14,border:`1px solid ${_isOpen?C.ter+"40":C.blush}`,overflow:"hidden",background:"var(--card-bg)",opacity:_locked?0.6:1}}>
+	                    {/* Recipe cards */}
+	                    {_recipes.map((r,i)=>{
+	                      const _locked = !_canAccess && i >= _freeLimit;
+	                      const _isOpen = _recipeOpen === i;
+	                      const _recipeDisplayName = getWeaningRecipeNameForStyle(r, _weaningStylePref) || r.name;
+	                      const _recipeLogName = getWeaningRecipeNameForStyle(r, _recipePrep === "blw" ? "blw" : "puree") || _recipeDisplayName;
+	                      return (
+	                        <div key={i} style={{marginBottom:6,borderRadius:14,border:`1px solid ${_isOpen?C.ter+"40":C.blush}`,overflow:"hidden",background:"var(--card-bg)",opacity:_locked?0.6:1}}>
                           <button onClick={()=>{
                             if(_locked){haptic();triggerPaywall("recipes", true);return;}
 	                            haptic(8);_setRecipeOpen(_isOpen?null:i);_setRecipePrep(getWeaningPrepForStyle(_weaningStylePref));
                           }}
                             style={{width:"100%",padding:"10px 14px",background:"none",border:"none",display:"flex",justifyContent:"space-between",alignItems:"center",cursor:_cP,fontFamily:_fI,textAlign:"left"}}>
-                            <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}>
-                              <span style={_S.f18}>{_locked?"🔒":r.emoji}</span>
-                              <div style={{minWidth:0}}>
-                                <div style={{fontSize:13,fontWeight:600,color:_isOpen?C.ter:C.deep,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{r.name}</div>
+	                            <div style={{display:"flex",alignItems:"center",gap:8,flex:1,minWidth:0}}>
+	                              <span style={_S.f18}>{_locked?"🔒":r.emoji}</span>
+	                              <div style={{minWidth:0}}>
+	                                <div style={{fontSize:13,fontWeight:600,color:_isOpen?C.ter:C.deep,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{_recipeDisplayName}</div>
                                 <div style={{display:"flex",gap:4,marginTop:2,flexWrap:"wrap"}}>
                                   {r.iron && <span style={{fontSize:10,padding:"1px 5px",borderRadius:99,background:`${C.mint}15`,color:C.mint,fontWeight:600}}>IRON</span>}
 	                                  {r.vitC && <span style={{fontSize:10,padding:"1px 5px",borderRadius:99,background:"rgba(255,165,0,0.12)",color:"#d4a855",fontWeight:600}}>VIT C</span>}
@@ -55977,7 +55997,7 @@ function App(){
 	                                recipe={r}
 	                                prepMode={_recipePrep}
 	                                onPrepModeChange={(mode)=>_setRecipePrep(mode)}
-	                                onLog={()=>{haptic(15);setWeaningForm({food:r.name,date:todayStr(),reaction:"neutral",note:"",liked:null,editId:null});setShowWeaningForm(true);}}
+	                                onLog={()=>{haptic(15);setWeaningForm({food:_recipeLogName,date:todayStr(),reaction:"neutral",note:"",liked:null,editId:null});setShowWeaningForm(true);}}
 	                              />
 	                            </div>
 	                          )}
