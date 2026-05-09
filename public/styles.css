@@ -16043,3 +16043,14 @@ body.dark-mode .ob-app-root .ob-care-date-picker{
     grid-column:1 / -1!important;
   }
 }
+
+/* Clock event ticks — used when moments overlap so they're all visible */
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-tick{
+  stroke-linecap:round!important;
+  filter:drop-shadow(0 0 4px var(--ob-clock-event-glow,rgba(152,176,224,0.22)))!important;
+  opacity:0.90!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-tick.is-now{
+  opacity:1!important;
+  filter:drop-shadow(0 0 6px var(--ob-clock-event-glow,rgba(152,176,224,0.35)))!important;
+}

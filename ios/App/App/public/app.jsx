@@ -44671,7 +44671,17 @@ function App(){
 		                <g key={(item.entry.id || item.index)+"clock-dot"} className={"ob-clock-event-dot-group"+(dotSleepInset?" is-sleep-overlap":"")} role="button" aria-label={clockLabLogAria(item)} tabIndex="0" onMouseEnter={()=>showClockLabTip(item)} onMouseLeave={()=>hideClockLabTip(item)} onFocus={()=>showClockLabTip(item)} onBlur={()=>hideClockLabTip(item)} onClick={(ev)=>showClockLabTipFromPress(item, ev)} onKeyDown={(ev)=>{if(ev.key==="Enter"||ev.key===" "){ev.preventDefault();showClockLabTipFromPress(item, ev);}}}>
 	                  <title>{clockItemLabelLab(item)} · {clockItemTimeRangeLab(item)}</title>
 	                  <circle cx={dotPoint.x.toFixed(2)} cy={dotPoint.y.toFixed(2)} r={hitR.toFixed(2)} className="ob-clock-event-hit" aria-hidden="true"/>
-	                  <circle cx={dotPoint.x.toFixed(2)} cy={dotPoint.y.toFixed(2)} r={dotR} className={"ob-clock-event-dot is-"+_dotKind+(item.isNow?" is-now":"")+(closeMoment?" is-close":"")} style={{"--ob-clock-event-glow":_dotGlow,"--ob-clock-dot-fill":_dotColor}} fill={_dotColor} stroke={_dotColor} aria-hidden="true"/>
+	                  {closeMoment ? (()=>{
+	                    // Overlapping events: render as radial tick marks instead of dots
+	                    const _tickAngle = (item.start % 1440) / 1440 * 360 + (item.lane - (item.laneCount - 1) / 2) * 5.2;
+	                    const _outerR = 98;
+	                    const _innerR = 90;
+	                    const _outer = polar(120, 120, _outerR, _tickAngle);
+	                    const _inner = polar(120, 120, _innerR, _tickAngle);
+	                    return <line x1={_inner.x.toFixed(2)} y1={_inner.y.toFixed(2)} x2={_outer.x.toFixed(2)} y2={_outer.y.toFixed(2)} className={"ob-clock-event-tick is-"+_dotKind+(item.isNow?" is-now":"")} stroke={_dotColor} strokeWidth={item.isNow ? "2.5" : "2"} strokeLinecap="round" style={{"--ob-clock-event-glow":_dotGlow}} aria-hidden="true"/>;
+	                  })() : (
+	                    <circle cx={dotPoint.x.toFixed(2)} cy={dotPoint.y.toFixed(2)} r={dotR} className={"ob-clock-event-dot is-"+_dotKind+(item.isNow?" is-now":"")+(closeMoment?" is-close":"")} style={{"--ob-clock-event-glow":_dotGlow,"--ob-clock-dot-fill":_dotColor}} fill={_dotColor} stroke={_dotColor} aria-hidden="true"/>
+	                  )}
 	                </g>
 	              );
 	            })}
