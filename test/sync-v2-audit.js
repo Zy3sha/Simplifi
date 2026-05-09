@@ -57,10 +57,48 @@ assert(
 
 assert(
   "legacy family and child sync writes remain in place for rollback",
-  app.includes('await fsSet("families", code, {') &&
-    app.includes('children: JSON.stringify(legacyChildrenForCloud)') &&
+  app.includes('await fsSet("families", code, _familiesPayload') &&
+    app.includes("_familiesPayload.children = _legacyChildrenJson") &&
     app.includes('await fsSet("child_syncs", code, {') &&
-    app.includes('child: JSON.stringify(legacyChildForCloud)')
+    app.includes("child: legacyChildJson")
+);
+
+assert(
+  "legacy sync avoids re-sending full child and family histories when unchanged",
+  app.includes('_existingChildrenHash !== _legacyChildrenHash') &&
+    app.includes('OB_FAMILY_LEGACY_PUSH_HASH_PREFIX = "ob_family_legacy_push_hash_"') &&
+    app.includes("function _legacyFamilyPayloadHashValue(payload)") &&
+    app.includes("const _familyPushHash = _legacyFamilyPayloadHashValue(_familiesPayload)") &&
+    app.includes("const _familyPushKey = _syncCacheKey(OB_FAMILY_LEGACY_PUSH_HASH_PREFIX, code)") &&
+    app.includes('await fsSet("families", code, _familiesPayload, !_familiesPayload.children)') &&
+    app.includes('const existingChildJson = typeof existingChildSyncData.child === "string"') &&
+    app.includes('if (') &&
+    app.includes('existingHash === nextHash') &&
+    app.includes('queueSyncV2ChildReadShadowAudit(code, childId, childForCloud, "child-sync-unchanged")')
+);
+
+assert(
+  "bed timer sync uses the saved bedtime start rather than regenerating startMs every push",
+  app.includes("const _bedTimerDayForCloud = _bedActive ? localStorage.getItem(\"bed_timer_day\") : null") &&
+    app.includes("const _bedStartMsForCloud = (_bedActive && _bedTimerDayForCloud && _bedStartForCloud)") &&
+    app.includes("clockDateMs(_bedTimerDayForCloud, _bedStartForCloud, NaN)") &&
+    app.includes("startTime: _napActive ? (localStorage.getItem(\"nap_startT\") || \"\") : _breastActive ? (localStorage.getItem(\"breast_startTime\") || \"\") : _bedStartForCloud")
+);
+
+assert(
+  "child sync code mapping writes are hash-gated to avoid native startup sync storms",
+  app.includes('const persistKey = "ob_child_sync_code_persist_hash_v1"') &&
+    app.includes("prevHash === persistHash") &&
+    app.includes("Date.now() - prevAt < 12 * 60 * 60 * 1000") &&
+    app.includes("await Promise.all(mapIds.map(id => fsSet(\"child_code_map\", id, mapPayload, false)))")
+);
+
+assert(
+  "child code map recovery is cached so Android launch does not reread map docs every time",
+  app.includes("function _childCodeMapRestoreRecentlyChecked(childId)") &&
+    app.includes("ob_child_code_map_restore_checked_") &&
+    app.includes("_childCodeMapRestoreRecentlyChecked(cid)") &&
+    app.includes("_rememberChildCodeMapRestoreChecked(cid)")
 );
 
 assert(
@@ -120,6 +158,16 @@ assert(
 );
 
 assert(
+  "native REST auth waits for the SDK user before creating a fallback anonymous user",
+  app.includes("async function _waitForSdkAuthToken") &&
+    app.includes("cachedRestUid && cachedRestUid !== user.uid") &&
+    app.includes("const _sdkLate = await _waitForSdkAuthToken(_sdkWaitMs);") &&
+    app.includes("if(_sdkLate) return _sdkLate;") &&
+    app.includes("const _sdkWarm = await _waitForSdkAuthToken(2500);") &&
+    app.includes("window.Capacitor?.isNativePlatform?.() ? 6500 : 2000")
+);
+
+assert(
   "shadow writes are queued after legacy writes rather than replacing them",
   app.includes("queueSyncV2FamilyShadow(code, cleanForCloud") &&
     app.includes("queueSyncV2ChildShadow(code, childId, childForCloud")
@@ -135,11 +183,11 @@ assert(
 
 assert(
   "child sync legacy writes and reads deletion tombstones",
-  app.includes("function _absorbChildSyncTombstones(data)") &&
+    app.includes("function _absorbChildSyncTombstones(data)") &&
     app.includes("_absorbChildSyncTombstones(existingData);") &&
     app.includes("_absorbChildSyncTombstones(d);") &&
-    app.includes("deletedEntryIds: JSON.stringify(_deletedEntryIdsArrayForCloud(500))") &&
-    app.includes("deletedDays: JSON.stringify(_deletedDaysArrayForCloud(childId, 200))") &&
+    app.includes("deletedEntryIds: deletedEntryIdsJson") &&
+    app.includes("deletedDays: deletedDaysJson") &&
     app.includes("mergedDays[date] = normaliseDayEntries(mergedDays[date]).filter(e =>") &&
     app.includes("Object.entries(childSyncCodes || {}).forEach(([cid, syncCode])")
 );

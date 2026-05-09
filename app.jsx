@@ -4211,12 +4211,23 @@ function collectLastNightWakeEntries(days, bedtimeDayKey, morningDayKey) {
   const morningFromBed = morningMins !== null
     ? (morningMins >= bedMins ? morningMins - bedMins : (24 * 60 - bedMins) + morningMins)
     : null;
+  const morningNightEntries = (morningDayKey && morningDayKey !== bedtimeDayKey ? (morningDayEnt || []) : [])
+    .filter(isNightWakeLikeEntry)
+    .filter(e => {
+      const m = _nightMins(e && (e.time || e.start));
+      if (m === null) return false;
+      // Only the early-morning part of the following calendar day belongs to
+      // the previous bedtime. Evening entries on that same date are tonight,
+      // not last night.
+      if (m >= 12 * 60) return false;
+      return morningMins === null || m < morningMins;
+    });
   const raw = [
     ...bedDayEnt.filter(isNightWakeLikeEntry),
-    ...(morningDayKey && morningDayKey !== bedtimeDayKey ? (morningDayEnt || []).filter(isNightWakeLikeEntry) : [])
+    ...morningNightEntries
   ];
   const seenIds = new Set();
-  return raw
+  const candidates = raw
     .map(e => {
       const fromBedMin = nightEntryFromBedMin(e, bedMins);
       return fromBedMin === null ? null : { ...e, _fromBedMin: fromBedMin };
@@ -4231,6 +4242,7 @@ function collectLastNightWakeEntries(days, bedtimeDayKey, morningDayKey) {
       return true;
     })
     .sort((a, b) => a._fromBedMin - b._fromBedMin);
+  return dedupeNightWakeEvents(candidates);
 }
 
 function _nightWakeEventSortKey(e) {
@@ -4248,6 +4260,48 @@ function _nightWakeEventScore(e) {
     + (e.note ? 1 : 0);
 }
 
+function _isNightFeedSettlingEntry(e) {
+  return !!(e && e.night && (
+    e.type === "feed" ||
+    e.feedType === "milk" ||
+    e.feedType === "bottle" ||
+    e.assistedType === "milk" ||
+    (parseFloat(e.amount) || 0) > 0
+  ));
+}
+
+function _nightEventForwardGap(anchor, event) {
+  const a = _nightWakeEventSortKey(anchor);
+  const b = _nightWakeEventSortKey(event);
+  if (a === null || b === null) return null;
+  let gap = b - a;
+  if (gap < -720) gap += 1440;
+  if (gap < 0) return null;
+  return gap;
+}
+
+function _mergeNightWakeSettlingFeed(wake, feed, gapMin = 0) {
+  const merged = { ...wake };
+  const wakeDur = nightWakeDurationMinutes(wake);
+  const feedDur = nightWakeDurationMinutes(feed);
+  const wakeLooksOpen = /settling|in\s+progress|open/i.test(nightWakeFreeText(wake));
+  const combinedDur = Math.max(wakeDur, feedDur ? gapMin + feedDur : (wakeLooksOpen ? gapMin : wakeDur));
+  if (combinedDur > wakeDur) {
+    if (merged.wakeDuration != null) merged.wakeDuration = combinedDur;
+    else if (merged.settleDuration != null) merged.settleDuration = combinedDur;
+    else if (merged.assistedDuration != null) merged.assistedDuration = combinedDur;
+    else merged.wakeDuration = combinedDur;
+  }
+  if ((parseFloat(feed.amount) || 0) > 0 && !(parseFloat(merged.amount) || 0)) merged.amount = feed.amount;
+  if (feed.feedType && !merged.feedType) merged.feedType = feed.feedType;
+  if ((feed.assistedType === "milk" || feed.feedType === "milk" || feed.feedType === "bottle" || (parseFloat(feed.amount) || 0) > 0) && !merged.assistedType) merged.assistedType = "milk";
+  if (feed.note && !String(merged.note || "").includes(feed.note)) merged.note = [merged.note, feed.note].filter(Boolean).join(" · ");
+  if ((parseFloat(feed.amount) || 0) > 0 || feed.assistedType === "milk" || feed.feedType === "milk" || feed.feedType === "bottle") merged.selfSettled = false;
+  if (feed.modifiedAt && (!merged.modifiedAt || feed.modifiedAt > merged.modifiedAt)) merged.modifiedAt = feed.modifiedAt;
+  merged._settlingFeedIds = Array.from(new Set([...(merged._settlingFeedIds || []), feed.id].filter(Boolean)));
+  return merged;
+}
+
 function dedupeNightWakeEvents(entries) {
   const sorted = (Array.isArray(entries) ? entries : [])
     .filter(isNightWakeLikeEntry)
@@ -4261,10 +4315,18 @@ function dedupeNightWakeEvents(entries) {
   sorted.forEach(e => {
     const last = out[out.length - 1];
     if (last) {
+      const forwardGap = _nightEventForwardGap(last, e);
+      const lastDur = nightWakeDurationMinutes(last);
+      const lastLooksOpen = /settling|in\s+progress|open/i.test(nightWakeFreeText(last));
+      if (last.type === "wake" && _isNightFeedSettlingEntry(e) && forwardGap !== null && forwardGap <= Math.max(15, lastDur + 10, lastLooksOpen ? 90 : 0)) {
+        out[out.length - 1] = _mergeNightWakeSettlingFeed(last, e, forwardGap);
+        return;
+      }
       let gap = Math.abs(e._nightEventKey - last._nightEventKey);
       if (gap > 720) gap = 1440 - gap;
       if (gap <= 15) {
-        if (_nightWakeEventScore(e) > _nightWakeEventScore(last)) out[out.length - 1] = e;
+        if (e.type === "wake" && _isNightFeedSettlingEntry(last)) out[out.length - 1] = _mergeNightWakeSettlingFeed(e, last, 0);
+        else if (_nightWakeEventScore(e) > _nightWakeEventScore(last)) out[out.length - 1] = e;
         return;
       }
     }
@@ -4469,6 +4531,31 @@ function analyzeLastNight(days, bedtimeDayKey, morningDayKey) {
     _bedDayKey: bedtimeDayKey,
     morningDayKey,
   };
+}
+
+function resolveCompletedSleepSummaryKeys(days, anchorDayKey) {
+  const anchor = safeDateKey(anchorDayKey) || todayStr();
+  const prev = prevCalDay(anchor);
+  const prevHasBedtime = !!findBedtime((days && days[prev]) || []);
+  let bedDayKey = prevHasBedtime ? prev : anchor;
+  let morningDayKey = prevHasBedtime ? anchor : nextCalDay(anchor);
+  const morningHasWake = !!findMorningWake((days && days[morningDayKey]) || []);
+  const activeBedDay = (() => {
+    try { return safeDateKey(localStorage.getItem("bed_timer_day") || ""); } catch { return ""; }
+  })();
+  const currentHour = (() => { try { return new Date().getHours(); } catch { return 12; } })();
+  const looksLikeOpenCurrentNight = anchor === todayStr()
+    && bedDayKey === prev
+    && !morningHasWake
+    && (activeBedDay === bedDayKey || currentHour < 12);
+  if (looksLikeOpenCurrentNight) {
+    const completedBedDay = prevCalDay(bedDayKey);
+    const completedMorningDay = bedDayKey;
+    if (findBedtime((days && days[completedBedDay]) || []) && findMorningWake((days && days[completedMorningDay]) || [])) {
+      return {bedDayKey: completedBedDay, morningDayKey: completedMorningDay, skippedOpenNight: true};
+    }
+  }
+  return {bedDayKey, morningDayKey, skippedOpenNight: false};
 }
 
 // Aggregate settle methods across a window of days. Returns totals by method
@@ -14676,11 +14763,11 @@ function App(){
 		    ["clock-stage", "clock-home-kindness"]
 		  ];
 			  const OB_APP_TOUR_JOURNEY = [
-			    { chapter:"Step 1", tab:"day", iconName:"timer", target:"Start here", title:"Log what happens", body:"Tap feed, nap, nappy or wake as they happen. The clock fills in around you — no spreadsheets, no perfect timing needed. Even one or two logs a day is enough to start." },
-			    { chapter:"Step 2", tab:"day", iconName:"today", target:"Days 3–5", title:"OBubba learns the rhythm", body:"After a few ordinary days, OBubba starts spotting patterns — when naps work best, how feeds affect sleep, what bedtime actually looks like. You don't have to do anything different. Just keep logging." },
-			    { chapter:"Step 3", tab:"insights", iconName:"care", target:"Care tab", title:"See what OBubba found", body:"Sleep analysis tells you exactly why last night went the way it did. Feeding insights flag what's working. Nap analysis shows what to adjust. All in plain English, not charts and jargon." },
-			    { chapter:"Step 4", tab:"insights", iconName:"care", target:"Parent Room", title:"Look after yourself too", body:"Parenting is relentless. The Parent Room has breathing exercises, wellbeing check-ins, and gentle reminders that you matter in this house too. You're not just a carer — you're a person who needs care." },
-			    { chapter:"Step 5", tab:"settings", iconName:"care", target:"Share & Sync", title:"Connect your village", body:"Partner Sync keeps both parents on the same page — every log, every prediction, shared in real time. Bubba Care gives grandparents or nursery a live care guide with QR code. No repeating yourself." }
+			    { chapter:"Step 1", tab:"day", iconName:"timer", target:"Track tab", title:"Start logging", body:"This is your home screen. Tap feed, nappy, nap, sleep or wake when they happen.\n\nThe clock fills in as the day goes on. You'll see dots for quick moments and arcs for naps and sleep. Don't worry about being exact — OBubba works with whatever you log." },
+			    { chapter:"Step 2", tab:"day", iconName:"today", target:"Give it 3 days", title:"OBubba learns your baby", body:"After 3 days of ordinary logging, OBubba starts to understand your baby's rhythm.\n\nBy day 5, you'll get personalised nap predictions, bedtime suggestions, and a sleep analysis that actually explains what happened last night and why." },
+			    { chapter:"Step 3", tab:"insights", iconName:"care", target:"Care tab", title:"See what OBubba found", body:"This is where the real help lives.\n\n• Sleep — why last night went the way it did, and what to try tonight\n• Feeding — patterns, intake, and what to watch for\n• Weaning — recipes, allergens, and a food journal\n• Growth — weight and height trends on real charts" },
+			    { chapter:"Step 4", tab:"insights", iconName:"care", target:"Parent Room", title:"You matter too", body:"This bit is just for you.\n\nBreathing exercises when it all feels too much. Wellbeing check-ins. Gentle reminders that looking after yourself is part of looking after your baby.\n\nYou're not just a carer — you're a person who needs care too." },
+			    { chapter:"Step 5", tab:"settings", iconName:"care", target:"Account tab", title:"Share the load", body:"Partner Sync — both parents see every log, prediction and insight in real time. No \"did you feed him?\" texts.\n\nBubba Care — share a live care guide with grandparents, nursery or anyone helping. QR code, one tap, everything they need to know. No repeating yourself." }
 			  ];
 
   const[childSyncCodes,setChildSyncCodes]=useState(()=>{
@@ -14873,6 +14960,45 @@ function App(){
   const cloudPushRef = React.useRef(null);
   const cloudSyncedRef = React.useRef(false);
   const nativeDataRestoreDoneRef = React.useRef(false);
+  const nativeMirrorWriteRef = React.useRef({hash:"", ts:0, timer:null});
+  const NATIVE_MIRROR_MIN_INTERVAL = 30000;
+  const OB_NATIVE_DATA_MIRROR_HASH_KEY = "ob_native_data_mirror_hash_v1";
+  const OB_NATIVE_DATA_MIRROR_WRITTEN_KEY = "ob_native_data_mirror_written_v1";
+  function queueNativeDataMirrorWrite(mirrorPayload) {
+    try {
+      const stablePayload = {...mirrorPayload, updatedAt: 0};
+      const stableHash = syncV2Hash(JSON.stringify(stablePayload));
+      const storedHash = localStorage.getItem(OB_NATIVE_DATA_MIRROR_HASH_KEY) || "";
+      if (stableHash && stableHash === storedHash) {
+        const writtenAt = Number(localStorage.getItem(OB_NATIVE_DATA_MIRROR_WRITTEN_KEY) || 0);
+        if (nativeMirrorWriteRef.current.hash === stableHash || writtenAt > 0) {
+          nativeMirrorWriteRef.current.hash = stableHash;
+          nativeMirrorWriteRef.current.ts = writtenAt || Date.now();
+          return;
+        }
+      }
+      const writeNow = () => {
+        const payloadWithTime = {...mirrorPayload, updatedAt: Date.now()};
+        const mirrorJson = JSON.stringify(payloadWithTime);
+        if (mirrorJson.length >= 3000000) {
+          console.warn("OBubba: native data mirror skipped because core log payload is too large.");
+          return;
+        }
+        nativeMirrorWriteRef.current.hash = stableHash;
+        nativeMirrorWriteRef.current.ts = Date.now();
+        try {
+          localStorage.setItem(OB_NATIVE_DATA_MIRROR_HASH_KEY, stableHash);
+          localStorage.setItem(OB_NATIVE_DATA_MIRROR_WRITTEN_KEY, String(nativeMirrorWriteRef.current.ts));
+        } catch {}
+        _nativePrefSet(OB_NATIVE_DATA_MIRROR_KEY, mirrorJson).catch(()=>{});
+        if (backupCodeRef.current || familyUsername) _nativePrefRemove(OB_NATIVE_DELETE_TOMBSTONE_KEY).catch(()=>{});
+      };
+      const elapsed = Date.now() - (nativeMirrorWriteRef.current.ts || 0);
+      clearTimeout(nativeMirrorWriteRef.current.timer);
+      if (elapsed >= NATIVE_MIRROR_MIN_INTERVAL) writeNow();
+      else nativeMirrorWriteRef.current.timer = setTimeout(writeNow, NATIVE_MIRROR_MIN_INTERVAL - elapsed + 50);
+    } catch {}
+  }
   function _hasRecoverableChild(obj) {
     try {
       return Object.values(obj || {}).some(c =>
@@ -15037,7 +15163,7 @@ function App(){
           const mirrorChildren = _stripNativeMirrorChildren(_cleanForStorage);
           const mirrorPayload = {
             version: 1,
-            updatedAt: Date.now(),
+            updatedAt: 0,
             children: mirrorChildren,
             activeChildId: resolvedActiveId || "",
             childSyncCodes,
@@ -15046,12 +15172,7 @@ function App(){
             familyUsername: familyUsername || "",
             onboarded: !!onboarded
           };
-          const mirrorJson = JSON.stringify(mirrorPayload);
-	          if (mirrorJson.length < 3000000) {
-	            _nativePrefSet(OB_NATIVE_DATA_MIRROR_KEY, mirrorJson).catch(()=>{});
-	            if (backupCodeRef.current || familyUsername) _nativePrefRemove(OB_NATIVE_DELETE_TOMBSTONE_KEY).catch(()=>{});
-	          }
-	          else console.warn("OBubba: native data mirror skipped because core log payload is too large.");
+          queueNativeDataMirrorWrite(mirrorPayload);
         } catch {}
       }
       clearTimeout(cloudPushRef.current);
@@ -15183,12 +15304,16 @@ function App(){
   const _syncV2FamilyShadowRef = useRef({running:false, pending:null});
   const _syncV2ChildShadowRef = useRef({running:false, pending:null});
   const _syncV2ReadShadowRef = useRef({running:{}, pending:{}, timers:{}});
+  const _childCodeMapRestoreRef = useRef({running:{}, checked:{}});
   const PUSH_MIN_INTERVAL = 60000; // legacy family docs are large; keep automatic reads calm
   const CHILD_PUSH_MIN_INTERVAL = 60000;
   const OB_SYNC_V2_SCHEMA = "sync-v2-shadow-2026-05";
   const OB_SYNC_V2_FAMILY_HASH_PREFIX = "ob_sync_v2_family_hashes_";
   const OB_SYNC_V2_CHILD_HASH_PREFIX = "ob_sync_v2_child_hashes_";
   const OB_SYNC_V2_READ_SHADOW_PREFIX = "ob_sync_v2_read_shadow_last_";
+  const OB_CHILD_SYNC_LEGACY_PUSH_HASH_PREFIX = "ob_child_sync_legacy_push_hash_";
+  const OB_CLOUD_IDENTITY_WRITE_HASH_PREFIX = "ob_cloud_identity_write_hash_";
+  const OB_FAMILY_LEGACY_PUSH_HASH_PREFIX = "ob_family_legacy_push_hash_";
   const _readLocalJson = (key, fallback) => {
     try {
       const raw = localStorage.getItem(key);
@@ -15201,6 +15326,58 @@ function App(){
       return fallback;
     }
   };
+
+  function _syncCacheKey(prefix, ...parts) {
+    return prefix + parts.map(p => syncV2FirestoreId(p, "part")).join("_");
+  }
+
+  function _recentSameSyncHash(key, hash, maxAgeMs = 12 * 60 * 60 * 1000) {
+    try {
+      const cached = safeJsonObject(localStorage.getItem(key));
+      return !!(cached && cached.hash === hash && cached.at && Date.now() - Number(cached.at) < maxAgeMs);
+    } catch {
+      return false;
+    }
+  }
+
+  function _rememberSyncHash(key, hash) {
+    try { localStorage.setItem(key, JSON.stringify({hash, at: Date.now()})); } catch {}
+  }
+
+  function _legacyFamilyPayloadHashValue(payload) {
+    const clone = {...(payload || {})};
+    clone.updatedAt = 0;
+    try {
+      const sd = JSON.parse(clone.sharedData || "{}");
+      if (sd && sd.activeTimer && typeof sd.activeTimer === "object") sd.activeTimer.updatedAt = 0;
+      clone.sharedData = JSON.stringify(sd || {});
+    } catch {}
+    try {
+      const pred = JSON.parse(clone.prediction || "{}");
+      if (pred && typeof pred === "object") pred.predUpdatedAt = 0;
+      clone.prediction = JSON.stringify(pred || {});
+    } catch {}
+    return syncV2Hash(JSON.stringify(clone));
+  }
+
+  function _childCodeMapRestoreRecentlyChecked(childId) {
+    try {
+      const key = syncV2FirestoreId(childId, "child");
+      const at = _childCodeMapRestoreRef.current.checked[key] || Number(localStorage.getItem("ob_child_code_map_restore_checked_" + key) || 0);
+      return !!(at && Date.now() - at < 12 * 60 * 60 * 1000);
+    } catch {
+      return false;
+    }
+  }
+
+  function _rememberChildCodeMapRestoreChecked(childId) {
+    try {
+      const key = syncV2FirestoreId(childId, "child");
+      const now = Date.now();
+      _childCodeMapRestoreRef.current.checked[key] = now;
+      localStorage.setItem("ob_child_code_map_restore_checked_" + key, String(now));
+    } catch {}
+  }
 
   function syncV2ShadowEnabled() {
     try {
@@ -15909,11 +16086,31 @@ function App(){
         const _bedActive = !!localStorage.getItem("bed_timer_day");
         const _breastActive = localStorage.getItem("breast_active") === "1";
         if (_napActive || _bedActive || _breastActive) {
+          const _bedTimerDayForCloud = _bedActive ? localStorage.getItem("bed_timer_day") : null;
+          let _bedStartForCloud = _bedActive ? (localStorage.getItem("bed_timer_start") || "") : "";
+          if (_bedActive && !_bedStartForCloud && _bedTimerDayForCloud) {
+            try {
+              const _activeCid = localStorage.getItem("active_child") || "";
+              const _activeChild = (_activeCid && allChildren && allChildren[_activeCid]) || null;
+              const _childWithBed = _activeChild || Object.values(allChildren || {}).find(ch => findBedtime((ch && ch.days && ch.days[_bedTimerDayForCloud]) || []));
+              const _bedEntryForCloud = findBedtime((_childWithBed && _childWithBed.days && _childWithBed.days[_bedTimerDayForCloud]) || []);
+              _bedStartForCloud = (_bedEntryForCloud && (_bedEntryForCloud.time || _bedEntryForCloud.start)) || "";
+              if (_bedStartForCloud) localStorage.setItem("bed_timer_start", _bedStartForCloud);
+            } catch {}
+          }
+          const _bedStartMsForCloud = (_bedActive && _bedTimerDayForCloud && _bedStartForCloud)
+            ? clockDateMs(_bedTimerDayForCloud, _bedStartForCloud, NaN)
+            : NaN;
+          const _timerStartMsForCloud = _napActive
+            ? parseInt(localStorage.getItem("nap_startMs"), 10)
+            : _breastActive
+              ? parseInt(localStorage.getItem("breast_startMs"), 10)
+              : (Number.isFinite(_bedStartMsForCloud) ? _bedStartMsForCloud : Date.now());
           _sharedData.activeTimer = {
             type: _napActive ? "nap" : _bedActive ? "bed" : "breast",
-            startTime: localStorage.getItem(_napActive ? "nap_startT" : _breastActive ? "breast_startTime" : "bed_timer_start") || "",
-            startMs: parseInt(localStorage.getItem(_napActive ? "nap_startMs" : _breastActive ? "breast_startMs" : "")) || Date.now(),
-            bedDay: _bedActive ? localStorage.getItem("bed_timer_day") : null,
+            startTime: _napActive ? (localStorage.getItem("nap_startT") || "") : _breastActive ? (localStorage.getItem("breast_startTime") || "") : _bedStartForCloud,
+            startMs: (Number.isFinite(_timerStartMsForCloud) && _timerStartMsForCloud > 1000000000000) ? _timerStartMsForCloud : Date.now(),
+            bedDay: _bedActive ? _bedTimerDayForCloud : null,
             updatedAt: Date.now(),
             deviceId: window._fbUid || "unknown"
           };
@@ -15944,10 +16141,12 @@ function App(){
       //   6. next push, loop repeats → visible flicker on the timer
       // Filtering the incoming cloud entries through the blacklists stops
       // the resurrection at step 3 so the delete actually sticks.
+      let _existingFamilyData = null;
       try {
         const _cloudSnap = await fsGet("families", code);
         if (_cloudSnap.exists()) {
           const _cloudData = _cloudSnap.data();
+          _existingFamilyData = _cloudData;
           if (!Object.keys(_syncCodesForCloud).length && _cloudData.childSyncCodes) {
             try {
               const _cloudSyncCodes = _parseChildSyncCodes(_cloudData.childSyncCodes);
@@ -16066,10 +16265,14 @@ function App(){
         _todayMedsForCloud = JSON.stringify(_todayMeds2);
       } catch {}
 
-	      await fsSet("families", code, {
-	        children: JSON.stringify(legacyChildrenForCloud),
-	        carerInfo: JSON.stringify(_carerInfoCloud),
-	        sharedData: JSON.stringify(_sharedData),
+      const _legacyChildrenJson = JSON.stringify(legacyChildrenForCloud);
+      const _legacyChildrenHash = syncV2Hash(_legacyChildrenJson);
+      const _existingChildrenHash = _existingFamilyData && typeof _existingFamilyData.children === "string"
+        ? syncV2Hash(_existingFamilyData.children)
+        : "";
+      const _familiesPayload = {
+        carerInfo: JSON.stringify(_carerInfoCloud),
+        sharedData: JSON.stringify(_sharedData),
         childSyncCodes: JSON.stringify(_syncCodesForCloud),
         deletedEntryIds: JSON.stringify(_deletedIdsForCloud),
         deletedDays: JSON.stringify(_deletedDaysForCloud),
@@ -16077,9 +16280,19 @@ function App(){
         todayMeds: _todayMedsForCloud,
         updatedAt: serverTimestamp(),
         updatedBy: myUid,
-	        writeToken,
-	        ...(_carerTokenForCloud ? {carerToken: _carerTokenForCloud} : {})
-	      });
+        writeToken,
+        ...(_carerTokenForCloud ? {carerToken: _carerTokenForCloud} : {})
+      };
+      if (!_existingFamilyData || _existingChildrenHash !== _legacyChildrenHash) {
+        _familiesPayload.children = _legacyChildrenJson;
+      }
+
+      const _familyPushHash = _legacyFamilyPayloadHashValue(_familiesPayload);
+      const _familyPushKey = _syncCacheKey(OB_FAMILY_LEGACY_PUSH_HASH_PREFIX, code);
+      if (!_recentSameSyncHash(_familyPushKey, _familyPushHash)) {
+        await fsSet("families", code, _familiesPayload, !_familiesPayload.children);
+        _rememberSyncHash(_familyPushKey, _familyPushHash);
+      }
 	      queueSyncV2FamilyShadow(code, cleanForCloud, {
 	        carerInfo: _carerInfoCloud,
 	        sharedData: _sharedData,
@@ -16091,12 +16304,25 @@ function App(){
 
 	      if(myUid && myUid !== "anon") {
         try{
-          await fsSet("uid_to_backup", myUid, {backupCode: code, childSyncCodes: _syncCodesForCloud, updatedAt: serverTimestamp()}, true);
+          const _uidIdentityHash = syncV2Hash(JSON.stringify({backupCode: code, childSyncCodes: _syncCodesForCloud}));
+          const _uidIdentityKey = _syncCacheKey(OB_CLOUD_IDENTITY_WRITE_HASH_PREFIX, "uid", myUid);
+          if (!_recentSameSyncHash(_uidIdentityKey, _uidIdentityHash)) {
+            await fsSet("uid_to_backup", myUid, {backupCode: code, childSyncCodes: _syncCodesForCloud, updatedAt: serverTimestamp()}, true);
+            _rememberSyncHash(_uidIdentityKey, _uidIdentityHash);
+          }
         }catch(e){ console.warn("uid_to_backup write error",e); }
       }
       const _pushOwnerName = familyUsername || localStorage.getItem("family_username") || "";
       if(_pushOwnerName) {
-        try { await fsSet("usernames", normaliseUsername(_pushOwnerName), {childSyncCodes:_syncCodesForCloud}, true); } catch(e) {}
+        try {
+          const _ownerKey = normaliseUsername(_pushOwnerName);
+          const _usernameIdentityHash = syncV2Hash(JSON.stringify({childSyncCodes:_syncCodesForCloud}));
+          const _usernameIdentityKey = _syncCacheKey(OB_CLOUD_IDENTITY_WRITE_HASH_PREFIX, "username", _ownerKey);
+          if (!_recentSameSyncHash(_usernameIdentityKey, _usernameIdentityHash)) {
+            await fsSet("usernames", _ownerKey, {childSyncCodes:_syncCodesForCloud}, true);
+            _rememberSyncHash(_usernameIdentityKey, _usernameIdentityHash);
+          }
+        } catch(e) {}
       }
       // Belt-and-braces: also push to ALL child sync docs alongside main cloud push
       try {
@@ -17702,6 +17928,28 @@ function App(){
     }
     return data || null;
   }
+  async function _waitForSdkAuthToken(timeoutMs = 0) {
+    const deadline = Date.now() + Math.max(0, Number(timeoutMs) || 0);
+    while (true) {
+      try {
+        const user = window._fb?.auth?.currentUser;
+        if (user) {
+          const token = await user.getIdToken(false).catch(()=>null);
+        if (token) {
+          window._fbUid = user.uid;
+          try {
+            const cachedRestUid = localStorage.getItem("ob_rest_uid") || "";
+            if (cachedRestUid && cachedRestUid !== user.uid) clearRestAuthCache();
+          } catch {}
+          return token;
+        }
+        }
+      } catch {}
+      if (Date.now() >= deadline) break;
+      await new Promise(r => setTimeout(r, 150));
+    }
+    return null;
+  }
   async function callAccountFunctionViaRest(name, payload) {
     try {
       const safeName = String(name || "").replace(/[^A-Za-z0-9_-]/g, "");
@@ -18228,11 +18476,15 @@ function App(){
   // Firebase REST auth fallback. gets an anonymous token when SDK auth fails in WKWebView
   async function _ensureAuthToken() {
     // 1. Try SDK user first
-    const _user = window._fb?.auth?.currentUser;
-    if(_user) {
-      const t = await _user.getIdToken(false).catch(()=>null);
-      if(t) return t;
-    }
+    const _sdkNow = await _waitForSdkAuthToken(0);
+    if(_sdkNow) return _sdkNow;
+    try {
+      const shouldPreferSdk = window.Capacitor?.isNativePlatform?.() && (localStorage.getItem("family_username") || localStorage.getItem("ob_auth_username"));
+      if (shouldPreferSdk) {
+        const _sdkWarm = await _waitForSdkAuthToken(2500);
+        if(_sdkWarm) return _sdkWarm;
+      }
+    } catch {}
     // 2. Check in-memory cached REST token (still valid)
     if(window._obRestToken && window._obRestTokenExp && Date.now() < window._obRestTokenExp) {
       return window._obRestToken;
@@ -18259,6 +18511,9 @@ function App(){
         console.warn("[OBubba] Refresh token failed, will create new anonymous user");
       }
     } catch(e) { /* localStorage unavailable, continue */ }
+    const _sdkWaitMs = window.Capacitor?.isNativePlatform?.() ? 6500 : 2000;
+    const _sdkLate = await _waitForSdkAuthToken(_sdkWaitMs);
+    if(_sdkLate) return _sdkLate;
     // 5. No cached user at all. create a new anonymous user (first time only)
     console.log("[OBubba] Using REST API for anonymous auth (first sign-up)");
     const _apiKey = "AIzaSyCdHzmheQRbtzP_JI1FuWcZLeW8yVja5-0";
@@ -19486,6 +19741,24 @@ function App(){
     const _allCodes = {..._parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1")), [childId]: code};
     try { localStorage.setItem("child_sync_codes_v1", JSON.stringify(_allCodes)); } catch {}
     const ownerUsername = familyUsername || localStorage.getItem("family_username") || "";
+    const mapIds = _childCodeMapIds(childId, child);
+    const uid = window._fbUid || "";
+    const persistHash = syncV2Hash(JSON.stringify({
+      childId,
+      code,
+      uid,
+      ownerUsername: normaliseUsername(ownerUsername),
+      backupCode: backupCodeRef.current || "",
+      allCodes: _allCodes,
+      mapIds
+    }));
+    const persistKey = "ob_child_sync_code_persist_hash_v1";
+    const persistAtKey = "ob_child_sync_code_persist_at_v1";
+    try {
+      const prevHash = localStorage.getItem(persistKey) || "";
+      const prevAt = Number(localStorage.getItem(persistAtKey) || 0);
+      if (prevHash === persistHash && prevAt && Date.now() - prevAt < 12 * 60 * 60 * 1000) return _allCodes;
+    } catch {}
     const mapPayload = {
       code,
       childId,
@@ -19501,8 +19774,12 @@ function App(){
       try { await fsSet("families", backupCodeRef.current, {childSyncCodes:JSON.stringify(_allCodes)}, true); } catch(e){}
     }
     try {
-      await Promise.all(_childCodeMapIds(childId, child).map(id => fsSet("child_code_map", id, mapPayload, false)));
+      await Promise.all(mapIds.map(id => fsSet("child_code_map", id, mapPayload, false)));
     } catch(e) { console.warn("[OBubba] child sync map persist failed", e); }
+    try {
+      localStorage.setItem(persistKey, persistHash);
+      localStorage.setItem(persistAtKey, String(Date.now()));
+    } catch {}
     return _allCodes;
 	  }
 		  async function ensureChildSyncParticipant(code, data) {
@@ -19857,9 +20134,15 @@ function App(){
 	    if(!window._fb || !childIds?.length) return;
 	    const ownerUid = await ensureFirebaseUid(5000);
 	    if(!ownerUid) return;
-	    const restored = {};
+    const restored = {};
     await Promise.all(childIds.map(async (cid) => {
       try {
+        if (_parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1"))[cid]) {
+          _rememberChildCodeMapRestoreChecked(cid);
+          return;
+        }
+        if (_childCodeMapRestoreRef.current.running[cid] || _childCodeMapRestoreRecentlyChecked(cid)) return;
+        _childCodeMapRestoreRef.current.running[cid] = true;
         const child = childMap?.[cid] || childrenRef.current?.[cid] || children[cid];
         let mapData = null;
         for (const mapId of _childCodeMapIds(cid, child)) {
@@ -19890,7 +20173,9 @@ function App(){
             restored[cid] = mapData.code;
           }
         }
+        _rememberChildCodeMapRestoreChecked(cid);
       } catch(e) { console.warn("[OBubba] restore child sync code failed for", cid, e); }
+      finally { delete _childCodeMapRestoreRef.current.running[cid]; }
     }));
     if(Object.keys(restored).length) {
       setChildSyncCodes(prev => ({...prev, ...restored}));
@@ -19911,6 +20196,21 @@ function App(){
 	    const child = childData || children[childId];
 	    if(!child) return;
 	    const childPushKey = String(code || "") + ":" + String(childId || "");
+      let childPushCacheKey = "";
+      let childPreflightHash = "";
+      try {
+        const childPreflightJson = JSON.stringify(stripFirestoreLegacyMediaChild(child));
+        const childDeletedEntryIdsJson = JSON.stringify(_deletedEntryIdsArrayForCloud(500));
+        const childDeletedDaysJson = JSON.stringify(_deletedDaysArrayForCloud(childId, 200));
+        childPreflightHash = syncV2Hash(JSON.stringify({
+          child: childPreflightJson,
+          childName: child.name || "",
+          deletedEntryIds: childDeletedEntryIdsJson,
+          deletedDays: childDeletedDaysJson
+        }));
+        childPushCacheKey = _syncCacheKey(OB_CHILD_SYNC_LEGACY_PUSH_HASH_PREFIX, code, childId);
+        if (_recentSameSyncHash(childPushCacheKey, childPreflightHash)) return;
+      } catch {}
 	    const childPushNow = Date.now();
 	    const childPushElapsed = childPushNow - (_lastChildPushTs.current[childPushKey] || 0);
 	    if(childPushElapsed < CHILD_PUSH_MIN_INTERVAL) {
@@ -19926,6 +20226,7 @@ function App(){
 	    if(!writerUid) return;
 	    try {
       let childForCloud = child;
+      let existingChildSyncData = null;
       // SAFETY: never overwrite cloud with fewer entries than it already has.
       // This prevents data loss from merge bugs, cache clears, or stale state.
       const localEntryCount = Object.values(child.days || {}).reduce((s, d) => s + (d ? d.length : 0), 0);
@@ -19933,6 +20234,7 @@ function App(){
 	        const existing = await fsGet("child_syncs", code);
 	        if (existing.exists()) {
 	          const existingData = existing.data() || {};
+	          existingChildSyncData = existingData;
 	          _absorbChildSyncTombstones(existingData);
 	          const localUsername = normaliseUsername((familyUsername || localStorage.getItem("family_username") || "").toString());
 	          const ownerUsername = normaliseUsername((existingData.ownerUsername || "").toString());
@@ -19957,16 +20259,44 @@ function App(){
         }
       } catch(e2) { /* proceed if check fails */ }
 	      const legacyChildForCloud = stripFirestoreLegacyMediaChild(childForCloud);
-	      await fsSet("child_syncs", code, {
-	        child: JSON.stringify(legacyChildForCloud),
+	      const legacyChildJson = JSON.stringify(legacyChildForCloud);
+	      const deletedEntryIdsJson = JSON.stringify(_deletedEntryIdsArrayForCloud(500));
+	      const deletedDaysJson = JSON.stringify(_deletedDaysArrayForCloud(childId, 200));
+	      if (existingChildSyncData) {
+	        const existingChildJson = typeof existingChildSyncData.child === "string" ? existingChildSyncData.child : JSON.stringify(safeObjectPayload(existingChildSyncData.child));
+	        const existingHash = syncV2Hash(existingChildJson);
+	        const nextHash = syncV2Hash(legacyChildJson);
+	        const existingDeletedIds = existingChildSyncData.deletedEntryIds || "[]";
+	        const existingDeletedDays = existingChildSyncData.deletedDays || "[]";
+	        const nextChildName = childForCloud.name || child.name || "";
+	          if (
+	            existingHash === nextHash &&
+	            (existingChildSyncData.childName || "") === nextChildName &&
+	            existingChildSyncData.isActive === true &&
+	            existingDeletedIds === deletedEntryIdsJson &&
+	            existingDeletedDays === deletedDaysJson
+	          ) {
+            if (childPushCacheKey && childPreflightHash) _rememberSyncHash(childPushCacheKey, childPreflightHash);
+	          queueSyncV2ChildShadow(code, childId, childForCloud, {
+	            ownerUid: writerUid,
+	            writeToken: writeTokenRef.current
+	          });
+	          queueSyncV2ChildReadShadowAudit(code, childId, childForCloud, "child-sync-unchanged");
+	          try { await _persistChildSyncCode(childId, code, childForCloud); } catch {}
+	          return;
+	        }
+	      }
+	      const _legacyChildWriteOk = await fsSet("child_syncs", code, {
+	        child: legacyChildJson,
 	        childName: childForCloud.name || child.name || "",
 	        isActive: true,
-	        deletedEntryIds: JSON.stringify(_deletedEntryIdsArrayForCloud(500)),
-	        deletedDays: JSON.stringify(_deletedDaysArrayForCloud(childId, 200)),
+	        deletedEntryIds: deletedEntryIdsJson,
+	        deletedDays: deletedDaysJson,
 		        updatedAt: serverTimestamp(),
 		        updatedBy: writerUid,
 		        writeToken: writeTokenRef.current
 		      }, true);
+        if (_legacyChildWriteOk && childPushCacheKey && childPreflightHash) _rememberSyncHash(childPushCacheKey, childPreflightHash);
 	      queueSyncV2ChildShadow(code, childId, childForCloud, {
 	        ownerUid: writerUid,
 	        writeToken: writeTokenRef.current
@@ -21079,6 +21409,7 @@ function App(){
   const resolvedDay = React.useMemo(function() {
     return { entries: days[selDay] || [] };
   }, [selDay, days]);
+  const widgetNativePushRef = React.useRef({hash:""});
 
   // ── Nap structure classification: stable / compression / confirmed transition ──
   const napStructure = React.useMemo(function() {
@@ -21315,14 +21646,22 @@ function App(){
           if(_cached.feedCount > 0 || _cached.sleepCount > 0 || _cached.nappyCount > 0) return; // skip push, keep cached
         } catch(ex){}
       }
-      localStorage.setItem("ob_widget_data_v1", JSON.stringify(widgetData));
+      var widgetJson = JSON.stringify(widgetData);
+      localStorage.setItem("ob_widget_data_v1", widgetJson);
       // Also cache for orphan LA cleanup (needs activeTimer/timerStartMs on next launch)
-      try { localStorage.setItem("_lastWidgetData", JSON.stringify(widgetData)); } catch{}
+      try { localStorage.setItem("_lastWidgetData", widgetJson); } catch{}
+
+      var widgetStableHash = "";
+      try {
+        widgetStableHash = syncV2Hash(JSON.stringify({...widgetData, updatedAt: 0}));
+        if (widgetStableHash && widgetNativePushRef.current.hash === widgetStableHash) return;
+        widgetNativePushRef.current.hash = widgetStableHash;
+      } catch {}
 
       // Send directly to native WidgetKit bridge
-      console.log("[OBubba] Widget data:", JSON.stringify(widgetData));
+      console.log("[OBubba] Widget data:", widgetJson);
       if(window.Capacitor?.Plugins?.OBWidgetBridge) {
-        window.Capacitor.Plugins.OBWidgetBridge.setData({ json: JSON.stringify(widgetData) }).catch(function(){});
+        window.Capacitor.Plugins.OBWidgetBridge.setData({ json: widgetJson }).catch(function(){});
       }
     } catch(e) { console.warn("Widget data update failed:", e); }
   }, [resolvedDay, age, napOn, napStartT, napStartMs, babyName, days, breastActive, breastSide, bedTimerDay, bedPaused, napRefusedChoice, isPremium, trialActive]);
@@ -22717,18 +23056,18 @@ function App(){
                   // glitch). Show "paused" rather than a misleading
                   // 12h-awake counter that would imply baby has been
                   // up the whole time.
-                  if (_wakeMins > 4*60) return <div style={{fontSize:14,color:C.lt,fontStyle:"italic"}}>timer paused · tap "back to sleep" or log morning wake</div>;
+                  if (_wakeMins > 4*60) return <div style={{fontSize:14,color:C.lt,fontStyle:"italic"}}>timer paused · tap Baby sleeping or log morning wake</div>;
                   return <div style={{fontSize:20,fontWeight:700,color:C.deep,fontFamily:"monospace"}}>{_wakeMins<1?"just now":hm(_wakeMins)+" awake"}</div>;
                 })()}
               </div>
-              {/* Simplified settle actions — one tap does everything */}
-              <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:5,textAlign:"center"}}>How did they settle?</div>
+	              {/* Simplified settle actions — Baby sleeping opens the detail sheet with the paused timer range prefilled. */}
+	              <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:5,textAlign:"center"}}>When they settle</div>
 
               {/* Self settled */}
-              <button onClick={()=>{haptic(20);setBedWakeSettle("self");resumeBedTimer("self");showToast("Self settled — back to sleep",1200,1);}}
-                style={{width:"100%",padding:"12px",borderRadius:12,border:"1.5px solid rgba(80,200,120,0.3)",background:"rgba(80,200,120,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP,marginBottom:6}}>
-                <span style={{display:"inline-flex",alignItems:"center",gap:7}}><BubbaIcon name="nap" size={18}/>Self settled - back to sleep</span>
-              </button>
+	              <button onClick={()=>{haptic(20);openBabySleepingNightWakeDetails("self");}}
+	                style={{width:"100%",padding:"12px",borderRadius:12,border:"1.5px solid rgba(80,200,120,0.3)",background:"rgba(80,200,120,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP,marginBottom:6}}>
+	                <span style={{display:"inline-flex",alignItems:"center",gap:7}}><BubbaIcon name="nap" size={18}/>Baby sleeping · self settled</span>
+	              </button>
 
               {/* Feed + back to sleep — with breast timer support */}
               {(()=>{
@@ -22792,10 +23131,10 @@ function App(){
               })()}
 
               {/* Soothed (parent helped — rocking, patting, etc) */}
-              <button onClick={()=>{haptic(20);setBedWakeSettle("assisted");resumeBedTimer("assisted");showToast("Soothed + back to sleep",1200,1);}}
-                style={{width:"100%",padding:"12px",borderRadius:12,border:"1.5px solid rgba(123,104,238,0.3)",background:"rgba(123,104,238,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP,marginBottom:6}}>
-                <span style={{display:"inline-flex",alignItems:"center",gap:7}}><BubbaIcon name="baby" size={18}/>Soothed + back to sleep</span>
-              </button>
+	              <button onClick={()=>{haptic(20);openBabySleepingNightWakeDetails("assisted");}}
+	                style={{width:"100%",padding:"12px",borderRadius:12,border:"1.5px solid rgba(123,104,238,0.3)",background:"rgba(123,104,238,0.06)",color:C.deep,fontSize:13,fontWeight:600,cursor:_cP,marginBottom:6}}>
+	                <span style={{display:"inline-flex",alignItems:"center",gap:7}}><BubbaIcon name="baby" size={18}/>Baby sleeping · add details</span>
+	              </button>
             </div>
           ) : (
             <div>
@@ -29677,13 +30016,14 @@ function App(){
     if (!nap || !nap.start || !nap.end) return null;
     const dur = minDiff(nap.start, nap.end);
     if (dur < 5) return null;
-    // Age-appropriate thresholds for "long enough"
-    let okMin, goodMin;
-    if (ageWeeks < 13) { okMin = 25; goodMin = 45; }
-    else if (ageWeeks < 26) { okMin = 30; goodMin = 50; }
-    else if (ageWeeks < 52) { okMin = 45; goodMin = 60; }
-    else { okMin = 55; goodMin = 75; }
-    if (ageWeeks >= 13 && dur >= 210) {
+	    // Age-appropriate thresholds for "long enough"
+	    let okMin, goodMin;
+	    if (ageWeeks < 13) { okMin = 25; goodMin = 45; }
+	    else if (ageWeeks < 26) { okMin = 30; goodMin = 50; }
+	    else if (ageWeeks < 52) { okMin = 45; goodMin = 60; }
+	    else { okMin = 55; goodMin = 75; }
+	    // One nap log runs into overnight-length sleep: keep it visible but out of day-sleep totals.
+	    if (ageWeeks >= 13 && dur >= 210) {
       return { outcome:"long", dur, note:dur + "min · long logged nap", okMin, goodMin };
     }
     const longEnough = dur >= okMin;
@@ -31954,17 +32294,17 @@ function App(){
     try {
       const explicit = parseInt(entry && (entry.assistedDuration || entry.settleDuration || entry.wakeDuration || entry.duration || 0), 10) || 0;
       if (explicit > 0 && !isPendingBedWakeEntry(entry)) return explicit;
-      const pauseStartMs = Number(bedPauseStart || (()=>{try{return localStorage.getItem("bed_pause_start");}catch{return 0;}})() || 0);
-      if (pauseStartMs > 1000000000000) {
-        const mins = Math.max(0, Math.round((Date.now() - pauseStartMs) / 60000));
-        if (mins >= 0 && mins <= 360) return mins;
-      }
       const wakeMins = clockMins(entry && entry.time || "");
       const settleMins = clockMins(settleTime || "");
       if (wakeMins !== null && settleMins !== null) {
         let diff = settleMins - wakeMins;
         if (diff < 0) diff += 24*60;
         if (diff >= 0 && diff <= 360) return diff;
+      }
+      const pauseStartMs = Number(bedPauseStart || (()=>{try{return localStorage.getItem("bed_pause_start");}catch{return 0;}})() || 0);
+      if (pauseStartMs > 1000000000000) {
+        const mins = Math.max(0, Math.round((Date.now() - pauseStartMs) / 60000));
+        if (mins >= 0 && mins <= 360) return mins;
       }
     } catch {}
     return 0;
@@ -32037,6 +32377,24 @@ function App(){
     } catch {}
     openNightWakeDetailsForEntry({time:nowTime(),ml:"",selfSettled:false,assisted:false,assistedType:"milk",assistedNote:"",assistedDuration:"",settleDuration:"",settleTime:"",note:""});
     return false;
+  }
+  function openBabySleepingNightWakeDetails(settleMethod){
+    let opened = false;
+    try {
+      opened = openPendingOrNewNightWakeDetails();
+      if (opened && settleMethod) {
+        setNwForm(f => ({
+          ...f,
+          selfSettled: settleMethod === "self",
+          assisted: settleMethod !== "self",
+          assistedType: settleMethod === "milk" ? "milk" : (f.assistedType || "other")
+        }));
+        setBedWakeSettle(settleMethod);
+      }
+    } catch {
+      openPendingOrNewNightWakeDetails();
+    }
+    return true;
   }
   function openEdit(entry){
     // Night entries open in the night wake form
@@ -34953,7 +35311,7 @@ function App(){
       }
       if (!_isEndOfNight) {
         // True mid-night wake. Pause the bed timer, it'll log a pending
-        // wake entry, show the "Back to sleep" controls, and let user
+        // wake entry, show the "Baby sleeping" controls, and let user
         // log how long they soothed before resuming.
         // Make sure bedTimerDay state is set so pauseBedTimer's guard
         // passes (pauseBedTimer also recovers from localStorage/data).
@@ -35124,7 +35482,7 @@ function App(){
       // banner shouldn't stay up.
       clearTimerNotification();
     } catch {}
-    showToast(_isMorningWake ? "☀️ Morning wake logged." : "🌙 Night wake logged. tap Back to sleep when settled.",3000,1);
+    showToast(_isMorningWake ? "☀️ Morning wake logged." : "🌙 Night wake logged. tap Baby sleeping when settled.",3000,1);
     return _wakeEntry;
   }
   function resumeBedTimer(overrideSettleMethod, opts){
@@ -36820,7 +37178,7 @@ function App(){
       // rather than silently no-op'ing and losing the recorded duration.
       const _existingEntry = napEntryId ? (days[_napDay]||[]).find(e => e.id === napEntryId) : null;
       let _reviewNapId = napEntryId;
-      if(napEntryId && _existingEntry){
+      if(napEntryId && _existingEntry && !hasCompletedNapSpan(_existingEntry)){
         setDays(d=>{
           const updated=(d[_napDay]||[]).map(e=>
             e.id===napEntryId?{...e,end,duration:durMins,_active:false,modifiedAt:Date.now()}:e
@@ -39323,10 +39681,8 @@ function App(){
   const _lastNightMemo = React.useMemo(() => {
     try {
       const _t = safeDateKey(selDay) || _todayKey;
-      const _y = prevCalDay(_t);
-      const _yEnt = days[_y] || [];
-      const _bedDayKey = _yEnt.some(e=>e.type==="sleep"&&!e.night) ? _y : _t;
-      return analyzeLastNight(days, _bedDayKey, _t);
+      const _sleepKeys = resolveCompletedSleepSummaryKeys(days, _t);
+      return analyzeLastNight(days, _sleepKeys.bedDayKey, _sleepKeys.morningDayKey);
     } catch { return null; }
   }, [days, selDay, _todayKey]);
   const _nightDiagnosisMemo = React.useMemo(() => {
@@ -39336,8 +39692,10 @@ function App(){
       let _diagCtx = {};
       try {
         const _t = safeDateKey(selDay) || _todayKey;
-        const _y = prevCalDay(_t);
-        const _bedDayKey = (days[_y]||[]).some(e=>e.type==="sleep"&&!e.night) ? _y : _t;
+        const _sleepKeys = _lastNightMemo && _lastNightMemo._bedDayKey
+          ? {bedDayKey:_lastNightMemo._bedDayKey, morningDayKey:_lastNightMemo.morningDayKey || nextCalDay(_lastNightMemo._bedDayKey)}
+          : resolveCompletedSleepSummaryKeys(days, _t);
+        const _bedDayKey = _sleepKeys.bedDayKey;
         const _bedDayEnt = days[_bedDayKey] || [];
         let _bedE = _bedDayEnt.find(e=>e.type==="sleep"&&!e.night);
         if (_bedE && _bedE.time) {
@@ -41668,10 +42026,10 @@ function App(){
             <div className="ob-soft-sleep-title">Undo wake tap?</div>
             <div className="ob-soft-sleep-sub">If that wake tap was too soon, put the bedtime timer straight back on.</div>
           </div>
-          <div className="ob-soft-sleep-actions">
-            <button type="button" onClick={()=>{haptic();resumeBedTimer("self");}}>Resume bedtime timer</button>
-            <button type="button" className="is-secondary" onClick={()=>{haptic();setShowNightWake(true);}}>Add details</button>
-          </div>
+	          <div className="ob-soft-sleep-actions">
+	            <button type="button" onClick={()=>{haptic();resumeBedTimer("self");}}>Resume bedtime timer</button>
+	            <button type="button" className="is-secondary" onClick={()=>{haptic();openBabySleepingNightWakeDetails();}}>Baby sleeping</button>
+	          </div>
         </section>
       );
     }
@@ -41964,7 +42322,7 @@ function App(){
 	      return null;
 	    };
 	    const clockSleepEndLab = (entry, start) => clockSleepEndInEntriesLab(entry, start, entriesForDay, nextEntriesForDay, dayKey);
-	    const isActiveClockNapLab = (entry) => !!(entry && entry.type === "nap" && clockNapOnThisDay && isActiveNapStub(entry) && (entry.id === napEntryId || entry.start === napStartT || entry._active));
+		    const isActiveClockNapLab = (entry) => !!(entry && entry.type === "nap" && !hasCompletedNapSpan(entry) && (entry.id === napEntryId || entry.start === napStartT || entry._active) && clockNapOnThisDay && isActiveNapStub(entry));
 	    const clockActiveNapElapsedSecLab = () => Math.max(0, Math.floor(Number(napSec) || 0));
 	    const clockNapDurationLab = (entry) => {
 	      if (!entry || entry.type !== "nap") return 0;
@@ -42744,16 +43102,16 @@ function App(){
       {mins:900,top:"3",bottom:"pm"},
 	      {mins:1080,top:"6",bottom:"pm"},
 	      {mins:1260,top:"9",bottom:"pm"}
-	    ];
-		    const clockPresenceGlyphs = clockLabIsDay ? [] : (clockPresenceParents || []).map((parent, index) => {
-		      const seed = Number(parent.seed) || index * 37 + 11;
-		      const angle = (seed * 29 + index * 43) % 360;
-		      // Mix: some fireflies drift behind the clock glass, some float around the outside
-		      const isBehind = index % 3 === 0;
-		      const radius = isBehind
-		        ? 40 + (seed % 40) // behind the glass (40-80px from center)
-		        : 108 + (seed % 3) * 5 + (index % 2 ? 6 : 2); // outer ring
-		      const p = polar(120, 120, radius, angle);
+		    ];
+			    const clockPresenceGlyphs = clockLabIsDay ? [] : (clockPresenceParents || []).map((parent, index) => {
+			      const seed = Number(parent.seed) || index * 37 + 11;
+			      const angle = (seed * 29 + index * 43) % 360;
+			      const presenceRingOffset = 8;
+			      // Mix: some fireflies drift behind the clock glass, some float around the outside
+			      const isBehind = index % 3 === 0;
+			      const radius = 108 + presenceRingOffset + (seed % 3) * 4 + (index % 2 ? 2 : 0);
+			      const drawRadius = isBehind ? 40 + (seed % 40) : radius;
+			      const p = polar(120, 120, drawRadius, angle);
 		      return {...parent, index, angle, x:p.x, y:p.y, behind: isBehind};
 		    });
 		    const sendClockPresenceHug = (presence) => {
@@ -42828,8 +43186,9 @@ function App(){
 	    const clockOvernightNow = !!clockBedOnThisDay || now.getHours() < 5;
 		    const clockRestMessages = [
 		      "You're awake again, and that is hard. You are not doing this wrong; your baby is asking for safety.",
-		      "Night care can feel lonely. OBubba is here with you, and another parent is probably awake too.",
-		      "You can be exhausted and still be a good parent. Both things can be true.",
+			      "Night care can feel lonely. OBubba is here with you, and another parent is probably awake too.",
+			      "Nighttime parenting can feel invisible. It still counts, and so do you.",
+			      "You can be exhausted and still be a good parent. Both things can be true.",
 		      "This wake will pass. Keep it boring, keep it safe, and be kind to yourself.",
 		      "You don't have to feel calm to offer comfort. Just take the next gentle step.",
 		      "If you need to put baby down safely and breathe for a minute, that is care too.",
@@ -43687,12 +44046,12 @@ function App(){
 	      </button>
 	    );
 	    const clockQuickSleepNeedsWake = clockNapOnThisDay || (!!clockBedOnThisDay && !bedPaused);
-	    const clockQuickSleepLabel = clockQuickSleepNeedsWake ? "Wake" : "Sleep";
-	    const clockQuickSleepIcon = clockQuickSleepNeedsWake ? "☀️" : "😴";
+		    const clockQuickSleepLabel = clockBedOnThisDay && bedPaused ? "Baby sleeping" : clockQuickSleepNeedsWake ? "Wake" : "Sleep";
+		    const clockQuickSleepIcon = clockQuickSleepNeedsWake ? "☀️" : "😴";
 	    const clockQuickSleepAction = () => {
 	      if (clockNapOnThisDay) { endNap(); return; }
 	      if (clockBedOnThisDay && !bedPaused) { handleSmartWake(); return; }
-	      if (clockBedOnThisDay && bedPaused) { resumeBedTimer("self"); return; }
+	      if (clockBedOnThisDay && bedPaused) { openBabySleepingNightWakeDetails("self"); return; }
 	      startNap();
 	    };
 	    const clockQuickSleepLongAction = () => {
@@ -43708,7 +44067,7 @@ function App(){
 	    const clockDetailSleepIcon = clockQuickSleepNeedsWake ? "😴" : "☀️";
 	    const clockDetailSleepAction = () => {
 	      if (clockQuickSleepNeedsWake) {
-	        if (bedPaused) { resumeBedTimer("self"); return; }
+	        if (bedPaused) { openBabySleepingNightWakeDetails("self"); return; }
 	        showToast(name + " is already asleep. Tap Wake when " + clockCareSubject + " is properly up.", 2300, 1);
 	        return;
 	      }
@@ -43927,7 +44286,7 @@ function App(){
     const clockCenterTimerLabel = clockNapOnThisDay
       ? (napPaused ? "Resume nap timer" : "Pause nap timer")
       : clockBedOnThisDay
-        ? (bedPaused ? "Resume sleep timer" : "Pause sleep timer")
+        ? (bedPaused ? "Baby sleeping" : "Pause sleep timer")
         : clockFeedOnThisDay
           ? "Open feed timer"
           : clockQueuedTimerKind === "nap"
@@ -43939,7 +44298,7 @@ function App(){
       try{ev && ev.stopPropagation && ev.stopPropagation();}catch{}
       haptic();
       if (clockNapOnThisDay) { napPaused ? resumeNap() : pauseNap(); return; }
-      if (clockBedOnThisDay) { bedPaused ? resumeBedTimer("self") : pauseBedTimer(); return; }
+      if (clockBedOnThisDay) { bedPaused ? openBabySleepingNightWakeDetails("self") : pauseBedTimer(); return; }
       if (clockFeedOnThisDay) { openLogPanel("feed"); return; }
       if (startClockQueuedTimer()) {
         return;
@@ -45421,8 +45780,8 @@ function App(){
 	            <div className="ob-tour-journey-handle"/>
 		              <div className="ob-tour-journey-hero">
 	              <OBubbaMascot type="happy" size={96} alt="OBubba" style={{margin:"0 auto"}}/>
-		              <div className="ob-tour-journey-title">How OBubba helps</div>
-		              <p className="ob-tour-journey-copy">You don't need to learn the app first. Just start logging — OBubba does the rest. Here's what happens next.</p>
+		              <div className="ob-tour-journey-title">How OBubba helps you</div>
+		              <p className="ob-tour-journey-copy">You don't need to learn the app first. Just start logging — OBubba does the thinking. Here's what happens.</p>
 	            </div>
 	            <div className="ob-tour-journey-list">
 	              {OB_APP_TOUR_JOURNEY.map((item,i)=>(
@@ -45648,10 +46007,10 @@ function App(){
       {dayTutStep >= 0 && (()=>{
 	        const _bn3 = babyName || "your baby";
 		        const DAY_TUT_STEPS = [
-		          { icon:"🕰️", title:"Read the clock", body:"The clock is Track.\n\nDots are quick moments like feeds, nappies and wakes. Arcs are things with duration: naps, bedtime sleep, and night wakes when you have added settled or soothed time. Softer arcs are predictions until real logs replace them." },
-		          { icon:"⚡", title:"Log without decoding", body:"Use One-tap logs when your hands are full.\n\nTap to add the moment now, hold for details. If a nap or bedtime timer is running, stop it from the active timer controls or the clock centre so accidental taps do not rewrite the day." },
-		          { icon:"📋", title:"Logs, Plan, Guidance", body:"Logs is the saved history. Plan is what OBubba thinks may come next, and it updates as real logs arrive.\n\nGuidance is for the short sleep, feed and care read when something actually needs your attention." },
-		          { icon:"✨", title:"Bubba Hug at night", body:"In night mode, fireflies around the clock are other parents awake at the same quiet time.\n\nTap a firefly to send a Bubba Hug. Day mode stays clear, but a day-mode parent can still appear as a firefly to someone using night mode." },
+		          { icon:"🕰️", title:"Your day at a glance", body:"This clock shows everything that's happened today.\n\n• Coloured dots = feeds, nappies, wakes\n• Arcs = naps and bedtime sleep\n• Faded arcs = predictions (they disappear when real logs replace them)\n\nThe clock hand shows where you are in the day. Tap any dot or arc to see the details." },
+		          { icon:"⚡", title:"One-tap logging", body:"These buttons are your best friend at 3am.\n\n• Tap once = log it right now\n• Hold = add details (amount, side, duration)\n\nWhen a nap or bedtime timer is running, tap the clock centre to stop it. You can also log from the widget without opening the app." },
+		          { icon:"📋", title:"Logs, Plan & Guidance", body:"Swipe between three views:\n\n• Logs — everything logged today, in order\n• Plan — what OBubba thinks is coming next (nap time, feed, bedtime)\n• Guidance — the important stuff: sleep read, care notes, what needs attention\n\nThe plan updates automatically as you log." },
+		          { icon:"✨", title:"You're not alone at night", body:"When it's dark, tiny fireflies appear around the clock. Each one is another parent awake right now.\n\nYou can't see who they are — just that someone else is up too. It's a small thing, but at 3am it can mean a lot." },
 		        ];
 
         const dismissDayTut = () => {
@@ -45952,7 +46311,7 @@ function App(){
 	                        const _napEditDay = localStorage.getItem("nap_start_day") || selDay;
 	                        setDays(d=>{
 	                          const existing = d[_napEditDay]||[];
-		                          return {...d,[_napEditDay]:existing.map(x=>x.id===napEntryId?{...x,start:newT,startMs:newStartMs,modifiedAt:Date.now()}:x)};
+		                          return {...d,[_napEditDay]:existing.map(x=>x.id===napEntryId && !hasCompletedNapSpan(x)?{...x,start:newT,startMs:newStartMs,modifiedAt:Date.now()}:x)};
 	                        });
 	                      }
 	                      try{localStorage.setItem("nap_startT",newT);localStorage.setItem("nap_startMs",String(newStartMs));localStorage.setItem("nap_sec",String(elapsed));}catch{}
@@ -45979,7 +46338,7 @@ function App(){
 	                            const _napEditDay = localStorage.getItem("nap_start_day") || selDay;
 	                            setDays(d=>{
 	                              const existing = d[_napEditDay]||[];
-		                              return {...d,[_napEditDay]:existing.map(x=>x.id===napEntryId?{...x,start:newT,startMs:newStartMs,modifiedAt:Date.now()}:x)};
+		                              return {...d,[_napEditDay]:existing.map(x=>x.id===napEntryId && !hasCompletedNapSpan(x)?{...x,start:newT,startMs:newStartMs,modifiedAt:Date.now()}:x)};
 	                            });
 	                          }
 	                          try{localStorage.setItem("nap_startT",newT);localStorage.setItem("nap_startMs",String(newStartMs));localStorage.setItem("nap_sec",String(elapsed));}catch{}
@@ -46168,7 +46527,7 @@ function App(){
                 const _pillBg = bedPaused ? "#D4A855" : C.sky;
                 return (
                   <div style={{display:"flex",alignItems:"center",gap:3}}>
-                    <div onClick={()=>{haptic();try{trackEvent("prediction_viewed",{type:"bed_timer"});}catch{}if(bedPaused){resumeBedTimer();}else{setShowNightTimerMenu(true);}}} style={{display:"flex",alignItems:"center",gap:5,background:_pillBg,borderRadius:99,padding:"6px 14px",cursor:_cP}}>
+	                    <div onClick={()=>{haptic();try{trackEvent("prediction_viewed",{type:"bed_timer"});}catch{}if(bedPaused){openBabySleepingNightWakeDetails();}else{setShowNightTimerMenu(true);}}} style={{display:"flex",alignItems:"center",gap:5,background:_pillBg,borderRadius:99,padding:"6px 14px",cursor:_cP}}>
                       <BubbaIcon name={bedPaused?"timer":"moon"} size={17}/>
                       <div style={{display:"flex",flexDirection:"column",lineHeight:1.1}}>
                         <span style={{fontSize:10,fontFamily:_fM,color:"rgba(255,255,255,0.6)"}}>{displayLabel} {fmt12(bedEntry.time)}</span>

@@ -50,6 +50,23 @@ function timeVal(e) {
   return clockMins(e && (e.time || e.start)) ?? 0;
 }
 
+function pendingNightWakeDurationMinsSim(entry, settleTime, pauseStartMs, nowMs) {
+  const explicit = parseInt(entry && (entry.assistedDuration || entry.settleDuration || entry.wakeDuration || entry.duration || 0), 10) || 0;
+  if (explicit > 0 && !entry.isPending) return explicit;
+  const wakeMins = clockMins(entry && entry.time || "");
+  const settleMins = clockMins(settleTime || "");
+  if (wakeMins !== null && settleMins !== null) {
+    let diff = settleMins - wakeMins;
+    if (diff < 0) diff += 24 * 60;
+    if (diff >= 0 && diff <= 360) return diff;
+  }
+  if (pauseStartMs > 1000000000000) {
+    const mins = Math.max(0, Math.round((nowMs - pauseStartMs) / 60000));
+    if (mins >= 0 && mins <= 360) return mins;
+  }
+  return 0;
+}
+
 function findBedtime(entries) {
   return (entries || [])
     .filter(e => e && e.type === "sleep" && !e.night && e.time && (clockMins(e.time) ?? -1) >= 12 * 60)
@@ -87,12 +104,20 @@ function collectLastNightWakeEntries(days, bedtimeDayKey, morningDayKey) {
   const morningFromBed = morningMins !== null
     ? (morningMins >= bedMins ? morningMins - bedMins : (24 * 60 - bedMins) + morningMins)
     : null;
+  const morningNightEntries = (morningDayKey && morningDayKey !== bedtimeDayKey ? morningDayEnt : [])
+    .filter(isNightWakeLikeEntry)
+    .filter(e => {
+      const m = clockMins(e && (e.time || e.start));
+      if (m === null) return false;
+      if (m >= 12 * 60) return false;
+      return morningMins === null || m < morningMins;
+    });
   const raw = [
     ...bedDayEnt.filter(isNightWakeLikeEntry),
-    ...(morningDayKey && morningDayKey !== bedtimeDayKey ? morningDayEnt.filter(isNightWakeLikeEntry) : []),
+    ...morningNightEntries,
   ];
   const seenIds = new Set();
-  return raw
+  const candidates = raw
     .map(e => {
       const fromBedMin = nightEntryFromBedMin(e, bedMins);
       return fromBedMin === null ? null : { ...e, _fromBedMin: fromBedMin };
@@ -107,6 +132,7 @@ function collectLastNightWakeEntries(days, bedtimeDayKey, morningDayKey) {
       return true;
     })
     .sort((a, b) => a._fromBedMin - b._fromBedMin);
+  return dedupeNightWakeEvents(candidates);
 }
 
 function nightWakeEventScore(e) {
@@ -115,6 +141,45 @@ function nightWakeEventScore(e) {
     + ((parseInt(e.assistedDuration) || parseInt(e.settleDuration) || parseInt(e.duration) || 0) > 0 ? 3 : 0)
     + ((e.type === "feed" || e.feedType || e.assistedType === "milk" || (e.amount || 0) > 0) ? 2 : 0)
     + (e.note ? 1 : 0);
+}
+
+function isNightFeedSettlingEntry(e) {
+  return !!(e && e.night && (
+    e.type === "feed" ||
+    e.feedType === "milk" ||
+    e.feedType === "bottle" ||
+    e.assistedType === "milk" ||
+    (parseFloat(e.amount) || 0) > 0
+  ));
+}
+
+function nightWakeDurationMinutes(e) {
+  return Math.min(Math.max(parseInt(e.assistedDuration) || parseInt(e.settleDuration) || parseInt(e.wakeDuration) || parseInt(e.duration) || 0, 0), 240);
+}
+
+function nightEventForwardGap(anchor, event) {
+  const a = Number.isFinite(anchor._fromBedMin) ? anchor._fromBedMin : clockMins(anchor.time || anchor.start);
+  const b = Number.isFinite(event._fromBedMin) ? event._fromBedMin : clockMins(event.time || event.start);
+  if (a === null || b === null) return null;
+  let gap = b - a;
+  if (gap < -720) gap += 1440;
+  if (gap < 0) return null;
+  return gap;
+}
+
+function mergeNightWakeSettlingFeed(wake, feed, gapMin = 0) {
+  const merged = { ...wake };
+  const wakeDur = nightWakeDurationMinutes(wake);
+  const feedDur = nightWakeDurationMinutes(feed);
+  const wakeLooksOpen = /settling|in\s+progress|open/i.test(String(wake.note || "").toLowerCase());
+  const combinedDur = Math.max(wakeDur, feedDur ? gapMin + feedDur : (wakeLooksOpen ? gapMin : wakeDur));
+  if (combinedDur > wakeDur) merged.wakeDuration = combinedDur;
+  if ((parseFloat(feed.amount) || 0) > 0 && !(parseFloat(merged.amount) || 0)) merged.amount = feed.amount;
+  if (feed.feedType && !merged.feedType) merged.feedType = feed.feedType;
+  if ((feed.assistedType === "milk" || feed.feedType === "milk" || feed.feedType === "bottle" || (parseFloat(feed.amount) || 0) > 0) && !merged.assistedType) merged.assistedType = "milk";
+  if ((parseFloat(feed.amount) || 0) > 0 || feed.assistedType === "milk" || feed.feedType === "milk" || feed.feedType === "bottle") merged.selfSettled = false;
+  merged._settlingFeedIds = Array.from(new Set([...(merged._settlingFeedIds || []), feed.id].filter(Boolean)));
+  return merged;
 }
 
 function dedupeNightWakeEvents(entries) {
@@ -127,10 +192,18 @@ function dedupeNightWakeEvents(entries) {
   sorted.forEach(e => {
     const last = out[out.length - 1];
     if (last) {
+      const forwardGap = nightEventForwardGap(last, e);
+      const lastDur = nightWakeDurationMinutes(last);
+      const lastLooksOpen = /settling|in\s+progress|open/i.test(String(last.note || "").toLowerCase());
+      if (last.type === "wake" && isNightFeedSettlingEntry(e) && forwardGap !== null && forwardGap <= Math.max(15, lastDur + 10, lastLooksOpen ? 90 : 0)) {
+        out[out.length - 1] = mergeNightWakeSettlingFeed(last, e, forwardGap);
+        return;
+      }
       let gap = Math.abs(e._nightEventKey - last._nightEventKey);
       if (gap > 720) gap = 1440 - gap;
       if (gap <= 15) {
-        if (nightWakeEventScore(e) > nightWakeEventScore(last)) out[out.length - 1] = e;
+        if (e.type === "wake" && isNightFeedSettlingEntry(last)) out[out.length - 1] = mergeNightWakeSettlingFeed(e, last, 0);
+        else if (nightWakeEventScore(e) > nightWakeEventScore(last)) out[out.length - 1] = e;
         return;
       }
     }
@@ -164,7 +237,7 @@ function analyzeLastNight(days, bedtimeDayKey, morningDayKey) {
   const wakes = getNightWakeEventsForDay(days, bedtimeDayKey, morningDayKey)
     .map(e => {
       const fromBedMin = Number.isFinite(e._fromBedMin) ? e._fromBedMin : nightEntryFromBedMin(e, bedMins);
-      const durationMin = Math.min(Math.max(parseInt(e.assistedDuration) || parseInt(e.settleDuration) || parseInt(e.duration) || 0, 0), 120) || 5;
+      const durationMin = Math.min(Math.max(parseInt(e.assistedDuration) || parseInt(e.settleDuration) || parseInt(e.wakeDuration) || parseInt(e.duration) || 0, 0), 120) || 5;
       return { ...e, fromBedMin, durationMin };
     })
     .filter(e => e.fromBedMin !== null)
@@ -303,6 +376,41 @@ function runNightSimulations() {
   const duplicateNight = analyzeLastNight(duplicateDays, "2026-05-01", "2026-05-02");
   assert("night wake plus feed inside 15 minutes is one wake event", duplicateNight.wakeCount === 1, "got " + duplicateNight.wakeCount);
   assert("dedup prefers wake metadata over matching feed-only event", duplicateNight.wakes[0].type === "wake", duplicateNight.wakes[0].type);
+  const settlingFeedDays = {
+    "2026-05-01": [
+      { id: "bed", type: "sleep", time: "19:49", night: false },
+      { id: "false-start", type: "wake", time: "20:36", night: true, wakeDuration: 77, selfSettled: true },
+      { id: "settle-feed", type: "feed", time: "21:53", night: true, amount: 160, feedType: "milk", assistedType: "milk" },
+    ],
+    "2026-05-02": [{ id: "am", type: "wake", time: "08:53", night: false }],
+  };
+  const settlingFeedNight = analyzeLastNight(settlingFeedDays, "2026-05-01", "2026-05-02");
+  assert("night feed inside the logged wake duration is a settling method, not a second wake", settlingFeedNight.wakeCount === 1, "got " + settlingFeedNight.wakeCount);
+  assert("merged settling feed keeps the milk context on the wake", settlingFeedNight.wakes[0].amount === 160 && settlingFeedNight.wakes[0].assistedType === "milk", JSON.stringify(settlingFeedNight.wakes[0]));
+  const standaloneNightFeedDays = {
+    "2026-05-01": [
+      { id: "bed", type: "sleep", time: "19:40", night: false },
+      { id: "night-feed", type: "feed", time: "03:20", night: true, amount: 180, feedType: "milk" },
+    ],
+    "2026-05-02": [{ id: "am", type: "wake", time: "07:10", night: false }],
+  };
+  const standaloneNightFeed = analyzeLastNight(standaloneNightFeedDays, "2026-05-01", "2026-05-02");
+  assert("standalone night feeds remain part of night-wake analysis", standaloneNightFeed.wakeCount === 1, "got " + standaloneNightFeed.wakeCount);
+  const boundaryLeakDays = {
+    "2026-05-07": [
+      { id: "bed", type: "sleep", time: "19:49", night: false },
+      { id: "open-wake", type: "wake", time: "20:36", night: true, note: "Night wake. settling..." },
+      { id: "settle-feed", type: "feed", time: "21:53", night: true, amount: 160, feedType: "milk", assistedType: "milk" },
+    ],
+    "2026-05-08": [
+      { id: "am", type: "wake", time: "08:53", night: false },
+      { id: "tonight-wake", type: "wake", time: "20:44", night: true, note: "Night wake. settling..." },
+      { id: "tonight-feed", type: "feed", time: "20:59", night: true, amount: 100, feedType: "milk", assistedType: "milk" },
+    ],
+  };
+  const boundaryLeakNight = analyzeLastNight(boundaryLeakDays, "2026-05-07", "2026-05-08");
+  assert("next evening night entries do not seep into the previous bedtime analysis", boundaryLeakNight.wakeCount === 1, "got " + boundaryLeakNight.wakeCount);
+  assert("open settling wake plus later milk feed stays one false-start-length wake", boundaryLeakNight.wakes[0].durationMin === 77, "got " + boundaryLeakNight.wakes[0].durationMin);
 
   const morningClosedDays = {
     "2026-05-01": [{ type: "sleep", time: "20:00", night: false }],
@@ -313,6 +421,12 @@ function runNightSimulations() {
   };
   const closedNight = analyzeLastNight(morningClosedDays, "2026-05-01", "2026-05-02");
   assert("morning wake closes the night before later day wakes", closedNight.wakeCount === 0, "got " + closedNight.wakeCount);
+
+  const pauseStartMs = Date.parse("2026-05-09T02:10:00");
+  const saveLaterMs = Date.parse("2026-05-09T03:05:00");
+  const babySleepingDuration = pendingNightWakeDurationMinsSim({ time: "02:10", isPending: true }, "02:45", pauseStartMs, saveLaterMs);
+  assert("Baby Sleeping flow uses pause-to-tap time, not save-time drift", babySleepingDuration === 35, "got " + babySleepingDuration);
+  assert("live app routes paused bedtime taps to Baby Sleeping details before resuming", appSource.includes("function openBabySleepingNightWakeDetails(settleMethod)") && appSource.includes("openBabySleepingNightWakeDetails(\"self\")") && appSource.includes("bedPaused ? \"Baby sleeping\" : \"Pause sleep timer\"") && appSource.includes("tap Baby sleeping when settled."));
 }
 
 function runCarerSimulations() {
