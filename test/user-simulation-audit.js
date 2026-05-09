@@ -460,6 +460,8 @@ function runSourceWiringSimulations() {
   assert("recovery word reset support is reachable from Account", appSource.includes('data-ob-recovery-word="1"') && appSource.includes("const ok = await saveRecoveryWord(word);"));
   assert("clock center can start the displayed upcoming nap before it is overdue", appSource.includes('if (nextEvent && nextEvent.type === "nap") return "nap";') && appSource.includes('if (predictionItem && predictionItem.kind === "nap") return "nap";') && appSource.includes('clockQueuedTimerKind === "nap"') && appSource.includes('try { startNap(); } catch(e) { console.warn("[OBubba] clock face nap start failed", e); }'));
   assert("clock logs do not fold or label daytime feeds as night-wake settling", appSource.includes("const clockSettlingFeedIsInsideNightSleepLab = (item) =>") && appSource.includes("feedMinute >= 16 * 60 || feedMinute < 6 * 60") && !appSource.includes("feedMinute >= 18 * 60 || feedMinute < 6 * 60 || clockIsInsideSleepCurveLab(item)") && appSource.includes("if (!clockSettlingFeedIsInsideNightSleepLab(item)) return \"\";") && appSource.includes("const clockLogDisplayEntryLab = (item) =>") && appSource.includes("return {...entry, night:false};"));
+  assert("clock log tab backfills every real visible clock dot", appSource.includes("const clockLogRowFromEventLab = (item, rowIndex, allowVisibleFallback = false) =>") && appSource.includes("const clockLogRowKeyLab = (row) =>") && appSource.includes("clockRenderEvents.forEach((item, rowIndex) =>") && appSource.includes("clockLogRowFromEventLab(item, rows.length + rowIndex, true)"));
+  assert("clock dot labels distinguish pump from bottle feeds", appSource.includes('entry.feedType === "pump" ? "Pump"'));
 }
 
 function runEventHandlerBindingAudit() {

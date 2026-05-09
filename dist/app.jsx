@@ -42914,24 +42914,36 @@ function App(){
 	    // Sleep analysis can still use wake-to-wake grouping underneath.
 	    const clockOrderAnchor = 0;
 	    const clockOrderMins = (item) => item.start < clockOrderAnchor ? item.start + 1440 : item.start;
-	    const clockLogOrderAnchor = dayBoundary === "midnight" ? 0 : (clockDayWakeItem ? clockDayWakeItem.start : 5 * 60);
-	    const clockLogOrderMins = (item) => item.start < clockLogOrderAnchor ? item.start + 1440 : item.start;
-	    const clockLogAllowedTypes = ["feed","poop","nap","wake","sleep","medicine","tummy","night-wake"];
-	    const clockLogRows = clockEvents
-	      .filter(item => item && !item.visualOnly)
-	      .map((item, rowIndex) => {
-	        const entry = item.entry;
-	        const logKind = entryVisualKindLab(entry) || entry?.type;
-	        if (!isClockLabRealLog(entry) || !clockLogAllowedTypes.includes(logKind)) return null;
-	        const start = Number.isFinite(item.start) ? item.start : entryStartMins(entry);
-	        if (start === null) return null;
-	        const end = Number.isFinite(item.end) ? item.end : entryEndMins(entry, start);
-	        const nowForLog = end > 1440 && nowMins < start ? nowMins + 1440 : nowMins;
-	        const isNow = nowForLog >= start && nowForLog <= end;
-	        return {entry,index:Number.isFinite(item.index) ? item.index : rowIndex,sourceDay:item.sourceDay || dayKey,start,bucket:Math.round(start / 5) * 5,end,isNow,visualOnly:false};
-	      })
-	      .filter(Boolean)
-	      .sort((a,b)=>clockLogOrderMins(a)-clockLogOrderMins(b) || a.index-b.index);
+		    const clockLogOrderAnchor = dayBoundary === "midnight" ? 0 : (clockDayWakeItem ? clockDayWakeItem.start : 5 * 60);
+		    const clockLogOrderMins = (item) => item.start < clockLogOrderAnchor ? item.start + 1440 : item.start;
+		    const clockLogAllowedTypes = ["feed","poop","nap","wake","sleep","medicine","tummy","night-wake"];
+		    const clockLogRowFromEventLab = (item, rowIndex, allowVisibleFallback = false) => {
+		      if (!item || item.visualOnly) return null;
+		      const entry = item.entry;
+		      const logKind = entryVisualKindLab(entry) || entry?.type;
+		      const allowedLogKind = clockLogAllowedTypes.includes(logKind) || clockLogAllowedTypes.includes(entry?.type);
+		      if ((!isClockLabRealLog(entry) && !allowVisibleFallback) || !allowedLogKind) return null;
+		      const start = Number.isFinite(item.start) ? item.start : entryStartMins(entry);
+		      if (start === null) return null;
+		      const end = Number.isFinite(item.end) ? item.end : entryEndMins(entry, start);
+		      const nowForLog = end > 1440 && nowMins < start ? nowMins + 1440 : nowMins;
+		      const isNow = nowForLog >= start && nowForLog <= end;
+		      return {entry,index:Number.isFinite(item.index) ? item.index : rowIndex,sourceDay:item.sourceDay || dayKey,start,bucket:Math.round(start / 5) * 5,end,isNow,visualOnly:false};
+		    };
+		    const clockLogRowKeyLab = (row) => [row?.sourceDay || dayKey, row?.entry?.id || "", row?.entry?.type || "", row?.entry?.feedType || "", row?.entry?.time || row?.entry?.start || "", row?.start ?? ""].join("|");
+		    const clockLogRows = (() => {
+		      const rows = clockEvents.map((item, rowIndex) => clockLogRowFromEventLab(item, rowIndex)).filter(Boolean);
+		      const seenRows = new Set(rows.map(clockLogRowKeyLab));
+		      clockRenderEvents.forEach((item, rowIndex) => {
+		        const row = clockLogRowFromEventLab(item, rows.length + rowIndex, true);
+		        if (!row) return;
+		        const key = clockLogRowKeyLab(row);
+		        if (seenRows.has(key)) return;
+		        seenRows.add(key);
+		        rows.push(row);
+		      });
+		      return rows.sort((a,b)=>clockLogOrderMins(a)-clockLogOrderMins(b) || a.index-b.index);
+		    })();
 		    const clockNightWakeSettlingFeedKeyLab = (item) => {
 		      if (!clockSettlingFeedIsInsideNightSleepLab(item)) return "";
 		      const feedStart = clockLogOrderMins(item);
@@ -44682,12 +44694,16 @@ function App(){
 	                  <title>{clockItemLabelLab(item)} · {clockItemTimeRangeLab(item)}</title>
 	                  <circle cx={dotPoint.x.toFixed(2)} cy={dotPoint.y.toFixed(2)} r={hitR.toFixed(2)} className="ob-clock-event-hit" aria-hidden="true"/>
 	                  {closeMoment ? (()=>{
-	                    // Overlapping events: fan out with wider angles + all start from the rim
-	                    // 8° spread per lane so 4 events span ~32° — clearly visible as separate ticks
-	                    // All ticks start at the rim (outerR=98) but extend different depths inward
+	                    // Overlapping events: earliest log = longest tick, each next one shorter
+	                    // Sorted by time (lane 0 = earliest), so lane 0 reaches deepest into the clock
 	                    const _tickAngle = (item.start % 1440) / 1440 * 360 + (item.lane - (item.laneCount - 1) / 2) * 8;
 	                    const _outerR = 98;
-	                    const _innerR = 98 - 8 - item.lane * 4; // lane 0=8px, lane 1=12px, lane 2=16px deep
+	                    const _maxDepth = 16; // longest tick (earliest event)
+	                    const _minDepth = 6;  // shortest tick (latest event)
+	                    const _depth = item.laneCount > 1
+	                      ? _maxDepth - item.lane * ((_maxDepth - _minDepth) / Math.max(1, item.laneCount - 1))
+	                      : _maxDepth;
+	                    const _innerR = _outerR - Math.round(_depth);
 	                    const _outer = polar(120, 120, _outerR, _tickAngle);
 	                    const _inner = polar(120, 120, _innerR, _tickAngle);
 	                    const _strokeW = item.isNow ? 2.5 : 2;

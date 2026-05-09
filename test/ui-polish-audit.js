@@ -75,8 +75,10 @@ assert("Clock home lab follows the selected day boundary while keeping logs in s
   app.includes("Number.isFinite(item.visualEnd) ? item.visualEnd : entryEndMins(entry,start)") &&
   app.includes("const clockOrderAnchor = 0;") &&
   app.includes('const clockLogOrderAnchor = dayBoundary === "midnight" ? 0') &&
-  app.includes("const clockLogRows = clockEvents") &&
-  app.includes(".filter(item => item && !item.visualOnly)"));
+  app.includes("const clockLogRowFromEventLab = (item, rowIndex, allowVisibleFallback = false) =>") &&
+  app.includes("const clockLogRowKeyLab = (row) =>") &&
+  app.includes("clockRenderEvents.forEach((item, rowIndex) =>") &&
+  app.includes("clockLogRowFromEventLab(item, rows.length + rowIndex, true)"));
 assert("Clock home lab uses soothed-duration night-wake arcs without duplicate night-wake layers",
   app.includes("const clockDurationMinutesLab = (value) =>") &&
   app.includes("const clockIsLegacyNightWakeTimeLab = (entry)") &&
