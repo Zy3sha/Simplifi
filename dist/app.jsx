@@ -44265,12 +44265,17 @@ function App(){
 	        ))}
 	      </section>
 	    ) : null;
-    const clockQueuedTimerKind = (() => {
-      const queuedTitle = String(clockQueuedCenter?.title || "");
-      const queuedReady = !!(nextDue || /^nap now$/i.test(queuedTitle) || /^bedtime$/i.test(queuedTitle));
-      if (!queuedReady) return "";
-      return nextDue ? "nap" : nextEvent ? (nextEvent.type === "bed" ? "sleep" : nextEvent.type) : /bedtime/i.test(queuedTitle) ? "sleep" : /\bnap\b/i.test(queuedTitle) ? "nap" : "";
-    })();
+	    const clockQueuedTimerKind = (() => {
+	      if (!clockLabIsToday || activeTimer) return "";
+	      // If the clock face is already presenting the next nap, a tap means
+	      // "baby is asleep now" even if the prediction is still a few minutes away.
+	      if (nextEvent && nextEvent.type === "nap") return "nap";
+	      if (predictionItem && predictionItem.kind === "nap") return "nap";
+	      const queuedTitle = String(clockQueuedCenter?.title || "");
+	      const queuedReady = !!(nextDue || /^nap now$/i.test(queuedTitle) || /^bedtime$/i.test(queuedTitle));
+	      if (!queuedReady) return "";
+	      return nextDue ? "nap" : nextEvent ? (nextEvent.type === "bed" ? "sleep" : nextEvent.type) : /bedtime/i.test(queuedTitle) ? "sleep" : /\bnap\b/i.test(queuedTitle) ? "nap" : "";
+	    })();
     const startClockQueuedTimer = () => {
       if (clockQueuedTimerKind === "sleep") {
         try { logBedtimeNow(); } catch(e) { console.warn("[OBubba] clock face bedtime start failed", e); }

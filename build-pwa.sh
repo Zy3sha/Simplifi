@@ -26,8 +26,12 @@ f.writeFileSync('app.js', r.code);
 console.log('Compiled: app.js written (' + r.code.length + ' chars)');
 "
 
+echo "Minifying app.js for faster load on mobile..."
+npx terser app.js -o app.min.js --compress --mangle 2>/dev/null || cp app.js app.min.js
+echo "Minified: $(wc -c < app.js) → $(wc -c < app.min.js) bytes"
+
 echo "Copying to public/app.js..."
-cp app.js public/app.js
+cp app.min.js public/app.js
 cp app.jsx public/app.jsx
 cp -f styles.css public/styles.css
 cp -f i18n.js public/i18n.js

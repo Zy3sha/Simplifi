@@ -458,6 +458,7 @@ function runSourceWiringSimulations() {
   assert("split-night discomfort tags use resolved day keys", appSource.includes('localStorage.getItem("ob_day_tag_" + rd.dayKey)') && !appSource.includes('localStorage.getItem("ob_day_tag_" + rd.date)'));
   assert("daily recap card handles object sleepScore results", appSource.includes("const _scRaw = sleepScore();") && !appSource.includes("const sc=sleepScore();"));
   assert("recovery word reset support is reachable from Account", appSource.includes('data-ob-recovery-word="1"') && appSource.includes("const ok = await saveRecoveryWord(word);"));
+  assert("clock center can start the displayed upcoming nap before it is overdue", appSource.includes('if (nextEvent && nextEvent.type === "nap") return "nap";') && appSource.includes('if (predictionItem && predictionItem.kind === "nap") return "nap";') && appSource.includes('clockQueuedTimerKind === "nap"') && appSource.includes('try { startNap(); } catch(e) { console.warn("[OBubba] clock face nap start failed", e); }'));
 }
 
 function runEventHandlerBindingAudit() {

@@ -14763,11 +14763,11 @@ function App(){
 		    ["clock-stage", "clock-home-kindness"]
 		  ];
 			  const OB_APP_TOUR_JOURNEY = [
-			    { chapter:"Step 1", tab:"day", iconName:"timer", target:"Start here", title:"Log what happens", body:"Tap feed, nap, nappy or wake as they happen. The clock fills in around you — no spreadsheets, no perfect timing needed. Even one or two logs a day is enough to start." },
-			    { chapter:"Step 2", tab:"day", iconName:"today", target:"Days 3–5", title:"OBubba learns the rhythm", body:"After a few ordinary days, OBubba starts spotting patterns — when naps work best, how feeds affect sleep, what bedtime actually looks like. You don't have to do anything different. Just keep logging." },
-			    { chapter:"Step 3", tab:"insights", iconName:"care", target:"Care tab", title:"Open the parent toolkit", body:"Care leads with the real tools: Bubba Care, Weaning, Parent Room, Sleep Coach and Night Weaning. Insights sit underneath when you want to review patterns." },
-			    { chapter:"Step 4", tab:"insights", iconName:"care", target:"Parent Room", title:"Look after yourself too", body:"Parenting is relentless. The Parent Room has breathing exercises, wellbeing check-ins, and gentle reminders that you matter in this house too. You're not just a carer — you're a person who needs care." },
-			    { chapter:"Step 5", tab:"settings", iconName:"care", target:"Share & Sync", title:"Connect your village", body:"Partner Sync keeps both parents on the same page — every log, every prediction, shared in real time. Bubba Care gives grandparents or nursery a live care guide with QR code. No repeating yourself." }
+			    { chapter:"Step 1", tab:"day", iconName:"timer", target:"Track tab", title:"Start logging", body:"This is your home screen. Tap feed, nappy, nap, sleep or wake when they happen.\n\nThe clock fills in as the day goes on. You'll see dots for quick moments and arcs for naps and sleep. Don't worry about being exact — OBubba works with whatever you log." },
+			    { chapter:"Step 2", tab:"day", iconName:"today", target:"Give it 3 days", title:"OBubba learns your baby", body:"After 3 days of ordinary logging, OBubba starts to understand your baby's rhythm.\n\nBy day 5, you'll get personalised nap predictions, bedtime suggestions, and a sleep analysis that actually explains what happened last night and why." },
+			    { chapter:"Step 3", tab:"insights", iconName:"care", target:"Care tab", title:"See what OBubba found", body:"This is where the real help lives.\n\n• Sleep — why last night went the way it did, and what to try tonight\n• Feeding — patterns, intake, and what to watch for\n• Weaning — recipes, allergens, and a food journal\n• Growth — weight and height trends on real charts" },
+			    { chapter:"Step 4", tab:"insights", iconName:"care", target:"Parent Room", title:"You matter too", body:"This bit is just for you.\n\nBreathing exercises when it all feels too much. Wellbeing check-ins. Gentle reminders that looking after yourself is part of looking after your baby.\n\nYou're not just a carer — you're a person who needs care too." },
+			    { chapter:"Step 5", tab:"settings", iconName:"care", target:"Account tab", title:"Share the load", body:"Partner Sync — both parents see every log, prediction and insight in real time. No \"did you feed him?\" texts.\n\nBubba Care — share a live care guide with grandparents, nursery or anyone helping. QR code, one tap, everything they need to know. No repeating yourself." }
 			  ];
 
   const[childSyncCodes,setChildSyncCodes]=useState(()=>{
@@ -44265,12 +44265,17 @@ function App(){
 	        ))}
 	      </section>
 	    ) : null;
-    const clockQueuedTimerKind = (() => {
-      const queuedTitle = String(clockQueuedCenter?.title || "");
-      const queuedReady = !!(nextDue || /^nap now$/i.test(queuedTitle) || /^bedtime$/i.test(queuedTitle));
-      if (!queuedReady) return "";
-      return nextDue ? "nap" : nextEvent ? (nextEvent.type === "bed" ? "sleep" : nextEvent.type) : /bedtime/i.test(queuedTitle) ? "sleep" : /\bnap\b/i.test(queuedTitle) ? "nap" : "";
-    })();
+	    const clockQueuedTimerKind = (() => {
+	      if (!clockLabIsToday || activeTimer) return "";
+	      // If the clock face is already presenting the next nap, a tap means
+	      // "baby is asleep now" even if the prediction is still a few minutes away.
+	      if (nextEvent && nextEvent.type === "nap") return "nap";
+	      if (predictionItem && predictionItem.kind === "nap") return "nap";
+	      const queuedTitle = String(clockQueuedCenter?.title || "");
+	      const queuedReady = !!(nextDue || /^nap now$/i.test(queuedTitle) || /^bedtime$/i.test(queuedTitle));
+	      if (!queuedReady) return "";
+	      return nextDue ? "nap" : nextEvent ? (nextEvent.type === "bed" ? "sleep" : nextEvent.type) : /bedtime/i.test(queuedTitle) ? "sleep" : /\bnap\b/i.test(queuedTitle) ? "nap" : "";
+	    })();
     const startClockQueuedTimer = () => {
       if (clockQueuedTimerKind === "sleep") {
         try { logBedtimeNow(); } catch(e) { console.warn("[OBubba] clock face bedtime start failed", e); }
@@ -45780,8 +45785,8 @@ function App(){
 	            <div className="ob-tour-journey-handle"/>
 		              <div className="ob-tour-journey-hero">
 	              <OBubbaMascot type="happy" size={96} alt="OBubba" style={{margin:"0 auto"}}/>
-		              <div className="ob-tour-journey-title">Your OBubba clock map</div>
-		              <p className="ob-tour-journey-copy">You don't need to learn the app first. Just start logging — OBubba does the rest. Here's what happens next.</p>
+		              <div className="ob-tour-journey-title">How OBubba helps you</div>
+		              <p className="ob-tour-journey-copy">You don't need to learn the app first. Just start logging — OBubba does the thinking. Here's what happens.</p>
 	            </div>
 	            <div className="ob-tour-journey-list">
 	              {OB_APP_TOUR_JOURNEY.map((item,i)=>(
@@ -46007,10 +46012,10 @@ function App(){
       {dayTutStep >= 0 && (()=>{
 	        const _bn3 = babyName || "your baby";
 		        const DAY_TUT_STEPS = [
-		          { icon:"🕰️", title:"Read the clock", body:"The clock is Track.\n\nDots are quick moments like feeds, nappies and wakes. Arcs are things with duration: naps, bedtime sleep, and night wakes when you have added settled or soothed time. Softer arcs are predictions until real logs replace them." },
-		          { icon:"⚡", title:"Log without decoding", body:"Use One-tap logs when your hands are full.\n\nTap to add the moment now, hold for details. If a nap or bedtime timer is running, stop it from the active timer controls or the clock centre so accidental taps do not rewrite the day." },
-		          { icon:"📋", title:"Logs, Plan, Guidance", body:"Logs is the saved history. Plan is what OBubba thinks may come next, and it updates as real logs arrive.\n\nGuidance is for the short sleep, feed and care read when something actually needs your attention." },
-		          { icon:"✨", title:"Bubba Hug at night", body:"In night mode, fireflies around the clock are other parents awake at the same quiet time.\n\nTap a firefly to send a Bubba Hug. Day mode stays clear, but a day-mode parent can still appear as a firefly to someone using night mode." },
+		          { icon:"🕰️", title:"Your day at a glance", body:"This clock shows everything that's happened today.\n\n• Coloured dots = feeds, nappies, wakes\n• Arcs = naps and bedtime sleep\n• Faded arcs = predictions (they disappear when real logs replace them)\n\nThe clock hand shows where you are in the day. Tap any dot or arc to see the details." },
+		          { icon:"⚡", title:"One-tap logging", body:"These buttons are your best friend at 3am.\n\n• Tap once = log it right now\n• Hold = add details (amount, side, duration)\n\nWhen a nap or bedtime timer is running, tap the clock centre to stop it. You can also log from the widget without opening the app." },
+		          { icon:"📋", title:"Logs, Plan & Guidance", body:"Swipe between three views:\n\n• Logs — everything logged today, in order\n• Plan — what OBubba thinks is coming next (nap time, feed, bedtime)\n• Guidance — the important stuff: sleep read, care notes, what needs attention\n\nThe plan updates automatically as you log." },
+		          { icon:"✨", title:"You're not alone at night", body:"When it's dark, tiny fireflies appear around the clock. Each one is another parent awake right now.\n\nYou can't see who they are — just that someone else is up too. It's a small thing, but at 3am it can mean a lot." },
 		        ];
 
         const dismissDayTut = () => {
