@@ -42829,7 +42829,7 @@ function App(){
 		    const clockSettlingFeedIsInsideNightSleepLab = (item) => {
 		      if (!item || !item.entry || item.entry.type !== "feed" || !item.entry.night || item.entry.dreamFeed || item.entry.feedType === "solids" || item.entry.feedType === "pump") return false;
 		      const feedMinute = ((Math.round(item.start || 0) % 1440) + 1440) % 1440;
-		      return feedMinute >= 18 * 60 || feedMinute < 6 * 60 || clockIsInsideSleepCurveLab(item);
+		      return feedMinute >= 16 * 60 || feedMinute < 6 * 60;
 		    };
 		    const clockTimelineSettlingFeedKeyLab = (item) => {
 		      if (!clockSettlingFeedIsInsideNightSleepLab(item)) return "";
@@ -42955,11 +42955,16 @@ function App(){
 	      return map;
 	    })();
 	    const clockVisibleLogRows = clockLogRows.filter(item => !clockNightWakeSettlingFeedKeyLab(item));
-	    const clockLogEntriesLab = clockLogRows.map(item => item.entry);
-	    const clockLogDayWakeItem = clockLogRows.find(item => item.entry.type === "wake" && !item.entry.night && !clockIsLegacyNightWakeTimeLab(item.entry) && item.sourceDay === dayKey);
-	    const recentRows = [...clockVisibleLogRows].slice(-5).reverse();
-	    const clockLogIsActiveBedtimeLab = (entry) => !!(entry && entry.type === "sleep" && clockBedOnThisDay && activeSleepStart && (entry.time === activeSleepStart || entry.start === activeSleepStart || entry.id === activeSleepEntry?.id));
-	    const clockLogRowLabelLab = (item) => clockLogIsActiveBedtimeLab(item?.entry) ? "Bedtime started" : entryLogLabelLab(item?.entry);
+		    const clockLogEntriesLab = clockLogRows.map(item => item.entry);
+		    const clockLogDayWakeItem = clockLogRows.find(item => item.entry.type === "wake" && !item.entry.night && !clockIsLegacyNightWakeTimeLab(item.entry) && item.sourceDay === dayKey);
+		    const recentRows = [...clockVisibleLogRows].slice(-5).reverse();
+		    const clockLogIsActiveBedtimeLab = (entry) => !!(entry && entry.type === "sleep" && clockBedOnThisDay && activeSleepStart && (entry.time === activeSleepStart || entry.start === activeSleepStart || entry.id === activeSleepEntry?.id));
+		    const clockLogDisplayEntryLab = (item) => {
+		      const entry = item && item.entry;
+		      if (!entry || entry.type !== "feed" || !entry.night || clockSettlingFeedIsInsideNightSleepLab(item)) return entry;
+		      return {...entry, night:false};
+		    };
+		    const clockLogRowLabelLab = (item) => clockLogIsActiveBedtimeLab(item?.entry) ? "Bedtime started" : entryLogLabelLab(clockLogDisplayEntryLab(item));
 	    const clockLogRowTimeLab = (item) => {
 	      if (!item || !item.entry) return "";
 	      if (clockLogIsActiveBedtimeLab(item.entry)) return clockLabFmt12(item.entry.time || item.entry.start || activeSleepStart);
@@ -42968,8 +42973,8 @@ function App(){
 	    const clockLogRowDetailLab = (item) => {
 	      if (!item || !item.entry) return "";
 	      if (clockLogIsActiveBedtimeLab(item.entry)) return clockLogJoinLab("sleep timer running", hm(Math.max(1, Math.floor(clockLabBedElapsedSec / 60))));
-	      const feeds = clockNightWakeSettlingFeedMapLab.get(String(item.entry.id || item.index)) || [];
-	      const detail = entryLogDetailLab(item.entry);
+		      const feeds = clockNightWakeSettlingFeedMapLab.get(String(item.entry.id || item.index)) || [];
+		      const detail = entryLogDetailLab(clockLogDisplayEntryLab(item));
 	      if (item.entry.type !== "wake" || !clockIsNightWakeTimelineEntryLab(item.entry) || !feeds.length) return detail;
 	      const feedDetail = feeds.map(feed => {
 	        const amount = clockLogAmountLab(feed.amount || feed.ml);
@@ -44677,15 +44682,15 @@ function App(){
 	                  <title>{clockItemLabelLab(item)} · {clockItemTimeRangeLab(item)}</title>
 	                  <circle cx={dotPoint.x.toFixed(2)} cy={dotPoint.y.toFixed(2)} r={hitR.toFixed(2)} className="ob-clock-event-hit" aria-hidden="true"/>
 	                  {closeMoment ? (()=>{
-	                    // Overlapping events: staggered tick marks — each lane gets a different length
-	                    // Lane 0 = longest (outermost), lane 1 = shorter (inward), lane 2 = shortest
-	                    const _tickAngle = (item.start % 1440) / 1440 * 360 + (item.lane - (item.laneCount - 1) / 2) * 5.2;
-	                    const _outerR = 98 - item.lane * 3;
-	                    const _tickLen = 10 - item.lane * 2; // lane 0 = 10px, lane 1 = 8px, lane 2 = 6px
-	                    const _innerR = _outerR - _tickLen;
+	                    // Overlapping events: fan out with wider angles + all start from the rim
+	                    // 8° spread per lane so 4 events span ~32° — clearly visible as separate ticks
+	                    // All ticks start at the rim (outerR=98) but extend different depths inward
+	                    const _tickAngle = (item.start % 1440) / 1440 * 360 + (item.lane - (item.laneCount - 1) / 2) * 8;
+	                    const _outerR = 98;
+	                    const _innerR = 98 - 8 - item.lane * 4; // lane 0=8px, lane 1=12px, lane 2=16px deep
 	                    const _outer = polar(120, 120, _outerR, _tickAngle);
 	                    const _inner = polar(120, 120, _innerR, _tickAngle);
-	                    const _strokeW = item.lane === 0 ? (item.isNow ? 2.5 : 2) : item.lane === 1 ? (item.isNow ? 2 : 1.6) : (item.isNow ? 1.6 : 1.2);
+	                    const _strokeW = item.isNow ? 2.5 : 2;
 	                    return <line x1={_inner.x.toFixed(2)} y1={_inner.y.toFixed(2)} x2={_outer.x.toFixed(2)} y2={_outer.y.toFixed(2)} className={"ob-clock-event-tick is-"+_dotKind+(item.isNow?" is-now":"")} stroke={_dotColor} strokeWidth={_strokeW} strokeLinecap="round" style={{"--ob-clock-event-glow":_dotGlow}} aria-hidden="true"/>;
 	                  })() : (
 	                    <circle cx={dotPoint.x.toFixed(2)} cy={dotPoint.y.toFixed(2)} r={dotR} className={"ob-clock-event-dot is-"+_dotKind+(item.isNow?" is-now":"")+(closeMoment?" is-close":"")} style={{"--ob-clock-event-glow":_dotGlow,"--ob-clock-dot-fill":_dotColor}} fill={_dotColor} stroke={_dotColor} aria-hidden="true"/>
