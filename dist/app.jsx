@@ -18184,7 +18184,6 @@ function App(){
     } catch { return {}; }
   }
 	  async function verifyLogin(username, pin, preHashed) {
-	    await waitForFirebaseModule(2500);
 	    const key = normaliseUsername(username);
 	    const loginPin = String(pin || "");
 	    if(!key) { setAuthError("Enter a username"); return false; }
@@ -18196,28 +18195,66 @@ function App(){
 	        await resetFirebaseIdentityForAccountSwitch("username-switch");
 	        _accountIdentityReset = true;
 	      }
-	      await ensureFirebaseUid(5000);
+	      // Fast path: go straight to Firestore REST — don't wait for Firebase module/UID.
+	      // ensureFirebaseUid runs inside fsGet if needed, and the auth token is cached.
+	      // On slow Android devices, the old waitForFirebaseModule + ensureFirebaseUid
+	      // added 5+ seconds before any network call even started.
 	      let data = null;
 	      let _secureLoginVerified = false;
 	      const _loginPayload = {username:key, pin:loginPin, preHashed:!!preHashed};
-	      // Race: Cloud Function vs Firestore REST — whichever responds first wins.
-	      // Cloud Function is more secure (server-side PIN check) but slower (transatlantic).
-	      // Firestore REST is faster but requires client-side PIN verification.
-	      let _serverLogin = null;
-	      const _cfPromise = callAccountFunction("accountLogin", _loginPayload).catch(()=>null);
+	      // Firestore REST first (fast), Cloud Function in background (secure but slow)
 	      const _fsPromise = fsGet("usernames", key).catch(()=>({exists:()=>false, error:true}));
-	      const _raceResult = await Promise.race([
-	        _cfPromise.then(r => r ? {source:"cf", result:r} : new Promise(()=>{})),
-	        _fsPromise.then(r => ({source:"fs", result:r})),
-	        new Promise(res => setTimeout(()=>res({source:"timeout", result:null}), 6000))
+	      const _cfPromise = callAccountFunction("accountLogin", _loginPayload).catch(()=>null);
+	      // Wait for Firestore — usually responds in 1-2s
+	      const _fsResult = await Promise.race([
+	        _fsPromise,
+	        new Promise(res => setTimeout(()=>res({exists:()=>false, error:true, timeout:true}), 5000))
 	      ]);
-	      if (_raceResult.source === "cf" && _raceResult.result) {
-	        _serverLogin = _raceResult.result;
-	        if (_serverLogin.ok && _serverLogin.account) {
-	          data = _serverLogin.account;
+	      if (!_fsResult.error && _fsResult.exists()) {
+	        data = _fsResult.data();
+	      }
+	      // If FS failed, try the Cloud Function
+	      if (!data) {
+	        const _cfResult = await Promise.race([
+	          _cfPromise,
+	          new Promise(res => setTimeout(()=>res(null), 6000))
+	        ]);
+	        if (_cfResult && _cfResult.ok && _cfResult.account) {
+	          data = _cfResult.account;
 	          _secureLoginVerified = true;
-	        } else if (_serverLogin.error) {
-	          setAuthError(_serverLogin.error);
+	        } else if (_cfResult && _cfResult.error) {
+	          setAuthError(_cfResult.error);
+	          return false;
+	        }
+	      }
+	      // Both failed — retry with fresh token
+	      if (!data) {
+	        try {
+	          window._obRestToken = null; window._obRestTokenExp = 0;
+	          try { localStorage.removeItem("ob_rest_token"); } catch {}
+	          const _retrySnap = await fsGet("usernames", key);
+	          if (_retrySnap && !_retrySnap.error && _retrySnap.exists()) data = _retrySnap.data();
+	        } catch {}
+	      }
+	      if (!data) {
+	        // Check if CF had a specific error
+	        try {
+	          const _cfFinal = await _cfPromise;
+	          if (_cfFinal && _cfFinal.error) { setAuthError(_cfFinal.error); return false; }
+	          if (_cfFinal && _cfFinal.ok && _cfFinal.account) {
+	            data = _cfFinal.account;
+	            _secureLoginVerified = true;
+	          }
+	        } catch {}
+	      }
+	      if (!data) {
+	        setAuthError("Could not reach your account. Check your connection and try again.");
+	        return false;
+	      }
+	      if (false) {
+	        // Legacy race result handling — kept for reference
+	        if (false && false) {
+	          setAuthError("removed");
 	          return false;
 	        }
 	      }
