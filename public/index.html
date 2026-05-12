@@ -1,117 +1,60 @@
 <!DOCTYPE html>
-<html lang="en" style="background:#F0DDD6">
+<html lang="en">
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
-
-  <!-- SEO Essentials -->
-  <title>OBubba | Best Baby Tracker App for Sleep, Feeds, Naps & Parenting</title>
-  <meta name="description" content="OBubba is built to be the best baby tracker app and parenting app for baby sleep, feeds, naps, nappies, growth, milestones, routines, reports and Bubba Care handovers."/>
-  <meta name="keywords" content="best baby tracker app, baby tracker, baby sleep tracker, baby feed tracker, feeding tracker, sleep tracker, nap tracker, newborn tracker, parenting app, baby routine tracker, baby milestone tracker, growth chart, baby care handover app, NHS baby, nap prediction, bedtime prediction"/>
+  <title>OBubba | Baby Sleep, Feed and Rhythm Tracker</title>
+  <meta name="description" content="Download OBubba, the baby tracker that learns your baby's rhythm across sleep, feeds, naps, night wakes and weaning support."/>
   <link rel="canonical" href="https://obubba.com/"/>
-
-  <!-- Open Graph (Facebook, WhatsApp, iMessage link previews) -->
   <meta property="og:type" content="website"/>
   <meta property="og:url" content="https://obubba.com/"/>
-  <meta property="og:title" content="OBubba | Best Baby Tracker App"/>
-  <meta property="og:description" content="Track baby sleep, feeds, naps, nappies, milestones, growth and family handovers in one calm parenting app."/>
+  <meta property="og:title" content="OBubba | Understand your baby's rhythm"/>
+  <meta property="og:description" content="Track feeds, naps, sleep and night wakes in one soft place that learns as your baby grows."/>
   <meta property="og:image" content="https://obubba.com/og-image.png"/>
-  <meta property="og:image:width" content="1200"/>
-  <meta property="og:image:height" content="630"/>
-  <meta property="og:site_name" content="OBubba"/>
-  <meta property="og:locale" content="en_GB"/>
-
-  <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image"/>
-  <meta name="twitter:title" content="OBubba | Best Baby Tracker App"/>
-  <meta name="twitter:description" content="The parenting app for baby sleep, feeds, naps, nappies, milestones, growth and care handovers."/>
+  <meta name="twitter:title" content="OBubba | Understand your baby's rhythm"/>
+  <meta name="twitter:description" content="Download OBubba for baby sleep, feed, nap and weaning support."/>
   <meta name="twitter:image" content="https://obubba.com/og-image.png"/>
-
-  <!-- PWA / Mobile -->
-  <meta name="apple-mobile-web-app-capable" content="yes"/>
-  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
-  <meta name="apple-mobile-web-app-title" content="OBubba"/>
-  <meta name="application-name" content="OBubba"/>
-  <meta name="theme-color" content="#f0ddd6"/>
-  <meta name="mobile-web-app-capable" content="yes"/>
-  <link rel="manifest" href="manifest.json"/>
-  <link rel="icon" type="image/png" href="icon.png"/>
-  <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
-
-  <!-- Structured Data -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "name": "OBubba, Best Baby Tracker App",
-    "alternateName": ["baby sleep tracker", "baby feed tracker", "parenting app", "newborn tracker"],
-    "description": "Baby tracker and parenting app for sleep, feeds, naps, nappies, growth, milestones, routines, reports and Bubba Care handovers.",
-    "applicationCategory": "HealthApplication",
-    "operatingSystem": "iOS, Android, Web",
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "GBP" },
-    "author": { "@type": "Organization", "name": "OBubba", "url": "https://obubba.com" },
-    "url": "https://obubba.com",
-    "image": "https://obubba.com/obubba-happy.png"
-  }
-  </script>
-
-  <!-- Fonts — OBubba Script is bundled locally for splash/native boot -->
-  <style>@font-face{font-family:'OBubba Script';src:url('Parisienne-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:block}@font-face{font-family:'Parisienne';src:url('Parisienne-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:block}</style>
-  <link rel="preload" href="Parisienne-Regular.ttf" as="font" type="font/ttf"/>
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Parisienne&family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet"/>
-
-  <!-- External libraries (vendored locally so web, PWA, and native shells boot offline) -->
-  <script src="/vendor/react.production.min.js"></script>
-  <script src="/vendor/react-dom.production.min.js"></script>
-
-  <!-- Firebase -->
-  <script type="module" src="/firebase.js"></script>
-
-  <!-- Native Plugin Bridge -->
-  <script src="/native-plugins.js" defer></script>
-
-  <!-- Localisation -->
-  <script src="/i18n.js?v=1778130225"></script>
-
-  <!-- Styles -->
-  <link rel="stylesheet" href="styles.css?v=1778130225"/>
-</head>
-<body style="background:#F0DDD6;margin:0">
-<div id="ob-splash" style="position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#F0DDD6">
+  <meta name="theme-color" content="#061227"/>
+  <link rel="icon" type="image/png" href="/icon.png"/>
+  <link rel="apple-touch-icon" sizes="180x180" href="/icon.png"/>
+  <link rel="preload" href="/Parisienne-Regular.ttf" as="font" type="font/ttf" crossorigin/>
   <style>
-    #ob-splash .baby{animation:babyBreathe 3.5s ease-in-out infinite}
-    @keyframes babyBreathe{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.008)}}
+    @font-face{font-family:OBubbaScript;src:url("/Parisienne-Regular.ttf") format("truetype");font-weight:400;font-style:normal;font-display:block}
+    :root{--ink:#fff0dc;--soft:#c8c7dc;--muted:#9ea4c3;--line:rgba(255,213,169,.24);--glass:rgba(20,31,59,.54);--gold:#ffd084;--pink:#ff79ba;--blue:#72edff;--green:#bfff58}
+    *{box-sizing:border-box}
+    html{min-height:100%;background:#061227}
+    body{margin:0;min-height:100%;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:radial-gradient(circle at 50% 30%,rgba(54,81,151,.58),transparent 33rem),radial-gradient(circle at 50% 70%,rgba(2,36,76,.84),transparent 34rem),linear-gradient(180deg,#031027 0%,#071836 48%,#031126 100%);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+    a{color:inherit}
+    .page{position:relative;width:min(100%,520px);min-height:100dvh;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 24px) 26px 36px;overflow:hidden;isolation:isolate}
+    .stars,.fireflies{position:absolute;inset:0;z-index:-2;pointer-events:none}
+    .stars{background:radial-gradient(1px 1px at 8% 28%,rgba(255,210,113,.9),transparent 60%),radial-gradient(1px 1px at 92% 35%,rgba(255,210,113,.8),transparent 60%),radial-gradient(1.5px 1.5px at 18% 44%,rgba(255,241,209,.8),transparent 60%),radial-gradient(1px 1px at 82% 45%,rgba(255,210,113,.86),transparent 60%),radial-gradient(1px 1px at 12% 70%,rgba(255,210,113,.65),transparent 60%),radial-gradient(1.5px 1.5px at 70% 76%,rgba(255,241,209,.7),transparent 60%),radial-gradient(1px 1px at 50% 55%,rgba(255,241,209,.95),transparent 60%),radial-gradient(1px 1px at 55% 37%,rgba(255,210,113,.8),transparent 60%);opacity:.88}
+    .firefly{position:absolute;width:8px;height:8px;border-radius:50%;background:#ffd56f;box-shadow:0 0 13px 5px rgba(255,207,107,.52),0 0 42px 12px rgba(255,207,107,.2);transform:translate(-50%,-50%);animation:floaty 6.8s ease-in-out infinite}
+    .firefly::before,.firefly::after{content:"";position:absolute;top:50%;width:14px;height:7px;border-radius:999px 999px 999px 0;border:1px solid rgba(255,240,210,.28);background:rgba(255,255,255,.07);filter:blur(.2px)}
+    .firefly::before{right:4px;transform:translateY(-60%) rotate(-28deg)}.firefly::after{left:4px;transform:translateY(-60%) rotate(28deg) scaleX(-1)}
+    .f1{left:8%;top:35%;animation-delay:-.6s}.f2{left:88%;top:39%;animation-delay:-2.1s;transform:scale(.76)}.f3{left:8%;top:54%;animation-delay:-4s;transform:scale(.82)}.f4{left:88%;top:60%;animation-delay:-1.1s;transform:scale(.72)}.f5{left:17%;top:71%;animation-delay:-3.2s;transform:scale(.64)}.f6{left:83%;top:74%;animation-delay:-5s;transform:scale(.68)}
+    @keyframes floaty{0%,100%{translate:0 0;opacity:.84}45%{translate:10px -16px;opacity:1}70%{translate:-7px -4px;opacity:.72}}
+    .status{display:flex;align-items:center;justify-content:space-between;height:30px;padding:0 22px 0 20px;font-size:28px;font-weight:800;letter-spacing:-.02em}.status-icons{display:flex;align-items:center;gap:8px;color:#fff}.signal{display:flex;gap:3px;align-items:end;height:18px}.signal span{display:block;width:5px;border-radius:4px;background:#fff}.signal span:nth-child(1){height:7px;opacity:.65}.signal span:nth-child(2){height:11px;opacity:.78}.signal span:nth-child(3){height:15px}.wifi{width:24px;height:18px;position:relative}.wifi::before,.wifi::after{content:"";position:absolute;left:50%;transform:translateX(-50%);border:4px solid transparent;border-top-color:#fff;border-radius:50%}.wifi::before{width:25px;height:25px;top:0}.wifi::after{width:13px;height:13px;top:7px}.battery{display:flex;align-items:center;justify-content:center;width:43px;height:26px;border-radius:7px;background:#fff;color:#061227;font-size:18px;font-weight:900;position:relative}.battery::after{content:"";position:absolute;right:-4px;top:8px;width:3px;height:10px;border-radius:0 2px 2px 0;background:#fff}
+    .brand{display:flex;align-items:center;justify-content:center;gap:22px;margin:42px 0 26px}.mascot{width:76px;height:76px;border-radius:18px;object-fit:cover;border:2px solid rgba(255,224,188,.32);box-shadow:0 0 0 1px rgba(255,255,255,.08),0 20px 38px rgba(0,0,0,.34);background:#101b31}.logo{font-family:OBubbaScript,"Times New Roman",serif;font-size:60px;line-height:.82;color:#ffe7c8;text-shadow:0 0 16px rgba(255,211,148,.34);white-space:nowrap}.hero{text-align:center;position:relative;z-index:2}h1{font-family:Georgia,"Times New Roman",serif;font-size:clamp(54px,14vw,72px);line-height:1.08;margin:0;color:#ffe5c5;letter-spacing:0;font-weight:800;text-wrap:balance}.sub{margin:20px auto 0;max-width:430px;font-size:25px;line-height:1.45;color:var(--soft);font-weight:500;text-wrap:balance}
+    .actions{width:min(100%,360px);margin:28px auto 10px;display:grid;gap:13px}.download{min-height:72px;border-radius:999px;display:flex;align-items:center;justify-content:center;gap:22px;text-decoration:none;font-size:25px;font-weight:900;background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.06));border:1.5px solid rgba(255,179,155,.72);box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 0 22px rgba(255,160,112,.28),0 18px 44px rgba(0,0,0,.34);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}.download svg:first-child{filter:drop-shadow(0 0 12px rgba(255,217,133,.55))}.download .chev{margin-left:auto;margin-right:22px}.stores{display:grid;grid-template-columns:1fr 1fr;gap:12px}.store{min-height:52px;border-radius:999px;border:1px solid rgba(121,165,227,.44);background:rgba(15,32,65,.58);display:flex;align-items:center;justify-content:center;gap:9px;color:#f4f2ff;text-decoration:none;font-weight:800;font-size:14px;box-shadow:inset 0 1px 0 rgba(255,255,255,.09);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+    .clock-wrap{position:relative;width:min(95vw,440px);height:min(95vw,440px);margin:14px auto 18px}.clock-glow{position:absolute;inset:-8%;border-radius:50%;background:radial-gradient(circle,rgba(119,121,255,.26) 0%,rgba(44,79,158,.16) 38%,transparent 68%);filter:blur(3px)}.clock{position:absolute;inset:5%;border-radius:50%;background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.05) 0 22%,transparent 23%),radial-gradient(circle at 48% 44%,rgba(147,153,255,.34),transparent 30%),radial-gradient(circle at 50% 50%,rgba(26,39,83,.78),rgba(7,16,39,.92) 63%,rgba(4,12,31,.94));border:2px solid rgba(255,224,173,.4);box-shadow:inset 0 0 0 8px rgba(255,255,255,.03),inset 0 0 80px rgba(135,165,255,.16),0 0 0 2px rgba(82,219,255,.18),0 0 58px rgba(255,133,195,.18)}.clock::before{content:"";position:absolute;inset:-14px;border-radius:50%;background:conic-gradient(from 210deg,transparent 0 16deg,var(--pink) 17deg 76deg,transparent 77deg 92deg,var(--blue) 93deg 152deg,transparent 153deg 188deg,var(--gold) 189deg 322deg,transparent 323deg 360deg);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 8px),#000 calc(100% - 7px));mask:radial-gradient(farthest-side,transparent calc(100% - 8px),#000 calc(100% - 7px));filter:drop-shadow(0 0 12px rgba(255,187,113,.35))}.inner-orbit{position:absolute;inset:7%;border-radius:50%;background:conic-gradient(from 100deg,transparent 0 13deg,#6578ff 14deg 76deg,transparent 77deg 87deg,#6ff0ff 88deg 115deg,transparent 116deg 265deg,#ffdc6d 266deg 272deg,transparent 273deg 360deg);-webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));mask:radial-gradient(farthest-side,transparent calc(100% - 4px),#000 calc(100% - 3px));opacity:.9}
+    .clock-label{position:absolute;left:50%;top:50%;width:64px;transform:translate(-50%,-50%) rotate(var(--r)) translateY(-155px) rotate(calc(-1 * var(--r)));text-align:center;font-family:Georgia,"Times New Roman",serif;color:#f6dfc1;font-size:30px;line-height:.88;text-shadow:0 1px 12px rgba(0,0,0,.34)}.clock-label small{display:block;font-size:22px;line-height:1.05;color:#d8c7b4}.tick{position:absolute;left:50%;top:50%;width:2px;height:22px;background:rgba(255,226,183,.7);transform:translate(-50%,-50%) rotate(var(--r)) translateY(-180px);transform-origin:center 180px;border-radius:2px}.tick.small{height:9px;background:rgba(255,255,255,.14);transform:translate(-50%,-50%) rotate(var(--r)) translateY(-183px)}
+    .moon-sun{position:absolute;left:50%;top:50%;width:134px;height:134px;transform:translate(-50%,-50%);border-radius:50%;background:radial-gradient(circle at 62% 64%,rgba(255,203,100,.55),transparent 22%),radial-gradient(circle at 50% 50%,rgba(255,255,255,.09),rgba(255,255,255,.02));box-shadow:inset 0 0 0 1px rgba(255,255,255,.1),0 0 35px rgba(255,208,132,.18)}.moon{position:absolute;left:20px;top:20px;width:86px;height:86px;border-radius:50%;background:#d4d9ff;box-shadow:inset 18px -16px 0 rgba(102,112,191,.34),0 0 38px rgba(204,209,255,.42)}.moon::after{content:"";position:absolute;left:22px;top:-2px;width:82px;height:82px;border-radius:50%;background:rgba(23,32,69,.72)}.sun{position:absolute;left:53px;top:67px;width:48px;height:48px;border-radius:50%;background:#ffd56f;box-shadow:0 0 24px 11px rgba(255,207,107,.58),0 0 58px rgba(255,207,107,.4)}.sun::before{content:"";position:absolute;inset:-21px;background:conic-gradient(from 0deg,transparent 0 7deg,rgba(255,216,124,.72) 8deg 12deg,transparent 13deg 37deg);border-radius:50%;opacity:.82}.dot{position:absolute;width:16px;height:16px;border-radius:50%;background:#ffde77;box-shadow:0 0 12px rgba(255,220,110,.8)}.d1{left:3%;top:42%}.d2{right:8%;bottom:28%}.d3{left:51%;bottom:8%}.bar{position:absolute;width:6px;height:34px;border-radius:99px;background:var(--green);box-shadow:0 0 11px rgba(191,255,88,.44);transform:rotate(15deg)}.b1{left:31%;bottom:11%}.b2{right:28%;bottom:12%}.b3{right:24%;bottom:15%;background:#ffe163}.b4{right:16%;bottom:17%;background:#ffe163}
+    .room{position:relative;min-height:88px;margin-top:-60px;z-index:1;pointer-events:none}.crib{position:absolute;left:-34px;bottom:2px;width:145px;height:92px;border-left:8px solid rgba(68,74,113,.58);border-bottom:9px solid rgba(68,74,113,.58);transform:skewY(13deg);opacity:.72}.crib span{position:absolute;bottom:0;width:5px;height:72px;border-radius:8px;background:rgba(77,86,132,.6)}.crib span:nth-child(1){left:22px}.crib span:nth-child(2){left:48px}.crib span:nth-child(3){left:74px}.crib span:nth-child(4){left:100px}.nightstand{position:absolute;right:-20px;bottom:0;width:132px;height:70px;background:linear-gradient(180deg,rgba(8,17,36,.28),rgba(8,17,36,.76));border-radius:10px 10px 0 0;box-shadow:-25px -24px 70px rgba(255,204,107,.13)}.lamp{position:absolute;right:80px;bottom:60px;width:48px;height:62px;border-radius:26px 26px 18px 18px;background:#ffd782;box-shadow:0 0 34px 12px rgba(255,210,115,.45)}.toy{position:absolute;right:16px;bottom:49px;width:54px;height:70px;border-radius:28px 28px 16px 16px;background:linear-gradient(180deg,#6a4d38,#2b1d18);opacity:.66}.toy::before,.toy::after{content:"";position:absolute;top:-10px;width:18px;height:18px;border-radius:50%;background:#6a4d38}.toy::before{left:4px}.toy::after{right:4px}
+    .features{position:relative;z-index:3;margin-top:8px;padding-bottom:8px}h2{margin:0 0 20px;text-align:center;font-family:Georgia,"Times New Roman",serif;font-size:34px;line-height:1.08;color:#ffe5c5;letter-spacing:0}.feature-list{display:grid;gap:14px}.feature{display:grid;grid-template-columns:78px 1fr 24px;align-items:center;min-height:98px;padding:14px 16px;border:1px solid rgba(255,229,197,.23);border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.045));box-shadow:inset 0 1px 0 rgba(255,255,255,.13),0 18px 38px rgba(0,0,0,.26);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);text-decoration:none}.feature-icon{width:58px;height:58px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle at 35% 24%,rgba(255,255,255,.28),transparent 42%),linear-gradient(135deg,#313f82,#1d2d64);border:1px solid rgba(151,166,255,.32);box-shadow:inset 0 1px 0 rgba(255,255,255,.18),0 0 26px rgba(101,123,255,.25);color:#ffe9c2}.feature h3{margin:0 0 4px;font-size:27px;line-height:1.02;color:#fff7e9}.feature p{margin:0;font-size:19px;line-height:1.26;color:#bfc4de}.feature svg{display:block}.feature .arrow{color:#d6d6ef;opacity:.82}.bottom-copy{margin:28px auto 0;max-width:390px;color:#bfc4de;text-align:center;font-size:18px;line-height:1.45}
+    @media (max-width:390px){.page{padding-left:20px;padding-right:20px}.brand{gap:16px;margin-top:32px}.mascot{width:66px;height:66px}.logo{font-size:52px}.sub{font-size:22px}.download{min-height:64px;font-size:22px}.clock-label{transform:translate(-50%,-50%) rotate(var(--r)) translateY(-135px) rotate(calc(-1 * var(--r)));font-size:26px}.clock-label small{font-size:19px}.tick{transform:translate(-50%,-50%) rotate(var(--r)) translateY(-154px);transform-origin:center 154px}.tick.small{transform:translate(-50%,-50%) rotate(var(--r)) translateY(-156px)}.feature h3{font-size:24px}.feature p{font-size:17px}}@media (prefers-reduced-motion:reduce){.firefly{animation:none}.download,.store{transition:none}}
   </style>
-  <img class="baby" src="obubba-happy.png" alt="" width="150" height="150" style="object-fit:contain;margin-bottom:14px;border-radius:36px">
-  <div style="font-family:'OBubba Script','Parisienne',cursive;font-size:28px;color:#5B4F5F;margin-bottom:8px">OBubba</div>
-  <div style="font-size:13px;color:#A89898">Getting everything ready...</div>
-</div>
-<div id="root"></div>
-<button id="theme-toggle" aria-label="Toggle theme" onclick="toggleTheme()">🌙</button>
-
-<!-- Theme system -->
-<script src="/theme.js"></script>
-
-<!-- App loader: installs error/mount guards before app.js executes -->
-<script src="/loader.js"></script>
-
-<!-- App (pre-compiled by Babel; see build-pwa.sh) -->
-<script defer src="/app.js?v=1778130225"></script>
-
-<!-- Hide splash + failsafe -->
-<script>
-  function _hideNativeSplash(){
-    if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen){
-      window.Capacitor.Plugins.SplashScreen.hide({fadeOutDuration:300});
-    }
-  }
-  function _hideSplash(){var s=document.getElementById('ob-splash');if(s){s.style.opacity='0';s.style.transition='opacity 0.3s';setTimeout(function(){s.style.display='none';},300);}}
-  window.addEventListener('DOMContentLoaded', function(){_hideNativeSplash();});
-  window.addEventListener('load', function(){setTimeout(_hideSplash, 200);});
-  setTimeout(function(){_hideNativeSplash();_hideSplash();}, 3000);
-</script>
-
+</head>
+<body>
+  <main class="page">
+    <div class="stars"></div><div class="fireflies" aria-hidden="true"><i class="firefly f1"></i><i class="firefly f2"></i><i class="firefly f3"></i><i class="firefly f4"></i><i class="firefly f5"></i><i class="firefly f6"></i></div>
+    <div class="status" aria-hidden="true"><span>9:41</span><div class="status-icons"><span class="signal"><span></span><span></span><span></span></span><span class="wifi"></span><span class="battery">100</span></div></div>
+    <header class="brand"><img class="mascot" src="/obubba-happy.png" alt="Happy OBubba mascot"/><div class="logo" aria-label="OBubba">OBubba</div></header>
+    <section class="hero" aria-labelledby="hero-title"><h1 id="hero-title">Understand<br/>your baby's rhythm</h1><p class="sub">Track feeds, naps, sleep and night wakes in one soft place that learns as your baby grows.</p><div class="actions"><a class="download" id="download-now" href="https://apps.apple.com/gb/app/obubba/id6760968757"><svg width="33" height="33" viewBox="0 0 32 32" aria-hidden="true"><path fill="#ffe3a1" d="m16 2 2.9 8.7 9.1 1.2-6.8 5.7 1.9 9-7.1-4.8-7.1 4.8 1.9-9L4 11.9l9.1-1.2L16 2Z"/><path fill="#fff6dc" d="M25 3.5 26 7l3.5 1-3.5 1-1 3.5L24 9l-3.5-1L24 7l1-3.5Z"/></svg>Download now<svg class="chev" width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></a><div class="stores" aria-label="Download stores"><a class="store" href="https://apps.apple.com/gb/app/obubba/id6760968757" aria-label="Download OBubba on the App Store"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.7 19.5c-.8 1.2-1.7 2.5-3.1 2.5-1.3 0-1.8-.8-3.3-.8s-2 .8-3.3.8c-1.3.1-2.3-1.3-3.1-2.5-1.7-2.5-3-7-.3-10.1.9-1.5 2.4-2.5 4.1-2.5 1.3 0 2.5.9 3.3.9.8 0 2.3-1.1 3.8-.9.6 0 2.5.3 3.6 2-3.2 1.9-2.7 6.4.6 7.7-.2.5-.6 1.8-1.3 2.9ZM13 3.5c.7-.8 1.9-1.5 2.9-1.5.1 1.2-.3 2.4-1 3.2-.7.8-1.8 1.5-3 1.4-.1-1.1.4-2.3 1.1-3.1Z"/></svg>App Store</a><a class="store" href="https://play.google.com/store/apps/details?id=com.obubba.app" aria-label="Get OBubba on Google Play"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3.2 23c-.3-.2-.6-.5-.6-.9V1.9c0-.4.2-.7.6-.9l11.1 11L3.2 23Zm12.5-9-2.4-2.5 2.4-2.5 3.1 1.8c.5.3.5 1 0 1.3L15.7 14Zm-2.4-2.5L4.6 2.9l10.1 5.7-1.4 2.9Zm-8.7 9.6 8.7-8.6 1.4 1.4-10.1 7.2Z"/></svg>Google Play</a></div></div></section>
+    <section class="clock-wrap" aria-label="OBubba rhythm clock preview"><div class="clock-glow"></div><div class="clock"><div class="inner-orbit"></div><span class="tick" style="--r:0deg"></span><span class="tick small" style="--r:15deg"></span><span class="tick small" style="--r:30deg"></span><span class="tick" style="--r:90deg"></span><span class="tick small" style="--r:120deg"></span><span class="tick small" style="--r:150deg"></span><span class="tick" style="--r:180deg"></span><span class="tick small" style="--r:210deg"></span><span class="tick small" style="--r:240deg"></span><span class="tick" style="--r:270deg"></span><span class="tick small" style="--r:300deg"></span><span class="tick small" style="--r:330deg"></span><span class="clock-label" style="--r:0deg">12<small>am</small></span><span class="clock-label" style="--r:60deg">3<small>am</small></span><span class="clock-label" style="--r:90deg">6<small>am</small></span><span class="clock-label" style="--r:135deg">9<small>am</small></span><span class="clock-label" style="--r:180deg">12<small>pm</small></span><span class="clock-label" style="--r:225deg">3<small>pm</small></span><span class="clock-label" style="--r:270deg">6<small>pm</small></span><span class="clock-label" style="--r:315deg">9<small>pm</small></span><span class="dot d1"></span><span class="dot d2"></span><span class="dot d3"></span><span class="bar b1"></span><span class="bar b2"></span><span class="bar b3"></span><span class="bar b4"></span><div class="moon-sun"><span class="moon"></span><span class="sun"></span></div></div></section>
+    <div class="room" aria-hidden="true"><div class="crib"><span></span><span></span><span></span><span></span></div><div class="nightstand"></div><div class="lamp"></div><div class="toy"></div></div>
+    <section class="features" aria-labelledby="features-title"><h2 id="features-title">Made for the moments between sleep</h2><div class="feature-list"><a class="feature" href="#download-now"><span class="feature-icon" aria-hidden="true"><svg width="33" height="33" viewBox="0 0 32 32" fill="none"><path fill="#fff0c7" d="m12 5 13 13a5 5 0 0 1-7 7L5 12l7-7Z"/><path stroke="#c9b1ff" stroke-width="2" d="m9 9 4-4m8 16 4-4"/><path fill="#ffe27d" d="M7 9c-2-2 2-6 4-4l2 2-4 4-2-2Z"/></svg></span><span><h3>One-tap logs</h3><p>Log feeds, naps, sleep and more in just a tap.</p></span><svg class="arrow" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></a><a class="feature" href="#download-now"><span class="feature-icon" aria-hidden="true"><svg width="34" height="34" viewBox="0 0 32 32" fill="none"><circle cx="12" cy="11" r="5" fill="#62b4ff"/><circle cx="21" cy="12" r="5" fill="#ff84bf"/><path fill="#62b4ff" d="M4 27c1-6 5-9 9-9s7 3 8 9H4Z"/><path fill="#ff84bf" d="M15 27c1-6 4-9 8-9s6 3 7 9H15Z"/><path fill="#fff" d="m16 18 2.2-2.2a2.1 2.1 0 1 1 3 3L16 24l-5.2-5.2a2.1 2.1 0 1 1 3-3L16 18Z"/></svg></span><span><h3>Partner sync</h3><p>Keep your partner in the loop in real time.</p></span><svg class="arrow" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></a><a class="feature" href="#download-now"><span class="feature-icon" aria-hidden="true"><svg width="34" height="34" viewBox="0 0 32 32" fill="none"><path fill="#ffe083" d="M20.5 6.2a11 11 0 1 0 5.3 15.3A10.6 10.6 0 0 1 11 6.7a11 11 0 0 0 9.5-.5Z"/><path fill="#79c8ff" d="m24 7 1.3 3.3 3.5.3-2.7 2.2.8 3.4-2.9-1.8-3 1.8.9-3.4-2.7-2.2 3.5-.3L24 7Z"/></svg></span><span><h3>Gentle insights</h3><p>Understand patterns and get personalised guidance.</p></span><svg class="arrow" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></a></div><p class="bottom-copy">OBubba analyses your baby's sleep, feeds, night wakes and weaning notes to help you find when and how baby sleeps best.</p></section>
+  </main>
+  <script>(function(){var smart=document.getElementById("download-now");if(!smart)return;var ua=navigator.userAgent||"";if(/android/i.test(ua))smart.href="https://play.google.com/store/apps/details?id=com.obubba.app";else smart.href="https://apps.apple.com/gb/app/obubba/id6760968757";})();</script>
 </body>
 </html>
