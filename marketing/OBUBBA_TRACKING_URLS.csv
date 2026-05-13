@@ -1,0 +1,17 @@
+channel,campaign,audience,url
+organic_search,seo_launch,all_parents,https://obubba.com/?utm_source=organic_search&utm_medium=seo&utm_campaign=seo_launch
+tiktok,creator_newborn,newborn_parents,https://obubba.com/newborn-feeding-and-nappy-log.html?utm_source=tiktok&utm_medium=creator&utm_campaign=creator_newborn
+tiktok,creator_sleep,sleep_deprived_parents,https://obubba.com/baby-wake-window-tracker.html?utm_source=tiktok&utm_medium=creator&utm_campaign=creator_sleep
+tiktok,creator_handover,shared_care_families,https://obubba.com/baby-tracker-for-grandparents.html?utm_source=tiktok&utm_medium=creator&utm_campaign=creator_handover
+instagram,creator_newborn,newborn_parents,https://obubba.com/newborn-feeding-and-nappy-log.html?utm_source=instagram&utm_medium=creator&utm_campaign=creator_newborn
+instagram,creator_sleep,sleep_deprived_parents,https://obubba.com/baby-sleep-consultant-app.html?utm_source=instagram&utm_medium=creator&utm_campaign=creator_sleep
+instagram,creator_handover,shared_care_families,https://obubba.com/nursery-baby-handover-app.html?utm_source=instagram&utm_medium=creator&utm_campaign=creator_handover
+newsletter,pr_founder_story,parenting_newsletters,https://obubba.com/baby-tracker-app-uk.html?utm_source=newsletter&utm_medium=pr&utm_campaign=founder_story
+press,founder_story,parenting_press,https://obubba.com/best-baby-tracker.html?utm_source=press&utm_medium=pr&utm_campaign=founder_story
+community,parent_feedback,parent_groups,https://obubba.com/free-baby-tracker-app.html?utm_source=community&utm_medium=organic&utm_campaign=parent_feedback
+app_store,custom_page_sleep,sleep_searchers,https://obubba.com/baby-wake-window-tracker.html?utm_source=app_store&utm_medium=custom_product_page&utm_campaign=sleep
+app_store,custom_page_newborn,newborn_searchers,https://obubba.com/newborn-feeding-and-nappy-log.html?utm_source=app_store&utm_medium=custom_product_page&utm_campaign=newborn
+app_store,custom_page_handover,shared_care_families,https://obubba.com/baby-tracker-for-grandparents.html?utm_source=app_store&utm_medium=custom_product_page&utm_campaign=handover
+google_play,custom_listing_sleep,sleep_searchers,https://obubba.com/baby-wake-window-tracker.html?utm_source=google_play&utm_medium=custom_store_listing&utm_campaign=sleep
+google_play,custom_listing_newborn,newborn_searchers,https://obubba.com/newborn-feeding-and-nappy-log.html?utm_source=google_play&utm_medium=custom_store_listing&utm_campaign=newborn
+google_play,custom_listing_handover,shared_care_families,https://obubba.com/nursery-baby-handover-app.html?utm_source=google_play&utm_medium=custom_store_listing&utm_campaign=handover
