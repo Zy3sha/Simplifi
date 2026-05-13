@@ -1,5 +1,5 @@
 ---
-title: "The Ultimate Guide to Gentle Sleep Training: Supporting Your Baby Without the Stress"
+title: Gentle Sleep Training Guide
 slug: gentle-sleep-training-guide
 description: "A calm guide to gentle sleep training, baby-led rhythms, safe sleep, responsive settling and how OBubba helps parents understand their baby's sleep patterns."
 date: 2026-05-01

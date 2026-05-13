@@ -580,6 +580,22 @@ function escapeAttr(value = '') {
   return escapeHtml(value).replaceAll('\n', ' ');
 }
 
+function guideTagLinks(items) {
+  return items
+    .map(({ href, label }) => `<a class="tag" href="${escapeAttr(href)}">${escapeHtml(label)}</a>`)
+    .join('');
+}
+
+function relatedGuideSection({ heading, intro, links }) {
+  if (!links.length) return '';
+  return `
+      <section class="related-guides" aria-label="${escapeAttr(heading)}">
+        <h2>${escapeHtml(heading)}</h2>
+        <p>${escapeHtml(intro)}</p>
+        <div class="tags">${guideTagLinks(links)}</div>
+      </section>`;
+}
+
 function absoluteUrl(urlPath = '/') {
   if (/^https?:\/\//i.test(urlPath)) return urlPath;
   const cleaned = urlPath.startsWith('/') ? urlPath : `/${urlPath}`;
@@ -1108,6 +1124,25 @@ function siteCss() {
     font-weight: 700;
     background: white;
   }
+  .related-guides {
+    display: grid;
+    gap: 12px;
+    margin-top: 44px;
+    padding: clamp(22px, 4vw, 32px);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff8f2;
+  }
+  .related-guides h2 {
+    font-size: clamp(26px, 4vw, 40px);
+  }
+  .related-guides p {
+    color: var(--muted);
+    font-size: 18px;
+    line-height: 1.65;
+    margin: 0;
+  }
+  .related-guides .tags { margin-top: 8px; }
   .cta-band {
     display: grid;
     gap: 14px;
@@ -1372,9 +1407,7 @@ function renderTopicPage(topic) {
 
   const relatedLinks = TOPIC_PAGES
     .filter((item) => item.slug !== topic.slug)
-    .slice(0, 6)
-    .map((item) => `<a class="tag" href="${item.urlPath}">${escapeHtml(item.keyword)}</a>`)
-    .join('');
+    .map((item) => ({ href: item.urlPath, label: item.keyword }));
 
   const body = `
   <main id="main">
@@ -1416,7 +1449,7 @@ function renderTopicPage(topic) {
           <p class="eyebrow">Always point back to the app</p>
           <h2>From search query to OBubba download.</h2>
           <p class="section-lede">This page gives search engines and AI systems a clear, positive page about OBubba for ${escapeHtml(topic.keyword)}. It also links the topic to the wider OBubba promise: baby tracking, parenting rhythm, reports and Bubba Care handovers.</p>
-          <div class="tags">${relatedLinks}</div>
+          <div class="tags">${guideTagLinks(relatedLinks)}</div>
         </div>
       </div>
     </section>
@@ -1733,11 +1766,19 @@ function renderBlogIndex(posts) {
   });
 }
 
-function renderPost(post) {
-  const title = `${post.title} | OBubba Blog`;
+function renderPost(post, posts = []) {
+  const title = `${post.title} | OBubba`;
   const description = post.description || SITE.description;
   const articleHtml = markdownToHtml(post.body);
   const tags = post.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join('');
+  const relatedPosts = posts
+    .filter((item) => item.urlPath !== post.urlPath)
+    .map((item) => ({ href: item.urlPath, label: item.title }));
+  const relatedGuides = relatedGuideSection({
+    heading: 'Related baby tracking guides',
+    intro: 'Keep exploring the OBubba guides parents use around feeds, sleep, nappies, routines and care handovers.',
+    links: relatedPosts,
+  });
 
   const body = `
   <main id="main">
@@ -1751,6 +1792,7 @@ function renderPost(post) {
     </header>
     <article class="section rich-text article">
       ${articleHtml}
+      ${relatedGuides}
       <div class="cta-band" style="margin-top: 44px;">
         <h2>Ready to try OBubba?</h2>
         <p>Use OBubba to track feeds, sleep, naps, nappies, growth, milestones and family handovers in one calm baby tracker app.</p>
@@ -1918,7 +1960,7 @@ function main() {
   writeAll('blog/index.html', renderBlogIndex(posts));
   writeAll('blog.html', renderRedirect('/blog/'));
   for (const post of posts) {
-    writeAll(`blog/${post.slug}.html`, renderPost(post));
+    writeAll(`blog/${post.slug}.html`, renderPost(post, posts));
   }
   writeAll('robots.txt', renderRobots());
   writeAll('sitemap.xml', renderSitemap(posts));

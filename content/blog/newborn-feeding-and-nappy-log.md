@@ -1,5 +1,5 @@
 ---
-title: Newborn Feeding and Nappy Log: What to Track Without Spiralling
+title: Newborn Feeding and Nappy Log
 slug: newborn-feeding-and-nappy-log
 description: A calm guide to tracking newborn feeds, breastfeeding, bottles, wet nappies, dirty nappies, sleep and useful notes without turning parenting into admin.
 date: 2026-05-13

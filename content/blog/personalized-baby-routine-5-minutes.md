@@ -1,5 +1,5 @@
 ---
-title: "How to Create a Personalized Baby Routine in 5 Minutes (That Actually Works)"
+title: Personalized Baby Routine in 5 Minutes
 slug: personalized-baby-routine-5-minutes
 description: "A practical OBubba guide to creating a personalized baby routine in minutes using responsive cues, sleep tracking, feeds, nappies, breastfeeding, preterm notes, colic and reflux context, and gentle reminders."
 date: 2026-05-01

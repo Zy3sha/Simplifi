@@ -1,5 +1,5 @@
 ---
-title: "The Ultimate Guide to Your Baby Sleep Schedule: Why One Size Does Not Fit All"
+title: Baby Sleep Schedule Guide
 slug: baby-sleep-schedule-guide
 description: "A gentle, evidence-aware guide to baby sleep schedules, wake windows, safe sleep and how OBubba helps parents learn their baby's unique rhythm."
 date: 2026-04-30

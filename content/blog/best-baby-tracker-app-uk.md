@@ -1,5 +1,5 @@
 ---
-title: Best Baby Tracker App UK: What New Parents Actually Need
+title: Best Baby Tracker App UK
 slug: best-baby-tracker-app-uk
 description: A UK-focused guide to choosing a baby tracker app for feeds, nappies, sleep, wake windows, reports, health visitor conversations and family handovers.
 date: 2026-05-13

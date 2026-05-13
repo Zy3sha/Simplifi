@@ -1,5 +1,5 @@
 ---
-title: Baby Care Handover Template for Grandparents, Nursery and Babysitters
+title: Baby Care Handover Template
 slug: baby-care-handover-template-grandparents-nursery
 description: A practical baby care handover checklist for feeds, naps, nappies, medicine, soothing, bedtime and notes when someone else is caring for baby.
 date: 2026-05-13

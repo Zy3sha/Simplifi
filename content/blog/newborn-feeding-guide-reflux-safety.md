@@ -1,5 +1,5 @@
 ---
-title: "Looking For a Newborn Feeding Guide? 10 Things to Know About Reflux and Safety"
+title: Newborn Feeding: Reflux and Safety
 slug: newborn-feeding-guide-reflux-safety
 description: "A gentle newborn feeding guide for reflux, silent reflux, responsive feeding, paced bottle-feeding, safe sleep, red flags and how OBubba helps parents track feeds, nappies, sleep and symptoms."
 date: 2026-05-01

@@ -1,5 +1,5 @@
 ---
-title: Best Baby Tracker App for New Parents: Why OBubba Is Built Differently
+title: Best Baby Tracker App for New Parents
 slug: best-baby-tracker-app-for-new-parents
 description: A practical guide to choosing the best baby tracker app for breastfeeding, feeds, sleep, naps, preterm baby support, colic and reflux notes, milestones, reports and family handovers.
 date: 2026-04-30

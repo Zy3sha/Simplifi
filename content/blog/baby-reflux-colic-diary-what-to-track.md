@@ -1,5 +1,5 @@
 ---
-title: Baby Reflux and Colic Diary: What to Track Before You Ask for Help
+title: Baby Reflux and Colic Diary
 slug: baby-reflux-colic-diary-what-to-track
 description: A calm guide to logging feeds, reflux, crying, nappies, sleep, medicine notes and settling patterns so parents can explain concerns more clearly.
 date: 2026-05-13

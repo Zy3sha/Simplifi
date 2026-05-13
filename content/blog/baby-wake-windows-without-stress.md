@@ -1,5 +1,5 @@
 ---
-title: Baby Wake Windows Without Stress: Use Them as Clues, Not Rules
+title: Baby Wake Windows Without Stress
 slug: baby-wake-windows-without-stress
 description: A parent-friendly guide to using wake windows with baby cues, naps, feeds, bedtime and safe sleep guidance instead of rigid schedules.
 date: 2026-05-13
