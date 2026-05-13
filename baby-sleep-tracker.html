@@ -8,6 +8,7 @@
   <meta name="robots" content="index, follow, max-image-preview:large"/>
   <link rel="canonical" href="https://obubba.com/baby-sleep-tracker.html"/>
   <link rel="sitemap" type="application/xml" href="/sitemap.xml"/>
+  <link rel="sitemap" type="application/xml" href="/image-sitemap.xml"/>
   <link rel="alternate" type="application/rss+xml" title="OBubba Blog" href="/feed.xml"/>
   <meta property="og:type" content="website"/>
   <meta property="og:url" content="https://obubba.com/baby-sleep-tracker.html"/>
@@ -161,6 +162,16 @@
     font-size: clamp(18px, 2.1vw, 24px);
     line-height: 1.45;
     color: rgba(255, 255, 255, 0.9);
+  }
+  .visual-identity .hero {
+    background-image:
+      linear-gradient(90deg, rgba(20, 15, 28, 0.9), rgba(20, 15, 28, 0.66) 54%, rgba(20, 15, 28, 0.28)),
+      var(--hero-image);
+    background-position: center 64%;
+  }
+  .visual-identity .hero h1 {
+    max-width: 980px;
+    font-size: clamp(42px, 7vw, 78px);
   }
   .hero-actions {
     display: flex;
@@ -335,6 +346,43 @@
     line-height: 1.7;
     margin: 0;
   }
+  .visual-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 30px;
+  }
+  .visual-card {
+    margin: 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+    box-shadow: 0 14px 40px rgba(55, 38, 56, 0.08);
+  }
+  .visual-card img {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    background: #07112a;
+  }
+  .visual-card.featured {
+    grid-column: span 2;
+  }
+  .visual-card.featured img {
+    aspect-ratio: 853 / 1100;
+    object-position: center 66%;
+  }
+  .visual-card figcaption {
+    padding: 16px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .visual-card strong {
+    display: block;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
   .meta {
     color: var(--rose-dark);
     font-size: 13px;
@@ -454,7 +502,9 @@
     .nav-links { flex-wrap: wrap; font-size: 13px; }
     .hero { min-height: 76vh; background-position: center; }
     .grid,
-    .feature-split { grid-template-columns: 1fr; }
+    .feature-split,
+    .visual-grid { grid-template-columns: 1fr; }
+    .visual-card.featured { grid-column: auto; }
     .blog-hero { background-size: 210px auto; background-position: right -28px bottom -24px; }
   }
   @media (max-width: 560px) {
@@ -482,7 +532,15 @@
         "priceCurrency": "GBP"
       },
       "url": "https://obubba.com",
-      "image": "https://obubba.com/obubba-happy.png",
+      "image": [
+        "https://obubba.com/icon.png",
+        "https://obubba.com/obubba-happy.png",
+        "https://obubba.com/obubba-thinking.png",
+        "https://obubba.com/obubba-celebration.png",
+        "https://obubba.com/obubba-loading.png",
+        "https://obubba.com/og-image.png",
+        "https://obubba.com/obubba-download-landing.png"
+      ],
       "downloadUrl": [
         "https://apps.apple.com/gb/app/obubba/id6760968757",
         "https://play.google.com/store/apps/details?id=com.obubba.app"
@@ -658,12 +716,14 @@
     <div class="footer-inner">
       <div>OBubba - baby tracking, parenting rhythm and calmer handovers.</div>
       <div>
-        <a href="/privacy.html">Privacy</a>
-        <span aria-hidden="true"> / </span>
-        <a href="/terms.html">Terms</a>
-        <span aria-hidden="true"> / </span>
-        <a href="/feed.xml">RSS</a>
-      </div>
+	        <a href="/privacy.html">Privacy</a>
+	        <span aria-hidden="true"> / </span>
+	        <a href="/terms.html">Terms</a>
+	        <span aria-hidden="true"> / </span>
+	        <a href="/obubba-visual-identity.html">Brand images</a>
+	        <span aria-hidden="true"> / </span>
+	        <a href="/feed.xml">RSS</a>
+	      </div>
     </div>
   </footer>
 </body>

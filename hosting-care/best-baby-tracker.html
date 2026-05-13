@@ -8,6 +8,7 @@
   <meta name="robots" content="index, follow, max-image-preview:large"/>
   <link rel="canonical" href="https://obubba.com/best-baby-tracker.html"/>
   <link rel="sitemap" type="application/xml" href="/sitemap.xml"/>
+  <link rel="sitemap" type="application/xml" href="/image-sitemap.xml"/>
   <link rel="alternate" type="application/rss+xml" title="OBubba Blog" href="/feed.xml"/>
   <meta property="og:type" content="website"/>
   <meta property="og:url" content="https://obubba.com/best-baby-tracker.html"/>
@@ -161,6 +162,16 @@
     font-size: clamp(18px, 2.1vw, 24px);
     line-height: 1.45;
     color: rgba(255, 255, 255, 0.9);
+  }
+  .visual-identity .hero {
+    background-image:
+      linear-gradient(90deg, rgba(20, 15, 28, 0.9), rgba(20, 15, 28, 0.66) 54%, rgba(20, 15, 28, 0.28)),
+      var(--hero-image);
+    background-position: center 64%;
+  }
+  .visual-identity .hero h1 {
+    max-width: 980px;
+    font-size: clamp(42px, 7vw, 78px);
   }
   .hero-actions {
     display: flex;
@@ -335,6 +346,43 @@
     line-height: 1.7;
     margin: 0;
   }
+  .visual-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 30px;
+  }
+  .visual-card {
+    margin: 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+    box-shadow: 0 14px 40px rgba(55, 38, 56, 0.08);
+  }
+  .visual-card img {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    background: #07112a;
+  }
+  .visual-card.featured {
+    grid-column: span 2;
+  }
+  .visual-card.featured img {
+    aspect-ratio: 853 / 1100;
+    object-position: center 66%;
+  }
+  .visual-card figcaption {
+    padding: 16px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .visual-card strong {
+    display: block;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
   .meta {
     color: var(--rose-dark);
     font-size: 13px;
@@ -454,7 +502,9 @@
     .nav-links { flex-wrap: wrap; font-size: 13px; }
     .hero { min-height: 76vh; background-position: center; }
     .grid,
-    .feature-split { grid-template-columns: 1fr; }
+    .feature-split,
+    .visual-grid { grid-template-columns: 1fr; }
+    .visual-card.featured { grid-column: auto; }
     .blog-hero { background-size: 210px auto; background-position: right -28px bottom -24px; }
   }
   @media (max-width: 560px) {
@@ -475,6 +525,29 @@
       "name": "OBubba",
       "url": "https://obubba.com",
       "logo": "https://obubba.com/icon.png",
+      "image": [
+        {
+          "@id": "https://obubba.com/icon.png#image"
+        },
+        {
+          "@id": "https://obubba.com/obubba-happy.png#image"
+        },
+        {
+          "@id": "https://obubba.com/obubba-thinking.png#image"
+        },
+        {
+          "@id": "https://obubba.com/obubba-celebration.png#image"
+        },
+        {
+          "@id": "https://obubba.com/obubba-loading.png#image"
+        },
+        {
+          "@id": "https://obubba.com/og-image.png#image"
+        },
+        {
+          "@id": "https://obubba.com/obubba-download-landing.png#image"
+        }
+      ],
       "contactPoint": {
         "@type": "ContactPoint",
         "email": "hello@obubba.com",
@@ -516,7 +589,29 @@
         "priceCurrency": "GBP"
       },
       "url": "https://obubba.com",
-      "image": "https://obubba.com/obubba-happy.png",
+      "image": [
+        {
+          "@id": "https://obubba.com/icon.png#image"
+        },
+        {
+          "@id": "https://obubba.com/obubba-happy.png#image"
+        },
+        {
+          "@id": "https://obubba.com/obubba-thinking.png#image"
+        },
+        {
+          "@id": "https://obubba.com/obubba-celebration.png#image"
+        },
+        {
+          "@id": "https://obubba.com/obubba-loading.png#image"
+        },
+        {
+          "@id": "https://obubba.com/og-image.png#image"
+        },
+        {
+          "@id": "https://obubba.com/obubba-download-landing.png#image"
+        }
+      ],
       "downloadUrl": [
         "https://apps.apple.com/gb/app/obubba/id6760968757",
         "https://play.google.com/store/apps/details?id=com.obubba.app"
@@ -535,6 +630,209 @@
       "publisher": {
         "@id": "https://obubba.com/#organization"
       }
+    },
+    {
+      "@type": "ImageObject",
+      "@id": "https://obubba.com/icon.png#image",
+      "name": "OBubba app icon",
+      "headline": "OBubba app icon and logo",
+      "caption": "The official OBubba app icon and logo for the baby tracker app.",
+      "description": "The official OBubba app icon and logo for the baby tracker app.",
+      "keywords": "OBubba, OBubba app icon, OBubba logo, baby tracker app icon, crowned baby mascot",
+      "contentUrl": "https://obubba.com/icon.png",
+      "url": "https://obubba.com/icon.png",
+      "thumbnailUrl": "https://obubba.com/icon.png",
+      "width": 1024,
+      "height": 1024,
+      "representativeOfPage": true,
+      "creator": {
+        "@id": "https://obubba.com/#organization"
+      },
+      "copyrightHolder": {
+        "@id": "https://obubba.com/#organization"
+      },
+      "about": [
+        {
+          "@id": "https://obubba.com/#app"
+        },
+        {
+          "@id": "https://obubba.com/#organization"
+        }
+      ]
+    },
+    {
+      "@type": "ImageObject",
+      "@id": "https://obubba.com/obubba-happy.png#image",
+      "name": "OBubba happy baby mascot",
+      "headline": "OBubba happy baby mascot",
+      "caption": "The official OBubba baby mascot used for the OBubba baby tracker app.",
+      "description": "The official OBubba baby mascot used for the OBubba baby tracker app.",
+      "keywords": "OBubba, OBubba mascot, happy baby mascot, crowned baby mascot, baby tracker app",
+      "contentUrl": "https://obubba.com/obubba-happy.png",
+      "url": "https://obubba.com/obubba-happy.png",
+      "thumbnailUrl": "https://obubba.com/obubba-happy.png",
+      "width": 1024,
+      "height": 1024,
+      "representativeOfPage": true,
+      "creator": {
+        "@id": "https://obubba.com/#organization"
+      },
+      "copyrightHolder": {
+        "@id": "https://obubba.com/#organization"
+      },
+      "about": [
+        {
+          "@id": "https://obubba.com/#app"
+        },
+        {
+          "@id": "https://obubba.com/#organization"
+        }
+      ]
+    },
+    {
+      "@type": "ImageObject",
+      "@id": "https://obubba.com/obubba-thinking.png#image",
+      "name": "OBubba thinking baby mascot",
+      "headline": "OBubba thinking baby mascot",
+      "caption": "The OBubba thinking baby mascot for guidance and parenting rhythm insights.",
+      "description": "The OBubba thinking baby mascot for guidance and parenting rhythm insights.",
+      "keywords": "OBubba, OBubba mascot, thinking baby mascot, parenting guidance, baby rhythm insights",
+      "contentUrl": "https://obubba.com/obubba-thinking.png",
+      "url": "https://obubba.com/obubba-thinking.png",
+      "thumbnailUrl": "https://obubba.com/obubba-thinking.png",
+      "width": 1024,
+      "height": 1536,
+      "representativeOfPage": true,
+      "creator": {
+        "@id": "https://obubba.com/#organization"
+      },
+      "copyrightHolder": {
+        "@id": "https://obubba.com/#organization"
+      },
+      "about": [
+        {
+          "@id": "https://obubba.com/#app"
+        },
+        {
+          "@id": "https://obubba.com/#organization"
+        }
+      ]
+    },
+    {
+      "@type": "ImageObject",
+      "@id": "https://obubba.com/obubba-celebration.png#image",
+      "name": "OBubba celebration baby mascot",
+      "headline": "OBubba celebration baby mascot",
+      "caption": "The OBubba celebration baby mascot for milestones, wins and baby care moments.",
+      "description": "The OBubba celebration baby mascot for milestones, wins and baby care moments.",
+      "keywords": "OBubba, OBubba mascot, celebration baby mascot, baby milestones, baby care moments",
+      "contentUrl": "https://obubba.com/obubba-celebration.png",
+      "url": "https://obubba.com/obubba-celebration.png",
+      "thumbnailUrl": "https://obubba.com/obubba-celebration.png",
+      "width": 1024,
+      "height": 1536,
+      "representativeOfPage": true,
+      "creator": {
+        "@id": "https://obubba.com/#organization"
+      },
+      "copyrightHolder": {
+        "@id": "https://obubba.com/#organization"
+      },
+      "about": [
+        {
+          "@id": "https://obubba.com/#app"
+        },
+        {
+          "@id": "https://obubba.com/#organization"
+        }
+      ]
+    },
+    {
+      "@type": "ImageObject",
+      "@id": "https://obubba.com/obubba-loading.png#image",
+      "name": "OBubba sleepy baby mascot",
+      "headline": "OBubba sleepy baby mascot",
+      "caption": "The OBubba sleepy baby mascot used for calm sleep, nap and routine guidance.",
+      "description": "The OBubba sleepy baby mascot used for calm sleep, nap and routine guidance.",
+      "keywords": "OBubba, OBubba mascot, sleepy baby mascot, baby sleep tracker, baby nap tracker",
+      "contentUrl": "https://obubba.com/obubba-loading.png",
+      "url": "https://obubba.com/obubba-loading.png",
+      "thumbnailUrl": "https://obubba.com/obubba-loading.png",
+      "width": 1024,
+      "height": 1536,
+      "representativeOfPage": true,
+      "creator": {
+        "@id": "https://obubba.com/#organization"
+      },
+      "copyrightHolder": {
+        "@id": "https://obubba.com/#organization"
+      },
+      "about": [
+        {
+          "@id": "https://obubba.com/#app"
+        },
+        {
+          "@id": "https://obubba.com/#organization"
+        }
+      ]
+    },
+    {
+      "@type": "ImageObject",
+      "@id": "https://obubba.com/og-image.png#image",
+      "name": "OBubba social preview image",
+      "headline": "OBubba social preview image",
+      "caption": "The official OBubba social preview image for the baby tracker app.",
+      "description": "The official OBubba social preview image for the baby tracker app.",
+      "keywords": "OBubba, OBubba social preview, baby tracker app, parenting app",
+      "contentUrl": "https://obubba.com/og-image.png",
+      "url": "https://obubba.com/og-image.png",
+      "thumbnailUrl": "https://obubba.com/og-image.png",
+      "width": 1200,
+      "height": 630,
+      "representativeOfPage": true,
+      "creator": {
+        "@id": "https://obubba.com/#organization"
+      },
+      "copyrightHolder": {
+        "@id": "https://obubba.com/#organization"
+      },
+      "about": [
+        {
+          "@id": "https://obubba.com/#app"
+        },
+        {
+          "@id": "https://obubba.com/#organization"
+        }
+      ]
+    },
+    {
+      "@type": "ImageObject",
+      "@id": "https://obubba.com/obubba-download-landing.png#image",
+      "name": "OBubba baby rhythm clock with fireflies",
+      "headline": "OBubba baby rhythm clock and golden fireflies",
+      "caption": "Official OBubba baby rhythm clock artwork with a glowing circular clock, moon, sun, coloured arcs, golden fireflies, dark nursery background, crib, rabbit lamp and teddy bear.",
+      "description": "Official OBubba baby rhythm clock artwork with a glowing circular clock, moon, sun, coloured arcs, golden fireflies, dark nursery background, crib, rabbit lamp and teddy bear.",
+      "keywords": "OBubba, OBubba clock, OBubba fireflies, baby rhythm clock, glowing baby clock, baby sleep tracker, baby routine tracker, night nursery artwork",
+      "contentUrl": "https://obubba.com/obubba-download-landing.png",
+      "url": "https://obubba.com/obubba-download-landing.png",
+      "thumbnailUrl": "https://obubba.com/obubba-download-landing.png",
+      "width": 853,
+      "height": 1844,
+      "representativeOfPage": true,
+      "creator": {
+        "@id": "https://obubba.com/#organization"
+      },
+      "copyrightHolder": {
+        "@id": "https://obubba.com/#organization"
+      },
+      "about": [
+        {
+          "@id": "https://obubba.com/#app"
+        },
+        {
+          "@id": "https://obubba.com/#organization"
+        }
+      ]
     },
     {
       "@type": "WebPage",
@@ -802,12 +1100,14 @@
     <div class="footer-inner">
       <div>OBubba - baby tracking, parenting rhythm and calmer handovers.</div>
       <div>
-        <a href="/privacy.html">Privacy</a>
-        <span aria-hidden="true"> / </span>
-        <a href="/terms.html">Terms</a>
-        <span aria-hidden="true"> / </span>
-        <a href="/feed.xml">RSS</a>
-      </div>
+	        <a href="/privacy.html">Privacy</a>
+	        <span aria-hidden="true"> / </span>
+	        <a href="/terms.html">Terms</a>
+	        <span aria-hidden="true"> / </span>
+	        <a href="/obubba-visual-identity.html">Brand images</a>
+	        <span aria-hidden="true"> / </span>
+	        <a href="/feed.xml">RSS</a>
+	      </div>
     </div>
   </footer>
 </body>

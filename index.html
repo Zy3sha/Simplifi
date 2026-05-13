@@ -22,6 +22,7 @@
   <meta name="robots" content="index, follow, max-image-preview:large"/>
   <meta name="theme-color" content="#061227"/>
   <link rel="sitemap" type="application/xml" href="/sitemap.xml"/>
+  <link rel="sitemap" type="application/xml" href="/image-sitemap.xml"/>
   <link rel="alternate" type="application/rss+xml" title="OBubba Blog" href="/feed.xml"/>
   <link rel="icon" type="image/png" href="/icon.png"/>
   <link rel="apple-touch-icon" sizes="180x180" href="/icon.png"/>
@@ -36,6 +37,11 @@
         "name": "OBubba",
         "url": "https://obubba.com",
         "logo": "https://obubba.com/icon.png",
+        "image": [
+          "https://obubba.com/icon.png",
+          "https://obubba.com/obubba-happy.png",
+          "https://obubba.com/obubba-download-landing.png"
+        ],
         "contactPoint": {
           "@type": "ContactPoint",
           "email": "hello@obubba.com",
@@ -63,7 +69,10 @@
         "description": "OBubba is the baby tracker and parenting app for feeds, breastfeeding, sleep, naps, nappies, weaning, growth, milestones, preterm baby support, colic and reflux notes, memory book moments, and calmer family handovers.",
         "offers": { "@type": "Offer", "price": "0", "priceCurrency": "GBP" },
         "url": "https://obubba.com",
-        "image": "https://obubba.com/obubba-happy.png",
+        "image": [
+          "https://obubba.com/obubba-happy.png",
+          "https://obubba.com/obubba-download-landing.png"
+        ],
         "downloadUrl": [
           "https://apps.apple.com/gb/app/obubba/id6760968757",
           "https://play.google.com/store/apps/details?id=com.obubba.app"
@@ -79,6 +88,16 @@
         ],
         "contentRating": "4+",
         "publisher": { "@id": "https://obubba.com/#organization" }
+      },
+      {
+        "@type": "ImageObject",
+        "@id": "https://obubba.com/obubba-download-landing.png#image",
+        "name": "OBubba baby rhythm clock with fireflies",
+        "caption": "Official OBubba baby rhythm clock artwork with a glowing circular clock, moon, sun, coloured arcs, golden fireflies, dark nursery background, crib, rabbit lamp and teddy bear.",
+        "contentUrl": "https://obubba.com/obubba-download-landing.png",
+        "width": 853,
+        "height": 1844,
+        "about": { "@id": "https://obubba.com/#app" }
       }
     ]
   }
@@ -132,7 +151,7 @@
 <body>
   <main class="page">
     <div class="poster-shell">
-      <img class="poster" src="/obubba-download-landing.png" alt="OBubba baby rhythm tracker preview with glowing clock and fireflies"/>
+      <img class="poster" src="/obubba-download-landing.png" alt="OBubba baby rhythm clock with golden fireflies, moon, sun, nursery crib, rabbit lamp and teddy bear"/>
       <span class="float-firefly ff1" aria-hidden="true"></span><span class="float-firefly ff2" aria-hidden="true"></span><span class="float-firefly ff3" aria-hidden="true"></span><span class="float-firefly ff4" aria-hidden="true"></span><span class="float-firefly ff5" aria-hidden="true"></span><span class="float-firefly ff6" aria-hidden="true"></span>
       <a class="download-now" id="download-now" href="https://apps.apple.com/gb/app/obubba/id6760968757" aria-label="Download OBubba now">
         <svg class="sparkle" viewBox="0 0 32 32" aria-hidden="true"><path fill="#ffe9a8" d="m16 2 2.9 8.7 9.1 1.2-6.8 5.7 1.9 9-7.1-4.8-7.1 4.8 1.9-9L4 11.9l9.1-1.2L16 2Z"/><path fill="#fff8df" d="M25 3.5 26 7l3.5 1-3.5 1-1 3.5L24 9l-3.5-1L24 7l1-3.5Z"/></svg>
@@ -198,7 +217,7 @@
   <footer class="site-footer">
     <div class="footer-inner">
       <div>OBubba - baby tracking, parenting rhythm and calmer handovers.</div>
-      <div><a href="/privacy.html">Privacy</a> / <a href="/terms.html">Terms</a> / <a href="/sitemap.xml">Sitemap</a> / <a href="/llms.txt">AI facts</a></div>
+      <div><a href="/privacy.html">Privacy</a> / <a href="/terms.html">Terms</a> / <a href="/obubba-visual-identity.html">Brand images</a> / <a href="/sitemap.xml">Sitemap</a> / <a href="/llms.txt">AI facts</a></div>
     </div>
   </footer>
   <script>(function(){var smart=document.getElementById("download-now");if(!smart)return;var ua=navigator.userAgent||"";if(/android/i.test(ua))smart.href="https://play.google.com/store/apps/details?id=com.obubba.app";else smart.href="https://apps.apple.com/gb/app/obubba/id6760968757";})();</script>

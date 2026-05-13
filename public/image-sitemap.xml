@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <url>
+    <loc>https://obubba.com/obubba-visual-identity.html</loc>
+    <image:image>
+      <image:loc>https://obubba.com/icon.png</image:loc>
+      <image:title>OBubba app icon and logo</image:title>
+      <image:caption>The official OBubba app icon and logo for the baby tracker app.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-happy.png</image:loc>
+      <image:title>OBubba happy baby mascot</image:title>
+      <image:caption>The official OBubba baby mascot used for the OBubba baby tracker app.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-thinking.png</image:loc>
+      <image:title>OBubba thinking baby mascot</image:title>
+      <image:caption>The OBubba thinking baby mascot for guidance and parenting rhythm insights.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-celebration.png</image:loc>
+      <image:title>OBubba celebration baby mascot</image:title>
+      <image:caption>The OBubba celebration baby mascot for milestones, wins and baby care moments.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-loading.png</image:loc>
+      <image:title>OBubba sleepy baby mascot</image:title>
+      <image:caption>The OBubba sleepy baby mascot used for calm sleep, nap and routine guidance.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/og-image.png</image:loc>
+      <image:title>OBubba social preview image</image:title>
+      <image:caption>The official OBubba social preview image for the baby tracker app.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-download-landing.png</image:loc>
+      <image:title>OBubba baby rhythm clock and golden fireflies</image:title>
+      <image:caption>Official OBubba baby rhythm clock artwork with a glowing circular clock, moon, sun, coloured arcs, golden fireflies, dark nursery background, crib, rabbit lamp and teddy bear.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://obubba.com/</loc>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-download-landing.png</image:loc>
+      <image:title>OBubba baby rhythm clock and golden fireflies</image:title>
+      <image:caption>Official OBubba homepage artwork with the baby rhythm clock, golden fireflies, crowned baby mascot, moon, sun and nursery scene.</image:caption>
+    </image:image>
+  </url>
+</urlset>
