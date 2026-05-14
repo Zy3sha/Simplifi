@@ -216,6 +216,145 @@ function accountBackupMatches(data, backupCode) {
   );
 }
 
+const PROVIDER_JWKS = {
+  apple: {
+    issuer: "https://appleid.apple.com",
+    keysUrl: "https://appleid.apple.com/auth/keys",
+    defaultAudiences: ["com.obubba.app"],
+    env: "OBUBBA_APPLE_CLIENT_IDS",
+  },
+  google: {
+    issuer: ["accounts.google.com", "https://accounts.google.com"],
+    keysUrl: "https://www.googleapis.com/oauth2/v3/certs",
+    defaultAudiences: [],
+    env: "OBUBBA_GOOGLE_CLIENT_IDS",
+  },
+};
+
+const jwksCache = new Map();
+
+function providerName(value) {
+  const provider = String(value || "").trim().toLowerCase();
+  return provider === "apple" || provider === "google" ? provider : "";
+}
+
+function sha256Hex(value) {
+  return crypto.createHash("sha256").update(String(value || "")).digest("hex");
+}
+
+function jwtPartJson(part) {
+  try {
+    return JSON.parse(Buffer.from(String(part || ""), "base64url").toString("utf8"));
+  } catch {
+    throw new HttpsError("invalid-argument", "Invalid sign-in token");
+  }
+}
+
+function jwtSignatureBuffer(part) {
+  try {
+    return Buffer.from(String(part || ""), "base64url");
+  } catch {
+    throw new HttpsError("invalid-argument", "Invalid sign-in token");
+  }
+}
+
+function providerAudiences(config) {
+  const configured = String(process.env[config.env] || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  return [...new Set([...(config.defaultAudiences || []), ...configured])];
+}
+
+function claimString(value, max = 512) {
+  return typeof value === "string" ? value.slice(0, max) : "";
+}
+
+function tokenBoolean(value) {
+  return value === true || value === "true" || value === 1 || value === "1";
+}
+
+function audienceMatches(aud, allowedAudiences) {
+  const values = Array.isArray(aud) ? aud : [aud];
+  return values.some((value) => allowedAudiences.includes(String(value || "")));
+}
+
+async function fetchProviderKeys(provider, config) {
+  const cached = jwksCache.get(provider);
+  if (cached && cached.expiresAt > Date.now() && Array.isArray(cached.keys)) return cached.keys;
+  const response = await fetch(config.keysUrl, { method: "GET" });
+  if (!response || !response.ok) throw new HttpsError("unavailable", "Could not verify provider sign-in");
+  const body = await response.json();
+  const keys = body && Array.isArray(body.keys) ? body.keys : [];
+  if (!keys.length) throw new HttpsError("unavailable", "Could not verify provider sign-in");
+  const cacheControl = String(response.headers && response.headers.get ? response.headers.get("cache-control") || "" : "");
+  const maxAgeMatch = cacheControl.match(/max-age=(\d+)/i);
+  const maxAgeMs = maxAgeMatch ? Math.max(300, Math.min(Number(maxAgeMatch[1]) || 3600, 21600)) * 1000 : 60 * 60 * 1000;
+  jwksCache.set(provider, { keys, expiresAt: Date.now() + maxAgeMs });
+  return keys;
+}
+
+async function verifyProviderIdentityToken(provider, idToken, expectedSubject) {
+  const config = PROVIDER_JWKS[provider];
+  if (!config) throw new HttpsError("invalid-argument", "Unsupported sign-in provider");
+  const token = String(idToken || "").trim();
+  if (!token || token.length > 12000) throw new HttpsError("invalid-argument", "Missing sign-in token");
+  const parts = token.split(".");
+  if (parts.length !== 3) throw new HttpsError("invalid-argument", "Invalid sign-in token");
+  const header = jwtPartJson(parts[0]);
+  const payload = jwtPartJson(parts[1]);
+  if (header.alg !== "RS256" || !header.kid) throw new HttpsError("invalid-argument", "Unsupported sign-in token");
+  const keys = await fetchProviderKeys(provider, config);
+  const jwk = keys.find((key) => key && key.kid === header.kid && (!key.alg || key.alg === "RS256"));
+  if (!jwk) throw new HttpsError("invalid-argument", "Could not verify sign-in token");
+  const publicKey = crypto.createPublicKey({ key: jwk, format: "jwk" });
+  const verified = crypto.verify(
+    "RSA-SHA256",
+    Buffer.from(`${parts[0]}.${parts[1]}`),
+    publicKey,
+    jwtSignatureBuffer(parts[2])
+  );
+  if (!verified) throw new HttpsError("invalid-argument", "Could not verify sign-in token");
+
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const allowedIssuers = Array.isArray(config.issuer) ? config.issuer : [config.issuer];
+  if (!allowedIssuers.includes(String(payload.iss || ""))) {
+    throw new HttpsError("invalid-argument", "Invalid sign-in issuer");
+  }
+  const allowedAudiences = providerAudiences(config);
+  if (!allowedAudiences.length) {
+    throw new HttpsError("failed-precondition", `${provider} sign-in is not configured`);
+  }
+  if (!audienceMatches(payload.aud, allowedAudiences)) {
+    throw new HttpsError("invalid-argument", "Invalid sign-in audience");
+  }
+  if (!payload.exp || Number(payload.exp) <= nowSeconds) {
+    throw new HttpsError("invalid-argument", "Sign-in token expired");
+  }
+  if (payload.iat && Number(payload.iat) > nowSeconds + 300) {
+    throw new HttpsError("invalid-argument", "Invalid sign-in token time");
+  }
+  const subject = claimString(payload.sub, 256);
+  if (!subject) throw new HttpsError("invalid-argument", "Invalid provider account");
+  if (expectedSubject && String(expectedSubject) !== subject) {
+    throw new HttpsError("invalid-argument", "Provider account did not match token");
+  }
+  const email = claimString(payload.email, 320).toLowerCase();
+  return {
+    provider,
+    issuer: String(payload.iss || ""),
+    audience: Array.isArray(payload.aud) ? payload.aud.map((value) => String(value || "")).filter(Boolean).slice(0, 6) : String(payload.aud || ""),
+    subject,
+    subjectHash: sha256Hex(`${payload.iss}|${subject}`),
+    emailHash: email && tokenBoolean(payload.email_verified) ? sha256Hex(email) : "",
+    emailVerified: tokenBoolean(payload.email_verified),
+  };
+}
+
+function providerDocId(identity) {
+  return `${identity.provider}_${identity.subjectHash}`;
+}
+
 exports.usernameStatus = onCall(async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required");
   const username = normaliseUsername(request.data && request.data.username);
@@ -257,6 +396,128 @@ exports.accountLogin = onCall(async (request) => {
   }
   await ref.set(patch, { merge: true });
   return { ok: true, account: publicAccountPayload(username, data) };
+});
+
+exports.providerAccountSignIn = onCall(async (request) => {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required");
+  const uid = request.auth.uid;
+  const raw = request.data || {};
+  const provider = providerName(raw.provider);
+  if (!provider) throw new HttpsError("invalid-argument", "Unsupported sign-in provider");
+
+  const identity = await verifyProviderIdentityToken(
+    provider,
+    raw.idToken || raw.identityToken,
+    claimString(raw.providerUser, 256)
+  );
+  const id = providerDocId(identity);
+  const requestedUsername = normaliseUsername(raw.username);
+  const backupCode = String(raw.backupCode || "").trim().toUpperCase();
+  const displayName = String(raw.displayName || "").trim().slice(0, 80);
+  const now = new Date();
+  const providerRef = db.collection("account_providers").doc(id);
+
+  const result = await db.runTransaction(async (tx) => {
+    const providerSnap = await tx.get(providerRef);
+    if (providerSnap.exists) {
+      const providerData = providerSnap.data() || {};
+      const linkedUsername = normaliseUsername(providerData.username);
+      if (!usernameId(linkedUsername) || providerData.deleted) {
+        return {
+          ok: false,
+          needsLink: true,
+          error: "This provider sign-in needs to be linked again. Sign in with your OBubba username and PIN once.",
+        };
+      }
+      const usernameRef = db.collection("usernames").doc(linkedUsername);
+      const usernameSnap = await tx.get(usernameRef);
+      const accountData = usernameSnap.exists ? usernameSnap.data() || {} : {};
+      if (!usernameSnap.exists || accountData.deleted) {
+        return {
+          ok: false,
+          needsLink: true,
+          error: "This provider sign-in is linked to a missing OBubba account. Sign in with username and PIN to repair it.",
+        };
+      }
+      tx.set(usernameRef, {
+        uid,
+        authorizedUids: { [uid]: true },
+        lastProviderSignInAt: now,
+        updatedAt: now,
+      }, { merge: true });
+      tx.set(providerRef, {
+        uid,
+        authorizedUids: { [uid]: true },
+        lastSignInAt: now,
+        emailHash: identity.emailHash || providerData.emailHash || "",
+        emailVerified: identity.emailVerified,
+        audience: identity.audience,
+      }, { merge: true });
+      return {
+        ok: true,
+        mode: "signin",
+        provider,
+        username: linkedUsername,
+        account: publicAccountPayload(linkedUsername, accountData),
+      };
+    }
+
+    if (!usernameId(requestedUsername)) {
+      return {
+        ok: false,
+        needsLink: true,
+        error: `Sign in with your OBubba username and PIN once, then ${provider === "apple" ? "Apple" : "Google"} can be linked.`,
+      };
+    }
+
+    const usernameRef = db.collection("usernames").doc(requestedUsername);
+    const usernameSnap = await tx.get(usernameRef);
+    const accountData = usernameSnap.exists ? usernameSnap.data() || {} : {};
+    if (!usernameSnap.exists || accountData.deleted) {
+      return { ok: false, needsLink: true, error: "Username not found. Sign in with username and PIN first." };
+    }
+    if (!userOwnsAccountData(accountData, uid) && !accountBackupMatches(accountData, backupCode)) {
+      return {
+        ok: false,
+        needsLink: true,
+        error: "Sign in with your OBubba username and PIN once on this device before linking provider sign-in.",
+      };
+    }
+
+    tx.set(providerRef, {
+      provider,
+      providerSubjectHash: identity.subjectHash,
+      issuer: identity.issuer,
+      audience: identity.audience,
+      username: requestedUsername,
+      uid,
+      authorizedUids: { [uid]: true },
+      emailHash: identity.emailHash || "",
+      emailVerified: identity.emailVerified,
+      displayName,
+      createdAt: now,
+      linkedAt: now,
+      lastSignInAt: now,
+      deleted: false,
+    });
+    tx.set(usernameRef, {
+      uid,
+      authorizedUids: { [uid]: true },
+      providerIds: { [id]: true },
+      linkedProviders: { [provider]: true },
+      lastProviderSignInAt: now,
+      updatedAt: now,
+    }, { merge: true });
+    return {
+      ok: true,
+      mode: "linked",
+      provider,
+      username: requestedUsername,
+      account: publicAccountPayload(requestedUsername, accountData),
+    };
+  });
+
+  return result;
 });
 
 exports.resetAccountPin = onCall(async (request) => {

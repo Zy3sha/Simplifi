@@ -6900,6 +6900,8 @@ const OB_MASCOT_SRC = Object.freeze({
   sleeping:"sleep-baby.png",
   thinking:"obubba-thinking.png"
 });
+const OB_MASCOT_GUIDE_HIDE_KEY = "ob_mascot_guide_hidden_day_v1";
+const OB_MASCOT_GUIDE_SEEN_KEY = "ob_mascot_guide_seen_v1";
 
 function OBubbaMascot({type="happy",size=120,alt="OBubba mascot",className="",style={}}){
   const src = OB_MASCOT_SRC[type] || OB_MASCOT_SRC.happy;
@@ -13221,6 +13223,35 @@ function App(){
   const[authPin2,setAuthPin2]=useState("");
   const[authError,setAuthError]=useState("");
   const[authLoading,setAuthLoading]=useState(false);
+  const welcomeAction = (() => {
+    const raw = String(quickAction || "").trim().toLowerCase().replace(/[-\s]+/g, "_").slice(0, 40);
+    if (raw === "start" || raw === "start_tracking") return "start_tracking";
+    if (raw === "signin" || raw === "sign_in" || raw === "login") return "sign_in";
+    if (raw === "import" || raw === "import_data" || raw === "import_history") return "import_data";
+    return "";
+  })();
+  const welcomeActionHandledRef=useRef(false);
+  useEffect(()=>{
+    if (welcomeActionHandledRef.current || !welcomeAction) return;
+    welcomeActionHandledRef.current = true;
+    if (welcomeAction === "sign_in") {
+      setAuthMode("login"); setAuthScreen("login"); setAuthError(""); setAuthPin("");
+      return;
+    }
+    if (welcomeAction === "import_data") {
+      try {
+        localStorage.setItem("ob_welcome_import_after_onboarding_v1","1");
+        localStorage.removeItem("ob_account_prompt_dismissed");
+      } catch {}
+      if (onboarded) {
+        setTimeout(()=>setShowImportAfterSetup(true),120);
+      } else {
+        setObStep(1);
+      }
+      return;
+    }
+    if (welcomeAction === "start_tracking" && !onboarded) setObStep(1);
+  },[welcomeAction,onboarded]);
   const[agreedToTerms,setAgreedToTerms]=useState(false);
   const authUsernameCheckRef = React.useRef(null);
   var _sfp=useState(false),showForgotPin=_sfp[0],setShowForgotPin=_sfp[1];
@@ -30947,6 +30978,91 @@ function App(){
     return { done: ()=>{ clearTimeout(loadingGuardRef.current); setMascotPopup(p => p && p.type==="loading" ? null : p); } };
   }
   const[viewPhoto,setViewPhoto]=useState(null);
+  const[mascotGuideOpen,setMascotGuideOpen]=useState(()=>{
+    try{
+      const today = todayStr();
+      return localStorage.getItem(OB_MASCOT_GUIDE_SEEN_KEY)!=="1" && localStorage.getItem(OB_MASCOT_GUIDE_HIDE_KEY)!==today;
+    }catch{return true;}
+  });
+  const[mascotGuideHiddenDay,setMascotGuideHiddenDay]=useState(()=>{try{return localStorage.getItem(OB_MASCOT_GUIDE_HIDE_KEY)||"";}catch{return "";}});
+  const mascotGuide = React.useMemo(()=>{
+    const _today = todayStr();
+    const _isToday = selDay === _today;
+    const _name = babyName || "your baby";
+    const _entries = ((days && days[selDay]) || []).filter(Boolean);
+    const _last = _entries.filter(e => e && !isActiveNapStub(e)).slice(-1)[0] || null;
+    const _hasSharedChild = !!familyUsername || !!backupCode || Object.keys(childSyncCodes || {}).some(k => !!childSyncCodes[k]);
+    const _tourPending = showTutPrompt || (()=>{try{return !!((localStorage.getItem("ob_app_tour_pending_v1") || localStorage.getItem("ob_tutorial_deferred_simple_start_v1")) && !localStorage.getItem("tut_v2"));}catch{return false;}})();
+    if(_tourPending) {
+      return {kind:"tour-ready",type:"happy",kicker:"OBubba guide",title:"Want the one calm tour?",body:"I'll show the app in four short steps, then get out of the way. No second intro screen.",short:"Tour"};
+    }
+    if(syncStatus === "error") {
+      return {kind:"sync-error",type:"thinking",kicker:"Cloud",title:"Sync needs a little nudge",body:"I couldn't finish sending the shared log. Your entries stay on this phone while OBubba tries again.",short:"Sync"};
+    }
+    if(syncStatus === "syncing") {
+      return {kind:"syncing",type:"loading",kicker:"Cloud",title:"Syncing the family log",body:"I'm matching this phone with the shared child record. Partner phones may take a few seconds to settle, but the entry is safe.",short:"Syncing"};
+    }
+    if(_hasSharedChild && syncStatus === "synced") {
+      return {kind:"synced",type:"happy",kicker:"Cloud",title:"Shared log is settled",body:"This phone and your partner's account are lined up. New logs will appear as each device catches up.",short:"Synced"};
+    }
+    if(napOn || _entries.some(isActiveNapStub)) {
+      return {kind:"nap-open",type:"sleeping",kicker:"Right now",title:"Nap is open",body:"I'll wait until the nap ends before moving wake windows, feed nudges and bedtime. Nothing needs judging mid-nap.",short:"Nap"};
+    }
+    if(bedTimerDay) {
+      return {kind:"night-open",type:"sleeping",kicker:"Right now",title:"Night is open",body:"Wakes and feeds will stay with this sleep until morning wake closes the night. I'll keep the night story together.",short:"Night"};
+    }
+    const _rightNow = (()=>{try{return expandedRightNow();}catch{return null;}})();
+    if(_rightNow && _rightNow.text) {
+      return {kind:"right-now",type:_rightNow.priority==="high"?"thinking":"happy",kicker:"Right now",title:"One gentle next step",body:_rightNow.text + ". I'll keep it simple from here.",short:"Now"};
+    }
+    if(_isToday && _entries.length === 0) {
+      return {kind:"empty-day",type:"happy",kicker:"Today",title:"Quiet start is okay",body:"Nothing logged yet today. One honest log is enough for OBubba to shape the next gentle step.",short:"Start"};
+    }
+    if(_last && _isToday) {
+      if(_last.type === "feed") return {kind:"feed-saved",type:"celebration",kicker:"Saved",title:"Feed is in",body:"I'll use it with naps and wake time to shape the next nudge, not judge the day.",short:"Saved"};
+      if(_last.type === "nap") return {kind:"nap-saved",type:"celebration",kicker:"Saved",title:"Nap saved",body:"I'll fold that sleep into the next wake window and protect bedtime if the day needs it.",short:"Saved"};
+      if(_last.type === "poop") return {kind:"nappy-saved",type:"happy",kicker:"Saved",title:"Nappy saved",body:"I'll keep it in the day pattern. You can add details later if they matter.",short:"Saved"};
+      if(_last.type === "wake") return {kind:"wake-saved",type:"happy",kicker:"Saved",title:"Wake saved",body:"That anchors the day. The next nap and feed nudges can now make more sense.",short:"Saved"};
+      if(_last.type === "sleep") return {kind:"sleep-saved",type:"sleeping",kicker:"Saved",title:"Bedtime saved",body:"I'll use tonight's wakes and feeds with this bedtime, so morning feels less like guesswork.",short:"Saved"};
+    }
+    if(tab === "insights") {
+      return {kind:"insights",type:"thinking",kicker:"Understand",title:"Patterns, not pressure",body:"The numbers are here to explain what happened and what could help next, not to grade you.",short:"Guide"};
+    }
+    if(tab === "schedule") {
+      return {kind:"schedule",type:"happy",kicker:"Plan",title:"Plans can bend",body:"A schedule is only a starting point. I'll keep adjusting around " + _name + "'s real day.",short:"Guide"};
+    }
+    const _softLine = (()=>{try{return smartReassurance();}catch{return null;}})();
+    return {kind:"steady",type:"happy",kicker:"OBubba guide",title:"I'm here with you",body:_softLine || "When the day gets loud, I'll turn the logs into the next gentle step.",short:"Guide"};
+  },[showTutPrompt,syncStatus,familyUsername,backupCode,childSyncCodes,days,selDay,babyName,napOn,bedTimerDay,tab,daySubScreen,todayPanel,partnerTick]);
+  const mascotGuideHidden = mascotGuideHiddenDay === todayStr();
+  function toggleMascotGuide(){
+    try{localStorage.setItem(OB_MASCOT_GUIDE_SEEN_KEY,"1");}catch{}
+    setMascotGuideOpen(v=>!v);
+  }
+  function restMascotGuideForToday(){
+    const today = todayStr();
+    try{
+      localStorage.setItem(OB_MASCOT_GUIDE_SEEN_KEY,"1");
+      localStorage.setItem(OB_MASCOT_GUIDE_HIDE_KEY,today);
+    }catch{}
+    if(showTutPrompt) {
+      clearPendingAppTour(true);
+      setShowTutPrompt(false);
+    }
+    setMascotGuideHiddenDay(today);
+    setMascotGuideOpen(false);
+  }
+  function startMascotGuidedTour(){
+    try{localStorage.setItem(OB_MASCOT_GUIDE_SEEN_KEY,"1");}catch{}
+    clearPendingAppTour(false);
+    setShowTutPrompt(false);
+    setMascotGuideOpen(false);
+    setTab("day");
+    setDaySubScreen(null);
+    setTodayPanel("log");
+    setTourSpotlight(null);
+    setTutStep(0);
+  }
   // Memory Book feature fully removed. Previously this area had state for
   // showMemoryBook, memoryPage, memory notes, stickers, scrapbook refs, and
   // a Firestore shared_albums sync helper. All scrubbed from the marketing
@@ -35905,15 +36021,57 @@ function App(){
     const pf = getPoopFrequency();
     const poopDaysAgo = pf ? pf.daysSince : (lastPoop ? 0 : null);
 
+    // QR code / carer portal — generate early so we can place it near the top
+    const _careTokenData = ensureCarerTokenForBackup();
+    const _carerToken = _careTokenData.token;
+    const _bc2 = _careTokenData.backupCode;
+    void _bc2;
+    const carerPortalUrl = safeCarePortalUrl(_carerToken, resolvedActiveId || "");
+    if (!carerPortalUrl) throw new Error("Invalid Bubba Care token");
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(carerPortalUrl)}&bgcolor=FFFCF9`;
+    const carerPortalUrlHtml = htmlEscape(carerPortalUrl);
+    const qrUrlHtml = htmlEscape(qrUrl);
+
     // Build sections
     let sections = [];
 
     // Header
-    sections.push(`<div style="text-align:center;margin-bottom:24px">
+    sections.push(`<div style="text-align:center;margin-bottom:16px">
       <div style="font-size:40px;margin-bottom:8px">👶</div>
       <h1 style="font-family:Georgia,serif;font-size:28px;color:#5B4F5F;margin:0">${nameHtml}'s Bubba Care</h1>
       ${ageStr ? `<p style="color:#A898AC;margin:4px 0">${ageHtml} old</p>` : ""}
       <p style="color:#ccc;font-size:12px;margin:2px 0">Generated ${new Date().toLocaleDateString(navigator.language||"en-GB", { weekday: "short", day: "numeric", month: "short" })} at ${fmt12(nowTime())}</p>
+    </div>`);
+
+    // QUICK GLANCE — the 3 things a carer needs at 3am
+    const _qlNextFeed = nextFeedEst ? "~" + fmt12(nextFeedEst) : (lastFeed ? fmt12(lastFeed.time) + " (last)" : "Follow cues");
+    const _qlSleep = tempRangeHtml;
+    const _qlCall = _validContacts.length ? htmlEscape(_validContacts[0].name) + ": " + htmlEscape(_validContacts[0].phone) : emergNumHtml;
+    sections.push(`<div style="display:flex;gap:8px;margin-bottom:16px">
+      <div style="flex:1;background:#FFF8F2;border:1.5px solid #F0D0C8;border-radius:14px;padding:12px 10px;text-align:center">
+        <div style="font-size:20px;margin-bottom:4px">🍼</div>
+        <div style="font-size:11px;color:#A898AC;margin-bottom:2px">Next feed</div>
+        <div style="font-size:15px;font-weight:700;color:#5B4F5F">${_qlNextFeed}</div>
+      </div>
+      <div style="flex:1;background:#F0F8F5;border:1.5px solid #d4ede6;border-radius:14px;padding:12px 10px;text-align:center">
+        <div style="font-size:20px;margin-bottom:4px">🛏️</div>
+        <div style="font-size:11px;color:#A898AC;margin-bottom:2px">Safe sleep</div>
+        <div style="font-size:15px;font-weight:700;color:#5B4F5F">Back, clear cot</div>
+        <div style="font-size:11px;color:#6fa898;margin-top:2px">${_qlSleep}</div>
+      </div>
+      <div style="flex:1;background:#f8f0f0;border:1.5px solid #E8B4C0;border-radius:14px;padding:12px 10px;text-align:center">
+        <div style="font-size:20px;margin-bottom:4px">📞</div>
+        <div style="font-size:11px;color:#A898AC;margin-bottom:2px">Call</div>
+        <div style="font-size:13px;font-weight:700;color:#5B4F5F;word-break:break-all">${_qlCall}</div>
+      </div>
+    </div>`);
+
+    // CARER PORTAL — QR + link near the top so carers can log entries
+    sections.push(`<div style="text-align:center;padding:14px;background:#f8f4f0;border-radius:16px;margin-bottom:12px">
+      <div style="font-size:13px;font-weight:700;color:#5B4F5F;margin-bottom:6px">Log feeds, naps & nappies</div>
+      <img src="${qrUrlHtml}" alt="QR Code" style="width:120px;height:120px;border-radius:8px;border:2px solid #e8ddd5"/>
+      <div style="margin-top:8px"><a href="${carerPortalUrlHtml}" style="display:inline-block;padding:10px 20px;border-radius:99px;background:linear-gradient(135deg,#C07088,#a85a44);color:white;font-size:14px;font-weight:700;text-decoration:none">Open Carer Log</a></div>
+      <div style="font-size:10px;color:#C0A8B0;margin-top:6px">Scan QR or tap above. Entries sync back to the parent's app.</div>
     </div>`);
 
     // IMPORTANT NOTES (allergies, medical)
@@ -35927,42 +36085,41 @@ function App(){
     // FEEDING
     sections.push(`<div style="background:#FFF8F2;border:1px solid #F0D0C8;border-radius:16px;padding:16px;margin-bottom:12px">
       <h2 style="color:#C07088;font-size:16px;margin:0 0 10px">🍼 Feeding</h2>
-      <table style="width:100%;font-size:14px;color:#5B4F5F">
-        <tr><td style="padding:4px 0;color:#A898AC">Type</td><td style="padding:4px 0;font-weight:600">${htmlEscape(feedTypeLabel)}</td></tr>
-        ${avgAmount > 0 ? `<tr><td style="padding:4px 0;color:#A898AC">Typical amount</td><td style="padding:4px 0;font-weight:600">~${htmlEscape(fmtVol(avgAmount, FU))} per feed</td></tr>` : ""}
-        ${avgFeeds > 0 ? `<tr><td style="padding:4px 0;color:#A898AC">Typical frequency</td><td style="padding:4px 0;font-weight:600">~${avgFeeds} feeds/day</td></tr>` : ""}
-        ${lastFeed ? `<tr><td style="padding:4px 0;color:#A898AC">Last feed</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(lastFeed.time))}${lastFeed.amount ? ". " + htmlEscape(fmtVol(lastFeed.amount, FU)) : ""}${lastFeed.feedType === "breast" ? " (breast)" : ""}</td></tr>` : ""}
-        ${nextFeedEst ? `<tr><td style="padding:4px 0;color:#A898AC">Next feed around</td><td style="padding:4px 0;font-weight:600">~${fmt12(nextFeedEst)}</td></tr>` : ""}
-      </table>
-      <p style="font-size:13px;color:#7A6B7E;margin:8px 0 4px;line-height:1.5">💡 <b>Feed every ${age&&age.totalWeeks<8?"2–3":"3–4"} hours</b>. or sooner if ${nameHtml} shows hunger cues (rooting, lip-smacking, hand-to-mouth). Don't worry about exact timing. follow ${nameHtml}'s lead.</p>
-      ${feedTypes.includes("breast") ? `<p style="font-size:12px;color:#A898AC;margin:8px 0 0">If breastfed: ${nameHtml} may feed on demand. Breast milk is stored in the fridge. use within 24 hours.</p>` : ""}
+      <div style="font-size:15px;color:#5B4F5F;line-height:2">
+        <b>Type:</b> ${htmlEscape(feedTypeLabel)}<br>
+        ${avgAmount > 0 ? `<b>Typical amount:</b> ~${htmlEscape(fmtVol(avgAmount, FU))} per feed<br>` : ""}
+        ${avgFeeds > 0 ? `<b>Usually:</b> ~${avgFeeds} feeds per day<br>` : ""}
+        ${lastFeed ? `<b>Last feed:</b> ${htmlEscape(fmt12(lastFeed.time))}${lastFeed.amount ? " — " + htmlEscape(fmtVol(lastFeed.amount, FU)) : ""}${lastFeed.feedType === "breast" ? " (breast)" : ""}<br>` : ""}
+        ${nextFeedEst ? `<b>Next feed around:</b> ~${fmt12(nextFeedEst)}<br>` : ""}
+      </div>
+      <p style="font-size:13px;color:#7A6B7E;margin:10px 0 4px;line-height:1.5">Feed every ${age&&age.totalWeeks<8?"2–3":"3–4"} hours, or sooner if ${nameHtml} shows hunger cues (rooting, lip-smacking, hand-to-mouth). Follow ${nameHtml}'s lead.</p>
+      ${feedTypes.includes("breast") ? `<p style="font-size:12px;color:#A898AC;margin:8px 0 0">If breastfed: ${nameHtml} may feed on demand. Breast milk is stored in the fridge — use within 24 hours.</p>` : ""}
     </div>`);
 
     // NAPPIES
+    const _nappyPoopLabel = lastPoop ? fmt12(lastPoop.time) + " today" : poopDaysAgo !== null ? poopDaysAgo + " day" + (poopDaysAgo===1?"":"s") + " ago" : "Not logged";
     sections.push(`<div style="background:#FFF9F0;border:1px solid #F0E0C8;border-radius:16px;padding:16px;margin-bottom:12px">
       <h2 style="color:#B08030;font-size:16px;margin:0 0 10px">💧💩 Nappies</h2>
-      <table style="width:100%;font-size:14px;color:#5B4F5F">
-        <tr><td style="padding:4px 0;color:#A898AC">Today's nappies</td><td style="padding:4px 0;font-weight:600">${nappyCount} (${wetCount} wet${poopEntries.length ? ", " + poopEntries.length + " dirty" : ""})</td></tr>
-        ${lastNappy ? `<tr><td style="padding:4px 0;color:#A898AC">Last nappy</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(lastNappy.time))}. ${htmlEscape(lastNappy.poopType||"wet")}</td></tr>` : ""}
-        <tr><td style="padding:4px 0;color:#A898AC">Last poop</td><td style="padding:4px 0;font-weight:600;${poopDaysAgo!==null&&poopDaysAgo>=3?"color:#d4a020":""}">
-          ${lastPoop ? htmlEscape(fmt12(lastPoop.time)) + " today" : poopDaysAgo !== null ? poopDaysAgo + " day" + (poopDaysAgo===1?"":"s") + " ago" : "Not logged"}
-        </td></tr>
-        <tr><td style="padding:4px 0;color:#A898AC">Hydration target</td><td style="padding:4px 0;font-weight:600">${wetCount} wet · ${_ccHydScore}/${_ccHydTarget} hydration score${_ccHydOk?" ✅":""}</td></tr>
-      </table>
-      <p style="font-size:12px;color:#A898AC;margin:8px 0 0">Target is age-adjusted (${_ccHydTarget}+ hydration score in 24h). A long overnight nappy counts as 2–3. ${_ccCheckGuidance}</p>
+      <div style="font-size:15px;color:#5B4F5F;line-height:2">
+        <b>Today:</b> ${nappyCount} nappies (${wetCount} wet${poopEntries.length ? ", " + poopEntries.length + " dirty" : ""})<br>
+        ${lastNappy ? `<b>Last change:</b> ${htmlEscape(fmt12(lastNappy.time))} — ${htmlEscape(lastNappy.poopType||"wet")}<br>` : ""}
+        <b>Last poop:</b> <span${poopDaysAgo!==null&&poopDaysAgo>=3?" style=\"color:#d4a020;font-weight:700\"":""}>${htmlEscape(_nappyPoopLabel)}</span><br>
+        <b>Wet nappies:</b> ${_ccHydScore} so far — need ${_ccHydTarget}+ in 24 hours ${_ccHydOk?"✅":""}
+      </div>
+      <p style="font-size:12px;color:#A898AC;margin:8px 0 0">${_ccCheckGuidance}</p>
     </div>`);
 
     // SLEEP & ROUTINE
     sections.push(`<div style="background:#F0F8F5;border:1px solid #d4ede6;border-radius:16px;padding:16px;margin-bottom:12px">
       <h2 style="color:#6fa898;font-size:16px;margin:0 0 10px">😴 Sleep & Routine</h2>
-      <table style="width:100%;font-size:14px;color:#5B4F5F">
-        ${wakeEntry ? `<tr><td style="padding:4px 0;color:#A898AC">Woke up today</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(wakeEntry.time))}</td></tr>` : ""}
-        ${ww ? `<tr><td style="padding:4px 0;color:#A898AC">Wake window</td><td style="padding:4px 0;font-weight:600">${htmlEscape(ww.label)} between sleeps</td></tr>` : ""}
-        ${lastNap ? `<tr><td style="padding:4px 0;color:#A898AC">Last nap</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(lastNap.start))} – ${htmlEscape(fmt12(lastNap.end))} (${htmlEscape(hm(minDiff(lastNap.start, lastNap.end)))})</td></tr>` : ""}
-        ${pred ? `<tr><td style="padding:4px 0;color:#A898AC">Next nap window</td><td style="padding:4px 0;font-weight:600">${htmlEscape(fmt12(pred.napStart_min))} – ${htmlEscape(fmt12(pred.napStart_max))}</td></tr>` : ""}
-        ${bed ? `<tr><td style="padding:4px 0;color:#A898AC">${bed.estimated?"Estimated bedtime":"Predicted bedtime"}</td><td style="padding:4px 0;font-weight:600">${bed.estimated?"~":""}${htmlEscape(fmt12(bed.time))}</td></tr>` : ""}
-      </table>
-      <p style="font-size:12px;color:#A898AC;margin:8px 0 0">Watch for tired cues: yawning, rubbing eyes, looking away, fussing. Put ${nameHtml} down when you see these signs. don't wait until they're overtired.</p>
+      <div style="font-size:15px;color:#5B4F5F;line-height:2">
+        ${wakeEntry ? `<b>Woke up:</b> ${htmlEscape(fmt12(wakeEntry.time))}<br>` : ""}
+        ${ww ? `<b>Can stay awake:</b> ${htmlEscape(ww.label)} between sleeps<br>` : ""}
+        ${lastNap ? `<b>Last nap:</b> ${htmlEscape(fmt12(lastNap.start))} – ${htmlEscape(fmt12(lastNap.end))} (${htmlEscape(hm(minDiff(lastNap.start, lastNap.end)))})<br>` : ""}
+        ${pred ? `<b>Next nap window:</b> ${htmlEscape(fmt12(pred.napStart_min))} – ${htmlEscape(fmt12(pred.napStart_max))}<br>` : ""}
+        ${bed ? `<b>Bedtime:</b> ${bed.estimated?"~":""}${htmlEscape(fmt12(bed.time))}<br>` : ""}
+      </div>
+      <p style="font-size:12px;color:#A898AC;margin:8px 0 0">Tired cues: yawning, rubbing eyes, looking away, fussing. Put ${nameHtml} down when you see these — don't wait until overtired.</p>
     </div>`);
 
     // SAFE SLEEP. country-aware source label
@@ -35985,29 +36142,42 @@ function App(){
     sections.push(`<div style="background:#FFF8F2;border:1px solid #F0D0C8;border-radius:16px;padding:16px;margin-bottom:12px">
       <h2 style="color:#C07088;font-size:16px;margin:0 0 10px">💝 If ${nameHtml} Cries</h2>
       <div style="font-size:14px;color:#5B4F5F;line-height:1.7">
-        1. <b>Check basics</b>. hungry? nappy? too hot/cold?<br>
-        2. <b>Tired?</b>. check wake window above. Dim lights, quiet voice<br>
-        3. <b>Wind</b>. try burping over shoulder or gentle bicycle legs<br>
-        4. <b>Comfort</b>. gentle rocking, skin-to-skin, white noise<br>
-        5. <b>Still unsettled?</b>. contact parent. It's OK to put ${nameHtml} down safely and take a breath
+        1. <b>Check basics</b> — hungry? nappy? too hot/cold?<br>
+        2. <b>Tired?</b> — check wake window above. Dim lights, quiet voice<br>
+        3. <b>Wind</b> — try burping over shoulder or gentle bicycle legs<br>
+        4. <b>Comfort</b> — gentle rocking, skin-to-skin, white noise<br>
+        5. <b>Still unsettled?</b> — contact parent. It's OK to put ${nameHtml} down safely and take a breath
       </div>
     </div>`);
 
-    // IF YOU'RE OVERWHELMED. safe coping reminder for carers
-    sections.push(`<div style="background:#F5F0F8;border:1px solid #D4C4E0;border-radius:16px;padding:16px;margin-bottom:12px">
-      <h2 style="color:#8868A0;font-size:16px;margin:0 0 10px">💜 If you're feeling overwhelmed</h2>
+    // NIGHT WAKES — the #1 3am scenario
+    sections.push(`<div style="background:#F0F0F8;border:1px solid #D0D0E8;border-radius:16px;padding:16px;margin-bottom:12px">
+      <h2 style="color:#7070A0;font-size:16px;margin:0 0 10px">🌙 If ${nameHtml} Wakes at Night</h2>
+      <div style="font-size:14px;color:#5B4F5F;line-height:1.8">
+        1. <b>Wait 2 minutes</b> — they may resettle on their own<br>
+        2. <b>If crying:</b> check nappy, offer a feed<br>
+        3. <b>Keep it boring</b> — lights dim, voice low, no play or eye contact<br>
+        4. <b>Put back down drowsy</b> — they don't need to be fully asleep in your arms<br>
+        5. <b>If unsettled 20+ minutes:</b> contact parent
+      </div>
+    </div>`);
+
+    // IF YOU'RE OVERWHELMED + NEVER SHAKE — combined, more prominent
+    sections.push(`<div style="background:#F5F0F8;border:2px solid #D4C4E0;border-radius:16px;padding:16px;margin-bottom:12px">
+      <h2 style="color:#8868A0;font-size:16px;margin:0 0 10px">💜 If It Gets Too Much</h2>
       <div style="font-size:14px;color:#5B4F5F;line-height:1.7">
-        Crying is hard to sit with. If you feel yourself getting tense, frustrated, or tearful. that's a signal, not a failure.
+        Crying is hard to sit with. If you feel tense, frustrated, or tearful — that's a signal, not a failure.
         <br><br>
         <b>It's always OK to:</b><br>
-        • Place ${nameHtml} down safely in their cot on their back<br>
-        • Walk away for a minute or two. make a cup of tea, take a few breaths<br>
-        • Come back when you feel steadier. ${nameHtml} is safe in the cot.
-        <br><br>
-        <b style="color:#8868A0">Never shake a baby.</b> Shaking can cause serious, lasting harm. Putting baby down and stepping away is always the right choice if you need a moment.
-        <br><br>
-        <span style="font-size:12px;color:#8868A0">You're not alone in this. Call the parent, ring a trusted friend, or reach a helpline if you need support.</span>
+        • Place ${nameHtml} down safely in their cot, on their back<br>
+        • Walk away for a minute. Make a cup of tea, take a few breaths<br>
+        • Come back when you feel steadier — ${nameHtml} is safe in the cot
       </div>
+      <div style="margin-top:12px;padding:12px;background:#f0e8f4;border-radius:12px;text-align:center">
+        <div style="font-size:15px;font-weight:700;color:#8868A0">Never shake a baby.</div>
+        <div style="font-size:13px;color:#5B4F5F;margin-top:4px">Putting baby down and stepping away is always the right choice.</div>
+      </div>
+      <p style="font-size:12px;color:#8868A0;margin:10px 0 0">You're not alone. Call the parent, a trusted friend, or a helpline.</p>
     </div>`);
 
     // COMFORT & ROUTINE
@@ -36058,28 +36228,7 @@ function App(){
       Safe sleep advice: ${safeSleepSourceHtml}
     </div>`);
 
-    // QR code points to Bubba Care. use short-lived carer token (not the raw backup code).
-    const _careTokenData = ensureCarerTokenForBackup();
-    const _carerToken = _careTokenData.token;
-    const _bc2 = _careTokenData.backupCode;
-    // Keep the backup code local only; carers receive the CT token link.
-    void _bc2;
-    // Carer portal is now on Firebase Hosting with real Cache-Control:
-    // no-cache headers, so stale HTML isn't possible. No cache-bust
-    // query param needed.
-    const carerPortalUrl = safeCarePortalUrl(_carerToken, resolvedActiveId || "");
-    if (!carerPortalUrl) throw new Error("Invalid Bubba Care token");
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(carerPortalUrl)}&bgcolor=FFFCF9`;
-    const carerPortalUrlHtml = htmlEscape(carerPortalUrl);
-    const qrUrlHtml = htmlEscape(qrUrl);
-
-    sections.push(`<div style="text-align:center;margin:16px 0 8px;padding:16px;background:#f8f4f0;border-radius:16px">
-      <div style="font-size:13px;font-weight:700;color:#5B4F5F;margin-bottom:8px">📱 Bubba Care</div>
-      <img src="${qrUrlHtml}" alt="QR Code" style="width:150px;height:150px;border-radius:8px;border:2px solid #e8ddd5"/>
-      <div style="font-size:12px;color:#A898AC;margin-top:8px">Scan the QR code or tap the link below</div>
-      <a href="${carerPortalUrlHtml}" style="display:inline-block;margin-top:8px;padding:10px 20px;border-radius:99px;background:linear-gradient(135deg,#C07088,#a85a44);color:white;font-size:14px;font-weight:700;text-decoration:none">Open Bubba Care →</a>
-      <div style="font-size:10px;color:#C0A8B0;margin-top:8px">Carers can log feeds, naps & nappies. you'll review them in the app</div>
-    </div>`);
+    /* QR / carer portal already inserted near top of card */
 
     return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${nameHtml}'s Bubba Care</title><style>*{box-sizing:border-box;margin:0}body{font-family:-apple-system,system-ui,sans-serif;max-width:100%;margin:0;padding:60px 12px 40px;padding-top:max(60px,env(safe-area-inset-top,60px));background:#FFFCF9;font-size:14px;line-height:1.5;-webkit-text-size-adjust:100%;overflow-x:hidden}h2{font-family:Georgia,serif;font-size:16px}table{border-collapse:collapse;width:100%;table-layout:fixed}td,th{padding:3px 6px;font-size:12px;word-break:break-word;overflow-wrap:break-word}img{max-width:100%;height:auto}@media(max-width:430px){body{font-size:13px;padding:60px 10px 32px;padding-top:max(60px,env(safe-area-inset-top,60px))}h2{font-size:15px}td,th{padding:2px 4px;font-size:11px}}</style></head><body>${sections.join("")}</body></html>`;
   }
@@ -40573,6 +40722,7 @@ function App(){
       if (obFeedType === "breast" || obFeedType === "both") {
         try{ localStorage.setItem("_hasBreast","1"); }catch{}
       }
+      const _importAfterOnboarding = (()=>{try{return localStorage.getItem("ob_welcome_import_after_onboarding_v1")==="1";}catch{return false;}})();
 		      setTrackModePreference(obDashboardModeChoice);
 		      setOnboarded(true);
 		      queueAppTourAfterSetup("onboarding");
@@ -40580,6 +40730,10 @@ function App(){
       try { if (_day1Profile) trackEvent("day1_questionnaire_completed", { concerns: _day1Profile.concerns.length, factors: _day1Profile.factors.length, safety: _day1Profile.safety.filter(x=>x!=="none").length }); } catch {}
       setTab("day");
       setSelDay(_obToday);
+      if (_importAfterOnboarding) {
+        try{ localStorage.removeItem("ob_welcome_import_after_onboarding_v1"); }catch{}
+        setTimeout(()=>setShowImportAfterSetup(true),180);
+      }
       // Keep the first landing calm. Quick-start catch-up can wait until the
       // parent opens the daily log home instead of interrupting the first log.
       try{ localStorage.setItem("ob_quickstart_offered", "1"); }catch{}
@@ -40858,12 +41012,47 @@ function App(){
       : "inset 0 1px 0 rgba(255,255,255,0.3),0 14px 32px -10px rgba(168,90,112,0.5),0 0 0 1px rgba(200,126,143,0.2)";
     const _wCtaColor = _isNight ? "#1A0B04" : "#FFF6EE";
     const _wSecShadow = _isNight ? "inset 0 0 0 1px rgba(232,200,150,0.3)" : "inset 0 0 0 1px rgba(60,47,44,0.2)";
+    const startWelcomeImport = () => {
+      try {
+        localStorage.setItem("ob_welcome_import_after_onboarding_v1","1");
+        localStorage.removeItem("ob_account_prompt_dismissed");
+      } catch {}
+      setObStep(1);
+    };
+    const renderPosterWelcome = () => (
+      <div data-testid="ob-poster-welcome" style={{width:"100%",maxWidth:430,height:"var(--ob-vh,100dvh)",background:"#020b1c",overflowY:"auto",overflowX:"hidden",WebkitOverflowScrolling:"touch",padding:"env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)",boxSizing:_bBB,overscrollBehavior:"none"}}>
+        <div style={{position:"relative",width:"100%",aspectRatio:"853 / 1844",minHeight:"min(930px,calc(var(--ob-vh,100dvh) - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)))",background:"#041026",boxShadow:"0 0 80px rgba(14,51,116,0.4)",overflow:"hidden",margin:"0 auto"}}>
+          <img src="/obubba-download-landing.png" alt="OBubba baby rhythm clock with golden fireflies, moon, sun, nursery crib, rabbit lamp and teddy bear" draggable="false" style={{position:"relative",zIndex:0,display:"block",width:"82%",height:"auto",margin:"0 auto",userSelect:"none",pointerEvents:"none"}}/>
+          {[
+            ["12%","38%","1"],["86%","41%",".78"],["18%","55%",".7"],["76%","61%","1"],["33%","84%",".68"],["71%","84%",".74"]
+          ].map(([left,top,scale],i)=>(
+            <span key={i} aria-hidden="true" className="ob-welcome-firefly" style={{position:"absolute",left,top,zIndex:2,width:7,height:7,borderRadius:"50%",background:"#ffdc7a",boxShadow:"0 0 13px 5px rgba(255,213,111,.58),0 0 42px 14px rgba(255,213,111,.22)",transform:`scale(${scale})`,pointerEvents:"none"}}/>
+          ))}
+          <button type="button" data-testid="welcome-start-tracking" onClick={()=>setObStep(1)} aria-label="Start tracking with OBubba" style={{position:"absolute",zIndex:4,left:"17.1%",top:"32.3%",width:"65.8%",height:"5%",display:"flex",alignItems:"center",justifyContent:"center",gap:"5%",borderRadius:999,border:"1.6px solid rgba(232,165,145,.86)",background:"linear-gradient(180deg,rgb(78,89,130),rgb(32,43,78))",boxShadow:"inset 0 1px 0 rgba(255,255,255,.18),0 0 24px rgba(255,169,137,.25),0 16px 34px rgba(0,0,0,.3)",color:"#fff3df",fontWeight:900,fontSize:"clamp(18px,5.8vw,26px)",lineHeight:1,whiteSpace:"nowrap",textShadow:"0 1px 10px rgba(0,0,0,.35)",cursor:_cP,fontFamily:_fI,padding:0}}>
+            <svg viewBox="0 0 32 32" aria-hidden="true" style={{width:"clamp(30px,8.4vw,40px)",height:"clamp(30px,8.4vw,40px)",filter:"drop-shadow(0 0 13px rgba(255,221,147,.5))",flex:"0 0 auto"}}><path fill="#ffe9a8" d="m16 2 2.9 8.7 9.1 1.2-6.8 5.7 1.9 9-7.1-4.8-7.1 4.8 1.9-9L4 11.9l9.1-1.2L16 2Z"/><path fill="#fff8df" d="M25 3.5 26 7l3.5 1-3.5 1-1 3.5L24 9l-3.5-1L24 7l1-3.5Z"/></svg>
+            <span>Start tracking</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{position:"static",width:"clamp(14px,4.2vw,21px)",height:"clamp(14px,4.2vw,21px)",flex:"0 0 auto",marginLeft:-3}}><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+          <div style={{position:"absolute",zIndex:5,left:"13.8%",top:"38.35%",width:"72.4%",height:"3.8%",display:"grid",gridTemplateColumns:"1fr 1fr",gap:"3.8%"}} aria-label="OBubba welcome actions">
+            <div aria-hidden="true" style={{position:"absolute",inset:"-7% -2%",zIndex:0,borderRadius:999,background:"#071936"}}/>
+            <button type="button" data-testid="welcome-sign-in" onClick={()=>{setAuthMode("login");setAuthScreen("login");setAuthError("");setAuthPin("");}} aria-label="Sign in to OBubba" style={{position:"relative",zIndex:1,height:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:8,borderRadius:999,border:"1.2px solid rgba(92,124,178,.9)",background:"linear-gradient(180deg,rgb(19,36,76),rgb(11,25,57))",boxShadow:"inset 0 1px 0 rgba(255,255,255,.1),0 10px 26px rgba(0,0,0,.26)",color:"#fff3df",fontSize:"clamp(12px,3.45vw,16px)",fontWeight:900,whiteSpace:"nowrap",cursor:_cP,fontFamily:_fI,padding:0}}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{width:"clamp(16px,4.3vw,22px)",height:"clamp(16px,4.3vw,22px)",flex:"0 0 auto"}}><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+              <span>Sign in</span>
+            </button>
+            <button type="button" data-testid="welcome-import-data" onClick={startWelcomeImport} aria-label="Import baby tracking data from another app" style={{position:"relative",zIndex:1,height:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:7,borderRadius:999,border:"1.2px solid rgba(92,124,178,.9)",background:"linear-gradient(180deg,rgb(19,36,76),rgb(11,25,57))",boxShadow:"inset 0 1px 0 rgba(255,255,255,.1),0 10px 26px rgba(0,0,0,.26)",color:"#fff3df",fontSize:"clamp(11px,3.05vw,15px)",fontWeight:900,whiteSpace:"nowrap",cursor:_cP,fontFamily:_fI,padding:0}}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{width:"clamp(16px,4.3vw,22px)",height:"clamp(16px,4.3vw,22px)",flex:"0 0 auto"}}><path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>
+              <span>Import data</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
     return (
       <div style={{height:"var(--ob-vh,100dvh)",background:"var(--bg-grad)",display:"flex",flexDirection:"column",alignItems:"center",fontFamily:"'DM Sans',sans-serif",boxSizing:_bBB,overflow:"hidden",position:"relative",overscrollBehavior:"none"}}>
-        <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}`}</style>
+        <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}@keyframes obWelcomeFirefly{0%,100%{translate:0 0;opacity:.72}38%{translate:10px -15px;opacity:1}70%{translate:-8px -4px;opacity:.78}}.ob-welcome-firefly{animation:obWelcomeFirefly 7.5s ease-in-out infinite}.ob-welcome-firefly::before,.ob-welcome-firefly::after{content:"";position:absolute;top:50%;width:15px;height:7px;border-radius:999px 999px 999px 0;border:1px solid rgba(255,239,207,.32);background:rgba(255,255,255,.08);filter:blur(.15px)}.ob-welcome-firefly::before{right:4px;transform:translateY(-55%) rotate(-28deg)}.ob-welcome-firefly::after{left:4px;transform:translateY(-55%) rotate(28deg) scaleX(-1)}.ob-welcome-firefly:nth-of-type(2){animation-delay:-1.1s}.ob-welcome-firefly:nth-of-type(3){animation-delay:-3.2s}.ob-welcome-firefly:nth-of-type(4){animation-delay:-4.8s}.ob-welcome-firefly:nth-of-type(5){animation-delay:-2.2s}.ob-welcome-firefly:nth-of-type(6){animation-delay:-5.7s}.ob-welcome-firefly:nth-of-type(7){animation-delay:-.7s}`}</style>
 
-        {isHeroStep ? (
-          <div style={{width:"100%",maxWidth:430,height:"var(--ob-vh,100dvh)",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 7vw env(safe-area-inset-bottom,0px)",position:"relative",overflow:"hidden",background:_wBg,color:_wInk,overscrollBehavior:"none"}}>
+        {isHeroStep ? renderPosterWelcome() : false ? (
+          <div style={{width:"100%",maxWidth:430,height:"var(--ob-vh,100dvh)",display:"none",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 7vw env(safe-area-inset-bottom,0px)",position:"relative",overflow:"hidden",background:_wBg,color:_wInk,overscrollBehavior:"none"}}>
             {/* Night stars overlay */}
             {_isNight&&<div style={{position:"absolute",inset:0,pointerEvents:"none",background:"radial-gradient(1px 1px at 18% 22%,rgba(232,200,150,0.5),transparent 50%),radial-gradient(1px 1px at 72% 12%,rgba(232,200,150,0.4),transparent 50%),radial-gradient(1px 1px at 40% 42%,rgba(255,248,240,0.4),transparent 50%),radial-gradient(1.2px 1.2px at 88% 58%,rgba(212,161,180,0.45),transparent 50%),radial-gradient(1px 1px at 22% 78%,rgba(232,200,150,0.35),transparent 50%),radial-gradient(0.8px 0.8px at 60% 28%,rgba(255,255,255,0.5),transparent 50%),radial-gradient(1px 1px at 85% 82%,rgba(232,200,150,0.4),transparent 50%),radial-gradient(0.8px 0.8px at 8% 48%,rgba(212,161,180,0.4),transparent 50%)"}}/>}
             {/* Day subtle grain */}
@@ -48499,7 +48688,7 @@ function App(){
               {/* ── Proactive hard moment cards. moved to Wellbeing sub-screen ── */}
 
               {/* ── Partner check-in. moved to Wellbeing sub-screen ── */}
-              {!insightFilter && renderDay1InsightCard()}
+              {false && !insightFilter && renderDay1InsightCard()}
 
               {/* Empty state for new users */}
               {(()=>{
@@ -48547,74 +48736,111 @@ function App(){
               {/* Tip of the Day moved to News sub-screen in Day tab */}
 
               {/* ═══ Insights Dashboard — navigation grid (moved up so users can jump into a section first) ═══ */}
-              {!insightFilter && (
-                <div className="glass-card ob-premium-hero">
-                  <div className="ob-premium-kicker" style={{marginBottom:8}}>Understand</div>
-                  <div className="ob-premium-title" style={{marginBottom:6}}>
-                    {babyName||"Baby"}'s rhythm, in plain English
+              {!insightFilter && (()=>{
+                const _daysLogged = Object.keys(days).filter(d => (days[d]||[]).length > 0).length;
+                const _confidence = _daysLogged >= 7 ? "Strong pattern" : _daysLogged >= 3 ? "Pattern forming" : "Still learning";
+                const _name = babyName || "Baby";
+                const _last = _lastNightMemo;
+                const _diag = _nightDiagnosisMemo;
+                const _careHeroCopy = (() => {
+                  try {
+                    if (_diag && _diag.type === "developmental_disruption") return _diag.title + ": OBubba is cross-checking sleep, feeds, naps and bedtime before changing the plan.";
+                    if (_last && _last.longestStretchMin >= 240) return "A steadier stretch may be forming. OBubba will keep watching before making bigger recommendations.";
+                    if (_last && _last.wakeCount >= 2) return "A few wakes showed up overnight. OBubba separates hunger, timing, teeth and habit before suggesting a next step.";
+                  } catch {}
+                  return "A calm place to see what the logs may be suggesting, without turning the day into a scorecard.";
+                })();
+                const _primaryCareRead = (() => {
+                  if (_diag || _last) {
+                    return {
+                      id:"sleep",
+                      icon:"😴",
+                      kicker:"Start here",
+                      title:_diag ? _diag.title : "Last night's read",
+                      body:_careHeroCopy,
+                      cta:"Open sleep"
+                    };
+                  }
+                  return {
+                    id:"tomorrow",
+                    icon:"📅",
+                    kicker:"Start here",
+                    title:"One gentle next rhythm",
+                    body:"See the next likely wake, nap or bedtime without opening every chart.",
+                    cta:"Open tomorrow"
+                  };
+                })();
+                const _openInsightTool = (f) => {
+                  haptic(8);
+                  if (f.modal && f.id === "sleepcoach") {
+                    if (!hasAccess()) triggerPaywall("sleep_coach", true);
+                    else setShowSleepCoach(true);
+                    return;
+                  }
+                  setInsightFilter(f.id);
+                };
+                const _careToolTile = (f, compact=false) => (
+                  <button key={f.id} type="button" onClick={()=>_openInsightTool(f)} className={"glass-card ob-care-tool-tile"+(compact?" is-compact":"")}>
+                    <span className="ob-care-tool-icon">{f.icon}</span>
+                    <span className="ob-care-tool-label">{f.label}</span>
+                    {f.premium && <span className="ob-care-tool-premium">Premium</span>}
+                  </button>
+                );
+                const _fastCareTools = [
+                  {id:"weaning", label:"Weaning", icon:"🍎", onClick:()=>{haptic();setTab("day");openTrackWeaning();}},
+                  {id:"parentRoom", label:"Parent Room", icon:"💜", onClick:()=>{haptic();setTab("day");openTrackDayTool("wellbeing");}}
+                ];
+                const _secondaryCareTools = [
+                  {id:"tomorrow",label:"Tomorrow",icon:"📅"},
+                  {id:"sleep",label:"Sleep",icon:"😴"},
+                  {id:"feeding",label:"Feeding",icon:"🍼"},
+                  {id:"growth",label:"Growth",icon:"📏"},
+                  {id:"safesleep",label:"Safe Sleep",icon:"🛏️"},
+                  {id:"reports",label:"Reports",icon:"📊"},
+                  {id:"sleepcoach",label:"Sleep Coach",icon:"🗓",modal:true,premium:true},
+                  {id:"nightwean",label:"Night Weaning",icon:"🌙",premium:true}
+                ];
+                return (
+                  <div className="ob-care-tab-shell" data-testid="care-tab-shell">
+                    <div className="glass-card ob-premium-hero ob-care-hero">
+                      <div className="ob-premium-kicker" style={{marginBottom:8}}>Care</div>
+                      <div className="ob-premium-title" style={{marginBottom:6}}>
+                        {_name}'s rhythm, in plain English
+                      </div>
+                      <div className="ob-premium-copy">{_careHeroCopy}</div>
+                    </div>
+                    <button type="button" data-testid="care-primary-read" className="glass-card ob-care-primary-read" onClick={()=>_openInsightTool(_primaryCareRead)}>
+                      <span className="ob-care-primary-icon">{_primaryCareRead.icon}</span>
+                      <span className="ob-care-primary-copy">
+                        <span className="ob-care-primary-kicker">{_primaryCareRead.kicker} · {_confidence}</span>
+                        <strong>{_primaryCareRead.title}</strong>
+                        <small>{_primaryCareRead.body}</small>
+                      </span>
+                      <span className="ob-care-primary-cta">{_primaryCareRead.cta}</span>
+                    </button>
+                    <div className="ob-care-fast-path-grid" data-testid="care-fast-path-grid">
+                      {_fastCareTools.map(f=>(
+                        <button key={f.id} type="button" className="glass-card ob-care-fast-path" onClick={f.onClick}>
+                          <span>{f.icon}</span>
+                          <strong>{f.label}</strong>
+                        </button>
+                      ))}
+                    </div>
+                    <details className="ob-care-more" data-testid="care-more-tools">
+                      <summary>
+                        <span>More care tools</span>
+                        <small>{_daysLogged} logged day{_daysLogged===1?"":"s"}</small>
+                      </summary>
+                      <div className="ob-care-more-body">
+                        {renderDay1InsightCard()}
+                        <div className="ob-care-more-grid">
+                          {_secondaryCareTools.map(f=>_careToolTile(f, true))}
+                        </div>
+                      </div>
+                    </details>
                   </div>
-                  <div className="ob-premium-copy">
-                    {(() => {
-                      try {
-                        const _last = _lastNightMemo;
-                        const _diag = _nightDiagnosisMemo;
-                        if (_diag && _diag.type === "developmental_disruption") return _diag.title + ": OBubba is treating the extra wakes as a changed pattern and cross-checking teeth, feeds, naps and bedtime.";
-                        if (_last && _last.longestStretchMin >= 240) return "Last night may suggest a steadier sleep stretch is forming. OBubba will keep watching the pattern before making bigger recommendations.";
-                        if (_last && _last.wakeCount >= 2) return "There were a few wakes in the night pattern. OBubba checks whether this is new for " + (babyName||"baby") + ", then separates hunger, timing, teeth and habit.";
-                      } catch {}
-                      return "A calm place to see what the logs may be suggesting, without turning the day into a scorecard.";
-                    })()}
-                  </div>
-                </div>
-              )}
-	              {!insightFilter && (()=>{
-	                const _daysLogged = Object.keys(days).filter(d => (days[d]||[]).length > 0).length;
-	                const _confidence = _daysLogged >= 7 ? "Strong pattern" : _daysLogged >= 3 ? "Pattern forming" : "Still learning";
-	                const _insightTile = (f) => (
-	                  <button key={f.id} onClick={()=>{
-	                    haptic(8);
-	                    if (f.modal && f.id === "sleepcoach") {
-	                      if (!hasAccess()) triggerPaywall("sleep_coach", true);
-	                      else setShowSleepCoach(true);
-	                    } else setInsightFilter(f.id);
-	                  }} className="glass-card ob-premium-tile" style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"12px 8px",cursor:_cP,textAlign:"center",border:"1.5px solid var(--card-border)",minHeight:82}}>
-	                    <span style={{fontSize:22}}>{f.icon}</span>
-	                    <div style={{fontSize:12,fontWeight:700,color:C.deep,lineHeight:1.2}}>{f.label}</div>
-	                    {f.premium && <div style={{fontSize:9,color:C.gold,fontWeight:800,letterSpacing:_ls08}}>PREMIUM</div>}
-	                  </button>
-	                );
-	                const _groups = [
-	                  {label:"Next rhythm", sub:_confidence+" · "+_daysLogged+" logged day"+(_daysLogged===1?"":"s"), items:[
-	                    {id:"tomorrow",label:"Tomorrow",icon:"📅"},
-	                    {id:"sleep",label:"Sleep",icon:"😴"}
-	                  ]},
-	                  {label:"Care & growth", sub:"feeds, growth, safety", items:[
-	                    {id:"feeding",label:"Feeding",icon:"🍼"},
-	                    {id:"growth",label:"Growth",icon:"📏"},
-	                    {id:"safesleep",label:"Safe Sleep",icon:"🛏️"},
-	                    {id:"reports",label:"Reports",icon:"📊"}
-	                  ]},
-	                  {label:"Gentle plans", sub:"support without pressure", items:[
-	                    {id:"sleepcoach",label:"Sleep Coach",icon:"🗓",modal:true,premium:true},
-	                    {id:"nightwean",label:"Night Weaning",icon:"🌙",premium:true}
-	                  ]}
-	                ];
-	                return (
-	                  <div style={{marginBottom:14}}>
-	                    {_groups.map(g=>(
-	                      <div key={g.label} style={{marginBottom:12}}>
-	                        <div style={{display:"flex",alignItems:"baseline",justifyContent:"space-between",gap:10,margin:"0 2px 7px"}}>
-	                          <div className="ob-premium-kicker" style={{margin:0}}>{g.label}</div>
-	                          <div style={{fontSize:10,color:C.lt,fontFamily:_fM,textAlign:"right",lineHeight:1.3}}>{g.sub}</div>
-	                        </div>
-	                        <div className="ob-premium-grid" style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-	                          {g.items.map(_insightTile)}
-	                        </div>
-	                      </div>
-	                    ))}
-	                  </div>
-	                );
-	              })()}
+                );
+              })()}
 
               {insightFilter==="sleep" && (
                 <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
@@ -60507,6 +60733,15 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                     ↩ Undo this import
                   </button>
                 )}
+                {showImportAfterSetup && importResult.imported > 0 && !familyUsername && (
+                  <button data-testid="post-import-create-account" onClick={()=>{
+                    setShowImportModal(false);setShowImportAfterSetup(false);setImportResult(null);_pendingCsvRef.current=null;
+                    try{localStorage.removeItem("ob_account_prompt_dismissed");}catch{}
+                    setAuthMode("create");setAuthScreen("login");setAuthError("");setAuthPin("");setAuthPin2("");setAgreedToTerms(false);
+                  }} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",color:"white",fontSize:16,fontWeight:800,cursor:_cP,marginBottom:10}}>
+                    Create free account
+                  </button>
+                )}
                 <button onClick={()=>{setShowImportModal(false);setShowImportAfterSetup(false);setImportResult(null);_pendingCsvRef.current=null;}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#c9705a,#a85a44)",color:"white",fontSize:16,fontWeight:700,cursor:_cP}}>Done</button>
               </div>
             ) : importResult && importResult.mode === "preview" ? (
@@ -62813,6 +63048,27 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ═══ Contextual OBubba Guide Companion ═══ */}
+      {mascotGuide && !mascotGuideHidden && !mascotPopup && (
+        <div data-testid="ob-mascot-guide" data-guide-kind={mascotGuide.kind} className={"ob-guide-companion "+(mascotGuideOpen?"is-open":"is-closed")}>
+          {mascotGuideOpen && (
+            <section className="ob-guide-bubble" role="region" aria-label="OBubba guide">
+              <div className="ob-guide-kicker">{mascotGuide.kicker}</div>
+              <div className="ob-guide-title">{mascotGuide.title}</div>
+              <div className="ob-guide-body" aria-live="polite">{mascotGuide.body}</div>
+              <div className="ob-guide-actions">
+                <button type="button" className="ob-guide-primary" onClick={startMascotGuidedTour}>Tour</button>
+                <button type="button" className="ob-guide-secondary" onClick={restMascotGuideForToday}>Rest</button>
+              </div>
+            </section>
+          )}
+          <button type="button" className="ob-guide-trigger" onClick={toggleMascotGuide} aria-expanded={mascotGuideOpen?"true":"false"} aria-label={mascotGuideOpen ? "Close OBubba guide" : "Open OBubba guide: " + (mascotGuide.short || "Guide")}>
+            <OBubbaMascot type={mascotGuide.type || "happy"} size={mascotGuideOpen?72:62} alt="OBubba guide"/>
+            {!mascotGuideOpen && <span className="ob-guide-pulse" aria-hidden="true"/>}
+          </button>
         </div>
       )}
 

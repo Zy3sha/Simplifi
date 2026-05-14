@@ -13223,6 +13223,35 @@ function App(){
   const[authPin2,setAuthPin2]=useState("");
   const[authError,setAuthError]=useState("");
   const[authLoading,setAuthLoading]=useState(false);
+  const welcomeAction = (() => {
+    const raw = String(quickAction || "").trim().toLowerCase().replace(/[-\s]+/g, "_").slice(0, 40);
+    if (raw === "start" || raw === "start_tracking") return "start_tracking";
+    if (raw === "signin" || raw === "sign_in" || raw === "login") return "sign_in";
+    if (raw === "import" || raw === "import_data" || raw === "import_history") return "import_data";
+    return "";
+  })();
+  const welcomeActionHandledRef=useRef(false);
+  useEffect(()=>{
+    if (welcomeActionHandledRef.current || !welcomeAction) return;
+    welcomeActionHandledRef.current = true;
+    if (welcomeAction === "sign_in") {
+      setAuthMode("login"); setAuthScreen("login"); setAuthError(""); setAuthPin("");
+      return;
+    }
+    if (welcomeAction === "import_data") {
+      try {
+        localStorage.setItem("ob_welcome_import_after_onboarding_v1","1");
+        localStorage.removeItem("ob_account_prompt_dismissed");
+      } catch {}
+      if (onboarded) {
+        setTimeout(()=>setShowImportAfterSetup(true),120);
+      } else {
+        setObStep(1);
+      }
+      return;
+    }
+    if (welcomeAction === "start_tracking" && !onboarded) setObStep(1);
+  },[welcomeAction,onboarded]);
   const[agreedToTerms,setAgreedToTerms]=useState(false);
   const authUsernameCheckRef = React.useRef(null);
   var _sfp=useState(false),showForgotPin=_sfp[0],setShowForgotPin=_sfp[1];
@@ -40281,6 +40310,48 @@ function App(){
   if (authScreen && authScreen !== "deferred") {
     const isLogin = authMode === "login";
     const canSubmit = authUsername.trim().length >= 3 && authPin.length === 4 && (!isLogin ? authPin2 === authPin && agreedToTerms : true);
+    const authProviderButtonStyle = (variant) => ({
+      width:"100%",
+      minHeight:variant==="apple"?54:52,
+      borderRadius:999,
+      border:variant==="apple"?"1px solid rgba(0,0,0,0.68)":"1px solid rgba(236,217,222,0.92)",
+      background:variant==="apple"?"#111111":"rgba(255,255,252,0.88)",
+      color:variant==="apple"?"#ffffff":"#5F5966",
+      boxShadow:variant==="apple"
+        ?"0 12px 26px rgba(40,30,38,0.18), inset 0 1px 0 rgba(255,255,255,0.08)"
+        :"0 10px 24px rgba(190,150,168,0.13), inset 0 1px 0 rgba(255,255,255,0.92)",
+      display:"flex",
+      alignItems:"center",
+      justifyContent:"center",
+      gap:13,
+      fontSize:"clamp(17px,4.45vw,22px)",
+      fontWeight:800,
+      cursor:_cP,
+      fontFamily:_fI,
+      letterSpacing:0,
+      WebkitTapHighlightColor:"transparent",
+      marginBottom:variant==="apple"?10:8
+    });
+    const authInputStyle = (active=false, mono=false) => ({
+      width:"100%",
+      fontSize:mono?"clamp(24px,6.8vw,32px)":"clamp(18px,4.9vw,23px)",
+      padding:mono?"13px 18px":"14px 18px",
+      borderRadius:18,
+      border:`2px solid ${active?"#CFA3B7":"rgba(205,160,184,0.86)"}`,
+      background:"rgba(255,255,252,0.72)",
+      color:"#5B5360",
+      outline:_oN,
+      fontFamily:mono?_fM:_fI,
+      textAlign:mono?"center":"left",
+      letterSpacing:mono?"0.22em":0,
+      boxSizing:_bBB,
+      boxShadow:"inset 0 1px 0 rgba(255,255,255,0.82), 0 6px 18px rgba(173,126,151,0.08)"
+    });
+    function handleProviderTap(provider) {
+      haptic("light");
+      const label = provider === "apple" ? "Apple" : "Google";
+      showToast(label + " sign-in is next. For this build, use username and 4-digit PIN.", 3200, 2);
+    }
 
     async function handleAuth(pinArg, pin2Arg) {
       const pin = typeof pinArg === "string" ? pinArg : authPin;
@@ -40340,22 +40411,23 @@ function App(){
     }
 
     return (
-      <div style={{minHeight:"var(--ob-vh,100dvh)",background:"var(--bg-grad)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"0 24px 40px",paddingTop:"env(safe-area-inset-top, 0px)",paddingBottom:"calc(40px + env(safe-area-inset-bottom, 0px))",fontFamily:"'DM Sans',sans-serif",boxSizing:"border-box"}}>
-        <div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"24px 0 16px"}}>
-          <OBubbaMascot type="happy" size={64} alt="OBubba" style={{marginBottom:8}}/>
-          <div className="ob-brand-title" style={{fontSize:30,color:C.deep,marginBottom:3}}>OBubba</div>
-          <div style={{fontSize:14,color:C.lt}}>{isLogin?"Welcome back":"Create your account"}</div>
+      <div data-testid="ob-auth-screen" style={{minHeight:"var(--ob-vh,100dvh)",background:"radial-gradient(ellipse 90% 38% at 50% 0%,rgba(202,236,255,0.78),transparent 72%),radial-gradient(ellipse 78% 36% at 100% 36%,rgba(227,218,248,0.28),transparent 70%),linear-gradient(180deg,#EEF9FF 0%,#F7F4FF 34%,#FFF8F3 66%,#EFE1DC 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"flex-start",overflowY:"auto",WebkitOverflowScrolling:"touch",padding:"0 24px",paddingTop:"calc(env(safe-area-inset-top, 0px) + clamp(30px, 5.5vh, 58px))",paddingBottom:"calc(44px + env(safe-area-inset-bottom, 0px))",fontFamily:"'DM Sans',sans-serif",boxSizing:"border-box",color:"#5B5360"}}>
+        <div style={{width:"100%",maxWidth:370,display:"flex",flexDirection:"column",alignItems:"center"}}>
+        <div style={{display:"flex",flexDirection:"column",alignItems:"center",padding:"0 0 18px"}}>
+          <OBubbaMascot type="happy" size={76} alt="OBubba" style={{marginBottom:12,filter:"drop-shadow(0 18px 28px rgba(136,126,160,0.16))"}}/>
+          <div className="ob-brand-title" style={{fontSize:"clamp(42px,11vw,56px)",lineHeight:0.92,color:"#625B69",marginBottom:9,textShadow:"0 1px 0 rgba(255,255,255,0.66)"}}>OBubba</div>
+          <div style={{fontSize:"clamp(20px,5.2vw,26px)",fontWeight:500,color:"#9A8D9A",lineHeight:1.1}}>{isLogin?"Welcome back":"Create your account"}</div>
         </div>
-        <div style={{display:"flex",background:"var(--card-bg-alt)",borderRadius:99,padding:4,marginBottom:16,gap:4,flexShrink:0}}>
+        <div style={{width:"100%",display:"flex",background:"rgba(255,255,255,0.43)",border:"1.5px solid rgba(195,236,250,0.92)",borderRadius:999,padding:5,marginBottom:22,gap:5,flexShrink:0,boxShadow:"0 13px 36px rgba(154,139,162,0.10), inset 0 1px 0 rgba(255,255,255,0.88)"}}>
           {[["login","Sign In"],["create","Create Account"]].map(([m,l])=>(
             <button key={m} onClick={()=>{setAuthMode(m);setAuthError("");setAuthPin("");setAuthPin2("");setAuthUsernameStatus("idle");setAgreedToTerms(false);}}
-              style={{padding:"7px 18px",borderRadius:99,border:_bN,background:authMode===m?"var(--card-bg-solid)":"transparent",color:authMode===m?C.ter:C.lt,fontWeight:700,fontSize:13,cursor:_cP,fontFamily:_fI,transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease",boxShadow:authMode===m?"0 1px 6px rgba(0,0,0,0.1)":"none",whiteSpace:"nowrap",flexShrink:0}}>
+              style={{height:48,flex:1,padding:"0 8px",borderRadius:999,border:_bN,background:authMode===m?"rgba(255,253,248,0.90)":"transparent",color:authMode===m?"#A95D80":"#918795",fontWeight:800,fontSize:"clamp(15px,4.15vw,20px)",cursor:_cP,fontFamily:_fI,transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease",boxShadow:authMode===m?"0 9px 22px rgba(184,142,160,0.13), inset 0 1px 0 rgba(255,255,255,0.9)":"none",whiteSpace:"nowrap",flexShrink:0}}>
               {l}
             </button>
           ))}
         </div>
 
-        <div style={{width:"100%",maxWidth:320}}>
+        <div style={{width:"100%"}}>
           {pendingChildSyncCode && (
             <div style={{background:"var(--card-bg-solid)",border:`1.5px solid ${C.mint}55`,borderRadius:16,padding:"12px 14px",marginBottom:14,boxShadow:"0 4px 18px rgba(111,168,152,0.14)"}}>
               <div style={{fontSize:11,fontFamily:_fM,color:C.mint,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:5}}>Partner invite</div>
@@ -40368,45 +40440,62 @@ function App(){
               {pendingChildSyncError && <div style={{fontSize:12,color:C.ter,lineHeight:1.4,marginTop:6}}>{pendingChildSyncError}</div>}
             </div>
           )}
-          <div style={_S.mb12}>
-            <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:5}}>Username</label>
+          {isLogin && (
+            <div style={{marginBottom:14}}>
+              <button type="button" onClick={()=>handleProviderTap("apple")} style={authProviderButtonStyle("apple")}>
+                <span aria-hidden="true" style={{fontSize:25,lineHeight:1,fontWeight:900}}>A</span>
+                <span>Sign in with Apple</span>
+              </button>
+              <button type="button" onClick={()=>handleProviderTap("google")} style={authProviderButtonStyle("google")}>
+                <span aria-hidden="true" style={{fontSize:25,lineHeight:1,fontWeight:900,fontFamily:"Georgia,serif"}}>G</span>
+                <span>Sign in with Google</span>
+              </button>
+            </div>
+          )}
+          {isLogin && (
+            <div style={{fontSize:"clamp(12px,3.35vw,14px)",color:"#948895",margin:"0 0 20px",lineHeight:1.42,textAlign:"center"}}>
+              By continuing you agree to the <a href="https://obubba.com/terms" target="_blank" rel="noopener noreferrer" style={{color:"#776F82",fontWeight:800,textDecoration:"underline"}}>Terms</a> and <a href="https://obubba.com/privacy" target="_blank" rel="noopener noreferrer" style={{color:"#776F82",fontWeight:800,textDecoration:"underline"}}>Privacy Policy</a>.
+            </div>
+          )}
+          <div style={{marginBottom:14}}>
+            <label style={{fontSize:"clamp(14px,3.7vw,17px)",fontFamily:_fM,color:"#9C8D9B",textTransform:"uppercase",letterSpacing:"0.12em",display:"block",marginBottom:7}}>Username</label>
             <input type="text" value={authUsername}
               autoCapitalize="none" autoCorrect="off" spellCheck="false"
               autoComplete="off" data-lpignore="true" data-form-type="other"
               placeholder="e.g. TeamSmith"
-              style={{width:"100%",fontSize:16,padding:"11px 14px",borderRadius:12,border:`2px solid ${isLogin?authUsernameStatus==="found"?"#50c878":authUsernameStatus==="notfound"?C.ter:C.blush:C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fI,boxSizing:_bBB}}
+              style={authInputStyle(isLogin?authUsernameStatus==="found":false)}
               onChange={e=>checkAuthUsername(e.target.value)}/>
             {isLogin && authUsernameStatus!=="idle" && (
               <div style={{fontSize:12,marginTop:4,textAlign:"center",color:authUsernameStatus==="found"?"#50c878":authUsernameStatus==="notfound"?C.ter:C.lt}}>
-                {authUsernameStatus==="checking"?"⏳ Checking…":authUsernameStatus==="found"?"✓ Account found":"✗ No account with that username"}
+                {authUsernameStatus==="checking"?"Checking...":authUsernameStatus==="found"?"Account found":"No account with that username"}
               </div>
             )}
           </div>
-          <div style={_S.mb12}>
-            <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:5}}>
+          <div style={{marginBottom:16}}>
+            <label style={{fontSize:"clamp(14px,3.7vw,17px)",fontFamily:_fM,color:"#9C8D9B",textTransform:"uppercase",letterSpacing:"0.12em",display:"block",marginBottom:7}}>
               {isLogin?"PIN":"Choose a 4-digit PIN"}
             </label>
             <input type="tel" inputMode="numeric" pattern="[0-9]*" maxLength={4}
               value={authPin} onChange={e=>{const v=e.target.value.replace(/[^0-9]/g,"").slice(0,4);setAuthPin(v);setAuthError("");if(v.length===4&&isLogin)handleAuth(v);}}
               placeholder="4-digit PIN"
-              style={{width:"100%",fontSize:24,padding:"12px 14px",borderRadius:12,border:`2px solid ${authPin.length===4?"#9BB8A8":C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fM,textAlign:"center",letterSpacing:"0.3em",boxSizing:_bBB}}/>
+              style={authInputStyle(authPin.length===4,true)}/>
           </div>
           {!isLogin && !authLoading && (
-            <div style={_S.mb12}>
-              <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:5}}>Confirm PIN</label>
+            <div style={{marginBottom:18}}>
+              <label style={{fontSize:"clamp(15px,4vw,18px)",fontFamily:_fM,color:"#9C8D9B",textTransform:"uppercase",letterSpacing:"0.12em",display:"block",marginBottom:8}}>Confirm PIN</label>
               <input type="tel" inputMode="numeric" pattern="[0-9]*" maxLength={4}
                 value={authPin2} onChange={e=>{const v=e.target.value.replace(/[^0-9]/g,"").slice(0,4);setAuthPin2(v);setAuthError("");}}
-                placeholder="Re-enter PIN"
-                style={{width:"100%",fontSize:24,padding:"12px 14px",borderRadius:12,border:`2px solid ${authPin2.length===4&&authPin2===authPin?"#9BB8A8":authPin2.length===4&&authPin2!==authPin?C.ter:C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fM,textAlign:"center",letterSpacing:"0.3em",boxSizing:_bBB}}/>
+                placeholder="PIN again"
+                style={authInputStyle(authPin2.length===4&&authPin2===authPin,true)}/>
               {authPin2.length===4&&authPin2!==authPin&&<div style={{fontSize:12,color:C.ter,textAlign:"center",marginTop:4}}>PINs don't match</div>}
             </div>
           )}
           {!isLogin && !authLoading && (
-            <div style={_S.mb12}>
-              <label style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,display:"block",marginBottom:5}}>Recovery Email <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(optional)</span></label>
+            <div style={{marginBottom:18}}>
+              <label style={{fontSize:"clamp(15px,4vw,18px)",fontFamily:_fM,color:"#9C8D9B",textTransform:"uppercase",letterSpacing:"0.12em",display:"block",marginBottom:8}}>Recovery Email <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>(optional)</span></label>
               <input type="email" value={authRecoveryEmail||""} onChange={e=>setAuthRecoveryEmail(e.target.value)}
                 placeholder="For username recovery"
-                style={{width:"100%",fontSize:15,padding:"11px 14px",borderRadius:12,border:`2px solid ${C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fI,boxSizing:_bBB}}/>
+                style={authInputStyle(false,false)}/>
               <div style={{fontSize:11,color:C.lt,marginTop:4,lineHeight:1.4}}>If you forget your username, we can look up your account using this email. PIN resets still need your backup code or recovery word.</div>
             </div>
           )}
@@ -40415,10 +40504,10 @@ function App(){
           {authError&&<div style={{fontSize:13,color:C.ter,textAlign:"center",marginTop:10,fontWeight:600}}>{authError}</div>}
           {isLogin && !authLoading ? (
             <button onClick={()=>handleAuth(authPin)} disabled={authPin.length!==4}
-              style={{width:"100%",marginTop:10,background:authPin.length===4?"linear-gradient(135deg,#9B8BB8,#7B6BA0)":"rgba(155,139,184,0.2)",
-                border:_bN,borderRadius:99,padding:"13px",color:authPin.length===4?"white":"rgba(155,139,184,0.5)",
-                fontSize:15,fontWeight:700,cursor:authPin.length===4?"pointer":"not-allowed",fontFamily:_fI,
-                boxShadow:authPin.length===4?"0 4px 20px rgba(155,139,184,0.35)":"none",transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease"}}>
+              style={{width:"100%",minHeight:56,marginTop:18,background:authPin.length===4?"linear-gradient(135deg,#B46E91,#8E789F)":"rgba(169,132,160,0.17)",
+                border:_bN,borderRadius:999,padding:"14px",color:authPin.length===4?"white":"rgba(154,137,169,0.43)",
+                fontSize:"clamp(17px,4.6vw,23px)",fontWeight:800,cursor:authPin.length===4?"pointer":"not-allowed",fontFamily:_fI,
+                boxShadow:authPin.length===4?"0 15px 34px rgba(166,111,149,0.25)":"0 13px 34px rgba(166,111,149,0.12)",transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease"}}>
               Sign In {"\u2192"}
             </button>
           ) : !isLogin && !authLoading ? (
@@ -40431,28 +40520,29 @@ function App(){
                 </div>
               </div>
               <button onClick={()=>handleAuth(authPin,authPin2)} disabled={!canSubmit}
-                style={{width:"100%",background:canSubmit?"linear-gradient(135deg,#9B8BB8,#7B6BA0)":"rgba(155,139,184,0.2)",
-                  border:_bN,borderRadius:99,padding:"13px",color:canSubmit?"white":"rgba(155,139,184,0.5)",
-                  fontSize:15,fontWeight:700,cursor:canSubmit?"pointer":"not-allowed",fontFamily:_fI,
-                  boxShadow:canSubmit?"0 4px 20px rgba(155,139,184,0.35)":"none",transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease"}}>
+                style={{width:"100%",minHeight:58,background:canSubmit?"linear-gradient(135deg,#B46E91,#8E789F)":"rgba(169,132,160,0.17)",
+                  border:_bN,borderRadius:999,padding:"14px",color:canSubmit?"white":"rgba(154,137,169,0.43)",
+                  fontSize:"clamp(17px,4.6vw,22px)",fontWeight:800,cursor:canSubmit?"pointer":"not-allowed",fontFamily:_fI,
+                  boxShadow:canSubmit?"0 15px 34px rgba(166,111,149,0.25)":"0 13px 34px rgba(166,111,149,0.12)",transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease"}}>
                 Create Account
 	              </button>
 				                </div>
                       ) : null}
 
           {isLogin && !authLoading && (
-            <div style={{textAlign:"center",marginTop:14,display:"flex",justifyContent:"center",gap:16}}>
+            <div style={{textAlign:"center",marginTop:22,display:"flex",justifyContent:"center",gap:22,flexWrap:"wrap"}}>
               <button onClick={()=>{setShowForgotPin(true);setForgotMode("pin");setForgotPinStep("email");setForgotEmail("");setForgotPinNewPin("");setForgotRecoveryCode("");setForgotPinError("");setForgotEmailResult(null);}}
-                style={{background:"none",border:"none",color:C.lt,fontSize:13,cursor:"pointer",fontFamily:_fI,textDecoration:"underline"}}>
+                style={{background:"none",border:"none",color:"#8F8492",fontSize:"clamp(16px,4vw,19px)",cursor:"pointer",fontFamily:_fI,textDecoration:"underline",padding:0}}>
                 Forgot PIN?
               </button>
               <button onClick={()=>{setShowForgotPin(true);setForgotMode("username");setForgotPinStep("email");setForgotEmail("");setForgotRecoveryCode("");setForgotPinError("");setForgotEmailResult(null);}}
-                style={{background:"none",border:"none",color:C.lt,fontSize:13,cursor:"pointer",fontFamily:_fI,textDecoration:"underline"}}>
+                style={{background:"none",border:"none",color:"#8F8492",fontSize:"clamp(16px,4vw,19px)",cursor:"pointer",fontFamily:_fI,textDecoration:"underline",padding:0}}>
                 Forgot Username?
               </button>
             </div>
 	                        )}
 			                </div>
+        </div>
 
         {showForgotPin && (
         <div role="dialog" aria-modal="true" onClick={()=>setShowForgotPin(false)} style={{position:"fixed",inset:0,background:"rgba(44,31,26,0.6)",zIndex:9995,display:"flex",alignItems:"center",justifyContent:"center",padding:"24px"}}>
@@ -40693,6 +40783,7 @@ function App(){
       if (obFeedType === "breast" || obFeedType === "both") {
         try{ localStorage.setItem("_hasBreast","1"); }catch{}
       }
+      const _importAfterOnboarding = (()=>{try{return localStorage.getItem("ob_welcome_import_after_onboarding_v1")==="1";}catch{return false;}})();
 		      setTrackModePreference(obDashboardModeChoice);
 		      setOnboarded(true);
 		      queueAppTourAfterSetup("onboarding");
@@ -40700,6 +40791,10 @@ function App(){
       try { if (_day1Profile) trackEvent("day1_questionnaire_completed", { concerns: _day1Profile.concerns.length, factors: _day1Profile.factors.length, safety: _day1Profile.safety.filter(x=>x!=="none").length }); } catch {}
       setTab("day");
       setSelDay(_obToday);
+      if (_importAfterOnboarding) {
+        try{ localStorage.removeItem("ob_welcome_import_after_onboarding_v1"); }catch{}
+        setTimeout(()=>setShowImportAfterSetup(true),180);
+      }
       // Keep the first landing calm. Quick-start catch-up can wait until the
       // parent opens the daily log home instead of interrupting the first log.
       try{ localStorage.setItem("ob_quickstart_offered", "1"); }catch{}
@@ -40978,12 +41073,47 @@ function App(){
       : "inset 0 1px 0 rgba(255,255,255,0.3),0 14px 32px -10px rgba(168,90,112,0.5),0 0 0 1px rgba(200,126,143,0.2)";
     const _wCtaColor = _isNight ? "#1A0B04" : "#FFF6EE";
     const _wSecShadow = _isNight ? "inset 0 0 0 1px rgba(232,200,150,0.3)" : "inset 0 0 0 1px rgba(60,47,44,0.2)";
+    const startWelcomeImport = () => {
+      try {
+        localStorage.setItem("ob_welcome_import_after_onboarding_v1","1");
+        localStorage.removeItem("ob_account_prompt_dismissed");
+      } catch {}
+      setObStep(1);
+    };
+    const renderPosterWelcome = () => (
+      <div data-testid="ob-poster-welcome" style={{width:"100%",maxWidth:430,height:"var(--ob-vh,100dvh)",background:"#020b1c",overflowY:"auto",overflowX:"hidden",WebkitOverflowScrolling:"touch",padding:"env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)",boxSizing:_bBB,overscrollBehavior:"none"}}>
+        <div style={{position:"relative",width:"100%",aspectRatio:"853 / 1844",minHeight:"min(930px,calc(var(--ob-vh,100dvh) - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px)))",background:"#041026",boxShadow:"0 0 80px rgba(14,51,116,0.4)",overflow:"hidden",margin:"0 auto"}}>
+          <img src="/obubba-download-landing.png" alt="OBubba baby rhythm clock with golden fireflies, moon, sun, nursery crib, rabbit lamp and teddy bear" draggable="false" style={{position:"relative",zIndex:0,display:"block",width:"82%",height:"auto",margin:"0 auto",userSelect:"none",pointerEvents:"none"}}/>
+          {[
+            ["12%","38%","1"],["86%","41%",".78"],["18%","55%",".7"],["76%","61%","1"],["33%","84%",".68"],["71%","84%",".74"]
+          ].map(([left,top,scale],i)=>(
+            <span key={i} aria-hidden="true" className="ob-welcome-firefly" style={{position:"absolute",left,top,zIndex:2,width:7,height:7,borderRadius:"50%",background:"#ffdc7a",boxShadow:"0 0 13px 5px rgba(255,213,111,.58),0 0 42px 14px rgba(255,213,111,.22)",transform:`scale(${scale})`,pointerEvents:"none"}}/>
+          ))}
+          <button type="button" data-testid="welcome-start-tracking" onClick={()=>setObStep(1)} aria-label="Start tracking with OBubba" style={{position:"absolute",zIndex:4,left:"17.1%",top:"32.3%",width:"65.8%",height:"5%",display:"flex",alignItems:"center",justifyContent:"center",gap:"5%",borderRadius:999,border:"1.6px solid rgba(232,165,145,.86)",background:"linear-gradient(180deg,rgb(78,89,130),rgb(32,43,78))",boxShadow:"inset 0 1px 0 rgba(255,255,255,.18),0 0 24px rgba(255,169,137,.25),0 16px 34px rgba(0,0,0,.3)",color:"#fff3df",fontWeight:900,fontSize:"clamp(18px,5.8vw,26px)",lineHeight:1,whiteSpace:"nowrap",textShadow:"0 1px 10px rgba(0,0,0,.35)",cursor:_cP,fontFamily:_fI,padding:0}}>
+            <svg viewBox="0 0 32 32" aria-hidden="true" style={{width:"clamp(30px,8.4vw,40px)",height:"clamp(30px,8.4vw,40px)",filter:"drop-shadow(0 0 13px rgba(255,221,147,.5))",flex:"0 0 auto"}}><path fill="#ffe9a8" d="m16 2 2.9 8.7 9.1 1.2-6.8 5.7 1.9 9-7.1-4.8-7.1 4.8 1.9-9L4 11.9l9.1-1.2L16 2Z"/><path fill="#fff8df" d="M25 3.5 26 7l3.5 1-3.5 1-1 3.5L24 9l-3.5-1L24 7l1-3.5Z"/></svg>
+            <span>Start tracking</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{position:"static",width:"clamp(14px,4.2vw,21px)",height:"clamp(14px,4.2vw,21px)",flex:"0 0 auto",marginLeft:-3}}><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+          <div style={{position:"absolute",zIndex:5,left:"13.8%",top:"38.35%",width:"72.4%",height:"3.8%",display:"grid",gridTemplateColumns:"1fr 1fr",gap:"3.8%"}} aria-label="OBubba welcome actions">
+            <div aria-hidden="true" style={{position:"absolute",inset:"-7% -2%",zIndex:0,borderRadius:999,background:"#071936"}}/>
+            <button type="button" data-testid="welcome-sign-in" onClick={()=>{setAuthMode("login");setAuthScreen("login");setAuthError("");setAuthPin("");}} aria-label="Sign in to OBubba" style={{position:"relative",zIndex:1,height:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:8,borderRadius:999,border:"1.2px solid rgba(92,124,178,.9)",background:"linear-gradient(180deg,rgb(19,36,76),rgb(11,25,57))",boxShadow:"inset 0 1px 0 rgba(255,255,255,.1),0 10px 26px rgba(0,0,0,.26)",color:"#fff3df",fontSize:"clamp(12px,3.45vw,16px)",fontWeight:900,whiteSpace:"nowrap",cursor:_cP,fontFamily:_fI,padding:0}}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{width:"clamp(16px,4.3vw,22px)",height:"clamp(16px,4.3vw,22px)",flex:"0 0 auto"}}><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+              <span>Sign in</span>
+            </button>
+            <button type="button" data-testid="welcome-import-data" onClick={startWelcomeImport} aria-label="Import baby tracking data from another app" style={{position:"relative",zIndex:1,height:"100%",display:"flex",alignItems:"center",justifyContent:"center",gap:7,borderRadius:999,border:"1.2px solid rgba(92,124,178,.9)",background:"linear-gradient(180deg,rgb(19,36,76),rgb(11,25,57))",boxShadow:"inset 0 1px 0 rgba(255,255,255,.1),0 10px 26px rgba(0,0,0,.26)",color:"#fff3df",fontSize:"clamp(11px,3.05vw,15px)",fontWeight:900,whiteSpace:"nowrap",cursor:_cP,fontFamily:_fI,padding:0}}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{width:"clamp(16px,4.3vw,22px)",height:"clamp(16px,4.3vw,22px)",flex:"0 0 auto"}}><path d="M12 3v12"/><path d="m7 8 5-5 5 5"/><path d="M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/></svg>
+              <span>Import data</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
     return (
       <div style={{height:"var(--ob-vh,100dvh)",background:"var(--bg-grad)",display:"flex",flexDirection:"column",alignItems:"center",fontFamily:"'DM Sans',sans-serif",boxSizing:_bBB,overflow:"hidden",position:"relative",overscrollBehavior:"none"}}>
-        <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}`}</style>
+        <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}@keyframes obWelcomeFirefly{0%,100%{translate:0 0;opacity:.72}38%{translate:10px -15px;opacity:1}70%{translate:-8px -4px;opacity:.78}}.ob-welcome-firefly{animation:obWelcomeFirefly 7.5s ease-in-out infinite}.ob-welcome-firefly::before,.ob-welcome-firefly::after{content:"";position:absolute;top:50%;width:15px;height:7px;border-radius:999px 999px 999px 0;border:1px solid rgba(255,239,207,.32);background:rgba(255,255,255,.08);filter:blur(.15px)}.ob-welcome-firefly::before{right:4px;transform:translateY(-55%) rotate(-28deg)}.ob-welcome-firefly::after{left:4px;transform:translateY(-55%) rotate(28deg) scaleX(-1)}.ob-welcome-firefly:nth-of-type(2){animation-delay:-1.1s}.ob-welcome-firefly:nth-of-type(3){animation-delay:-3.2s}.ob-welcome-firefly:nth-of-type(4){animation-delay:-4.8s}.ob-welcome-firefly:nth-of-type(5){animation-delay:-2.2s}.ob-welcome-firefly:nth-of-type(6){animation-delay:-5.7s}.ob-welcome-firefly:nth-of-type(7){animation-delay:-.7s}`}</style>
 
-        {isHeroStep ? (
-          <div style={{width:"100%",maxWidth:430,height:"var(--ob-vh,100dvh)",display:"flex",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 7vw env(safe-area-inset-bottom,0px)",position:"relative",overflow:"hidden",background:_wBg,color:_wInk,overscrollBehavior:"none"}}>
+        {isHeroStep ? renderPosterWelcome() : false ? (
+          <div style={{width:"100%",maxWidth:430,height:"var(--ob-vh,100dvh)",display:"none",flexDirection:"column",padding:"env(safe-area-inset-top,0px) 7vw env(safe-area-inset-bottom,0px)",position:"relative",overflow:"hidden",background:_wBg,color:_wInk,overscrollBehavior:"none"}}>
             {/* Night stars overlay */}
             {_isNight&&<div style={{position:"absolute",inset:0,pointerEvents:"none",background:"radial-gradient(1px 1px at 18% 22%,rgba(232,200,150,0.5),transparent 50%),radial-gradient(1px 1px at 72% 12%,rgba(232,200,150,0.4),transparent 50%),radial-gradient(1px 1px at 40% 42%,rgba(255,248,240,0.4),transparent 50%),radial-gradient(1.2px 1.2px at 88% 58%,rgba(212,161,180,0.45),transparent 50%),radial-gradient(1px 1px at 22% 78%,rgba(232,200,150,0.35),transparent 50%),radial-gradient(0.8px 0.8px at 60% 28%,rgba(255,255,255,0.5),transparent 50%),radial-gradient(1px 1px at 85% 82%,rgba(232,200,150,0.4),transparent 50%),radial-gradient(0.8px 0.8px at 8% 48%,rgba(212,161,180,0.4),transparent 50%)"}}/>}
             {/* Day subtle grain */}
@@ -60662,6 +60792,15 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                       }, "Yes, undo import");
                   }} style={{width:"100%",padding:"11px",borderRadius:99,border:"1px solid "+C.blush,background:"var(--card-bg)",color:C.mid,fontSize:13,fontWeight:600,cursor:_cP,marginBottom:10}}>
                     ↩ Undo this import
+                  </button>
+                )}
+                {showImportAfterSetup && importResult.imported > 0 && !familyUsername && (
+                  <button data-testid="post-import-create-account" onClick={()=>{
+                    setShowImportModal(false);setShowImportAfterSetup(false);setImportResult(null);_pendingCsvRef.current=null;
+                    try{localStorage.removeItem("ob_account_prompt_dismissed");}catch{}
+                    setAuthMode("create");setAuthScreen("login");setAuthError("");setAuthPin("");setAuthPin2("");setAgreedToTerms(false);
+                  }} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#9B8BB8,#7B6BA0)",color:"white",fontSize:16,fontWeight:800,cursor:_cP,marginBottom:10}}>
+                    Create free account
                   </button>
                 )}
                 <button onClick={()=>{setShowImportModal(false);setShowImportAfterSetup(false);setImportResult(null);_pendingCsvRef.current=null;}} style={{width:"100%",padding:"14px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#c9705a,#a85a44)",color:"white",fontSize:16,fontWeight:700,cursor:_cP}}>Done</button>

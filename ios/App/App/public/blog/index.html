@@ -8,6 +8,7 @@
   <meta name="robots" content="index, follow, max-image-preview:large"/>
   <link rel="canonical" href="https://obubba.com/blog/"/>
   <link rel="sitemap" type="application/xml" href="/sitemap.xml"/>
+  <link rel="sitemap" type="application/xml" href="/image-sitemap.xml"/>
   <link rel="alternate" type="application/rss+xml" title="OBubba Blog" href="/feed.xml"/>
   <meta property="og:type" content="website"/>
   <meta property="og:url" content="https://obubba.com/blog/"/>
@@ -161,6 +162,16 @@
     font-size: clamp(18px, 2.1vw, 24px);
     line-height: 1.45;
     color: rgba(255, 255, 255, 0.9);
+  }
+  .visual-identity .hero {
+    background-image:
+      linear-gradient(90deg, rgba(20, 15, 28, 0.9), rgba(20, 15, 28, 0.66) 54%, rgba(20, 15, 28, 0.28)),
+      var(--hero-image);
+    background-position: center 64%;
+  }
+  .visual-identity .hero h1 {
+    max-width: 980px;
+    font-size: clamp(42px, 7vw, 78px);
   }
   .hero-actions {
     display: flex;
@@ -335,6 +346,43 @@
     line-height: 1.7;
     margin: 0;
   }
+  .visual-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 30px;
+  }
+  .visual-card {
+    margin: 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+    box-shadow: 0 14px 40px rgba(55, 38, 56, 0.08);
+  }
+  .visual-card img {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    background: #07112a;
+  }
+  .visual-card.featured {
+    grid-column: span 2;
+  }
+  .visual-card.featured img {
+    aspect-ratio: 853 / 1100;
+    object-position: center 66%;
+  }
+  .visual-card figcaption {
+    padding: 16px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .visual-card strong {
+    display: block;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
   .meta {
     color: var(--rose-dark);
     font-size: 13px;
@@ -399,6 +447,25 @@
     font-weight: 700;
     background: white;
   }
+  .related-guides {
+    display: grid;
+    gap: 12px;
+    margin-top: 44px;
+    padding: clamp(22px, 4vw, 32px);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff8f2;
+  }
+  .related-guides h2 {
+    font-size: clamp(26px, 4vw, 40px);
+  }
+  .related-guides p {
+    color: var(--muted);
+    font-size: 18px;
+    line-height: 1.65;
+    margin: 0;
+  }
+  .related-guides .tags { margin-top: 8px; }
   .cta-band {
     display: grid;
     gap: 14px;
@@ -435,7 +502,9 @@
     .nav-links { flex-wrap: wrap; font-size: 13px; }
     .hero { min-height: 76vh; background-position: center; }
     .grid,
-    .feature-split { grid-template-columns: 1fr; }
+    .feature-split,
+    .visual-grid { grid-template-columns: 1fr; }
+    .visual-card.featured { grid-column: auto; }
     .blog-hero { background-size: 210px auto; background-position: right -28px bottom -24px; }
   }
   @media (max-width: 560px) {
@@ -461,7 +530,55 @@
   "blogPost": [
     {
       "@type": "BlogPosting",
-      "headline": "The Ultimate Guide to Gentle Sleep Training: Supporting Your Baby Without the Stress",
+      "headline": "Baby Care Handover Template",
+      "url": "https://obubba.com/blog/baby-care-handover-template-grandparents-nursery.html",
+      "datePublished": "2026-05-13",
+      "dateModified": "2026-05-13",
+      "description": "A practical baby care handover checklist for feeds, naps, nappies, medicine, soothing, bedtime and notes when someone else is caring for baby."
+    },
+    {
+      "@type": "BlogPosting",
+      "headline": "Baby Reflux and Colic Diary",
+      "url": "https://obubba.com/blog/baby-reflux-colic-diary-what-to-track.html",
+      "datePublished": "2026-05-13",
+      "dateModified": "2026-05-13",
+      "description": "A calm guide to logging feeds, reflux, crying, nappies, sleep, medicine notes and settling patterns so parents can explain concerns more clearly."
+    },
+    {
+      "@type": "BlogPosting",
+      "headline": "Baby Tracker App Checklist for New Parents",
+      "url": "https://obubba.com/blog/baby-tracker-app-checklist-for-new-parents.html",
+      "datePublished": "2026-05-13",
+      "dateModified": "2026-05-13",
+      "description": "A checklist for choosing a baby tracker app that supports feeds, sleep, nappies, weaning, milestones, reports, privacy, partners and carers."
+    },
+    {
+      "@type": "BlogPosting",
+      "headline": "Baby Wake Windows Without Stress",
+      "url": "https://obubba.com/blog/baby-wake-windows-without-stress.html",
+      "datePublished": "2026-05-13",
+      "dateModified": "2026-05-13",
+      "description": "A parent-friendly guide to using wake windows with baby cues, naps, feeds, bedtime and safe sleep guidance instead of rigid schedules."
+    },
+    {
+      "@type": "BlogPosting",
+      "headline": "Best Baby Tracker App UK",
+      "url": "https://obubba.com/blog/best-baby-tracker-app-uk.html",
+      "datePublished": "2026-05-13",
+      "dateModified": "2026-05-13",
+      "description": "A UK-focused guide to choosing a baby tracker app for feeds, nappies, sleep, wake windows, reports, health visitor conversations and family handovers."
+    },
+    {
+      "@type": "BlogPosting",
+      "headline": "Newborn Feeding and Nappy Log",
+      "url": "https://obubba.com/blog/newborn-feeding-and-nappy-log.html",
+      "datePublished": "2026-05-13",
+      "dateModified": "2026-05-13",
+      "description": "A calm guide to tracking newborn feeds, breastfeeding, bottles, wet nappies, dirty nappies, sleep and useful notes without turning parenting into admin."
+    },
+    {
+      "@type": "BlogPosting",
+      "headline": "Gentle Sleep Training Guide",
       "url": "https://obubba.com/blog/gentle-sleep-training-guide.html",
       "datePublished": "2026-05-01",
       "dateModified": "2026-05-01",
@@ -469,7 +586,7 @@
     },
     {
       "@type": "BlogPosting",
-      "headline": "Looking For a Newborn Feeding Guide? 10 Things to Know About Reflux and Safety",
+      "headline": "Newborn Feeding: Reflux and Safety",
       "url": "https://obubba.com/blog/newborn-feeding-guide-reflux-safety.html",
       "datePublished": "2026-05-01",
       "dateModified": "2026-05-01",
@@ -477,7 +594,7 @@
     },
     {
       "@type": "BlogPosting",
-      "headline": "How to Create a Personalized Baby Routine in 5 Minutes (That Actually Works)",
+      "headline": "Personalized Baby Routine in 5 Minutes",
       "url": "https://obubba.com/blog/personalized-baby-routine-5-minutes.html",
       "datePublished": "2026-05-01",
       "dateModified": "2026-05-01",
@@ -485,7 +602,7 @@
     },
     {
       "@type": "BlogPosting",
-      "headline": "Is Side-Sleeping Bad? The Truth About Safe Sleep Guidelines for Babies",
+      "headline": "Side Sleeping Baby: Safe Sleep Guide",
       "url": "https://obubba.com/blog/side-sleeping-baby-safe-sleep-guidelines.html",
       "datePublished": "2026-05-01",
       "dateModified": "2026-05-01",
@@ -493,7 +610,7 @@
     },
     {
       "@type": "BlogPosting",
-      "headline": "The Ultimate Guide to Your Baby Sleep Schedule: Why One Size Does Not Fit All",
+      "headline": "Baby Sleep Schedule Guide",
       "url": "https://obubba.com/blog/baby-sleep-schedule-guide.html",
       "datePublished": "2026-04-30",
       "dateModified": "2026-04-30",
@@ -501,7 +618,7 @@
     },
     {
       "@type": "BlogPosting",
-      "headline": "Best Baby Tracker App for New Parents: Why OBubba Is Built Differently",
+      "headline": "Best Baby Tracker App for New Parents",
       "url": "https://obubba.com/blog/best-baby-tracker-app-for-new-parents.html",
       "datePublished": "2026-04-30",
       "dateModified": "2026-04-30",
@@ -537,39 +654,75 @@
       <div class="section-inner narrow">
         <div class="post-list">
 
+      <a class="post-card" href="/blog/baby-care-handover-template-grandparents-nursery.html">
+        <div class="meta">2026-05-13 / OBubba</div>
+        <h2>Baby Care Handover Template</h2>
+        <p>A practical baby care handover checklist for feeds, naps, nappies, medicine, soothing, bedtime and notes when someone else is caring for baby.</p>
+      </a>
+
+      <a class="post-card" href="/blog/baby-reflux-colic-diary-what-to-track.html">
+        <div class="meta">2026-05-13 / OBubba</div>
+        <h2>Baby Reflux and Colic Diary</h2>
+        <p>A calm guide to logging feeds, reflux, crying, nappies, sleep, medicine notes and settling patterns so parents can explain concerns more clearly.</p>
+      </a>
+
+      <a class="post-card" href="/blog/baby-tracker-app-checklist-for-new-parents.html">
+        <div class="meta">2026-05-13 / OBubba</div>
+        <h2>Baby Tracker App Checklist for New Parents</h2>
+        <p>A checklist for choosing a baby tracker app that supports feeds, sleep, nappies, weaning, milestones, reports, privacy, partners and carers.</p>
+      </a>
+
+      <a class="post-card" href="/blog/baby-wake-windows-without-stress.html">
+        <div class="meta">2026-05-13 / OBubba</div>
+        <h2>Baby Wake Windows Without Stress</h2>
+        <p>A parent-friendly guide to using wake windows with baby cues, naps, feeds, bedtime and safe sleep guidance instead of rigid schedules.</p>
+      </a>
+
+      <a class="post-card" href="/blog/best-baby-tracker-app-uk.html">
+        <div class="meta">2026-05-13 / OBubba</div>
+        <h2>Best Baby Tracker App UK</h2>
+        <p>A UK-focused guide to choosing a baby tracker app for feeds, nappies, sleep, wake windows, reports, health visitor conversations and family handovers.</p>
+      </a>
+
+      <a class="post-card" href="/blog/newborn-feeding-and-nappy-log.html">
+        <div class="meta">2026-05-13 / OBubba</div>
+        <h2>Newborn Feeding and Nappy Log</h2>
+        <p>A calm guide to tracking newborn feeds, breastfeeding, bottles, wet nappies, dirty nappies, sleep and useful notes without turning parenting into admin.</p>
+      </a>
+
       <a class="post-card" href="/blog/gentle-sleep-training-guide.html">
         <div class="meta">2026-05-01 / OBubba</div>
-        <h2>The Ultimate Guide to Gentle Sleep Training: Supporting Your Baby Without the Stress</h2>
+        <h2>Gentle Sleep Training Guide</h2>
         <p>A calm guide to gentle sleep training, baby-led rhythms, safe sleep, responsive settling and how OBubba helps parents understand their baby&#39;s sleep patterns.</p>
       </a>
 
       <a class="post-card" href="/blog/newborn-feeding-guide-reflux-safety.html">
         <div class="meta">2026-05-01 / OBubba</div>
-        <h2>Looking For a Newborn Feeding Guide? 10 Things to Know About Reflux and Safety</h2>
+        <h2>Newborn Feeding: Reflux and Safety</h2>
         <p>A gentle newborn feeding guide for reflux, silent reflux, responsive feeding, paced bottle-feeding, safe sleep, red flags and how OBubba helps parents track feeds, nappies, sleep and symptoms.</p>
       </a>
 
       <a class="post-card" href="/blog/personalized-baby-routine-5-minutes.html">
         <div class="meta">2026-05-01 / OBubba</div>
-        <h2>How to Create a Personalized Baby Routine in 5 Minutes (That Actually Works)</h2>
+        <h2>Personalized Baby Routine in 5 Minutes</h2>
         <p>A practical OBubba guide to creating a personalized baby routine in minutes using responsive cues, sleep tracking, feeds, nappies, breastfeeding, preterm notes, colic and reflux context, and gentle reminders.</p>
       </a>
 
       <a class="post-card" href="/blog/side-sleeping-baby-safe-sleep-guidelines.html">
         <div class="meta">2026-05-01 / OBubba</div>
-        <h2>Is Side-Sleeping Bad? The Truth About Safe Sleep Guidelines for Babies</h2>
+        <h2>Side Sleeping Baby: Safe Sleep Guide</h2>
         <p>A clear, calm guide to side-sleeping, back-sleeping, reflux worries, rolling babies and safe sleep guidelines for babies, with OBubba support for tracking sleep, feeds and baby rhythms.</p>
       </a>
 
       <a class="post-card" href="/blog/baby-sleep-schedule-guide.html">
         <div class="meta">2026-04-30 / OBubba</div>
-        <h2>The Ultimate Guide to Your Baby Sleep Schedule: Why One Size Does Not Fit All</h2>
+        <h2>Baby Sleep Schedule Guide</h2>
         <p>A gentle, evidence-aware guide to baby sleep schedules, wake windows, safe sleep and how OBubba helps parents learn their baby&#39;s unique rhythm.</p>
       </a>
 
       <a class="post-card" href="/blog/best-baby-tracker-app-for-new-parents.html">
         <div class="meta">2026-04-30 / OBubba</div>
-        <h2>Best Baby Tracker App for New Parents: Why OBubba Is Built Differently</h2>
+        <h2>Best Baby Tracker App for New Parents</h2>
         <p>A practical guide to choosing the best baby tracker app for breastfeeding, feeds, sleep, naps, preterm baby support, colic and reflux notes, milestones, reports and family handovers.</p>
       </a>
         </div>
@@ -581,12 +734,14 @@
     <div class="footer-inner">
       <div>OBubba - baby tracking, parenting rhythm and calmer handovers.</div>
       <div>
-        <a href="/privacy.html">Privacy</a>
-        <span aria-hidden="true"> / </span>
-        <a href="/terms.html">Terms</a>
-        <span aria-hidden="true"> / </span>
-        <a href="/feed.xml">RSS</a>
-      </div>
+	        <a href="/privacy.html">Privacy</a>
+	        <span aria-hidden="true"> / </span>
+	        <a href="/terms.html">Terms</a>
+	        <span aria-hidden="true"> / </span>
+	        <a href="/obubba-visual-identity.html">Brand images</a>
+	        <span aria-hidden="true"> / </span>
+	        <a href="/feed.xml">RSS</a>
+	      </div>
     </div>
   </footer>
 </body>

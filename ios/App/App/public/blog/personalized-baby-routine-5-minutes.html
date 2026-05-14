@@ -3,21 +3,22 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>How to Create a Personalized Baby Routine in 5 Minutes (That Actually Works) | OBubba Blog</title>
+  <title>Personalized Baby Routine in 5 Minutes | OBubba</title>
   <meta name="description" content="A practical OBubba guide to creating a personalized baby routine in minutes using responsive cues, sleep tracking, feeds, nappies, breastfeeding, preterm notes, colic and reflux context, and gentle reminders."/>
   <meta name="robots" content="index, follow, max-image-preview:large"/>
   <link rel="canonical" href="https://obubba.com/blog/personalized-baby-routine-5-minutes.html"/>
   <link rel="sitemap" type="application/xml" href="/sitemap.xml"/>
+  <link rel="sitemap" type="application/xml" href="/image-sitemap.xml"/>
   <link rel="alternate" type="application/rss+xml" title="OBubba Blog" href="/feed.xml"/>
   <meta property="og:type" content="article"/>
   <meta property="og:url" content="https://obubba.com/blog/personalized-baby-routine-5-minutes.html"/>
-  <meta property="og:title" content="How to Create a Personalized Baby Routine in 5 Minutes (That Actually Works) | OBubba Blog"/>
+  <meta property="og:title" content="Personalized Baby Routine in 5 Minutes | OBubba"/>
   <meta property="og:description" content="A practical OBubba guide to creating a personalized baby routine in minutes using responsive cues, sleep tracking, feeds, nappies, breastfeeding, preterm notes, colic and reflux context, and gentle reminders."/>
   <meta property="og:image" content="https://obubba.com/og-image.png"/>
   <meta property="og:site_name" content="OBubba"/>
   <meta property="og:locale" content="en_GB"/>
   <meta name="twitter:card" content="summary_large_image"/>
-  <meta name="twitter:title" content="How to Create a Personalized Baby Routine in 5 Minutes (That Actually Works) | OBubba Blog"/>
+  <meta name="twitter:title" content="Personalized Baby Routine in 5 Minutes | OBubba"/>
   <meta name="twitter:description" content="A practical OBubba guide to creating a personalized baby routine in minutes using responsive cues, sleep tracking, feeds, nappies, breastfeeding, preterm notes, colic and reflux context, and gentle reminders."/>
   <meta name="twitter:image" content="https://obubba.com/og-image.png"/>
   <meta name="theme-color" content="#fffcf9"/>
@@ -161,6 +162,16 @@
     font-size: clamp(18px, 2.1vw, 24px);
     line-height: 1.45;
     color: rgba(255, 255, 255, 0.9);
+  }
+  .visual-identity .hero {
+    background-image:
+      linear-gradient(90deg, rgba(20, 15, 28, 0.9), rgba(20, 15, 28, 0.66) 54%, rgba(20, 15, 28, 0.28)),
+      var(--hero-image);
+    background-position: center 64%;
+  }
+  .visual-identity .hero h1 {
+    max-width: 980px;
+    font-size: clamp(42px, 7vw, 78px);
   }
   .hero-actions {
     display: flex;
@@ -335,6 +346,43 @@
     line-height: 1.7;
     margin: 0;
   }
+  .visual-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin-top: 30px;
+  }
+  .visual-card {
+    margin: 0;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+    background: white;
+    box-shadow: 0 14px 40px rgba(55, 38, 56, 0.08);
+  }
+  .visual-card img {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    background: #07112a;
+  }
+  .visual-card.featured {
+    grid-column: span 2;
+  }
+  .visual-card.featured img {
+    aspect-ratio: 853 / 1100;
+    object-position: center 66%;
+  }
+  .visual-card figcaption {
+    padding: 16px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+  .visual-card strong {
+    display: block;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
   .meta {
     color: var(--rose-dark);
     font-size: 13px;
@@ -399,6 +447,25 @@
     font-weight: 700;
     background: white;
   }
+  .related-guides {
+    display: grid;
+    gap: 12px;
+    margin-top: 44px;
+    padding: clamp(22px, 4vw, 32px);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff8f2;
+  }
+  .related-guides h2 {
+    font-size: clamp(26px, 4vw, 40px);
+  }
+  .related-guides p {
+    color: var(--muted);
+    font-size: 18px;
+    line-height: 1.65;
+    margin: 0;
+  }
+  .related-guides .tags { margin-top: 8px; }
   .cta-band {
     display: grid;
     gap: 14px;
@@ -435,7 +502,9 @@
     .nav-links { flex-wrap: wrap; font-size: 13px; }
     .hero { min-height: 76vh; background-position: center; }
     .grid,
-    .feature-split { grid-template-columns: 1fr; }
+    .feature-split,
+    .visual-grid { grid-template-columns: 1fr; }
+    .visual-card.featured { grid-column: auto; }
     .blog-hero { background-size: 210px auto; background-position: right -28px bottom -24px; }
   }
   @media (max-width: 560px) {
@@ -450,7 +519,7 @@
 {
   "@context": "https://schema.org",
   "@type": "BlogPosting",
-  "headline": "How to Create a Personalized Baby Routine in 5 Minutes (That Actually Works)",
+  "headline": "Personalized Baby Routine in 5 Minutes",
   "description": "A practical OBubba guide to creating a personalized baby routine in minutes using responsive cues, sleep tracking, feeds, nappies, breastfeeding, preterm notes, colic and reflux context, and gentle reminders.",
   "datePublished": "2026-05-01",
   "dateModified": "2026-05-01",
@@ -491,7 +560,7 @@
     <header class="article-header">
       <div class="article">
         <div class="meta">2026-05-01 / OBubba</div>
-        <h1>How to Create a Personalized Baby Routine in 5 Minutes (That Actually Works)</h1>
+        <h1>Personalized Baby Routine in 5 Minutes</h1>
         <p>A practical OBubba guide to creating a personalized baby routine in minutes using responsive cues, sleep tracking, feeds, nappies, breastfeeding, preterm notes, colic and reflux context, and gentle reminders.</p>
         <div class="tags"><span class="tag">personalized baby routine</span><span class="tag">personalised baby routine</span><span class="tag">baby routine app</span><span class="tag">baby schedule app</span><span class="tag">baby sleep tracker</span><span class="tag">baby feed tracker</span><span class="tag">breastfeeding tracker</span><span class="tag">preterm baby support</span><span class="tag">colic reflux baby support</span><span class="tag">OBubba</span></div>
       </div>
@@ -549,6 +618,12 @@
 <p>So, ditch the rigid routine charts. Stop trying to win a race that does not exist. Spend 5 minutes setting up your <strong>personalized baby routine</strong> with <strong>OBubba</strong>, then spend the rest of your time actually enjoying your baby. Or drinking a lukewarm coffee in peace. Both count.</p>
 <p><a href="https://obubba.com" target="_blank" rel="noopener noreferrer">Get started with OBubba today.</a></p>
 <p><em>Made by a tired mum, for tired parents everywhere.</em></p>
+
+      <section class="related-guides" aria-label="Related baby tracking guides">
+        <h2>Related baby tracking guides</h2>
+        <p>Keep exploring the OBubba guides parents use around feeds, sleep, nappies, routines and care handovers.</p>
+        <div class="tags"><a class="tag" href="/blog/baby-care-handover-template-grandparents-nursery.html">Baby Care Handover Template</a><a class="tag" href="/blog/baby-reflux-colic-diary-what-to-track.html">Baby Reflux and Colic Diary</a><a class="tag" href="/blog/baby-tracker-app-checklist-for-new-parents.html">Baby Tracker App Checklist for New Parents</a><a class="tag" href="/blog/baby-wake-windows-without-stress.html">Baby Wake Windows Without Stress</a><a class="tag" href="/blog/best-baby-tracker-app-uk.html">Best Baby Tracker App UK</a><a class="tag" href="/blog/newborn-feeding-and-nappy-log.html">Newborn Feeding and Nappy Log</a><a class="tag" href="/blog/gentle-sleep-training-guide.html">Gentle Sleep Training Guide</a><a class="tag" href="/blog/newborn-feeding-guide-reflux-safety.html">Newborn Feeding: Reflux and Safety</a><a class="tag" href="/blog/side-sleeping-baby-safe-sleep-guidelines.html">Side Sleeping Baby: Safe Sleep Guide</a><a class="tag" href="/blog/baby-sleep-schedule-guide.html">Baby Sleep Schedule Guide</a><a class="tag" href="/blog/best-baby-tracker-app-for-new-parents.html">Best Baby Tracker App for New Parents</a></div>
+      </section>
       <div class="cta-band" style="margin-top: 44px;">
         <h2>Ready to try OBubba?</h2>
         <p>Use OBubba to track feeds, sleep, naps, nappies, growth, milestones and family handovers in one calm baby tracker app.</p>
@@ -564,12 +639,14 @@
     <div class="footer-inner">
       <div>OBubba - baby tracking, parenting rhythm and calmer handovers.</div>
       <div>
-        <a href="/privacy.html">Privacy</a>
-        <span aria-hidden="true"> / </span>
-        <a href="/terms.html">Terms</a>
-        <span aria-hidden="true"> / </span>
-        <a href="/feed.xml">RSS</a>
-      </div>
+	        <a href="/privacy.html">Privacy</a>
+	        <span aria-hidden="true"> / </span>
+	        <a href="/terms.html">Terms</a>
+	        <span aria-hidden="true"> / </span>
+	        <a href="/obubba-visual-identity.html">Brand images</a>
+	        <span aria-hidden="true"> / </span>
+	        <a href="/feed.xml">RSS</a>
+	      </div>
     </div>
   </footer>
 </body>

@@ -44,7 +44,8 @@ cp -f public/vendor/react.production.min.js dist/vendor/react.production.min.js
 cp -f public/vendor/react-dom.production.min.js dist/vendor/react-dom.production.min.js
 
 echo "Copying to dist/..."
-cp -f public/index.html dist/index.html
+cp -f public/app.html dist/index.html
+cp -f public/app.html dist/app.html
 cp -f public/manifest.json dist/manifest.json
 cp -f public/icon.png dist/icon.png 2>/dev/null || true
 mkdir -p dist/icons
@@ -63,7 +64,7 @@ cp -f public/Parisienne-Regular.ttf dist/Parisienne-Regular.ttf 2>/dev/null || t
 # Cache-bust: update ?v= on all index.html script tags
 echo "Cache busting..."
 CACHE_V=$(date +%s)
-for f in index.html public/index.html dist/index.html; do
+for f in index.html public/index.html public/app.html dist/index.html dist/app.html; do
   if [ -f "$f" ]; then
     sed -i '' "s|/app\.js?v=[0-9]*\"|/app.js?v=${CACHE_V}\"|g" "$f"
     sed -i '' "s|/app\.js\"|/app.js?v=${CACHE_V}\"|g" "$f"
