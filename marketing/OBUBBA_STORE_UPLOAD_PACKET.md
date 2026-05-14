@@ -14,18 +14,18 @@ This is the practical console checklist for finishing OBubba in App Store Connec
 - Store copy has been rewritten in `APPSTORE_LISTING.md`.
 - Apple metadata length issues were fixed in the upload copy.
 - Apple category recommendation was corrected: use Lifestyle for parenting, not a non-existent "Parenting" category.
+- App Store version `2.7.8` with build `50` was submitted for review on 2026-05-14 and shows `Waiting for Review`.
+- App Store App Information was updated to `OBubba Baby Tracker`, subtitle `Sleep, feeds, naps & nappies`, primary category `Lifestyle`, and secondary category `Health & Fitness`.
+- Four App Store custom product pages were submitted for review: `Sleep Rhythm`, `Newborn Daily Log`, `Family Handovers`, and `Weaning And Milestones`.
+- Google Play main store listing name, short description and full description were updated and sent for review on 2026-05-14.
 
-## What Still Requires Console Access
+## What Still Needs Monitoring
 
-These cannot be truthfully marked complete until someone with an active logged-in console session does them:
-
-- Paste App Store listing fields into App Store Connect.
-- Upload or reorder App Store screenshots.
-- Submit App Store metadata/custom product pages for review.
-- Paste Google Play main store listing fields.
-- Upload or reorder Google Play screenshots and feature graphic.
-- Create Google Play custom store listings.
-- Start Google Play store listing experiments.
+- App Store review approval for version `2.7.8`; release is manual, so approve/release after a final smoke check.
+- Apple custom product page review approval, then record the live page URLs.
+- Google Play quick checks and review for the 3 main listing changes. Managed publishing is off, so approved changes may publish automatically.
+- Google Play custom store listings, once Play exposes selectable search keyword data or a matching Google Ads campaign exists.
+- Store listing experiments, after the updated listings are live.
 
 ## Official Limits Used
 
@@ -51,6 +51,11 @@ References:
 App:
 - App Store Connect app id: `6760968757`
 - Public app id: `id6760968757`
+
+Status:
+- Submitted for review on 2026-05-14 as version `2.7.8`, build `50`.
+- App Store Connect currently shows `2.7.8 Waiting for Review`.
+- Release setting is manual.
 
 Use exact metadata from:
 - `APPSTORE_LISTING.md`
@@ -82,11 +87,11 @@ Recommended App Store product page fields:
 - Support URL: `https://obubba.com`
 - Marketing URL: `https://obubba.com`
 
-Do not click `Add for Review` until screenshots, pricing and subscriptions are checked in the version page.
+These fields were saved in App Store Connect on 2026-05-14. Do not remove the submitted version from review unless App Review requires a correction.
 
 ## Apple Custom Product Pages
 
-Create these after the main product page is stable. Each one can use custom screenshots and promotional text. Public URLs only work after review approval.
+These four pages were submitted for review on 2026-05-14. Public URLs only work after review approval.
 
 ### 1. Sleep Rhythm
 
@@ -174,6 +179,11 @@ App:
 
 Use exact text from:
 - `APPSTORE_LISTING.md`
+
+Status:
+- App name, short description and full description were saved and sent for review on 2026-05-14.
+- Play Console showed `Changes in review` after submission from Publishing overview.
+- Managed publishing was off, so approved changes may go live automatically.
 
 Fields:
 - App name: `OBubba Baby Tracker`

@@ -19,13 +19,18 @@ Finished in repo:
 - Custom product page and custom store listing variants prepared.
 - Store experiment variants prepared.
 
-Still requires logged-in console work:
-- Paste the metadata.
-- Upload/reorder screenshots.
-- Submit App Store changes for review.
-- Publish or submit Google Play listing changes.
-- Create custom pages/listings.
-- Start experiments.
+Finished in logged-in consoles on 2026-05-14:
+- App Store version `2.7.8` with build `50` was submitted and is `Waiting for Review`.
+- App Store App Information was saved as `OBubba Baby Tracker` with subtitle `Sleep, feeds, naps & nappies`, primary category `Lifestyle`, and secondary category `Health & Fitness`.
+- Four App Store custom product pages were submitted for review: `Sleep Rhythm`, `Newborn Daily Log`, `Family Handovers`, and `Weaning And Milestones`.
+- Google Play main store listing name, short description and full description were updated and sent for review.
+
+Still pending:
+- Monitor App Store review and manually release `2.7.8` after approval.
+- Monitor Apple custom product page review.
+- Monitor Google Play quick checks/review. Managed publishing was off, so approved Play listing changes may publish automatically.
+- Create Google Play custom store listings after Play exposes selectable keyword data or after a matching Google Ads campaign exists.
+- Start store listing experiments after the approved listings are live.
 
 ## App Store Connect
 
@@ -36,8 +41,8 @@ App:
 Console:
 `https://appstoreconnect.apple.com/apps/6760968757`
 
-Fields to paste:
-- Use `APPSTORE_LISTING.md`.
+Fields:
+- Version metadata and App Information were saved from `APPSTORE_LISTING.md` on 2026-05-14.
 
 Assets:
 - iPhone 6.5 inch screenshots: `/Users/zyesha/Desktop/APPLE_UPLOAD_USE_THESE_6_5_SCREENSHOTS`
@@ -55,16 +60,17 @@ Main page upload order:
 9. `09-feeding-support-for-every-route.png`
 10. `10-travel-with-less-rhythm-chaos.png`
 
-Custom product pages to create:
+Custom product pages submitted for review:
 - `Sleep Rhythm`
 - `Newborn Daily Log`
 - `Family Handovers`
 - `Weaning And Milestones`
 
-Use exact custom-page copy and screenshot order from `marketing/OBUBBA_STORE_UPLOAD_PACKET.md`.
+Use exact custom-page copy and screenshot order from `marketing/OBUBBA_STORE_UPLOAD_PACKET.md` for any future rebuilds or experiments.
 
 Safety:
-- Do not click `Add for Review` until the screenshots, IAP pricing and privacy answers have been checked.
+- Version `2.7.8` and the four custom product pages are already submitted for review. Do not remove them from review unless App Review requires a correction.
+- Release is manual on App Store Connect; manually release only after approval and a final smoke check.
 
 ## Google Play Console
 
@@ -78,7 +84,7 @@ Console:
 - Experiments: `https://play.google.com/console/u/0/developers/8912859958315035631/app/4972336244180701679/store-listing-experiments/overview`
 
 Fields to paste:
-- Use `APPSTORE_LISTING.md`.
+- Main listing fields were pasted from `APPSTORE_LISTING.md` and sent for review on 2026-05-14.
 
 Assets:
 - Feature graphic: `/Users/zyesha/Desktop/ANDROID_UPLOAD_USE_THESE/feature-graphic-1024x500.png`
