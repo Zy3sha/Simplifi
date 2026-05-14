@@ -213,7 +213,7 @@ Targeting:
 - Keywords/intents: baby sleep tracker, nap tracker, wake window tracker, baby routine app
 
 Short description:
-Track naps, night wakes, bedtime and wake windows in one calm baby sleep tracker.
+Track naps, night wakes, bedtime and wake windows in one calm baby sleep app.
 
 Full description opener:
 OBubba helps tired parents understand baby sleep in the context of the whole day. Track naps, feeds, nappies, bedtime, night wakes and mood notes in one calm timeline, then use patterns to plan the next gentle step.
