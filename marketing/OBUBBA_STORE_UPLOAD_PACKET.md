@@ -203,6 +203,11 @@ Google Play screenshot order:
 
 Create these from Play Console > Store presence > Custom store listings.
 
+Console note from 2026-05-14:
+- The `Search keywords` targeting drawer currently shows `No historical search data available` for OBubba. Do not save a keyword-targeted custom listing with zero selected keywords.
+- Use these keyword-intent variants when Play Console exposes selectable keyword data, or target a Google Ads campaign after a matching campaign exists.
+- If neither keyword data nor a Google Ads campaign is available, keep the variants prepared and focus first on the main listing and store listing experiments.
+
 ### 1. Sleep Tracker
 
 Listing name:

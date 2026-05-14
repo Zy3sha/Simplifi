@@ -12,6 +12,7 @@ Completed:
 - Added sleep-rhythm promotional text and selected relevant App Store keywords for the draft.
 - Generated iPad 13 screenshot assets at `/Users/zyesha/Desktop/APPLE_UPLOAD_USE_THESE_IPAD_13_SCREENSHOTS`.
 - Opened Google Play Console, confirmed the OBubba app record, and located Store listings, Store listing experiments, and Store performance pages.
+- On 2026-05-14, filled the Google Play `OBubba Sleep Tracker` custom listing fields in Safari and selected `Search keywords` targeting, but did not save it because Play Console showed `No historical search data available` and zero selectable keywords.
 
 Needs final confirmation before account submission:
 - App Store Connect `Sleep Rhythm` custom product page: click `Add for Review` only after confirming the uploaded media and copy.
@@ -55,9 +56,10 @@ Needs: Play Console access to OBubba.
 Actions:
 1. Update main store listing copy from `APPSTORE_LISTING.md`, adapted for Google Play fields.
 2. Create custom store listings:
-   - Sleep Tracker
+   - Sleep Tracker: prepared in the Console but not saved because keyword targeting currently has no selectable historical keyword data.
    - Newborn Tracker
    - Shared Care
+   - Weaning Tracker
 3. Start listing experiments:
    - Short description control vs newborn-focused variant.
    - First screenshot control vs sleep-rhythm variant.

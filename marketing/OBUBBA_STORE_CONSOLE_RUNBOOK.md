@@ -91,6 +91,10 @@ Custom store listings to create:
 - `OBubba Shared Care`
 - `OBubba Weaning Tracker`
 
+Targeting note:
+- On 2026-05-14, Play Console showed `No historical search data available` inside the `Search keywords` targeting drawer. Do not save a keyword-targeted listing until at least one keyword can be selected.
+- If keyword data remains unavailable, use Google Ads campaign targeting after a matching campaign is live, or leave the custom listings prepared and prioritize the main listing plus experiments.
+
 Experiments to create after listing updates are live:
 - `Short description - rhythm clarity`
 - `First screenshot - sleep rhythm`
