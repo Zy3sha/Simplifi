@@ -1,39 +1,33 @@
 # OBubba ASO Experiment Plan
 
-Date: 2026-05-13
-Goal: improve App Store and Google Play conversion by matching store messaging to parent intent.
+Updated: 2026-05-14
 
-Official references:
-- Apple custom product pages: https://developer.apple.com/app-store/custom-product-pages/
-- Apple product page optimization: https://developer.apple.com/app-store/product-page/
-- Google Play store listing experiments: https://play.google.com/console/about/store-listing-experiments/
-- Google Play custom store listings: https://support.google.com/googleplay/android-developer/answer/9867158
+Goal: improve App Store and Google Play conversion by matching store messaging to the strongest parent intent: rhythm, newborn logging, shared care and sleep.
 
-## Default store positioning
+Exact upload fields and variants live in:
+- `APPSTORE_LISTING.md`
+- `marketing/OBUBBA_STORE_UPLOAD_PACKET.md`
+
+## Default Positioning
 
 Name:
-OBubba - Baby Tracker
+`OBubba Baby Tracker`
 
-Subtitle / short description tests:
+Apple subtitle:
+`Sleep, feeds, naps & nappies`
 
-Control:
-Smart sleep, feeds and naps
+Google short description:
+`Track feeds, sleep, naps and nappies. Learn your baby's rhythm.`
 
-Variant A:
-Feeds, sleep, nappies, rhythm
+Core promise:
+OBubba keeps feeds, naps, sleep, nappies, weaning, milestones and care handovers in one calm baby tracker that helps tired parents understand the baby's rhythm.
 
-Variant B:
-Track baby care, share calm
-
-Variant C:
-Newborn tracker for tired parents
-
-## Keyword priority
+## Keyword Priority
 
 Primary:
 - baby tracker
-- newborn tracker
 - baby sleep tracker
+- newborn tracker
 - baby feed tracker
 - breastfeeding tracker
 - nappy tracker
@@ -41,8 +35,8 @@ Primary:
 - baby routine app
 
 Secondary:
-- baby diary
 - baby daily log
+- baby diary
 - baby milestone tracker
 - baby memory book
 - reflux baby tracker
@@ -50,92 +44,123 @@ Secondary:
 - partner baby tracker
 - nursery handover
 
-## Screenshot set
+Apple keyword field:
+`newborn,breastfeeding,bottle,weaning,growth,milestone,routine,wake,window,parent,carer,diary`
 
-Screenshot 1:
-Caption: Understand your baby's rhythm
-Visual: main OBubba dashboard or landing rhythm art
+## Screenshot Strategy
 
-Screenshot 2:
-Caption: Track feeds, sleep and nappies
-Visual: quick logging and timeline
+Main store page order:
+1. Know what baby needs next
+2. Less alone at 3am
+3. One calm place for care
+4. Sleep advice that reads the whole night
+5. Weaning without the panic
+6. Parents need care too
+7. Play that fits their stage
+8. Bubba Care for your village
+9. Feeding support for every route
+10. Travel with less rhythm chaos
 
-Screenshot 3:
-Caption: Know what happened overnight
-Visual: sleep story, wakes, stretches
+Why this order:
+- Screenshot 1 sells the broad app promise.
+- Screenshot 2 sells emotional relief.
+- Screenshot 3 shows the app is not only sleep.
+- Screenshot 4 catches the high-intent sleep tracker audience.
+- Later screenshots broaden into weaning, wellbeing, play, sharing, feeding and travel.
 
-Screenshot 4:
-Caption: Share handovers with family
-Visual: Bubba Care / partner / grandparent context
+## Apple Custom Product Pages
 
-Screenshot 5:
-Caption: Reports for real conversations
-Visual: summary or trends
+Create:
+- Sleep Rhythm
+- Newborn Daily Log
+- Family Handovers
+- Weaning And Milestones
 
-Screenshot 6:
-Caption: Weaning, milestones and memories
-Visual: weaning, growth or memory book
+Primary use:
+- Apple Search Ads ad group matching.
+- Creator/PR links when the angle is specific.
+- Website landing page CTA tests.
 
-## Apple custom product pages
+Do not expect custom product pages to change default organic App Store search by themselves; they are primarily alternate pages for campaign links and ads.
 
-Page: Sleep Rhythm
-- Audience: parents searching for baby sleep, naps, wake windows.
-- Hero line: Baby sleep tracking that sees the whole day.
-- Screenshot emphasis: sleep story, nap tracker, bedtime guidance, night wakes.
-- Deep link if available later: sleep or guidance tab.
+## Google Play Custom Store Listings
 
-Page: Newborn Daily Log
-- Audience: newborn parents.
-- Hero line: Feeds, nappies and sleep in one calm log.
-- Screenshot emphasis: feed log, nappy log, quick actions, reports.
-- Deep link if available later: track tab.
+Create:
+- OBubba Sleep Tracker
+- OBubba Newborn Tracker
+- OBubba Shared Care
+- OBubba Weaning Tracker
 
-Page: Family Handovers
-- Audience: partners, grandparents, nursery, babysitters.
-- Hero line: Share the baby day without five tired texts.
-- Screenshot emphasis: Bubba Care, reports, partner sharing.
-- Deep link if available later: care tab.
+Primary use:
+- Match Play traffic/ad groups to the parent intent.
+- Match screenshots to the user need before they install.
 
-Page: Weaning and Milestones
-- Audience: parents around 5-8 months.
-- Hero line: First foods, milestones and memories together.
-- Screenshot emphasis: weaning, allergen notes, milestones, memory book.
-- Deep link if available later: grow tab.
+## Experiment Queue
 
-## Google Play custom store listings
+Run one major variable at a time.
 
-Listing: Sleep Tracker
-- Short description: Track naps, night wakes, bedtime and wake windows in one calm baby sleep tracker.
-- Search intent: baby sleep tracker, nap tracker, wake window tracker.
-- Screenshots: sleep-first.
+### 1. Google Play Short Description
 
-Listing: Newborn Tracker
-- Short description: Track newborn feeds, nappies, sleep and notes without relying on tired memory.
-- Search intent: newborn tracker, feeding log, nappy log.
-- Screenshots: quick-log-first.
+Control:
+`Track feeds, sleep, naps and nappies. Learn your baby's rhythm.`
 
-Listing: Shared Care
-- Short description: Share feeds, naps, nappies and routines with partners, grandparents and carers.
-- Search intent: partner baby tracker, nursery handover, baby tracker for grandparents.
-- Screenshots: Bubba Care-first.
+Variant A:
+`Baby feeds, naps, sleep and nappies in one calm tracker.`
 
-## Experiment rules
+Variant B:
+`Understand feeds, sleep, nappies and night wakes without tired memory.`
 
-- Test one major variable at a time: first screenshot, short description or icon, not all at once.
-- Run tests long enough to gather meaningful traffic.
-- Keep winning language and reuse it on the website and creator scripts.
-- If a variant raises store page conversion but lowers retention, do not keep it.
+Metric:
+Store listing conversion rate.
+
+### 2. Google Play First Screenshot
+
+Control:
+`01-know-what-baby-needs-next.png`
+
+Variant A:
+`04-sleep-advice-that-reads-the-whole-night.png`
+
+Variant B:
+`03-one-calm-place-for-care.png`
+
+Metric:
+Store listing conversion rate.
+
+### 3. Apple Product Page Optimization
+
+Control first screenshot:
+`01-know-what-baby-needs-next.png`
+
+Treatment A:
+`04-sleep-advice-that-reads-the-whole-night.png`
+
+Treatment B:
+`03-one-calm-place-for-care.png`
+
+Keep metadata stable during this test.
+
+## Review Rules
+
 - Do not overclaim medical, sleep training or diagnostic benefits.
+- Do not use competitor names in metadata unless running paid search keyword targeting outside the visible listing.
+- Do not add price language to screenshots or icons.
+- Do not keyword-stuff Google Play descriptions.
+- If a variant improves installs but worsens onboarding completion or trial start rate, do not keep it.
 
-## Review cadence
+## Reporting Cadence
 
 Weekly:
-- App Store product page conversion.
-- Google Play listing conversion.
-- Store search terms when available.
+- App Store impressions.
+- App Store product page views.
+- App Store conversion rate.
+- Google Play listing visitors.
+- Google Play acquisitions.
 - Website store-button clicks by landing page.
 - Install to onboarding completion.
+- Trial start and paid conversion.
 
 Monthly:
-- Refresh screenshots based on highest-performing parent promise.
-- Add another custom page/listing for the strongest search segment.
+- Refresh screenshots around the best-performing parent promise.
+- Add a new custom page/listing only if there is a clear search or campaign segment.
+- Feed winning phrases back into website SEO pages and creator scripts.
