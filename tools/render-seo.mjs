@@ -15,6 +15,10 @@ const SITE = {
   ogImage: '/og-image.png',
 };
 
+const IMAGE_LICENSE_PATH = '/obubba-visual-identity.html#image-licensing';
+const IMAGE_CREDIT_TEXT = 'OBubba';
+const IMAGE_COPYRIGHT_NOTICE = 'Copyright 2026 OBubba. All rights reserved.';
+
 const BRAND_IMAGES = [
   {
     path: '/icon.png',
@@ -679,6 +683,7 @@ function brandImageObjects() {
     contentUrl: absoluteUrl(image.path),
     url: absoluteUrl(image.path),
     thumbnailUrl: absoluteUrl(image.path),
+    ...imageLicenseMetadata(),
     width: image.width,
     height: image.height,
     representativeOfPage: true,
@@ -695,6 +700,15 @@ function absoluteUrl(urlPath = '/') {
   if (/^https?:\/\//i.test(urlPath)) return urlPath;
   const cleaned = urlPath.startsWith('/') ? urlPath : `/${urlPath}`;
   return `${SITE.baseUrl}${cleaned}`;
+}
+
+function imageLicenseMetadata() {
+  return {
+    creditText: IMAGE_CREDIT_TEXT,
+    copyrightNotice: IMAGE_COPYRIGHT_NOTICE,
+    license: absoluteUrl(IMAGE_LICENSE_PATH),
+    acquireLicensePage: absoluteUrl(IMAGE_LICENSE_PATH),
+  };
 }
 
 function slugify(value = '') {
@@ -1899,6 +1913,14 @@ ${imageCards}
       </div>
     </section>
 
+    <section class="section" id="image-licensing">
+      <div class="section-inner narrow">
+        <p class="eyebrow">Image licensing</p>
+        <h2>OBubba brand images are protected assets.</h2>
+        <p>OBubba brand images and artwork are copyright 2026 OBubba. All rights reserved. For permission to use or license OBubba images, contact <a href="mailto:${SITE.email}">${SITE.email}</a>.</p>
+      </div>
+    </section>
+
     <section class="section">
       <div class="section-inner cta-band">
         <p class="eyebrow">OBubba identity phrase</p>
@@ -2062,7 +2084,17 @@ function renderPost(post, posts = []) {
       datePublished: post.date,
       dateModified: post.updated || post.date,
       author: { '@type': 'Organization', name: post.author || SITE.name },
-      publisher: { '@type': 'Organization', name: SITE.name, url: SITE.baseUrl, logo: { '@type': 'ImageObject', url: absoluteUrl('/icon.png') } },
+      publisher: {
+        '@type': 'Organization',
+        name: SITE.name,
+        url: SITE.baseUrl,
+        logo: {
+          '@type': 'ImageObject',
+          url: absoluteUrl('/icon.png'),
+          contentUrl: absoluteUrl('/icon.png'),
+          ...imageLicenseMetadata(),
+        },
+      },
       mainEntityOfPage: absoluteUrl(post.urlPath),
       image: absoluteUrl(SITE.ogImage),
       keywords: post.tags.join(', '),
