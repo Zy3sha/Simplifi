@@ -5274,7 +5274,9 @@ function dedupeNightWakeEvents(entries) {
       }
       let gap = Math.abs(e._nightEventKey - last._nightEventKey);
       if (gap > 720) gap = 1440 - gap;
-      if (gap <= 15) {
+      const sameClockEntry = String(e.time || e.start || "") && String(e.time || e.start || "") === String(last.time || last.start || "");
+      const closeEventsLookSameIncident = sameClockEntry || _isNightWakeSettlingContextEntry(e) || _isNightWakeSettlingContextEntry(last);
+      if (gap <= 15 && closeEventsLookSameIncident) {
         if (e.type === "wake" && _isNightFeedSettlingEntry(last)) out[out.length - 1] = _mergeNightWakeSettlingFeed(e, last, 0);
         else if (_nightWakeEventScore(e) > _nightWakeEventScore(last)) out[out.length - 1] = e;
         return;

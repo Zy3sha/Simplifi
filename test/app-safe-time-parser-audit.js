@@ -89,6 +89,7 @@ assert("bedtime Live Activity starts validate form times", app.includes("const _
 assert("morning-wake date routing validates wake hour", app.includes("const _wh = clockHour(form.wakeTime||\"\");") && app.includes("const _wh2 = clockHour(form.wakeTime||\"\");"));
 assert("bed timer analytics validates bedtime date", app.includes("const _bedMs = clockDateMs(_btd, _bedEnt.time, NaN);"));
 assert("last-night summary validates next-day wake hours", app.includes("function collectLastNightWakeEntries(days, bedtimeDayKey, morningDayKey)") && app.includes("const fromBedMin = nightEntryFromBedMin(e, bedMins);") && app.includes("return fromBedMin === null ? null : { ...e, _fromBedMin: fromBedMin };") && app.includes("const nightWakes = getNightWakeEventsForDay(days, bedDay, _nextDayKey);"));
+assert("night-wake dedupe does not collapse separate close wakes", app.includes("const closeEventsLookSameIncident = sameClockEntry || _isNightWakeSettlingContextEntry(e) || _isNightWakeSettlingContextEntry(last);") && app.includes("if (gap <= 15 && closeEventsLookSameIncident)"));
 assert("medicine reminders validate reminder clock", app.includes("const _reminderMins = clockMins(timeStr||nowTime());"));
 assert("temperature response analysis validates clock text", app.includes("var mins = clockMins(time);") && app.includes("var ms = dateKeyMs(date, NaN);") && app.includes("return ms / 60000 + mins - 720;"));
 assert("bedtime-now timers validate clock text", app.includes("const _bedMins = clockMins(bedTime);") && app.includes("const _bedStartMins = clockMins(bedTime);"));
