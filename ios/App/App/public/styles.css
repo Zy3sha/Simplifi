@@ -15019,6 +15019,13 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-title .is-main{
   font-size:15px!important;
   font-weight:780!important;
 }
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-title.has-action-button .is-name,
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-title.has-action-button .is-state{
+  font-size:9.8px!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-title.has-action-button .is-main{
+  font-size:12.8px!important;
+}
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-sub{
   font-family:var(--ob-font-body,'DM Sans',-apple-system,'SF Pro Display',system-ui,sans-serif)!important;
   font-size:8.6px!important;
@@ -15027,6 +15034,54 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-sub{
   font-variant-numeric:tabular-nums!important;
   paint-order:stroke!important;
   stroke-width:0.22px!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-sub.has-action-button{
+  font-size:7.3px!important;
+  font-weight:760!important;
+  opacity:0.88!important;
+  stroke-width:0.16px!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-button{
+  pointer-events:none!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-button rect{
+  fill:rgba(255,253,247,0.42)!important;
+  stroke:rgba(255,235,201,0.64)!important;
+  stroke-width:0.72px!important;
+  filter:drop-shadow(0 4px 8px rgba(48,34,60,0.10)) drop-shadow(0 0 10px rgba(255,225,179,0.11))!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-button[data-due="bedtime"] rect{
+  animation:obClockBedtimeDuePulse 2.6s ease-in-out infinite!important;
+  transform-box:fill-box!important;
+  transform-origin:center!important;
+}
+@keyframes obClockBedtimeDuePulse{
+  0%,100%{opacity:0.82;stroke-width:0.72px;}
+  50%{opacity:1;stroke-width:1.02px;}
+}
+@media (prefers-reduced-motion:reduce){
+  body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-button[data-due="bedtime"] rect{
+    animation:none!important;
+    opacity:1!important;
+  }
+}
+html[data-ob-platform="android"] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-button[data-due="bedtime"] rect,
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-button[data-due="bedtime"] rect,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-center-button[data-due="bedtime"] rect,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-button[data-due="bedtime"] rect{
+  animation:none!important;
+  opacity:1!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-button text{
+  font-family:var(--ob-font-body,'DM Sans',-apple-system,'SF Pro Display',system-ui,sans-serif)!important;
+  font-size:6.1px!important;
+  font-weight:780!important;
+  letter-spacing:0!important;
+  text-anchor:middle!important;
+  fill:rgba(56,51,70,0.92)!important;
+  stroke:rgba(255,255,255,0.46)!important;
+  stroke-width:0.10px!important;
+  paint-order:stroke!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-sub.is-overdue{
   font-size:7.1px!important;
@@ -15060,6 +15115,14 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .o
   stroke:rgba(5,8,21,0.42)!important;
   filter:drop-shadow(0 0 8px rgba(160,168,255,0.12))!important;
 }
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-center-button rect{
+  fill:rgba(20,37,61,0.44)!important;
+  stroke:rgba(255,221,179,0.40)!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-center-button text{
+  fill:rgba(255,248,230,0.92)!important;
+  stroke:rgba(4,7,19,0.30)!important;
+}
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-center-rule{
   stroke:rgba(205,213,255,0.34)!important;
 }
@@ -15076,6 +15139,14 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-
   fill:rgba(77,76,104,0.78)!important;
   stroke:rgba(255,255,255,0.76)!important;
   filter:drop-shadow(0 4px 10px rgba(120,87,104,0.06))!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-center-button rect{
+  fill:rgba(255,253,249,0.58)!important;
+  stroke:rgba(255,255,255,0.74)!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-center-button text{
+  fill:rgba(53,52,70,0.88)!important;
+  stroke:rgba(255,255,255,0.58)!important;
 }
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-center-rule{
   stroke:rgba(77,76,104,0.22)!important;

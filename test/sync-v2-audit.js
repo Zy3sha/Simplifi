@@ -325,6 +325,16 @@ assert(
 );
 
 assert(
+  "child sync invite entry accepts pasted links, QR URLs and spaced codes",
+  app.includes("function childSyncCodeFromAnyInput(value)") &&
+    app.includes('u.searchParams.get("code") || u.searchParams.get("join") || u.searchParams.get("child")') &&
+    app.includes("setLinkCode(childSyncCodeFromAnyInput(e.target.value))") &&
+    app.includes('onPaste={e=>{ const _pastedCode = childSyncCodeFromAnyInput(e.clipboardData?.getData("text") || "");') &&
+    app.includes("let clean = childSyncCodeFromAnyInput(code);") &&
+    app.includes("const clean = childSyncCodeFromAnyInput(codeArg || pendingChildSyncCode);")
+);
+
+assert(
   "child sync participants are de-duplicated by account name as well as uid",
   app.includes("function _dedupeChildSyncParticipantsForCloud(participants)") &&
     app.includes("const visibleParticipants = React.useMemo(() => {") &&
@@ -381,6 +391,28 @@ assert(
     app.includes("_switchChildSyncCode(syncChildId || childId, replacementCode") &&
     app.includes("if(codeSnap.exists()) {") &&
     app.includes("if(replacementSnap.exists() && replacementSnap.data().isActive !== false)")
+);
+
+assert(
+  "regenerating a child sync code verifies or repairs the old code before creating the replacement",
+  app.includes("async function ensureCurrentUserCanRetireChildSyncCode(childId, code, ownerUid)") &&
+    app.includes("const restoredDoc = await restoreMissingChildSyncDocument(childId, clean") &&
+    app.includes("const claimed = await claimChildSyncBackupOwner(childId || data.childId, clean, data);") &&
+    app.includes("const claimedLegacy = await claimLegacyChildSyncOwner(clean, data);") &&
+    app.indexOf("const oldCodeReady = await ensureCurrentUserCanRetireChildSyncCode(childId, currentCode, ownerUid);") >
+      app.indexOf("async function regenerateChildSyncCode(childId, newUserCode)") &&
+    app.indexOf("const oldCodeReady = await ensureCurrentUserCanRetireChildSyncCode(childId, currentCode, ownerUid);") <
+      app.indexOf('const createdNew = await fsSet("child_syncs", newCode, _newSyncDoc);') &&
+    app.includes("const recheckedOld = await ensureCurrentUserCanRetireChildSyncCode(childId, currentCode, ownerUid);")
+);
+
+assert(
+  "owner phones self-heal missing child sync documents before partner links are shared again",
+  app.includes("async function restoreMissingChildSyncDocument(childId, code, childOverride, ownerUid, opts = {})") &&
+    app.includes('const restored = await fsSet("child_syncs", clean, restoredDoc);') &&
+    app.includes("let ownerMapMatches = false;") &&
+    app.includes("const canRestoreMissingDoc = ownerMapMatches || (localMeta && (!localMeta.ownerUid || localMeta.ownerUid === writerUid));") &&
+    app.includes("const restoredMissing = await restoreMissingChildSyncDocument(childId, code, childForCloud, writerUid, {activeTimer: childActiveTimerForCloud});")
 );
 
 assert(

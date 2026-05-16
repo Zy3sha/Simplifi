@@ -237,6 +237,24 @@ function safeChildSyncCodeParam(value) {
   const clean = String(value || "").trim().toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, CHILD_SYNC_CODE_LEN);
   return isValidChildSyncCode(clean) ? clean : "";
 }
+function childSyncCodeFromAnyInput(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  const direct = safeChildSyncCodeParam(raw);
+  if (direct && !/[/:?&=#]/.test(raw)) return direct;
+  const fromUrlParam = (candidate) => {
+    try {
+      const u = new URL(candidate.slice(0, SAFE_SHARE_URL_MAX));
+      return safeChildSyncCodeParam(u.searchParams.get("code") || u.searchParams.get("join") || u.searchParams.get("child"));
+    } catch { return ""; }
+  };
+  const parsed = fromUrlParam(raw) || (/^[a-z0-9.-]+\.[a-z]{2,}/i.test(raw) ? fromUrlParam("https://" + raw) : "");
+  if (parsed) return parsed;
+  const paramMatch = raw.match(/(?:^|[?&#])(?:code|join|child)=([A-Z0-9][A-Z0-9\-\s]{4,16})/i);
+  if (paramMatch) return safeChildSyncCodeParam(paramMatch[1]);
+  if (/[/:?&=#]/.test(raw)) return "";
+  return safeChildSyncCodeParam(raw);
+}
 function _nativePrefGet(key) {
   try {
     const ob = window.OBNative && window.OBNative.preferences;
@@ -11307,14 +11325,15 @@ function LinkChildForm({ joinChildByCode, C }) {
     <div style={{background:"var(--card-bg-solid)",borderRadius:14,padding:"14px",border:`1px solid ${C.blush}`,marginBottom:16}}>
       <div style={{fontSize:14,fontWeight:700,color:C.mid,marginBottom:4}}>Link a child</div>
       <div style={{fontSize:13,color:C.lt,marginBottom:10}}>Enter a sync code from another parent to add their child to your app.</div>
-      <input value={linkCode} onChange={e=>setLinkCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,CHILD_SYNC_CODE_LEN))}
+      <input value={linkCode} onChange={e=>setLinkCode(childSyncCodeFromAnyInput(e.target.value))}
+        onPaste={e=>{ const _pastedCode = childSyncCodeFromAnyInput(e.clipboardData?.getData("text") || ""); if(_pastedCode){ e.preventDefault(); setLinkCode(_pastedCode); setLinkStatus(""); setLinkError(""); }}}
         placeholder="e.g. AB3X7Y9K" maxLength={CHILD_SYNC_CODE_LEN}
         style={{width:"100%",fontSize:22,fontFamily:_fM,fontWeight:700,letterSpacing:"0.18em",textAlign:"center",padding:"11px",borderRadius:10,border:`1.5px solid ${linkStatus==="error"?C.ter:C.blush}`,background:"var(--bg-solid)",color:C.ter,outline:_oN,marginBottom:8,boxSizing:_bBB}}/>
       {linkStatus==="error" && <div style={{fontSize:13,color:C.ter,marginBottom:8,textAlign:"center"}}>{linkError}</div>}
       {linkStatus==="ok" && <div style={{fontSize:13,color:C.mint,marginBottom:8,textAlign:"center"}}>✓ {linkName} added to your app!</div>}
       <button onClick={async()=>{
         setLinkStatus("loading");
-        const result = await joinChildByCode(linkCode);
+        const result = await joinChildByCode(childSyncCodeFromAnyInput(linkCode));
         if(result.ok) { setLinkStatus("ok"); setLinkName(result.childName); setLinkCode(""); setTimeout(()=>setLinkStatus(""),2500); }
         else { setLinkStatus("error"); setLinkError(result.error); }
       }} disabled={!isValidChildSyncCode(linkCode)||linkStatus==="loading"} style={{width:"100%",padding:"12px",borderRadius:99,border:_bN,background:isValidChildSyncCode(linkCode)?C.mint:"#e0f0ea",color:isValidChildSyncCode(linkCode)?"white":"#a0c8b0",fontSize:15,fontWeight:700,cursor:isValidChildSyncCode(linkCode)?"pointer":"not-allowed",fontFamily:_fI,transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease"}}>
@@ -17218,7 +17237,7 @@ function App(){
   const[fbReady,setFbReady]=useState(false);
   React.useEffect(()=>{
     function _onChildSyncInvite(e) {
-      const code = safeChildSyncCodeParam(e && e.detail ? e.detail.code : "");
+      const code = childSyncCodeFromAnyInput(e && e.detail ? e.detail.code : "");
       if (!code) return;
       try{ localStorage.setItem("ob_pending_child_sync_code", code); }catch{}
       setPendingChildSyncCode(code);
@@ -17244,7 +17263,7 @@ function App(){
         const snap = await fsGet("child_syncs", code);
         if (cancelled) return;
         if (!snap || !snap.exists()) {
-          setPendingChildSyncError("That invite link could not be found. Ask the other parent for a fresh link.");
+	          setPendingChildSyncError("That invite link could not be found. Ask the other parent to regenerate the code and send a fresh link.");
           return;
         }
         let d = snap.data() || {};
@@ -22928,6 +22947,71 @@ function App(){
 	    }
 	    return ok;
 	  }
+	  async function restoreMissingChildSyncDocument(childId, code, childOverride, ownerUid, opts = {}) {
+	    const clean = safeChildSyncCodeParam(code);
+	    const uid = ownerUid || await ensureFirebaseUid(5000).catch(()=>"");
+	    const child = childOverride || childrenRef.current?.[childId] || children[childId];
+	    if(!window._fb || !clean || !uid || !child) return null;
+	    const {serverTimestamp} = window._fb;
+	    const cleanChild = stripFirestoreLegacyMediaChild(applyGrowthMeasurementDeleteTombstonesToChild(childId, child, deletedGrowthMeasurementsRef.current));
+	    const restoredDoc = {
+	      childId,
+	      childName: cleanChild?.name || child?.name || "",
+	      ownerUid: uid,
+	      ownerUsername: familyUsername || localStorage.getItem("family_username") || "",
+	      child: JSON.stringify(cleanChild),
+	      isActive: true,
+	      replacedBy: "",
+	      updatedAt: serverTimestamp ? serverTimestamp() : Date.now(),
+	      updatedBy: uid,
+	      participantUids: [uid],
+	      deletedEntryIds: JSON.stringify(_deletedEntryIdsArrayForCloud(500)),
+	      deletedDays: JSON.stringify(_deletedDaysArrayForCloud(childId, 200)),
+	      deletedGrowthMeasurements: JSON.stringify(_deletedGrowthMeasurementsArrayForCloud(500))
+	    };
+	    if(opts && opts.activeTimer) restoredDoc.activeTimer = opts.activeTimer;
+	    const restored = await fsSet("child_syncs", clean, restoredDoc);
+	    if(!restored) return null;
+	    _rememberChildSyncMeta(childId, clean, restoredDoc);
+	    try { await _persistChildSyncCode(childId, clean, cleanChild); } catch {}
+	    return restoredDoc;
+	  }
+	  async function ensureCurrentUserCanRetireChildSyncCode(childId, code, ownerUid) {
+	    const clean = safeChildSyncCodeParam(code);
+	    if(!clean) return {ok:false, error:"No existing code"};
+	    const uid = ownerUid || await ensureFirebaseUid(5000).catch(()=>"");
+	    if(!uid) return {ok:false, error:"Connection still warming up. try again in a moment"};
+	    let snap;
+	    try { snap = await fsGet("child_syncs", clean); }
+	    catch { return {ok:false, error:"No connection. try again"}; }
+	    if(!snap.exists()) {
+	      const restoredDoc = await restoreMissingChildSyncDocument(childId, clean, childrenRef.current?.[childId] || children[childId], uid);
+	      if(!restoredDoc) return {ok:false, error:"Could not restore the old code. check your connection and try again"};
+	      return {ok:true, data:restoredDoc, restored:true};
+	    }
+	    let data = snap.data() || {};
+	    if(data.isActive === false) {
+	      const replacementCode = safeChildSyncCodeParam(data.replacedBy || "");
+	      return {ok:false, replacementCode, error:replacementCode ? "This code was already replaced. ask your partner to use the newer link" : "This sync code is no longer active. create a fresh invite"};
+	    }
+	    if(data.ownerUid && data.ownerUid !== uid) {
+	      const claimed = await claimChildSyncBackupOwner(childId || data.childId, clean, data);
+	      if(!claimed) return {ok:false, error:"Could not verify this is your old code. tap Save now, then try regenerating again"};
+	      try {
+	        const fresh = await fsGet("child_syncs", clean);
+	        if(fresh.exists()) data = fresh.data() || data;
+	      } catch {}
+	    } else if(!data.ownerUid) {
+	      const claimedLegacy = await claimLegacyChildSyncOwner(clean, data);
+	      if(!claimedLegacy) return {ok:false, error:"Could not restore ownership of the old code. try again"};
+	      try {
+	        const fresh = await fsGet("child_syncs", clean);
+	        if(fresh.exists()) data = fresh.data() || data;
+	      } catch {}
+	    }
+	    _rememberChildSyncMeta(childId || data.childId || "", clean, data);
+	    return {ok:true, data};
+	  }
 	  async function createChildSyncCode(childId, userCode) {
 	    if(!window._fb) return {ok:false, error:"No connection"};
 	    const {serverTimestamp} = window._fb;
@@ -23027,7 +23111,7 @@ function App(){
 
     let code;
     try {
-      code = userCode ? userCode.trim().toUpperCase() : _generateSyncCode();
+      code = userCode ? childSyncCodeFromAnyInput(userCode) : _generateSyncCode();
     } catch(e) {
       console.warn("[OBubba] child sync code generation failed", e);
       return {ok:false, error:secureRandomUnavailableMessage()};
@@ -23084,11 +23168,13 @@ function App(){
 	    const {serverTimestamp} = window._fb;
 	    const ownerUid = await ensureFirebaseUid(5000);
 	    if(!ownerUid) return {ok:false, error:"Connection still warming up. try again in a moment"};
-	    const currentCode = childSyncCodes[childId];
+	    const currentCode = safeChildSyncCodeParam(childSyncCodes[childId]);
     if(!currentCode) return {ok:false, error:"No existing code"};
+    const oldCodeReady = await ensureCurrentUserCanRetireChildSyncCode(childId, currentCode, ownerUid);
+    if(!oldCodeReady.ok) return {ok:false, error:oldCodeReady.error || "Could not verify the old code. try again"};
     let newCode;
     try {
-      newCode = newUserCode ? newUserCode.trim().toUpperCase() : _generateSyncCode();
+      newCode = newUserCode ? childSyncCodeFromAnyInput(newUserCode) : _generateSyncCode();
     } catch(e) {
       console.warn("[OBubba] child sync code regeneration failed", e);
       return {ok:false, error:secureRandomUnavailableMessage()};
@@ -23127,7 +23213,11 @@ function App(){
 		    if(!createdNew) return {ok:false, error:"Could not create the new code. check your connection and try again"};
 		    _rememberChildSyncMeta(childId, newCode, _newSyncDoc);
     // Mark old code as retired and redirect stale devices to the replacement.
-    const deactivatedOld = await fsSet("child_syncs", currentCode, {isActive: false, replacedBy: newCode, updatedAt: serverTimestamp(), updatedBy: ownerUid}, true);
+    let deactivatedOld = await fsSet("child_syncs", currentCode, {isActive: false, replacedBy: newCode, updatedAt: serverTimestamp(), updatedBy: ownerUid}, true);
+    if(!deactivatedOld) {
+      const recheckedOld = await ensureCurrentUserCanRetireChildSyncCode(childId, currentCode, ownerUid);
+      if(recheckedOld.ok) deactivatedOld = await fsSet("child_syncs", currentCode, {isActive: false, replacedBy: newCode, updatedAt: serverTimestamp(), updatedBy: ownerUid}, true);
+    }
     if(!deactivatedOld) {
       try { await fsSet("child_syncs", newCode, {isActive: false}, true); } catch {}
       return {ok:false, error:"Could not retire the old code. try again before sharing a new one"};
@@ -23300,6 +23390,23 @@ function App(){
 		            childActiveTimerJson = JSON.stringify(null);
 		            clearLocalNapTimerStateFromSync("completed_nap_won_child_push");
 		          }
+		        } else {
+		          let ownerMapMatches = false;
+		          try {
+		            for (const mapId of _childCodeMapIds(childId, childForCloud)) {
+		              const mapSnap = await fsGet("child_code_map", mapId);
+		              if(mapSnap.exists() && safeChildSyncCodeParam(mapSnap.data().code) === code) {
+		                ownerMapMatches = true;
+		                break;
+		              }
+		            }
+		          } catch {}
+		          const localMeta = childSyncMeta[code] || childSyncMeta[childId] || null;
+		          const canRestoreMissingDoc = ownerMapMatches || (localMeta && (!localMeta.ownerUid || localMeta.ownerUid === writerUid));
+		          if(!canRestoreMissingDoc) return;
+		          const restoredMissing = await restoreMissingChildSyncDocument(childId, code, childForCloud, writerUid, {activeTimer: childActiveTimerForCloud});
+		          if(!restoredMissing) return;
+		          existingChildSyncData = restoredMissing;
 		        }
       } catch(e2) { /* proceed if check fails */ }
 	      const legacyChildForCloud = stripFirestoreLegacyMediaChild(childForCloud);
@@ -23588,11 +23695,11 @@ function App(){
 	    const {db, doc, getDoc, serverTimestamp} = window._fb;
 	    const joinerUid = await ensureFirebaseUid(5000);
 	    if(!joinerUid) return {ok:false, error:"Connection still warming up. try again in a moment"};
-	    let clean = code.trim().toUpperCase();
+	    let clean = childSyncCodeFromAnyInput(code);
     if(!isValidChildSyncCode(clean)) return {ok:false, error:"Code must be 6 to 8 letters or numbers"};
     try {
       let snap = await fsGet("child_syncs", clean);
-      if(!snap.exists()) return {ok:false, error:"Code not found. ask the other parent to check"};
+      if(!snap.exists()) return {ok:false, error:"Code not found. ask the other parent to regenerate the code and send a fresh link"};
       let d = snap.data();
 
       // Migration bridge: if this code was replaced, follow redirect (one hop max)
@@ -23677,7 +23784,7 @@ function App(){
     } catch(e) { return {ok:false, error:"Something went wrong. please try again"}; }
   }
   async function completePendingChildSyncJoin(codeArg) {
-    const clean = safeChildSyncCodeParam(codeArg || pendingChildSyncCode);
+    const clean = childSyncCodeFromAnyInput(codeArg || pendingChildSyncCode);
     if (!clean) return {ok:false, error:"Invite code missing"};
     setPendingChildSyncJoining(true);
     setPendingChildSyncError("");
@@ -25083,6 +25190,45 @@ function App(){
       }
     } catch(_) {}
 
+    // Today's Plan can insert a final bridge nap when the bedtime target would
+    // otherwise leave too long a last wake window. Mirror that into nextEvent
+    // so the clock face does not jump straight to bedtime while Plan says nap.
+    try {
+      const _canMirrorPlanBridge = !!(
+        !_planPred &&
+        !hasBedtime &&
+        !napOn &&
+        !bridgeNapScheduled &&
+        napRefusedChoice !== "skip" &&
+        typeof bedMins === "number" &&
+        Number.isFinite(bedMins) &&
+        typeof lastAwakeMins === "number" &&
+        Number.isFinite(lastAwakeMins)
+      );
+      if (_canMirrorPlanBridge) {
+        const _personalFinalWWCap = getPersonalFinalWakeWindowCap(ageWeeks);
+        const _comfortableFinalWWMax = Math.min(_personalFinalWWCap || ctxWW.max, ctxWW.max);
+        const _finalWakeGap = bedMins - lastAwakeMins;
+        if (_finalWakeGap > _comfortableFinalWWMax + 10) {
+          const _minBedWW = ageWeeks < 30 ? 60 : 90;
+          const _wakeFloor = Math.max(30, Math.round((ctxWW.min || ww.min || 90) * 0.75));
+          const _bridgeDur = clampNapDuration(25, ageWeeks);
+          const _bridgeStart = Math.round(lastAwakeMins + _wakeFloor);
+          const _bridgeEnd = _bridgeStart + _bridgeDur;
+          if (_bridgeStart > _nowMinsTC - 45 && _nowMinsTC <= _bridgeEnd && _bridgeEnd + _minBedWW <= bedMins) {
+            _planPred = {
+              napStart_min: _bridgeStart,
+              napStart_max: _bridgeStart + 10,
+              isBridge: true,
+              sourceLabel: "Bridge nap to reach bedtime"
+            };
+            nextNapMins = _bridgeStart;
+            napsComplete = false;
+          }
+        }
+      }
+    } catch(_) {}
+
     // Bridge nap: detected from predictNextNap result or nap count
     let bridgeNapNeeded = (_planPred && _planPred.isBridge) || (!napsComplete && napsDone >= expectedNaps);
     if (hasBedtime) {
@@ -25151,8 +25297,9 @@ function App(){
       const _bedTargetMs2 = (m) => { const _d = new Date(); _d.setHours(Math.floor(m/60)%24, m%60, 0, 0); return _d.getTime(); };
       const _predReasons = _planPred && _planPred.contextReasons && _planPred.contextReasons.length ? _planPred.contextReasons : [];
       const _predReasonLabel = _predReasons.length ? " (adjusted for " + _predReasons.join(", ") + ")" : "";
-      const _nextEvent2 = (_planPred && typeof _planPred.napStart_min === "number" && (!_napOverdue || napRefusedChoice !== "skip"))
-        ? { type: "nap", label: bridgeNapNeeded ? "Bridge nap" : "Nap " + (napsDone+1), timeMins: Math.round(_planPred.napStart_min), timeStr: fmt12(Math.round(_planPred.napStart_min)), targetMs: _tsForMins2(Math.round(_planPred.napStart_min), !!_napOverdue), countdown: Math.max(0, Math.round(_planPred.napStart_min) - _nowMinsTC), overdue: _napOverdue, contextReasons: _predReasons, contextLabel: _predReasonLabel, confidenceLabel:_planPred.confidenceLabel || "", confidenceReasons:_planPred.confidenceReasons || [] }
+      const _nextEventNapOverdue = !!(_planPred && typeof _planPred.napStart_min === "number" && !napOn && (_nowMinsTC - Math.round(_planPred.napStart_min) > 10));
+      const _nextEvent2 = (_planPred && typeof _planPred.napStart_min === "number" && (!_nextEventNapOverdue || napRefusedChoice !== "skip"))
+        ? { type: "nap", label: bridgeNapNeeded ? "Bridge nap" : "Nap " + (napsDone+1), timeMins: Math.round(_planPred.napStart_min), timeStr: fmt12(Math.round(_planPred.napStart_min)), targetMs: _tsForMins2(Math.round(_planPred.napStart_min), !!_nextEventNapOverdue), countdown: Math.max(0, Math.round(_planPred.napStart_min) - _nowMinsTC), overdue: _nextEventNapOverdue, contextReasons: _predReasons, contextLabel: _predReasonLabel, confidenceLabel:_planPred.confidenceLabel || "", confidenceReasons:_planPred.confidenceReasons || [] }
         : bedMins
         ? { type: "bed", label: "Bedtime", timeMins: bedMins, timeStr: fmt12(bedMins), targetMs: _bedTargetMs2(bedMins), countdown: Math.max(0, bedMins - _nowMinsTC) }
         : null;
@@ -45216,6 +45363,22 @@ function App(){
 			    };
 			    const clockPredictionCountdownOnlyLab = (item) => item ? (item.countdownText || clockPredictionCountdownTextLab(item.start, item.overdue, item.targetMs)) : "";
 			    const clockPredictionTimeOnlyLab = (item) => item ? (item.time || (Number.isFinite(Number(item.start)) ? clockLabFmt12(mtp24h(Number(item.start))) : "")) : "";
+			    const clockDeltaFromNowLab = (mins) => {
+			      const raw = Number(mins);
+			      if (!Number.isFinite(raw)) return null;
+			      let delta = Math.round(raw - nowMins);
+			      if (delta < -720) delta += 1440;
+			      if (delta > 720) delta -= 1440;
+			      return delta;
+			    };
+			    const clockShouldPreferBedtimeOverStandaloneNapLab = (mins) => {
+			      if (td.bridgeNapNeeded || (nextEvent && nextEvent.type === "nap")) return false;
+			      const napDelta = clockDeltaFromNowLab(mins);
+			      if (napDelta === null || napDelta > 0) return false;
+			      const guardBedMins = typeof td.bedMins === "number" ? td.bedMins : clockLabMins(td.bed?.time || "");
+			      const bedDelta = clockDeltaFromNowLab(guardBedMins);
+			      return bedDelta !== null && bedDelta <= 45 && bedDelta > -2;
+			    };
 			    const clockCenterFriendlyTitleLab = (event, fallback = "") => {
 			      const type = event?.type === "bed" ? "sleep" : event?.type;
 			      const label = String(event?.label || event?.text || fallback || "").replace(/\s+in\s+\d.*$/i, "").trim();
@@ -45237,7 +45400,7 @@ function App(){
 			        const title = clockCenterFriendlyTitleLab(nextEvent, type === "sleep" ? "bedtime" : type === "nap" ? "nap" : "next");
 			        return {title, sub:clockPredictionCountdownOnlyLab({start:nextMins, overdue:!!nextEvent.overdue, targetMs:nextEvent.targetMs, time:nextEvent.timeStr || (nextMins !== null ? clockLabFmt12(mtp24h(nextMins)) : "")})};
 			      }
-			      if (typeof td.nextNapMins === "number" && clockLabPredictionIsCurrent({type:"nap",label:"Nap " + ((td.napsDone || 0) + 1), overdue:td.nextNapMins <= nowMins}, td.nextNapMins)) {
+			      if (typeof td.nextNapMins === "number" && !clockShouldPreferBedtimeOverStandaloneNapLab(td.nextNapMins) && clockLabPredictionIsCurrent({type:"nap",label:"Nap " + ((td.napsDone || 0) + 1), overdue:td.nextNapMins <= nowMins}, td.nextNapMins)) {
 			        return {title:td.nextNapMins <= nowMins ? "Nap now" : "Nap " + ((td.napsDone || 0) + 1), sub:clockPredictionCountdownOnlyLab({start:td.nextNapMins, overdue:td.nextNapMins <= nowMins, time:clockLabFmt12(mtp24h(td.nextNapMins))})};
 			      }
 			      const queuedBedMins = typeof td.bedMins === "number" ? td.bedMins : clockLabMins(td.bed?.time || "");
@@ -46364,6 +46527,7 @@ function App(){
 	        if (td.bridgeNapNeeded || (nextEvent && nextEvent.type === "nap")) return true;
 	        const napStart = Number(mins);
 	        if (!Number.isFinite(napStart)) return false;
+	        if (clockShouldPreferBedtimeOverStandaloneNapLab(napStart)) return false;
 	        if (tdBedMins !== null && clockLabPredictionIsCurrent({type:"bed",label:"bedtime"}, tdBedMins) && napStart >= tdBedMins - 30) return false;
 	        return true;
 	      };
@@ -46518,9 +46682,6 @@ function App(){
 			      : (activeTimer || nextDue || !!clockQueuedCenter.sub)
 			      ? centerSubDisplayLines
 			      : [];
-			    const centerSubY = centerSubIsOverdue ? "158" : "164";
-			    const centerSubDy = centerSubIsOverdue ? "9" : "10";
-			    const centerRuleY = centerSubIsOverdue ? "180" : "175";
 	    const clockAutoContext = (() => {
 	      try { return engineAutoContext(); } catch { return {active:false,reasons:[],multiplier:1}; }
 	    })();
@@ -47710,7 +47871,15 @@ function App(){
 	      return null;
 	    })();
 	    const clockRoutineDoneFresh = !!(bedRoutineCompletedAt && !clockBedtimeLogged && !clockBedOnThisDay && (Date.now() - bedRoutineCompletedAt) < 2 * 60 * 60 * 1000);
-	    const clockRoutineBedCandidate = !!(td.napsComplete || td.napBedConflict || (td.nextEvent && td.nextEvent.type === "bed") || (clockPredictedBedMins !== null && clockMinsUntil(clockPredictedBedMins) !== null && clockMinsUntil(clockPredictedBedMins) <= 45));
+	    const clockNextEventIsNap = !!(
+	      (nextEvent && nextEvent.type === "nap") ||
+	      (predictionItem && predictionItem.kind === "nap") ||
+	      (!td.napsComplete && !td.napBedConflict && (
+	        (td.pred && typeof td.pred.napStart_min === "number") ||
+	        (typeof td.nextNapMins === "number" && !clockShouldPreferBedtimeOverStandaloneNapLab(td.nextNapMins))
+	      ))
+	    );
+	    const clockRoutineBedCandidate = !!(!clockNextEventIsNap && (td.napsComplete || td.napBedConflict || (td.nextEvent && td.nextEvent.type === "bed") || (clockPredictedBedMins !== null && clockMinsUntil(clockPredictedBedMins) !== null && clockMinsUntil(clockPredictedBedMins) <= 45)));
 	    const clockRoutineMinsToBed = clockPredictedBedMins !== null ? clockMinsUntil(clockPredictedBedMins) : null;
 	    const clockRoutineStartReady = !!(clockLabIsToday && !clockBedtimeLogged && !clockBedOnThisDay && !clockNapOnThisDay && !showBedRoutine && clockRoutineBedCandidate && clockRoutineMinsToBed !== null && clockRoutineMinsToBed <= 45 && clockRoutineMinsToBed > -2);
 	    const openClockBedRoutine = () => {
@@ -47748,12 +47917,19 @@ function App(){
 	    const clockExpectedWakeWindow = age ? getWakeWindow(age.predictiveWeeks ?? age.totalWeeks) : null;
 	    const clockNapEventOverdue = !!(
 	      (nextEvent && nextEvent.type === "nap" && (nextEvent.overdue || (nextMins !== null && nowMins >= nextMins))) ||
-	      (td.pred && td.pred.isOverdue) ||
-	      (typeof td.nextNapMins === "number" && nowMins >= td.nextNapMins)
+	      (td.pred && td.pred.isOverdue && !clockShouldPreferBedtimeOverStandaloneNapLab(td.pred.napStart_min)) ||
+	      (typeof td.nextNapMins === "number" && !clockShouldPreferBedtimeOverStandaloneNapLab(td.nextNapMins) && nowMins >= td.nextNapMins)
 	    );
 	    const clockWakeWindowOverdue = !!(clockCurrentWakeWindow && clockExpectedWakeWindow && clockCurrentWakeWindow.duration > clockExpectedWakeWindow.max + 10);
-	    const clockBedtimeResistanceReady = !!(clockLabIsToday && !clockBedtimeLogged && !clockBedOnThisDay && isBedtimeRescueWindow());
-	    const clockNapOverdue = !!(clockLabIsToday && !activeTimer && !clockBedtimeLogged && !clockBedtimeResistanceReady && !napRefusedChoice && (clockNapEventOverdue || clockWakeWindowOverdue));
+	    const clockBedtimeResistanceReady = !!(
+	      clockLabIsToday &&
+	      !clockBedtimeLogged &&
+	      !clockBedOnThisDay &&
+	      isBedtimeRescueWindow() &&
+	      !clockRoutineStartReady &&
+	      (clockRoutineMinsToBed === null || clockRoutineMinsToBed <= -2)
+	    );
+	    const clockNapOverdue = !!(clockLabIsToday && !activeTimer && !clockBedtimeLogged && !isBedtimeRescueWindow() && !clockBedtimeResistanceReady && !napRefusedChoice && (clockNapEventOverdue || clockWakeWindowOverdue));
 	    const clockPredictedNapStartReady = !!(
 	      clockLabIsToday &&
 	      !activeTimer &&
@@ -47775,7 +47951,7 @@ function App(){
 	            : null;
 	      return dueMins === null ? 0 : Math.max(0, Math.floor(nowMins - dueMins));
 	    })();
-	    const clockNapNotHappeningReady = !!(clockPredictedNapStartReady && clockPredictedNapDueLateMins >= 5);
+	    const clockNapNotHappeningReady = !!(!isBedtimeRescueWindow() && clockPredictedNapStartReady && clockPredictedNapDueLateMins >= 5);
 	    const clockDueNapTimeText = (() => {
 	      if (nextEvent && nextEvent.type === "nap") return nextEvent.timeStr || (nextMins !== null ? clockLabFmt12(mtp24h(nextMins)) : "");
 	      if (predictionItem && predictionItem.kind === "nap") return clockPredictionTimeOnlyLab(predictionItem) || predictionItem.time || "";
@@ -47798,14 +47974,6 @@ function App(){
 	      };
 	    })();
 	    const clockOldTrackActions = [];
-	    const clockNextEventIsNap = !!(
-	      (nextEvent && nextEvent.type === "nap") ||
-	      (predictionItem && predictionItem.kind === "nap") ||
-	      (!td.napsComplete && !td.napBedConflict && (
-	        (td.pred && typeof td.pred.napStart_min === "number") ||
-	        typeof td.nextNapMins === "number"
-	      ))
-	    );
 	    const clockBedtimeActionReady = !!(
 	      (nextEvent && (nextEvent.type === "bed" || nextEvent.type === "sleep")) ||
 	      (clockPredictedBedMins !== null && clockMinsUntil(clockPredictedBedMins) !== null && clockMinsUntil(clockPredictedBedMins) <= 45 && clockMinsUntil(clockPredictedBedMins) > -2) ||
@@ -47831,17 +47999,6 @@ function App(){
 	        body:(clockRoutineMinsToBed <= 0 ? "Bedtime is due now." : clockRoutineMinsToBed + "m to predicted bedtime.") + " Keep it short and predictable.",
 	        cta:"open routine",
 	        onClick:openClockBedRoutine
-	      });
-	    }
-	    if (clockCanStartBedtimeNow && !clockRoutineDoneFresh && !clockRoutineStartReady && !clockBedtimeResistanceReady) {
-	      clockOldTrackActions.push({
-	        key:"bedtime-now",
-	        tone:"routine",
-	        icon:"🌙",
-	        title:"Log bedtime",
-	        body:"Start the bedtime sleep timer when night begins.",
-	        cta:"start timer",
-	        onClick:startClockBedtimeNow
 	      });
 	    }
 	    if (clockBridgeNeeded) {
@@ -47911,6 +48068,7 @@ function App(){
 	    ) : null;
 	    const clockQueuedTimerKind = (() => {
 	      if (!clockLabIsToday || activeTimer) return "";
+	      if (clockCanStartBedtimeNow) return "sleep";
 	      // If the clock face is already presenting the next nap, a tap means
 	      // "baby is asleep now" even if the prediction is still a few minutes away.
 	      if (nextEvent && (nextEvent.type === "bed" || nextEvent.type === "sleep")) return "sleep";
@@ -47934,7 +48092,8 @@ function App(){
       }
       return false;
     };
-    const clockCenterTimerCanAct = !!(clockNapOnThisDay || clockBedOnThisDay || clockFeedOnThisDay || clockQueuedTimerKind);
+    const clockResumeSleepVisibleBelow = !!(clockBedOnThisDay && bedPaused);
+    const clockCenterTimerCanAct = !!(clockNapOnThisDay || (clockBedOnThisDay && !clockResumeSleepVisibleBelow) || clockFeedOnThisDay || clockQueuedTimerKind);
     const clockCenterTimerLabel = clockNapOnThisDay
       ? (napPaused ? "Resume nap timer" : "Pause nap timer")
       : clockBedOnThisDay
@@ -47946,8 +48105,41 @@ function App(){
             : clockQueuedTimerKind === "sleep"
               ? "Start bedtime timer"
               : "Clock timer";
+    const clockCenterActionButtonText = clockNapOnThisDay
+      ? (napPaused ? "Resume timer" : "Pause timer")
+      : clockBedOnThisDay
+        ? (clockResumeSleepVisibleBelow ? "" : bedPaused ? "Baby sleeping" : "Pause timer")
+          : clockFeedOnThisDay
+            ? "Open timer"
+          : clockQueuedTimerKind
+            ? "start timer"
+            : "";
+    const clockCenterHasActionButton = !!clockCenterActionButtonText;
+    const clockCenterActionButtonClass = clockQueuedTimerKind || clockActiveTimerKind || "timer";
+    const clockQueuedCenterTitle = String(clockQueuedCenter?.title || "").trim();
+    const clockQueuedCenterSub = String(clockQueuedCenter?.sub || clockCenterSub || "").trim();
+    const clockCenterActionDuePulse = !!(
+      clockQueuedTimerKind === "sleep" &&
+      /^bedtime$/i.test(clockQueuedCenterTitle) &&
+      (/^now$/i.test(clockQueuedCenterSub) || /^overdue\b/i.test(clockQueuedCenterSub) || centerSubIsOverdue)
+    );
+    const clockCenterDisplayTitleLines = clockQueuedTimerKind === "sleep"
+      ? ["Bedtime"]
+      : centerTitleLines;
+    const clockCenterTitleY = clockCenterHasActionButton
+      ? (clockCenterDisplayTitleLines.length > 1 ? "121" : "130")
+      : (centerTitleLines.length > 1 ? "126" : "138");
+    const centerSubY = centerSubIsOverdue
+      ? (clockCenterHasActionButton ? "143" : "158")
+      : (clockCenterHasActionButton ? "148" : "164");
+    const centerSubDy = centerSubIsOverdue ? (clockCenterHasActionButton ? "8" : "9") : (clockCenterHasActionButton ? "9" : "10");
+    const centerRuleY = centerSubIsOverdue ? "180" : "175";
+    const clockCenterButtonY = centerSubLines.length > 0 ? 158 : 145;
+    const clockCenterButtonHeight = 19;
+    const clockCenterButtonLabelY = clockCenterButtonY + 12.2;
     const clockCenterTimerTap = (ev) => {
       try{ev && ev.stopPropagation && ev.stopPropagation();}catch{}
+      if (clockResumeSleepVisibleBelow) return;
       haptic();
       if (clockNapOnThisDay) { napPaused ? resumeNap() : pauseNap(); return; }
       if (clockBedOnThisDay) { bedPaused ? openBabySleepingNightWakeDetails("self") : pauseBedTimer(); return; }
@@ -48568,20 +48760,26 @@ function App(){
                   <circle className="ob-clock-center-star-dot" cx="132" cy="76" r="0.6"/>
                 </>
               )}
-              <text x="120" y={centerTitleLines.length > 1 ? "126" : "138"} className="ob-clock-center-title">
-                {centerTitleLines.map((line, index) => (
-                  <tspan key={line + index} x="120" dy={index ? "14" : "0"} className={centerTitleLines.length > 1 ? (index ? "is-state" : "is-name") : "is-main"}>{line}</tspan>
+              <text x="120" y={clockCenterTitleY} className={"ob-clock-center-title"+(clockCenterHasActionButton ? " has-action-button" : "")}>
+                {clockCenterDisplayTitleLines.map((line, index) => (
+                  <tspan key={line + index} x="120" dy={index ? "13" : "0"} className={clockCenterDisplayTitleLines.length > 1 ? (index ? "is-state" : "is-name") : "is-main"}>{line}</tspan>
                 ))}
               </text>
               {centerSubLines.length > 0 && (
                 <>
-	                  <text x="120" y={centerSubY} className={"ob-clock-center-sub"+(centerSubIsOverdue ? " is-overdue" : "")}>
+	                  <text x="120" y={centerSubY} className={"ob-clock-center-sub"+(centerSubIsOverdue ? " is-overdue" : "")+(clockCenterHasActionButton ? " has-action-button" : "")}>
 	                    {centerSubLines.map((line, index) => (
 	                      <tspan key={line + index} x="120" dy={index ? centerSubDy : "0"} className={centerSubIsOverdue ? (index ? "is-overdue-amount" : "is-overdue-label") : undefined}>{line}</tspan>
 	                    ))}
 	                  </text>
-	                  <line x1="92" y1={centerRuleY} x2="148" y2={centerRuleY} className="ob-clock-center-rule"/>
+	                  {!clockCenterHasActionButton && <line x1="92" y1={centerRuleY} x2="148" y2={centerRuleY} className="ob-clock-center-rule"/>}
                 </>
+              )}
+              {clockCenterHasActionButton && (
+                <g className={"ob-clock-center-button is-"+clockCenterActionButtonClass} data-due={clockCenterActionDuePulse ? "bedtime" : undefined} aria-hidden="true">
+                  <rect x="94" y={clockCenterButtonY} width="52" height={clockCenterButtonHeight} rx="9.5"/>
+                  <text x="120" y={clockCenterButtonLabelY}>{clockCenterActionButtonText}</text>
+                </g>
               )}
             </g>
             {clockCenterTimerCanAct && (
@@ -49697,7 +49895,8 @@ function App(){
               </div>
               <input
                 value={obLinkCode}
-	                onChange={e=>{ setObLinkCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g,"").slice(0,CHILD_SYNC_CODE_LEN)); setObLinkStatus(""); setObLinkError(""); }}
+	                onChange={e=>{ setObLinkCode(childSyncCodeFromAnyInput(e.target.value)); setObLinkStatus(""); setObLinkError(""); }}
+	                onPaste={e=>{ const _pastedCode = childSyncCodeFromAnyInput(e.clipboardData?.getData("text") || ""); if(_pastedCode){ e.preventDefault(); setObLinkCode(_pastedCode); setObLinkStatus(""); setObLinkError(""); }}}
 	                placeholder="e.g. AB3X7Y9K"
 	                maxLength={CHILD_SYNC_CODE_LEN}
                 style={{width:"100%",fontSize:28,fontFamily:_fM,fontWeight:700,letterSpacing:"0.2em",textAlign:"center",padding:"16px",borderRadius:14,border:`2px solid ${obLinkStatus==="error"?C.ter:obLinkStatus==="ok"?"#50c878":C.blush}`,background:"var(--card-bg-solid)",color:C.ter,outline:_oN,marginBottom:10,boxSizing:_bBB}}/>
@@ -49706,7 +49905,7 @@ function App(){
               <button onClick={async()=>{
 	                if(!isValidChildSyncCode(obLinkCode)) return;
                 setObLinkStatus("loading");
-                const result = await joinChildByCode(obLinkCode);
+                const result = await joinChildByCode(childSyncCodeFromAnyInput(obLinkCode));
                 if(result.ok) {
                   setObLinkStatus("ok");
                   setTimeout(()=>finishChildSetup(null), 1200);

@@ -10,24 +10,57 @@ rm -f dist/registerSW.js public/registerSW.js ios/App/App/public/registerSW.js a
 rm -f dist/workbox-*.js public/workbox-*.js ios/App/App/public/workbox-*.js android/app/src/main/assets/public/workbox-*.js
 
 node -e "
-const b=require('@babel/core'), f=require('fs');
-const r=b.transformSync(f.readFileSync('app.jsx','utf8'),{
-  plugins:[
-    require('@babel/plugin-syntax-jsx'),
-    require('@babel/plugin-transform-react-jsx')
-  ],
-  filename:'app.jsx'
-});
+const f=require('fs');
+const source=f.readFileSync('app.jsx','utf8');
+let code='';
+try {
+  const b=require('@babel/core');
+  const r=b.transformSync(source,{
+    plugins:[
+      require('@babel/plugin-syntax-jsx'),
+      require('@babel/plugin-transform-react-jsx')
+    ],
+    filename:'app.jsx'
+  });
+  code = r.code;
+} catch (err) {
+  console.warn('Babel JSX transform failed; falling back to esbuild:', err && err.message ? err.message : err);
+  const esbuild=require('esbuild');
+  const r=esbuild.transformSync(source,{
+    loader:'jsx',
+    jsx:'transform',
+    jsxFactory:'React.createElement',
+    jsxFragment:'React.Fragment',
+    target:'es2018',
+    logLevel:'silent'
+  });
+  code = r.code;
+}
 const syncV2ShadowBuildFlag = process.env.VITE_OB_SYNC_V2_SHADOW === '1' ? '1' : '0';
-r.code = r.code.replaceAll('__OB_SYNC_V2_SHADOW_BUILD__', syncV2ShadowBuildFlag);
+code = code.replaceAll('__OB_SYNC_V2_SHADOW_BUILD__', syncV2ShadowBuildFlag);
 const syncV2ReadShadowBuildFlag = process.env.VITE_OB_SYNC_V2_READ_SHADOW === '1' ? '1' : '0';
-r.code = r.code.replaceAll('__OB_SYNC_V2_READ_SHADOW_BUILD__', syncV2ReadShadowBuildFlag);
-f.writeFileSync('app.js', r.code);
-console.log('Compiled: app.js written (' + r.code.length + ' chars)');
+code = code.replaceAll('__OB_SYNC_V2_READ_SHADOW_BUILD__', syncV2ReadShadowBuildFlag);
+f.writeFileSync('app.js', code);
+console.log('Compiled: app.js written (' + code.length + ' chars)');
 "
 
 echo "Minifying app.js for faster load on mobile..."
-npx terser app.js -o app.min.js --compress --mangle 2>/dev/null || cp app.js app.min.js
+npx terser app.js -o app.min.js --compress --mangle 2>/dev/null || node -e "
+const fs=require('fs');
+const esbuild=require('esbuild');
+try {
+  const r=esbuild.transformSync(fs.readFileSync('app.js','utf8'),{
+    loader:'js',
+    minify:true,
+    target:'es2018',
+    logLevel:'silent'
+  });
+  fs.writeFileSync('app.min.js', r.code);
+} catch (err) {
+  console.warn('esbuild minify failed; copying app.js:', err && err.message ? err.message : err);
+  fs.copyFileSync('app.js','app.min.js');
+}
+"
 echo "Minified: $(wc -c < app.js) → $(wc -c < app.min.js) bytes"
 
 echo "Copying to public/app.js..."

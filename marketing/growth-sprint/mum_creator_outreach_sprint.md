@@ -139,6 +139,7 @@ Direct-email batch sent on 2026-05-15:
 Replies:
 
 - Rachel quoted USD 100 for one 15-30 second vertical UGC video with 3 months paid usage rights. Treat as fair if it includes 1 revision, agreed delivery date, usable raw/exported file, no copyrighted music, and protected payment. Do not pay full upfront.
+- Rachel confirmed her USD 100 package is delivered UGC only, not creator-page posting. Warm pause sent 2026-05-16, explaining OBubba is currently prioritising creator-page reviews while on statutory maternity pay. Park for future paid-ad UGC when budget is available.
 - Sarah quoted GBP 100 for one 15-30 second vertical UGC video or GBP 150 with 3 months paid usage rights. Use Sarah for content-only at GBP 100, then keep paid ad usage for Rachel if Rachel's socials check out.
 - Confirmation replies sent to Sarah and Rachel on 2026-05-15. Current status: wait for both to confirm deliverables, delivery date, 1 revision, protected payment method, and no full upfront payment.
 - Creator-page posting clarification sent to Sarah and Rachel on 2026-05-15 before sending briefs/materials. Current status: do not pay or send brief until each confirms whether posting to their own TikTok/Instagram/Reels is included or quotes the add-on.
@@ -148,6 +149,8 @@ Replies:
 - Sarah deal finalised on 2026-05-16: GBP 150 honest review-style Instagram Reel after using OBubba, permanent post, clear download CTA, OBubba collaborator tag if possible, 7-day analytics, organic repost permission, paid ad usage excluded unless separately agreed later. App links sent.
 - Lightweight Sarah agreement sent on 2026-05-16. Current status: wait for Sarah to reply "I agree" before treating the collaboration as fully locked.
 - Harriet inbound from Facebook added on 2026-05-16. GBP 100 creator agreement and app links sent by email. Current status: wait for Harriet to reply "I agree", confirm posting handle/page, and send PayPal Goods & Services/invoice/secure payment link before any upfront payment.
+- Sophia Papacostas inbound from Facebook added on 2026-05-16. She downloaded OBubba, says TikTok is strongest and reports 5k-100k+ organic views. She offered to work for GBP 60. Handle/page request sent before agreement or payment. Current status: wait for exact TikTok/social handles and posting account.
+- Katie / The Burr Bunch inbound from Facebook added on 2026-05-16. Has an 8-month-old. Low-budget creator request sent asking for socials, reach, usual rate, strongest platform, and whether she will try OBubba first. Floated GBP 50 plus lifetime OBubba Premium and future 1-10 parenting app access value-add. Current status: wait for response.
 
 Next manual/platform contacts:
 

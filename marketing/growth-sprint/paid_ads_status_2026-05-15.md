@@ -52,14 +52,16 @@ Prepared: 2026-05-15
   - Default max CPT bid: `GBP 0.30`.
   - Intended start: `2026-05-16 00:00`.
   - Intended end: `2026-05-25 00:00`.
-- Current blocker:
-  - Campaign status remains `On hold`.
-  - Apple Ads showed hold reasons `No payment method` and `App pending review`.
-  - User later said payment details were entered, but the Apple Ads campaign page still showed `No payment method` when checked.
-- Owner action needed:
-  - Confirm the payment method was added in Apple Ads specifically, then refresh campaign `2143866197`.
-  - If `No payment method` clears and only `App pending review` remains, wait for Apple review before expecting spend.
-  - Do not increase the campaign above `GBP 8/day` or the `GBP 80` Apple test cap.
+- 2026-05-16 delivery check:
+  - Campaign `2143866197` now shows `Running`.
+  - Ad group `2148424102` (`brand_search_manual`) shows `Running`/`On`.
+  - Placement remains `Search Results`.
+  - Ad group bid remains `GBP 0.30` default max CPT.
+  - Reported delivery is still `0` impressions, `0` taps, `0` installs, and `GBP 0.00` spend.
+  - Apple Ads notes reporting is not real time and may lag by up to 3 hours.
+- Current watch item:
+  - The campaign is eligible but has not reported serving yet.
+  - If impressions remain `0` after the reporting delay, inspect keywords/Search Match and consider adding exact brand keywords plus a small capped discovery keyword set without increasing the `GBP 8/day` campaign cap.
 
 ## Google Ads
 
