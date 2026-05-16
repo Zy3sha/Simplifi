@@ -687,6 +687,84 @@ function standardPurchaseEventParams(params) {
     }]
   };
 }
+function safeClientErrorText(value, maxLen = 120) {
+  return safeTextPayload(value, "", maxLen)
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[email]")
+    .replace(/https?:\/\/\S+/gi, "[url]")
+    .replace(/\b[A-Za-z0-9_-]{24,}\b/g, "[token]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLen);
+}
+function shouldSuppressClientErrorMessage(message) {
+  const msg = String(message || "").toLowerCase();
+  return msg.includes("analytics") ||
+    msg.includes("gtag") ||
+    msg.includes("firebaseinstallations") ||
+    msg.includes("clipboard") ||
+    msg.includes("writetext") ||
+    msg.includes("write permission denied");
+}
+function sendAnalyticsEventDirect(eventName, params) {
+  const eventParams = normaliseAnalyticsEventParams(eventName, params);
+  const _fa = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.FirebaseAnalytics;
+  if (_fa && _fa.logEvent) {
+    _fa.logEvent({ name: eventName, params: eventParams }).catch(()=>{});
+    return true;
+  }
+  if (window._fb && window._fb.analytics && window._fb.logEvent) {
+    window._fb.logEvent(window._fb.analytics, eventName, eventParams);
+    return true;
+  }
+  return false;
+}
+function flushPendingClientErrors() {
+  try {
+    const pending = Array.isArray(window.__obPendingClientErrors) ? window.__obPendingClientErrors.splice(0, 10) : [];
+    pending.forEach(payload => sendAnalyticsEventDirect("client_error", payload));
+  } catch {}
+}
+function reportClientError(source, error, extra = {}) {
+  try {
+    const rawMessage = (error && (error.message || error.reason)) || String(error || "");
+    if (shouldSuppressClientErrorMessage(rawMessage)) return;
+    const payload = {
+      source: safeStorageToken(source, "unknown", 40),
+      error_name: safeClientErrorText((error && error.name) || extra.errorName || "Error", 40) || "Error",
+      error_message: safeClientErrorText(rawMessage, 140) || "unknown_error",
+      filename: safeClientErrorText(extra.filename || "", 80),
+      line: Number.isFinite(Number(extra.line)) ? Number(extra.line) : 0,
+      column: Number.isFinite(Number(extra.column)) ? Number(extra.column) : 0
+    };
+    const signature = [payload.source, payload.error_name, payload.error_message, payload.line].join("|");
+    window.__obClientErrorSeen = window.__obClientErrorSeen || {};
+    if (window.__obClientErrorSeen[signature]) return;
+    window.__obClientErrorSeen[signature] = true;
+    window.__obClientErrorCount = (window.__obClientErrorCount || 0) + 1;
+    if (window.__obClientErrorCount > 12) return;
+    if (!sendAnalyticsEventDirect("client_error", payload)) {
+      window.__obPendingClientErrors = window.__obPendingClientErrors || [];
+      window.__obPendingClientErrors.push(payload);
+    }
+  } catch {}
+}
+(function installClientErrorTelemetry(){
+  try {
+    if (window.__obClientErrorTelemetryInstalled) return;
+    window.__obClientErrorTelemetryInstalled = true;
+    window.__obReportClientError = reportClientError;
+    window.addEventListener("error", function(event) {
+      reportClientError("window_error", event.error || event.message, {
+        filename: event.filename,
+        line: event.lineno,
+        column: event.colno
+      });
+    });
+    window.addEventListener("unhandledrejection", function(event) {
+      reportClientError("unhandled_rejection", event.reason || "Promise rejected");
+    });
+  } catch {}
+})();
 function safeFluidUnit(value, fallback = "ml") {
   return safeChoice(value, SAFE_FLUID_UNITS, fallback);
 }
@@ -11530,7 +11608,7 @@ function RestoreDataForm({ restoreFromBackup, setShowFamilyModal, familyUsername
 class ErrorBoundary extends React.Component {
   constructor(props){ super(props); this.state = {hasError:false, error:null}; }
   static getDerivedStateFromError(error){ return {hasError:true, error}; }
-  componentDidCatch(error, info){ console.error("OBubba error:", error?.message||error?.toString()||JSON.stringify(error), error?.stack||"", info); }
+  componentDidCatch(error, info){ try { window.__obReportClientError && window.__obReportClientError("react_error_boundary", error, { errorName: "ReactErrorBoundary" }); } catch {} console.error("OBubba error:", error?.message||error?.toString()||JSON.stringify(error), error?.stack||"", info); }
   render(){
     if(this.state.hasError){
       return React.createElement("div",{style:{minHeight:"100vh",background:"linear-gradient(135deg,#FFF8F2 0%,#F5E1D8 40%,#F0DDD6 100%)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 24px",fontFamily:"'DM Sans',sans-serif",textAlign:"center",position:"relative",overflow:"hidden"}},
@@ -17332,10 +17410,11 @@ function App(){
     } catch {}
   }
 			  const APP_TOUR_TARGETS = [
-			    ["clock-stage", "clock-home-lab", "nav-day"],
-			    ["care-primary-tools", "nav-insights"],
-			    ["nav-develop"],
-			    ["family-hub", "nav-settings"]
+			    ["clock-home-log-buttons", "clock-stage", "clock-home-lab", "nav-day"],
+			    ["clock-panel-tabs", "today-plan-simple-card", "nav-day"],
+			    ["clock-panel-tabs", "care-primary-tools", "nav-insights"],
+			    ["family-hub", "nav-settings"],
+			    ["care-primary-tools", "nav-insights"]
 			  ];
 		  const DAY_TOUR_TARGETS = [
 		    ["clock-stage", "clock-home-lab", "clock-home-kindness"],
@@ -17344,11 +17423,11 @@ function App(){
 		    ["clock-stage", "clock-home-kindness"]
 		  ];
 			  const OB_APP_TOUR_JOURNEY = [
-				    { chapter:"Step 1", tab:"day", iconName:"timer", target:"Track tab", title:"Your OBubba clock map", body:"This is your home screen. Tap feed, nappy, nap, sleep or wake when they happen.\n\nThe clock fills in as the day goes on. You'll see dots for quick moments and arcs for naps and sleep. Don't worry about being exact — OBubba works with whatever you log." },
-			    { chapter:"Step 2", tab:"day", iconName:"today", target:"Give it 3 days", title:"OBubba learns your baby", body:"After 3 days of ordinary logging, OBubba starts to understand your baby's rhythm.\n\nBy day 5, you'll get personalised nap predictions, bedtime suggestions, and a sleep analysis that actually explains what happened last night and why." },
-				    { chapter:"Step 3", tab:"insights", iconName:"care", target:"Care tab", title:"Open the parent toolkit", body:"Care leads with the real tools: Bubba Care, Weaning, Parent Room, Sleep Coach and Night Weaning.\n\nUnderneath, you can open Travel, Feeding, Sleep and Growth insights when you need the deeper read." },
-			    { chapter:"Step 4", tab:"insights", iconName:"care", target:"Parent Room", title:"You matter too", body:"This bit is just for you.\n\nBreathing exercises when it all feels too much. Wellbeing check-ins. Gentle reminders that looking after yourself is part of looking after your baby.\n\nYou're not just a carer — you're a person who needs care too." },
-			    { chapter:"Step 5", tab:"settings", iconName:"care", target:"Account tab", title:"Share the load", body:"Partner Sync — both parents see every log, prediction and insight in real time. No \"did you feed him?\" texts.\n\nBubba Care — share a live care guide with grandparents, nursery or anyone helping. QR code, one tap, everything they need to know. No repeating yourself." }
+				    { chapter:"Step 1", tab:"day", iconName:"timer", target:"Log as normal for 3 days", title:"Start with ordinary logging", summary:"Feeds, nappies, naps, wakes and bedtime. Rough is fine.", body:"For the first 3 days, just log life as it happens: feeds, nappies, naps, wakes and bedtime.\n\nYou do not need a perfect routine or perfect timings. Ordinary logs are what help OBubba learn your baby's real rhythm." },
+			    { chapter:"Step 2", tab:"day", iconName:"today", target:"Predictions start after the rhythm is clear", title:"OBubba learns the rhythm", summary:"It starts predicting naps and bedtime, then improves with every log.", body:"OBubba learns your baby's rhythm and starts predicting naps and bedtime.\n\nTry to follow the predictions as closely as you can, but always prioritise your baby's cues. OBubba gets smarter as you use it." },
+				    { chapter:"Step 3", tab:"insights", iconName:"care", target:"Guidance and Insights", title:"Understand what is happening", summary:"Use Guidance and Insights for clarity on patterns and next steps.", body:"Look at Guidance and Insights when you want clarification on what is happening and how OBubba is helping.\n\nGuidance explains what needs attention today. Insights help you understand the patterns behind sleep, feeds, growth and care." },
+			    { chapter:"Step 4", tab:"settings", iconName:"care", target:"Partner Sync and Bubba Care", title:"Build your village", summary:"Partner Sync keeps co-parents aligned. Bubba Care helps trusted carers.", body:"Partner Sync keeps both parents or caregivers on the same live profile, so logs, predictions and insights stay shared in real time.\n\nBubba Care creates a simple live care guide for grandparents, nursery, babysitters or anyone helping, with the essentials they need without needing the full parent app." },
+			    { chapter:"Step 5", tab:"insights", iconName:"care", target:"Parent Room", title:"Focus on yourself too", summary:"Parent Room is your space for breathing, check-ins and support.", body:"Use Parent Room when you need a moment for yourself.\n\nIt gives you breathing tools, wellbeing check-ins and gentle support, because looking after yourself is part of looking after your baby." }
 			  ];
 
   const[childSyncCodes,setChildSyncCodes]=useState(()=>{
@@ -20507,6 +20586,7 @@ function App(){
       const _fa = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.FirebaseAnalytics;
       if (_fa && _fa.setScreenName) {
         _fa.setScreenName({ screenName: safeScreenName, nameOverride: "OBubbaApp" }).catch(()=>{});
+        if (_fa.logEvent) _fa.logEvent({ name: "screen_view", params: screenParams }).catch(()=>{});
         return;
       }
       trackEvent("screen_view", screenParams);
@@ -42772,6 +42852,7 @@ function App(){
       const _plat = window.Capacitor?.getPlatform?.() || "web";
       const _isPremium = (_cachedPremium || _villageActive) ? "premium" : "free";
       trackEvent("app_open", { platform: _plat, plan: _isPremium });
+      flushPendingClientErrors();
     } catch {}
     // Analytics: streak_day. Count consecutive days ending today that have
     // at least one entry. Fires once per calendar day, gated by localStorage.
@@ -46736,6 +46817,113 @@ function App(){
 	      return out.slice(0, 3);
 	    })();
 	    const predictionItem = clockPredictionItems.find(item => item.source === "next") || clockPredictionItems[0] || null;
+	    const clockCurrentWakeWindow = clockWakeWindowItems.find(item => item.isNow);
+	    const clockExpectedWakeWindow = age ? getWakeWindow(age.predictiveWeeks ?? age.totalWeeks) : null;
+	    const clockPersonalWakeWindow = (() => {
+	      if (!clockCurrentWakeWindow || !clockLabIsToday || activeTimer) return null;
+	      try { return getOptimalWakeWindow(); } catch { return null; }
+	    })();
+	    const clockNapSweetSpot = (() => {
+	      if (!clockLabIsToday || activeTimer || clockBedtimeLogged || !clockCurrentWakeWindow || !clockExpectedWakeWindow) return null;
+	      const hasNapAhead = !!(
+	        (nextEvent && nextEvent.type === "nap") ||
+	        (predictionItem && predictionItem.kind === "nap") ||
+	        td.bridgeNapNeeded ||
+	        !td.napsComplete ||
+	        typeof td.nextNapMins === "number"
+	      );
+	      if (!hasNapAhead) return null;
+	      const awake = Math.max(0, Math.round(Number(clockCurrentWakeWindow.duration) || 0));
+	      if (awake < 5) return null;
+	      const personalMin = Number(clockPersonalWakeWindow?.optimalMin);
+	      const personalMax = Number(clockPersonalWakeWindow?.optimalMax);
+	      let sweetStart = Number.isFinite(personalMin) ? Math.max(20, personalMin - 5) : clockExpectedWakeWindow.min;
+	      let sweetEnd = Number.isFinite(personalMax) ? Math.max(sweetStart + 10, personalMax + 10) : clockExpectedWakeWindow.max;
+	      let sourceLabel = Number.isFinite(personalMin) ? "learned from good naps" : "age-aware window";
+	      const napTargetRaw = nextEvent && nextEvent.type === "nap" && nextMins !== null
+	        ? nextMins
+	        : predictionItem && predictionItem.kind === "nap" && Number.isFinite(Number(predictionItem.start))
+	          ? Number(predictionItem.start)
+	          : typeof td.nextNapMins === "number"
+	            ? td.nextNapMins
+	            : null;
+	      if (napTargetRaw !== null && Number.isFinite(Number(napTargetRaw))) {
+	        let target = Number(napTargetRaw);
+	        const awakeStart = Number(clockCurrentWakeWindow.start);
+	        while (target < awakeStart - 720) target += 1440;
+	        while (target > awakeStart + 720) target -= 1440;
+	        const targetAwake = Math.round(target - awakeStart);
+	        if (targetAwake >= 20 && targetAwake <= Math.max(480, clockExpectedWakeWindow.max + 90)) {
+	          sweetStart = Math.max(20, targetAwake - 15);
+	          sweetEnd = Math.max(sweetStart + 10, targetAwake + 12);
+	          sourceLabel = Number.isFinite(personalMin) ? "prediction plus learned rhythm" : "OBubba prediction";
+	        }
+	      }
+	      const warningEnd = sweetEnd + 25;
+	      const clampPct = (n) => Math.max(0, Math.min(100, Math.round(n)));
+	      let state = "early";
+	      let label = "Not yet";
+	      let detail = "green in " + hm(Math.max(1, sweetStart - awake));
+	      let badge = "later";
+	      let color = "#9BA7B6";
+	      let glow = "rgba(155,167,182,0.36)";
+	      if (awake >= sweetStart && awake <= sweetEnd) {
+	        state = "ready";
+	        label = "Sweet spot";
+	        detail = "offer nap if cues fit";
+	        badge = "sweet spot";
+	        color = "#3FD889";
+	        glow = "rgba(63,216,137,0.52)";
+	      } else if (awake > sweetEnd && awake <= warningEnd) {
+	        state = "warning";
+	        label = "Watch cues";
+	        detail = hm(awake - sweetEnd) + " past sweet spot";
+	        badge = "watch cues";
+	        color = "#F2B84B";
+	        glow = "rgba(242,184,75,0.50)";
+	      } else if (awake > warningEnd) {
+	        state = "overtired";
+	        label = "Overtired risk";
+	        detail = "offer sleep if cues fit";
+	        badge = "overtired";
+	        color = "#FF5E6E";
+	        glow = "rgba(255,94,110,0.52)";
+	      }
+	      return {
+	        state,
+	        label,
+	        detail,
+	        badge,
+	        color,
+	        glow,
+	        awake,
+	        awakeText:hm(awake) + " awake",
+	        windowText:hm(Math.round(sweetStart)) + "-" + hm(Math.round(sweetEnd)),
+	        sourceLabel,
+	        progress:clampPct((awake / Math.max(warningEnd, sweetEnd + 1)) * 100),
+	        canStart:state === "ready" || state === "warning" || state === "overtired"
+	      };
+	    })();
+	    const showClockSweetSpotTip = (item = clockNapSweetSpot) => {
+	      if (!item) return;
+	      setClockLabTip({
+	        kind:"sweet-spot",
+	        label:item.label,
+	        detail:item.awakeText + " · window " + item.windowText + " · " + item.sourceLabel + ". " + item.detail + ". Baby cues first.",
+	        color:item.color,
+	        id:"nap-sweet-spot-" + item.state + "-" + Math.round(item.awake || 0)
+	      });
+	    };
+	    const hideClockSweetSpotTip = () => {
+	      setClockLabTip(current => current && current.kind === "sweet-spot" ? null : current);
+	    };
+	    const clockSweetSpotChipTap = (ev) => {
+	      try{ev && ev.stopPropagation && ev.stopPropagation();}catch{}
+	      if (!clockNapSweetSpot) return;
+	      haptic();
+	      if (clockNapSweetSpot.canStart) { startNap(); return; }
+	      showClockSweetSpotTip(clockNapSweetSpot);
+	    };
 	    const clockLabels = [
 	      {mins:0,top:"12",bottom:"am"},
 	      {mins:180,top:"3",bottom:"am"},
@@ -47917,13 +48105,14 @@ function App(){
 	        action();
 	      };
 	      return (
-	        <button
-	          key={id}
-	          type="button"
-	          className={"ob-clock-log-btn"+(opts.isActive?" is-active":"")}
-	          aria-label={(opts.ariaLabel || label) + (opts.badge ? ". " + opts.badge : "") + (longAction ? ". Tap to log, hold for details." : ". Tap to open.")}
-	          title={(opts.ariaLabel || label) + (opts.badge ? " - " + opts.badge : "") + (longAction ? " - tap to log, hold for details" : " - tap to open")}
-	          style={{"--ob-clock-accent":accent,touchAction:longAction?"none":"manipulation",WebkitUserSelect:"none",userSelect:"none",WebkitTouchCallout:"none"}}
+	          <button
+	            key={id}
+	            type="button"
+	          className={"ob-clock-log-btn"+(opts.isActive?" is-active":"")+(opts.sweetSpot?" is-sweet-spot":"")}
+	          data-sweet-spot={opts.sweetSpot ? opts.sweetSpot.state : undefined}
+	          aria-label={(opts.ariaLabel || label) + (opts.badge ? ". " + opts.badge : "") + (opts.sweetSpot ? ". Nap timing: " + opts.sweetSpot.label + ". " + opts.sweetSpot.detail : "") + (longAction ? ". Tap to log, hold for details." : ". Tap to open.")}
+	          title={(opts.ariaLabel || label) + (opts.badge ? " - " + opts.badge : "") + (opts.sweetSpot ? " - " + opts.sweetSpot.label + ": " + opts.sweetSpot.detail : "") + (longAction ? " - tap to log, hold for details" : " - tap to open")}
+	          style={{"--ob-clock-accent":accent,"--ob-clock-sweet-spot":opts.sweetSpot?.color,"--ob-clock-sweet-spot-glow":opts.sweetSpot?.glow,touchAction:longAction?"none":"manipulation",WebkitUserSelect:"none",userSelect:"none",WebkitTouchCallout:"none"}}
 	          onPointerDown={(e)=>{
 	            e.stopPropagation();
 	            if(e.pointerType==="touch") return;
@@ -48048,7 +48237,7 @@ function App(){
 	      labAction("feed","feed","Feed",()=>{if(breastActive)cancelBreastTimer();const _feedData={type:"feed",time:nowTime(),feedType:"milk",amount:0,night:false,note:""};if(clockBedOnThisDay&&!bedPaused){openBedtimeFeedChoice(_feedData);return;}(logForAll?quickAddLogForAll:quickAddLog)("feed",_feedData);},()=>openLogPanel("feed"),eventMeta.feed.color,{displayIcon:"🍼"}),
 	      labAction("breast","breast","Breastfeed",clockQuickBreastLog,()=>{openBreastTimerEdit(clockActiveBreastSide);},eventMeta.feed.color,{displayIcon:"🤱",displayLabel:"Breast",isActive:clockFeedOnThisDay,badge:clockBreastSideBadge,ariaLabel:clockFeedOnThisDay?"Breastfeed timer":"Breastfeed"}),
 	      labAction("nappy","nappy","Nappy",()=>(logForAll?quickAddLogForAll:quickAddLog)("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""}),()=>openLogPanel("nappy"),eventMeta.poop.color,{displayIcon:"💧💩"}),
-	      labAction("sleep-toggle",clockQuickSleepNeedsWake?"sun":"nap",clockQuickSleepLabel,clockQuickSleepAction,clockQuickSleepLongAction,clockQuickSleepNeedsWake?eventMeta.wake.color:eventMeta.nap.color,{displayIcon:clockQuickSleepIcon,isActive:clockQuickSleepNeedsWake || (clockBedOnThisDay && bedPaused)}),
+	      labAction("sleep-toggle",clockQuickSleepNeedsWake?"sun":"nap",clockQuickSleepLabel,clockQuickSleepAction,clockQuickSleepLongAction,clockQuickSleepNeedsWake?eventMeta.wake.color:(clockNapSweetSpot?.color || eventMeta.nap.color),{displayIcon:clockQuickSleepIcon,isActive:clockQuickSleepNeedsWake || (clockBedOnThisDay && bedPaused),badge:!clockQuickSleepNeedsWake && clockNapSweetSpot ? clockNapSweetSpot.badge : "",sweetSpot:!clockQuickSleepNeedsWake ? clockNapSweetSpot : null}),
 	      labAction("pump","pump","Pump",()=>(logForAll?quickAddLogForAll:quickAddLog)("feed",{type:"feed",time:nowTime(),feedType:"pump",pumpL:0,pumpR:0,amount:0,pumpDuration:0,night:false,note:""}),()=>openLogPanel("pump"),eventMeta.pump.color,{displayIcon:"🫙"})
 	    ];
 	    const clockLabMoreActions = [
@@ -48126,8 +48315,6 @@ function App(){
 	        showToast("🌉 Bridge nap started · cap ~" + bridgeDur + "m", 2500, 1);
 	      }, "Start bridge nap now");
 	    };
-	    const clockCurrentWakeWindow = clockWakeWindowItems.find(item => item.isNow);
-	    const clockExpectedWakeWindow = age ? getWakeWindow(age.predictiveWeeks ?? age.totalWeeks) : null;
 	    const clockNapEventOverdue = !!(
 	      (nextEvent && nextEvent.type === "nap" && (nextEvent.overdue || (nextMins !== null && nowMins >= nextMins))) ||
 	      (td.pred && td.pred.isOverdue && !clockShouldPreferBedtimeOverStandaloneNapLab(td.pred.napStart_min)) ||
@@ -48483,7 +48670,7 @@ function App(){
 	        return current.entry?.id === item.entry.id ? null : current;
 	      });
 	    };
-	    const clockLabTipUsesMeta = (tip) => !!(tip && (tip.kind === "wake-window" || tip.kind === "prediction" || tip.kind === "presence"));
+	    const clockLabTipUsesMeta = (tip) => !!(tip && (tip.kind === "wake-window" || tip.kind === "prediction" || tip.kind === "presence" || tip.kind === "sweet-spot"));
     const clockLabTipCanEdit = (tip) => !!(tip && tip.entry && !tip.visualOnly && !tip.entry._clockCarrySleep && !clockLabTipUsesMeta(tip));
 	    const clockLabTipDetail = (tip) => {
 	      if (clockLabTipUsesMeta(tip)) return tip.detail || "";
@@ -48834,7 +49021,7 @@ function App(){
 		            {clockWakeWindowItems.map((item, index) => (
 		              <g key={"wake-window-"+index} className="ob-clock-wake-window-group" tabIndex="0" onMouseEnter={()=>showClockWakeWindowTip(item)} onMouseLeave={hideClockWakeWindowTip} onFocus={()=>showClockWakeWindowTip(item)} onBlur={hideClockWakeWindowTip} onClick={(ev)=>{ev.stopPropagation();showClockWakeWindowTip(item);}}>
 		                <path d={arcPath(item.start,item.end,108)} className="ob-clock-wake-window-hit" stroke="rgba(255,255,255,0.001)" strokeWidth="12" pointerEvents="stroke" aria-hidden="true"/>
-		                <path d={arcPath(item.start,item.end,108)} className={"ob-clock-wake-window-arc"+(item.isNow?" is-now":"")} style={{"--ob-clock-wake-window":clockWakeWindowMeta.color,"--ob-clock-wake-window-glow":clockWakeWindowMeta.glow}} stroke={clockWakeWindowMeta.color}>
+		                <path d={arcPath(item.start,item.end,108)} className={"ob-clock-wake-window-arc"+(item.isNow?" is-now":"")+(item.isNow&&clockNapSweetSpot?" is-sweet-spot is-"+clockNapSweetSpot.state:"")} style={{"--ob-clock-wake-window":item.isNow&&clockNapSweetSpot?clockNapSweetSpot.color:clockWakeWindowMeta.color,"--ob-clock-wake-window-glow":item.isNow&&clockNapSweetSpot?clockNapSweetSpot.glow:clockWakeWindowMeta.glow}} stroke={item.isNow&&clockNapSweetSpot?clockNapSweetSpot.color:clockWakeWindowMeta.color}>
 		                  <title>{"Wake window · " + clockWakeWindowTipText(item)}</title>
 		                </path>
 		              </g>
@@ -49015,7 +49202,28 @@ function App(){
 			              )}
 			            </div>
 			          )}
-          {predictionItem && !clockLabTip && !clockPredictedNapStartReady && (
+		          {clockNapSweetSpot && !clockLabTip && (
+	            <button
+	              type="button"
+	              data-testid="clock-sweet-spot-chip"
+	              className={"ob-clock-sweet-spot-chip is-"+clockNapSweetSpot.state}
+	              style={{"--ob-clock-sweet-spot":clockNapSweetSpot.color,"--ob-clock-sweet-spot-glow":clockNapSweetSpot.glow}}
+	              aria-label={"Nap sweet spot. " + clockNapSweetSpot.label + ". " + clockNapSweetSpot.awakeText + ". " + clockNapSweetSpot.detail}
+	              onMouseEnter={()=>showClockSweetSpotTip(clockNapSweetSpot)}
+	              onMouseLeave={hideClockSweetSpotTip}
+	              onFocus={()=>showClockSweetSpotTip(clockNapSweetSpot)}
+	              onBlur={hideClockSweetSpotTip}
+	              onClick={clockSweetSpotChipTap}
+	            >
+		              <span className="ob-clock-sweet-spot-dot" aria-hidden="true"/>
+		              <b>{clockNapSweetSpot.label}</b>
+		              <em>{clockNapSweetSpot.awakeText} · {clockNapSweetSpot.canStart ? "tap to start" : clockNapSweetSpot.detail}</em>
+		              <span className="ob-clock-sweet-spot-bar" data-testid="clock-sweet-spot-bar" aria-hidden="true">
+		                <span data-testid="clock-sweet-spot-fill" style={{width:clockNapSweetSpot.progress+"%"}}/>
+		              </span>
+		            </button>
+	          )}
+          {predictionItem && !clockLabTip && !clockPredictedNapStartReady && !clockNapSweetSpot && (
 	            <button type="button" className="ob-clock-prediction-chip" style={{"--ob-clock-predict":predictionItem.meta.color}} onClick={clockPredictionChipTap}>
 		              <span/>
 		              <b>{clockPredictedNapStartReady ? "Predicted nap" : predictionItem.label}{!clockPredictedNapStartReady && predictionItem.contextLabel ? <small style={{fontWeight:500,opacity:0.7,fontSize:"0.8em"}}>{predictionItem.contextLabel}</small> : null}</b>
@@ -50213,7 +50421,7 @@ function App(){
 	                  <div>
 	                    <div className="ob-tour-journey-pill">{item.chapter}</div>
 	                    <div className="ob-tour-journey-name">{item.title}</div>
-		                    <div className="ob-tour-journey-desc">{item.target}</div>
+		                    <div className="ob-tour-journey-desc">{item.summary || item.target}</div>
 	                  </div>
 	                  <div className="ob-tour-journey-chevron" aria-hidden="true">›</div>
 	                </div>

@@ -46,6 +46,7 @@ function directTrackEvent(name) {
   "purchase_failed",
   "restore_success",
   "restore_failed",
+  "client_error",
   "delete_account_started",
   "delete_account_success",
   "delete_account_failed"
@@ -66,10 +67,12 @@ function directTrackEvent(name) {
 
 assert("screen view uses canonical screen names", appSource.includes("analyticsScreenName(tab, daySubScreen, todayPanel)") && !appSource.includes("{ screen_name: tab"));
 assert("native screen reports use explicit OBubba screen names", appSource.includes("_fa.setScreenName({ screenName: safeScreenName, nameOverride: \"OBubbaApp\" })") && appSource.includes("trackScreenView(analyticsScreenName(tab, daySubScreen, todayPanel))"));
+assert("native screen reports also log canonical screen_view events", appSource.includes('_fa.logEvent({ name: "screen_view", params: screenParams })'));
 assert("first-log marker remains backwards compatible", appSource.includes("ob_first_log_tracked_v1") && appSource.includes("ob_first_entry_tracked"));
 assert("native automatic screen reporting is disabled so Firebase screen names stay useful", androidManifest.includes("google_analytics_automatic_screen_reporting_enabled") && iosInfo.includes("FirebaseAutomaticScreenReportingEnabled") && iosObubbaInfo.includes("FirebaseAutomaticScreenReportingEnabled"));
 assert("purchase success also logs a standard purchase event when priced", appSource.includes("shouldLogStandardPurchaseEvent") && appSource.includes('name: "purchase"') && appSource.includes("items: [{"));
 assert("analytics blocks obvious personal-data params", appSource.includes("ANALYTICS_BLOCKED_PARAM_KEYS") && appSource.includes("child_name") && appSource.includes("invite_code"));
+assert("client errors are reported without raw console dependence", appSource.includes("function reportClientError") && appSource.includes("window.__obReportClientError") && appSource.includes('sendAnalyticsEventDirect("client_error"') && appSource.includes("react_error_boundary"));
 assert("native store products expose currency codes", androidStore.includes("currencyCode") && iosStore.includes("currencyCode") && iosObubbaStore.includes("currencyCode"));
 
 console.log("Analytics taxonomy audit passed.");
