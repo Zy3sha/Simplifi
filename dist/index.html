@@ -73,10 +73,10 @@
   <script src="/native-plugins.js" defer></script>
 
   <!-- Localisation -->
-  <script src="/i18n.js?v=1778933447"></script>
+  <script src="/i18n.js?v=1778940270"></script>
 
   <!-- Styles -->
-  <link rel="stylesheet" href="styles.css?v=1778933447"/>
+  <link rel="stylesheet" href="styles.css?v=1778940270"/>
 </head>
 <body style="background:#F0DDD6;margin:0">
 <div id="ob-splash" style="position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#F0DDD6">
@@ -98,21 +98,9 @@
 <script src="/loader.js"></script>
 
 <!-- App (pre-compiled by Babel; see build-pwa.sh) -->
-<script defer src="/app.js?v=1778933447"></script>
+<script defer src="/app.js?v=1778940270"></script>
 
-<!-- Hide splash + failsafe -->
-<script>
-  function _hideNativeSplash(){
-    if(window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen){
-      window.Capacitor.Plugins.SplashScreen.hide({fadeOutDuration:300});
-    }
-  }
-  function _hideSplash(){var s=document.getElementById('ob-splash');if(s){s.style.opacity='0';s.style.transition='opacity 0.3s';setTimeout(function(){s.style.display='none';},300);}}
-  window.addEventListener('DOMContentLoaded', function(){_hideNativeSplash();});
-  // Don't hide splash on load — wait for React to mount and hide it.
-  // Fallback: hide after 8s max so the app doesn't look frozen forever.
-  setTimeout(function(){_hideNativeSplash();_hideSplash();}, 8000);
-</script>
+<!-- Splash is dismissed by App after React commits its first screen. -->
 
 </body>
 </html>

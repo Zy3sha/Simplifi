@@ -103,6 +103,36 @@ const staleServiceWorkers = serviceWorkerFiles.filter(rel => {
   const source = fs.readFileSync(full, "utf8");
   return !source.includes("OBubba Service Worker") || /workbox-[A-Za-z0-9_-]+\.js|define\(\[\"\.\/workbox/.test(source);
 });
+const minifiedAppSize = fs.statSync(path.join(root, "app.min.js")).size;
+const compiledAppSize = fs.statSync(path.join(root, "app.js")).size;
+const appBundleFiles = [
+  "public/app.js",
+  "dist/app.js",
+  "ios/App/App/public/app.js",
+  "android/app/src/main/assets/public/app.js",
+];
+const runtimePersonalisationFiles = [
+  "app.jsx",
+  "app.js",
+  "app.min.js",
+  "public/app.jsx",
+  "public/app.js",
+  "dist/app.jsx",
+  "dist/app.js",
+  "ios/App/App/public/app.jsx",
+  "ios/App/App/public/app.js",
+  "android/app/src/main/assets/public/app.jsx",
+  "android/app/src/main/assets/public/app.js",
+].filter(rel => fs.existsSync(path.join(root, rel)));
+const unminifiedRuntimeBundles = appBundleFiles.filter(rel => {
+  const full = path.join(root, rel);
+  if (!fs.existsSync(full)) return true;
+  const size = fs.statSync(full).size;
+  return size > minifiedAppSize + 1024 || size >= compiledAppSize - 1024;
+});
+const hardcodedExampleBabyNames = runtimePersonalisationFiles.filter(rel =>
+  /\bOliver\b/.test(fs.readFileSync(path.join(root, rel), "utf8"))
+);
 
 const serviceWorkerSafetyIssues = serviceWorkerFiles.filter(rel => {
   const full = path.join(root, rel);
@@ -119,7 +149,13 @@ const serviceWorkerSafetyIssues = serviceWorkerFiles.filter(rel => {
 });
 const missingHostedFiles = hostedRequiredFiles.filter(rel => !fs.existsSync(path.join(root, rel)));
 const firebaseConfig = fs.readFileSync(path.join(root, "firebase.json"), "utf8");
-const indexFiles = ["index.html", "public/index.html", "dist/index.html"].filter(rel => fs.existsSync(path.join(root, rel)));
+const indexFiles = [
+  "index.html",
+  "public/index.html",
+  "dist/index.html",
+  "ios/App/App/public/index.html",
+  "android/app/src/main/assets/public/index.html",
+].filter(rel => fs.existsSync(path.join(root, rel)));
 const manifestFiles = ["manifest.json", "public/manifest.json", "dist/manifest.json"].filter(rel => fs.existsSync(path.join(root, rel)));
 const iosAppIconContents = fs.readFileSync(path.join(root, "ios/App/App/Assets.xcassets/AppIcon.appiconset/Contents.json"), "utf8");
 const androidLauncherBackground = fs.readFileSync(path.join(root, "android/app/src/main/res/drawable/ic_launcher_background.xml"), "utf8");
@@ -130,6 +166,12 @@ const missingFaviconLinks = indexFiles.filter(rel =>
 const unsupportedFontPreloads = indexFiles.filter(rel =>
   fs.readFileSync(path.join(root, rel), "utf8").includes('type="font/truetype"')
 );
+const prematureSplashDismissals = indexFiles.filter(rel => {
+  const source = fs.readFileSync(path.join(root, rel), "utf8");
+  return source.includes("setTimeout(_hideSplash") ||
+    source.includes("window.addEventListener('load', function(){setTimeout(_hideSplash");
+});
+const earlyReactSplashDismissal = fs.readFileSync(path.join(root, "app.jsx"), "utf8");
 const badScopeExtensions = manifestFiles.filter(rel => {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, rel), "utf8"));
   return Array.isArray(manifest.scope_extensions) &&
@@ -151,6 +193,18 @@ if (staleServiceWorkers.length) {
 if (serviceWorkerSafetyIssues.length) {
   console.error("Unsafe service worker notification handling found:");
   serviceWorkerSafetyIssues.forEach(file => console.error("✗ " + file));
+  process.exit(1);
+}
+
+if (unminifiedRuntimeBundles.length) {
+  console.error("Runtime app bundles must use the minified mobile bundle:");
+  unminifiedRuntimeBundles.forEach(file => console.error("✗ " + file));
+  process.exit(1);
+}
+
+if (hardcodedExampleBabyNames.length) {
+  console.error("Runtime app bundles must use the active baby name, not hard-coded example names:");
+  hardcodedExampleBabyNames.forEach(file => console.error("✗ " + file));
   process.exit(1);
 }
 
@@ -182,6 +236,18 @@ if (unsupportedFontPreloads.length) {
   process.exit(1);
 }
 
+if (prematureSplashDismissals.length) {
+  console.error("Index shells must not hide splash on a fixed timer before React commits:");
+  prematureSplashDismissals.forEach(file => console.error("✗ " + file));
+  process.exit(1);
+}
+
+if (earlyReactSplashDismissal.includes("window.__obReactMounted = true;\n  ReactDOM.createRoot") ||
+    earlyReactSplashDismissal.includes("var s=document.getElementById('ob-splash');if(s)s.style.display='none';")) {
+  console.error("React bootstrap must leave splash visible until the App mount effect runs.");
+  process.exit(1);
+}
+
 if (badScopeExtensions.length) {
   console.error("Manifest scope_extensions entries must include type:\"origin\" to avoid install-time warnings:");
   badScopeExtensions.forEach(file => console.error("✗ " + file));
@@ -205,9 +271,12 @@ console.log("✓ build output directories have no Finder-style duplicate copies"
 console.log("✓ package archives have no Finder-style duplicate copies");
 console.log("✓ custom build outputs do not contain stale Vite/PWA artifacts");
 console.log("✓ generated service workers use the custom OBubba worker");
+console.log("✓ native/web runtimes load the minified mobile app bundle");
+console.log("✓ runtime UI avoids hard-coded example baby names");
 console.log("✓ service worker notification payloads are bounded and same-origin");
 console.log("✓ hosted legal pages are present and clean URLs are enabled");
 console.log("✓ favicon and manifest install metadata are clean");
+console.log("✓ startup splash stays visible until React commits");
 console.log("✓ native launcher icons use the white happy-baby background");
 console.log("✓ iOS device builds strip Finder metadata before codesign");
 console.log("Build artifact audit passed.");

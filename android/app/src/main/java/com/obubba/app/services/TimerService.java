@@ -470,19 +470,10 @@ public class TimerService extends Service {
     @Override
     public void onTaskRemoved(Intent rootIntent) {
         if (running) {
-            // Reschedule the service so it restarts after being swiped away
-            Intent restartIntent = new Intent(this, TimerService.class);
-            restartIntent.setAction(ACTION_START);
-            restartIntent.putExtra(EXTRA_START_TIME, startTimeMs);
-            restartIntent.putExtra(EXTRA_TIMER_TYPE, timerType);
-            restartIntent.putExtra(EXTRA_BABY_NAME, babyName);
-            if (side != null) restartIntent.putExtra(EXTRA_SIDE, side);
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                startForegroundService(restartIntent);
-            } else {
-                startService(restartIntent);
-            }
+            // Keep the existing foreground service alive and persist the state.
+            // Starting a new foreground service from task-removal/background
+            // context can crash on newer Android foreground-service rules.
+            saveTimerState();
         }
         super.onTaskRemoved(rootIntent);
     }

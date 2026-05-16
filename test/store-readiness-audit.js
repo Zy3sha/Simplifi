@@ -7,6 +7,9 @@ const androidCapacitorGradle = fs.readFileSync(path.join(root, "android/app/capa
 const androidCapacitorSettings = fs.readFileSync(path.join(root, "android/capacitor.settings.gradle"), "utf8");
 const androidManifest = fs.readFileSync(path.join(root, "android/app/src/main/AndroidManifest.xml"), "utf8");
 const androidMainActivity = fs.readFileSync(path.join(root, "android/app/src/main/java/com/obubba/app/MainActivity.java"), "utf8");
+const androidStyles = fs.readFileSync(path.join(root, "android/app/src/main/res/values/styles.xml"), "utf8");
+const androidV31Styles = fs.readFileSync(path.join(root, "android/app/src/main/res/values-v31/styles.xml"), "utf8");
+const androidLaunchBackground = fs.readFileSync(path.join(root, "android/app/src/main/res/drawable/launch_background.xml"), "utf8");
 const iosProject = fs.readFileSync(path.join(root, "ios/App/App.xcodeproj/project.pbxproj"), "utf8");
 const iosInfo = fs.readFileSync(path.join(root, "ios/App/App/Info.plist"), "utf8");
 const iosPodfile = fs.readFileSync(path.join(root, "ios/App/Podfile"), "utf8");
@@ -39,6 +42,7 @@ function privacyDataTypeBlock(type) {
 const androidVersion = (androidGradle.match(/versionName\s+"([^"]+)"/) || [])[1];
 const iosVersions = Array.from(new Set([...iosProject.matchAll(/MARKETING_VERSION = ([^;]+);/g)].map(m => m[1].trim())));
 const appSource = fs.readFileSync(path.join(root, "app.jsx"), "utf8");
+const capacitorConfig = fs.readFileSync(path.join(root, "capacitor.config.ts"), "utf8");
 
 assert("iOS and Android marketing versions are aligned", iosVersions.length === 1 && androidVersion === iosVersions[0]);
 assert("in-app Account version matches native store version", androidVersion && appSource.includes(`Version ${androidVersion}`) && !appSource.includes("Version 1.0"));
@@ -52,6 +56,7 @@ assert("unused badge plugin stays removed to avoid launcher badge permission spr
 assert("Android foreground timer special-use service has a clear store-review subtype", androidManifest.includes("android.permission.FOREGROUND_SERVICE_SPECIAL_USE") && androidManifest.includes('android:foregroundServiceType="specialUse"') && androidManifest.includes("Baby activity timer showing elapsed time for feeds, naps, and sleep tracking"));
 assert("Android 15 edge-to-edge is explicitly enabled and system insets protect the WebView", androidGradle.includes("androidx.activity:activity:$androidxActivityVersion") && androidMainActivity.includes("EdgeToEdge.enable(") && androidMainActivity.includes("WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout()") && androidManifest.includes('android:windowSoftInputMode="adjustResize"'));
 assert("Android keyboard and native insets stay clear of app chrome", fs.readFileSync(path.join(root, "capacitor.config.ts"), "utf8").includes("resizeOnFullScreen: true") && fs.readFileSync(path.join(root, "capacitor.config.ts"), "utf8").includes("scroll: true") && androidMainActivity.includes("webView.setClipToPadding(true)") && androidMainActivity.includes("syncCssInsets(webView, insets)") && androidMainActivity.includes("--ob-native-bottom-inset"));
+assert("Android cold-launch splash is branded before the WebView paints", androidManifest.includes('android:theme="@style/AppTheme.Splash"') && androidStyles.includes('<item name="android:windowBackground">@drawable/launch_background</item>') && androidV31Styles.includes("android:windowSplashScreenAnimatedIcon") && androidV31Styles.includes("@mipmap/ic_launcher_foreground") && androidLaunchBackground.includes("@mipmap/ic_launcher_foreground") && capacitorConfig.includes("launchAutoHide: false") && capacitorConfig.includes("launchShowDuration: 30000"));
 assert("iOS privacy manifest is present and declares required API reasons", privacyManifest.includes("NSPrivacyAccessedAPITypes") && privacyManifest.includes("NSPrivacyAccessedAPICategoryUserDefaults"));
 assert("iOS privacy manifest marks account-synced baby content as linked", ["NSPrivacyCollectedDataTypePhotosOrVideos", "NSPrivacyCollectedDataTypeOtherUserContent", "NSPrivacyCollectedDataTypeName"].every(type => privacyDataTypeBlock(type).includes("NSPrivacyCollectedDataTypeLinked</key><true/>")));
 assert("iOS privacy manifest declares optional travel-time location accurately", privacyDataTypeBlock("NSPrivacyCollectedDataTypePreciseLocation").includes("NSPrivacyCollectedDataTypeLinked</key><false/>") && privacyDataTypeBlock("NSPrivacyCollectedDataTypePreciseLocation").includes("NSPrivacyCollectedDataTypeTracking</key><false/>") && iosInfo.includes("NSLocationWhenInUseUsageDescription") && !privacyManifest.includes("NSPrivacyCollectedDataTypeCoarseLocation"));

@@ -626,6 +626,11 @@ function runTimerEditAndClockJourney() {
 
   const editedNap = findEntry(state, nap.id).entry;
   assert("nap timer stop and edit preserve start, calculated end, duration and location", stoppedDuration === 39 && editedNap.start === "10:08" && editedNap.end === "10:52" && editedNap.durationMins === 44 && editedNap.location === "cot", JSON.stringify(editedNap));
+  const longNapState = createJourney({ username: "long-nap-parent", babyName: "Mia", dob: "2026-01-08", feedingMode: "combo", dayBoundary: "wake", startDay: "2026-05-12" });
+  startNapTimer(longNapState, "2026-05-12", "15:55");
+  const endedLongNap = endNapTimer(longNapState, "20:05");
+  const bedtimeCountAfterLongNap = entries(longNapState, "2026-05-12").filter(e => e.type === "sleep" && !e.night).length;
+  assert("long late nap timer remains a nap and does not create bedtime", endedLongNap.type === "nap" && endedLongNap.durationMins === 250 && bedtimeCountAfterLongNap === 0);
   assert("feed and wake edits update the original log instead of creating duplicates", entries(state, "2026-05-12").filter(e => e.id === bottle.id).length === 1 && bottle.amount === 135 && wake.time === "06:55");
   assert("deleted night wake is tombstoned for sync after user edits/deletes logs", state.deletedEntryIds.has(nightWake.id) && !findEntry(state, nightWake.id));
 

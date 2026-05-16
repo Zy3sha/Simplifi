@@ -19,6 +19,6 @@
 
     <!-- Splash screen theme -->
     <style name="AppTheme.Splash" parent="AppTheme.NoActionBar">
-        <item name="android:windowBackground">@color/obubba_bg</item>
+        <item name="android:windowBackground">@drawable/launch_background</item>
     </style>
 </resources>

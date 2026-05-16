@@ -4364,7 +4364,7 @@ function daysSinceAllergen(weaningLog, allergenId) {
 // Returns age-appropriate targets and current status
 // ═══ Milk vs Solids intelligence ═══
 // Returns personalised milk targets that KNOW whether today is a solid-trial
-// day or a milk-only day. Parents doing First Tastes (like Oliver at 5.5mo
+// day or a milk-only day. Parents doing First Tastes (early weaning, often
 // with 1 solid meal a day) naturally drink less milk on solid days. Comparing
 // today's intake to a flat NHS "600ml minimum" is confusing and causes
 // needless worry. We compare today to:
@@ -5333,17 +5333,18 @@ function getNightAwakeMinutesForDay(days, bedtimeDayKey, morningDayKey) {
   }, 0);
 }
 
-function humanizeSplitNightPrimaryPressure(primary) {
+function humanizeSplitNightPrimaryPressure(primary, babyName) {
   const p = String(primary || "").toLowerCase();
+  const name = safeChildName(babyName || "") || "your baby";
   if (!p) return "";
   if (p.includes("mixed timing pressure")) {
     return "two things may be stacked: day sleep was high, then the last stretch before bed ran long";
   }
   if (p.includes("low sleep pressure")) {
-    return "Oliver may not have been quite tired enough for one long night stretch";
+    return name + " may not have been quite tired enough for one long night stretch";
   }
   if (p.includes("overtired")) {
-    return "Oliver may have been too tired by bedtime, which can make long wakes harder to settle";
+    return name + " may have been too tired by bedtime, which can make long wakes harder to settle";
   }
   if (p.includes("feeding") || p.includes("calorie")) {
     return "feeding may be one clue";
@@ -5618,7 +5619,7 @@ function buildSplitNightCrossLogWhy(context) {
     return "No clear cause is strong enough yet. OBubba will keep today steady and watch the next few sleeps.";
   }
   const primary = String(ctx.splitNightPrimaryPressure || "").trim();
-  const friendlyPrimary = humanizeSplitNightPrimaryPressure(primary);
+  const friendlyPrimary = humanizeSplitNightPrimaryPressure(primary, ctx.babyName);
   const clueText = signals.slice(0, 3).map(humanizeSplitNightSignal).join(", ");
   if (!friendlyPrimary) {
     return "No clear cause is strong enough yet. Useful clues: " + clueText + ". OBubba will keep today steady and check whether the same clue repeats.";
@@ -11239,7 +11240,7 @@ function ChildSyncCard({ child, cid, code, isShared, participants, myUid, create
           {/* ── WHO HAS JOINED ─────────────────────────────────
               Backend was already writing this to child_syncs on join
               (line ~8270) but the UI never read it. Now the card shows
-              every device/account that's joined Oliver's code, with a
+              every device/account that's joined this baby's code, with a
               joined date and a subtle "you" marker on your own entry.
               Filtered to exclude the code owner — the owner sees their
               own children elsewhere and doesn't need to see themselves
@@ -11277,7 +11278,7 @@ function ChildSyncCard({ child, cid, code, isShared, participants, myUid, create
           Previously this was only rendered inside the `isShared` block, so a
           child that had been severed from sync (isActive:false) but whose
           local record lingered became impossible to remove via the UI —
-          exactly the Oliver-ghost zombie scenario. Now it sits OUTSIDE the
+          exactly the removed-child ghost scenario. Now it sits OUTSIDE the
           shared gate so every child card can be removed regardless of sync
           state. Uses showConfirm because this deletes all local data for the
           child and adds them to the persistent ob_removed_child_ids blacklist. */}
@@ -11598,6 +11599,7 @@ function App(){
   useEffect(()=>{
     // Dismiss splash screen once React has mounted. keep mascot visible
     // for at least 1.2s so it replaces the black screen gracefully
+    window.__obReactMounted = true;
     const splash=document.getElementById("ob-splash");
     if(splash){setTimeout(()=>{splash.style.transition="opacity 0.4s ease";splash.style.opacity="0";setTimeout(()=>{splash.remove();},500);},300);}
   },[]);
@@ -22446,8 +22448,8 @@ function App(){
     // SECURITY: filter remote children through the removal blacklist BEFORE
     // merging. Without this, a family-sync snapshot or verifyLogin hydration
     // can silently re-add a child the user has explicitly removed. This was
-    // the path that kept re-adding Oliver into a friend's account after she
-    // tapped Remove: unlinkChild added Oliver to ob_removed_child_ids, but
+    // the path that kept re-adding a removed child into a friend's account after
+    // she tapped Remove: unlinkChild added the child to ob_removed_child_ids, but
     // the next families-doc snapshot re-merged him in because the blacklist
     // was never consulted on the incoming side.
     let _removedIds = [];
@@ -24067,23 +24069,18 @@ function App(){
         if(elapsed >= guardMins*60 && elapsed < guardMins*60+62) {
           showToast("💛 " + (babyName||"Baby") + " has been napping " + hm(Math.floor(elapsed/60)) + ". tap the nap pill if they've woken", 8000, 2);
         }
-        // 4h+ nap. ask parent if this is bedtime or a forgotten timer
+        // 4h+ nap. Check in, but never convert a nap into bedtime automatically.
+        // Parents can still start bedtime explicitly; the nap timer must remain a nap.
         if (!_isBedTimer && elapsed >= 4*3600 && !localStorage.getItem("ob_long_nap_asked_"+napEntryId)) {
           localStorage.setItem("ob_long_nap_asked_"+napEntryId, "1");
-          const _napEndTime = nowTime();
           showConfirm(
             "Timer has been running " + hm(Math.floor(elapsed/60)),
-            "Is " + (babyName||"baby") + " sleeping for the night, or did the timer get left on?",
+            "If the nap timer was left on, end it as a nap and adjust the stop time if needed. OBubba will not turn this into bedtime automatically.",
             ()=>{
-              // Convert to bedtime
-              setDays(d => {
-                const entries = d[_sd] || [];
-                return {...d, [_sd]: entries.map(e => e.id === napEntryId ? {...e, type: "sleep"} : e)};
-              });
               setConfirmDialog(null);
-              showToast("🌙 Converted to bedtime", 2000, 1);
+              showToast("Nap timer kept as a nap", 2000, 1);
             },
-            "Yes, bedtime"
+            "Keep as nap"
           );
         }
       } catch {}
@@ -39727,23 +39724,6 @@ function App(){
         ).length + 1;
       } catch { return 1; }
     })();
-	    if (durMins >= 240) {
-      clearRecentStoppedNap();
-      setNapSettlingDismissedId("");
-	      // Nap running 4+ hours is almost certainly bedtime, not a nap. convert
-      if(napEntryId || _endNapStartT){
-        setDays(d=>{const updated=(d[_napDay]||[]).filter(e=>napEntryId ? e.id!==napEntryId : !(e && e.type==="nap" && e.start===_endNapStartT && !hasCompletedNapSpan(e)));return{...d,[_napDay]:updated};});
-        // Stamp tombstone so partner sync doesn't resurrect the removed nap entry
-        if (napEntryId) { try { deletedEntryIdsRef.current.add(napEntryId); _capAndPersistDeletedIds(); } catch {} }
-      }
-	      logBedtimeNow({dayKey:_napDay,time:_endNapStartT});
-	      setNapSec(0); setNapStartT(null); setNapEntryId(null);
-		      try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day","nap_paused_by_breast","nap_paused_by_breast_was_paused"].forEach(k=>localStorage.removeItem(k));}catch{}
-	      if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
-	      setTimerMode("prediction");
-	      forcePushNapStopToCloud("long_nap_converted_to_bedtime");
-	      return;
-	    }
     {
       // Update the existing nap entry with end time. If napEntryId is set but the entry
       // is gone (user manually deleted the in-progress nap), fall through to creation
@@ -39768,7 +39748,11 @@ function App(){
         });
 	      }
 	      // Show nap review prompt (wake mood + settling time + location)
-	      openNapReviewAfterStop({napId:_reviewNapId, start:_endNapStartT, end, durMins, dayKey:_napDay, source:"app"});
+      if (durMins >= 240) {
+        showToast("Nap saved as a nap. edit the stop time if the timer was left running.", 3500, 2);
+      } else {
+	        openNapReviewAfterStop({napId:_reviewNapId, start:_endNapStartT, end, durMins, dayKey:_napDay, source:"app"});
+      }
       rememberRecentStoppedNap({napId:_reviewNapId, start:_endNapStartT, startMs:napStartMs || parseInt(localStorage.getItem("nap_startMs"), 10), end, durMins, dayKey:_napDay});
 	      // Show next nap/bedtime prediction after a short delay
       setTimeout(()=>{
@@ -42504,16 +42488,17 @@ function App(){
   // React hooks must run in the SAME order every render. If we early-return below
   // (auth screen, onboarding) without calling these, React crashes with hook count
   // mismatch (error #310) on the next render when condition flips.
-  const _feedCardMemo = React.useMemo(() => feedCard(), [days, selDay, age, FU, usePersonalRecs, weights]);
-  const _analyseTrendsMemo = React.useMemo(() => analyseTrends(), [days, selDay, age, FU]);
-  const _sleepBudgetMemo = React.useMemo(() => { try { return sleepBudgetDashboard(); } catch { return null; } }, [days, selDay, age, babyName]);
-  const _advancedPatternsMemo = React.useMemo(() => { try { return advancedSleepPatterns(); } catch { return null; } }, [days, selDay, age, babyName]);
-  const _detectPatternsMemo = React.useMemo(() => { try { return detectWeeklyPatterns(); } catch { return []; } }, [days, selDay, age, babyName, FU]);
-  const _feedIntelligenceMemo = React.useMemo(() => { try { return feedIntelligence(); } catch { return null; } }, [days, selDay, age, babyName, FU]);
-  const _victoryTrackerMemo = React.useMemo(() => { try { return victoryTracker(); } catch { return null; } }, [days, age, babyName]);
-  const _nightWakeContextMemo = React.useMemo(() => { try { return nightWakeContext(); } catch { return null; } }, [days, selDay, age, babyName]);
-  const _dayScoreMemo = React.useMemo(() => dayScore(undefined, _feedCardMemo), [days, selDay, age, _feedCardMemo]);
-  const _feedScoreMemo = React.useMemo(() => feedScore(_feedCardMemo), [_feedCardMemo, days, selDay]);
+  const _shouldComputeAppMemos = !!(onboarded && !needsChildSetup && !authScreen);
+  const _feedCardMemo = React.useMemo(() => _shouldComputeAppMemos ? feedCard() : null, [_shouldComputeAppMemos, days, selDay, age, FU, usePersonalRecs, weights]);
+  const _analyseTrendsMemo = React.useMemo(() => _shouldComputeAppMemos ? analyseTrends() : null, [_shouldComputeAppMemos, days, selDay, age, FU]);
+  const _sleepBudgetMemo = React.useMemo(() => { if (!_shouldComputeAppMemos) return null; try { return sleepBudgetDashboard(); } catch { return null; } }, [_shouldComputeAppMemos, days, selDay, age, babyName]);
+  const _advancedPatternsMemo = React.useMemo(() => { if (!_shouldComputeAppMemos) return null; try { return advancedSleepPatterns(); } catch { return null; } }, [_shouldComputeAppMemos, days, selDay, age, babyName]);
+  const _detectPatternsMemo = React.useMemo(() => { if (!_shouldComputeAppMemos) return []; try { return detectWeeklyPatterns(); } catch { return []; } }, [_shouldComputeAppMemos, days, selDay, age, babyName, FU]);
+  const _feedIntelligenceMemo = React.useMemo(() => { if (!_shouldComputeAppMemos) return null; try { return feedIntelligence(); } catch { return null; } }, [_shouldComputeAppMemos, days, selDay, age, babyName, FU]);
+  const _victoryTrackerMemo = React.useMemo(() => { if (!_shouldComputeAppMemos) return null; try { return victoryTracker(); } catch { return null; } }, [_shouldComputeAppMemos, days, age, babyName]);
+  const _nightWakeContextMemo = React.useMemo(() => { if (!_shouldComputeAppMemos) return null; try { return nightWakeContext(); } catch { return null; } }, [_shouldComputeAppMemos, days, selDay, age, babyName]);
+  const _dayScoreMemo = React.useMemo(() => _shouldComputeAppMemos ? dayScore(undefined, _feedCardMemo) : null, [_shouldComputeAppMemos, days, selDay, age, _feedCardMemo]);
+  const _feedScoreMemo = React.useMemo(() => _shouldComputeAppMemos ? feedScore(_feedCardMemo) : null, [_shouldComputeAppMemos, _feedCardMemo, days, selDay]);
   // ── Night intelligence memos ──
   // These used to live inside render IIFEs and re-ran every tick (every 1s
   // via partnerTick). Now cached at App level keyed on days+selDay.
@@ -42524,17 +42509,19 @@ function App(){
   // even if nothing else in `days` has mutated yet. Compared by string value (Object.is).
   const _todayKey = todayStr();
   const _lastNightMemo = React.useMemo(() => {
+    if (!_shouldComputeAppMemos) return null;
     try {
       const _t = safeDateKey(selDay) || _todayKey;
       const _sleepKeys = resolveCompletedSleepSummaryKeys(days, _t);
       return analyzeLastNight(days, _sleepKeys.bedDayKey, _sleepKeys.morningDayKey);
     } catch { return null; }
-  }, [days, selDay, _todayKey]);
+  }, [_shouldComputeAppMemos, days, selDay, _todayKey]);
   const _nightDiagnosisMemo = React.useMemo(() => {
-    try {
-      // Compute last wake window before bedtime so diagnoseNightPattern can
-      // distinguish overtired vs undertired false starts.
-      let _diagCtx = {};
+	      if (!_shouldComputeAppMemos) return null;
+	    try {
+	      // Compute last wake window before bedtime so diagnoseNightPattern can
+	      // distinguish overtired vs undertired false starts.
+	      let _diagCtx = { babyName: babyName || "your baby" };
       try {
         const _t = safeDateKey(selDay) || _todayKey;
         const _sleepKeys = _lastNightMemo && _lastNightMemo._bedDayKey
@@ -42728,7 +42715,7 @@ function App(){
       } catch {}
       return diagnoseNightPattern(_lastNightMemo, _diagCtx);
     } catch { return null; }
-  }, [_lastNightMemo, days, age, teething, observations, activeChild.milestones]);
+	  }, [_shouldComputeAppMemos, _lastNightMemo, days, age, teething, observations, activeChild.milestones, babyName]);
   // BUG #2 FIX: Apply night adjustments on mount/days change, not inside render.
   // This ensures adjustments are persisted even if the user never views the Insights tab.
   const _nightAdjustmentAgeWeeks = age ? (age.predictiveWeeks ?? age.totalWeeks) : null;
@@ -42740,14 +42727,16 @@ function App(){
     } catch {}
   }, [_nightDiagnosisMemo, _todayKey, days, _nightAdjustmentAgeWeeks]);
   const _settleMethodsMemo = React.useMemo(() => {
+    if (!_shouldComputeAppMemos) return null;
     try { return analyzeSettleMethods(days, 7, selDay); } catch { return null; }
-  }, [days, selDay]);
+  }, [_shouldComputeAppMemos, days, selDay]);
   const _weeklyDigestMemo = React.useMemo(() => {
+    if (!_shouldComputeAppMemos) return null;
     // Only compute on Sundays so we don't burn cycles the other 6 days.
     const _d = new Date();
     if (_d.getDay() !== 0) return null;
     try { return buildNightDigest(days, _todayKey, age ? (age.predictiveWeeks ?? age.totalWeeks) : null); } catch { return null; }
-  }, [days, selDay, _todayKey]);
+  }, [_shouldComputeAppMemos, days, selDay, _todayKey]);
   // Fire observations for bottle-fed babies: catch-up warnings AND positive wins.
   React.useEffect(() => {
     try {
@@ -43529,7 +43518,7 @@ function App(){
       }
     } catch {}
 
-    // ── Best day recipe. what makes Oliver's perfect day ──
+    // ── Best day recipe. what makes this baby's perfect day ──
     try {
       const _dayScores = [];
       const _dk3 = Object.keys(days).sort().slice(-21);
@@ -44442,6 +44431,26 @@ function App(){
 	  const activationStats = React.useMemo(()=>{
     void forceRender;
     const childKey = safeStorageToken(resolvedActiveId || "default", "default", 32);
+    if (!_shouldComputeAppMemos) {
+      return {
+        childKey,
+        totalLogs: 0,
+        todayLogs: 0,
+        loggedDays: 0,
+        firstEntry: null,
+        latestEntry: null,
+        insightViewed: false,
+        shortcutPrompted: false,
+        hasPartnerInvite: false,
+        carerShareCount: 0,
+        sharedLoad: false,
+        progress: 0,
+        dismissed: false,
+        bubbaCareDismissed: false,
+        shouldShow: false,
+        shouldShowBubbaCarePrompt: false
+      };
+    }
     const logRows = [];
     try {
       Object.keys(days || {}).sort().forEach(dk => {
@@ -44489,7 +44498,7 @@ function App(){
       shouldShow: !dismissed && totalLogs < 18 && progress < 4,
       shouldShowBubbaCarePrompt: !bubbaCareDismissed && !sharedLoad && totalLogs >= 10 && loggedDays >= 2
     };
-  }, [days, resolvedActiveId, childSyncCodes, forceRender]);
+  }, [_shouldComputeAppMemos, days, resolvedActiveId, childSyncCodes, forceRender]);
   React.useEffect(()=>{
     if (!activationStats.shouldShow || tab !== "day" || daySubScreen || selDay !== todayStr()) return;
     try {
@@ -45400,14 +45409,9 @@ function App(){
 	    const CLOCK_LATE_NAP_SLEEP_START_MINS = 15 * 60;
 	    const CLOCK_LATE_NAP_SLEEP_END_MINS = 18 * 60;
 	    const clockIsLateLongNapSleepLab = (entry) => {
-	      if (!entry || entry.type !== "nap" || entry.night || entry.isBridge || isActiveClockNapLab(entry)) return false;
-	      const start = entryStartMins(entry);
-	      if (start === null) return false;
-	      const duration = clockNapDurationLab(entry);
-	      if (!duration || duration < CLOCK_LATE_NAP_SLEEP_MIN_MINS) return false;
-	      const rawEnd = entry.end && entry.end !== entry.start ? clockLabMins(entry.end) : null;
-	      const end = rawEnd !== null ? (rawEnd <= start ? rawEnd + 1440 : rawEnd) : start + duration;
-	      return start >= CLOCK_LATE_NAP_SLEEP_START_MINS || end >= CLOCK_LATE_NAP_SLEEP_END_MINS;
+	      // A nap timer should stay visually and structurally a nap, even if it
+	      // ran late or for a long time. Bedtime is only created by bedtime flows.
+	      return false;
 	    };
 		    const clockNapNeedsTimerCheckLab = (entry) => !!(
 		      entry &&
@@ -49087,7 +49091,9 @@ function App(){
     try {
       if (!localStorage.getItem("ob_onboarding_started_fired")) {
         localStorage.setItem("ob_onboarding_started_fired", "1");
-        trackEvent("onboarding_started", { platform: (window.Capacitor?.getPlatform?.()||"web") });
+        const fireStarted = () => trackEvent("onboarding_started", { platform: (window.Capacitor?.getPlatform?.()||"web") });
+        if (window.requestIdleCallback) window.requestIdleCallback(fireStarted, {timeout:3000});
+        else setTimeout(fireStarted, 1800);
       }
     } catch {}
     const _obMaxSteps = 7;
@@ -49242,7 +49248,7 @@ function App(){
         action: (
           <div style={{width:"100%",marginTop:20}}>
             <input autoFocus type="text" aria-label="Baby name" value={obName} maxLength={40} onChange={e=>setObName(e.target.value)}
-              placeholder="e.g. Oliver" autoCapitalize="words" autoComplete="off"
+              placeholder="e.g. Ava" autoCapitalize="words" autoComplete="off"
               style={{width:"100%",fontSize:22,padding:"16px 18px",borderRadius:16,border:`2px solid ${obName.trim()?"#9BB8A8":C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fI,textAlign:"center",boxSizing:_bBB,transition:"border-color 0.2s"}}/>
             <button onClick={()=>obName.trim()&&setObStep(2)} disabled={!obName.trim()}
               style={{width:"100%",marginTop:20,background:obName.trim()?"linear-gradient(135deg,#9B8BB8,#7B6BA0)":"rgba(155,139,184,0.2)",border:_bN,borderRadius:99,padding:"14px",color:obName.trim()?"white":"rgba(155,139,184,0.5)",fontSize:16,fontWeight:700,cursor:obName.trim()?_cP:"not-allowed",boxShadow:obName.trim()?"0 4px 24px rgba(155,139,184,0.35), 0 0 20px rgba(155,139,184,0.1)":"none"}}>
@@ -49465,7 +49471,10 @@ function App(){
       setSelDay(todayStr());
       setTimeout(()=>setShowImportAfterSetup(true), 140);
     };
-    const _welcomeFireflies = [
+    const _nativePlatform = window.Capacitor?.getPlatform?.() || "web";
+    const _welcomeReducedMotion = !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    const _welcomeStaticClock = _nativePlatform === "android" || _welcomeReducedMotion;
+    const _welcomeFireflies = _welcomeStaticClock ? [] : [
       ["8%","35%","0.55",0],["16%","57%","0.78",1],["88%","34%","0.62",2],["93%","57%","0.72",3],
       ["12%","78%","0.50",4],["83%","82%","0.58",5],["24%","48%","0.40",6],["75%","47%","0.46",7]
     ];
@@ -49568,7 +49577,7 @@ function App(){
                 <div style={{position:"absolute",right:"-4%",bottom:"-9%",width:"42%",height:"24%",borderRadius:"50% 50% 18% 18%",background:"radial-gradient(circle at 38% 28%,#FFE9A9 0 18%,transparent 19%),linear-gradient(180deg,#5D463A,#2C2230)",boxShadow:"0 0 30px rgba(255,215,130,.22)"}}/>
                 <div style={{position:"absolute",right:"8%",bottom:"-2%",width:"17%",height:"21%",borderRadius:"50% 50% 42% 42%",background:"#4D3328",boxShadow:"-12px 10px 18px rgba(0,0,0,.22)"}}/>
                 <div style={{position:"absolute",right:"21%",bottom:"4%",width:"13%",height:"15%",borderRadius:"50% 50% 45% 45%",background:"radial-gradient(circle at 44% 36%,#FFF4BC 0 10%,#F5D96B 11% 58%,#A46433 100%)",boxShadow:"0 0 22px #FFE27B"}}/>
-                <div style={{position:"absolute",inset:"-3%",borderRadius:"50%",border:"3px solid rgba(255,145,154,.62)",borderLeftColor:"rgba(122,94,239,.82)",borderBottomColor:"rgba(255,103,134,.82)",borderTopColor:"rgba(255,205,118,.78)",animation:"obWelcomeOrbit 18s linear infinite",opacity:.82}}/>
+                <div style={{position:"absolute",inset:"-3%",borderRadius:"50%",border:"3px solid rgba(255,145,154,.62)",borderLeftColor:"rgba(122,94,239,.82)",borderBottomColor:"rgba(255,103,134,.82)",borderTopColor:"rgba(255,205,118,.78)",animation:_welcomeStaticClock?"none":"obWelcomeOrbit 18s linear infinite",opacity:.82}}/>
               </div>
             </div>
 
@@ -58224,7 +58233,7 @@ function App(){
                         <div style={{fontSize:16,fontWeight:700,color:C.mint}}>{hm(totalNapM)}</div>
                       </div>
                     </div>
-                    {reportNapAdjusted&&<div style={{fontSize:11,color:C.lt,lineHeight:1.45,margin:"-2px 2px 10px"}}>OBubba merged overlapping nap logs here, so this report reflects the sleep Oliver actually had rather than double-counting the same stretch.</div>}
+                    {reportNapAdjusted&&<div style={{fontSize:11,color:C.lt,lineHeight:1.45,margin:"-2px 2px 10px"}}>OBubba merged overlapping nap logs here, so this report reflects the sleep {(babyName||"your baby")} actually had rather than double-counting the same stretch.</div>}
 
                     {/* Wake windows */}
                     {(()=>{
@@ -58788,7 +58797,7 @@ function App(){
             m88: ["Label possessions clearly and calmly. 'this is your cup, that's my cup.' Don't force sharing of special items. respecting 'mine' builds future generosity."],
             m89: ["Offer a mixed bowl of two colours (red blocks and blue blocks) and two empty containers. Model sorting one of each, then let them try. Praise attempts, not just success."],
             m90: ["Count during everyday moments. 'one shoe, two shoes', '1, 2, 3 steps!'. Touch each item as you count. pointing anchors the number to the thing."],
-            m91: ["Ask 'what's your name?' and answer for them if they don't yet. Include their age in songs. 'Oliver is 2, 1, 2!'. Repetition builds self-awareness."],
+            m91: ["Ask 'what's your name?' and answer for them if they don't yet. Include their age in songs. '" + (babyName || "Your child") + " is 2, 1, 2!'. Repetition builds self-awareness."],
             m92: ["Provide open-ended props: pots and pans, dress-up items, dolls, a cardboard box. Pretend play is where storytelling and problem-solving really begin."],
 
             // ── 3–4 years motor ──
@@ -59522,7 +59531,7 @@ function App(){
                 );
               })()}
 
-              {/* Oliver's Development card. REMOVED per UX strategy */}
+              {/* Development card removed per UX strategy */}
               
               </div>}
               {/* ═══ Pre-weaning education. comprehensive guide — always accessible from Before Weaning sub-screen ═══ */}
@@ -62113,7 +62122,7 @@ function App(){
               <div style={{fontSize:11,color:C.mid,lineHeight:1.6}}>
                 OBubba is <b>not a medical device</b>. Guidance adapts to your country where possible and is based on trusted public-health sources: {_guidanceFooter()}. Always consult your {_healthContact}.
               </div>
-              <div style={{fontSize:10,color:C.lt,marginTop:6}}>Version 2.7.8 · © {new Date().getFullYear()} OLife Labs Limited · <a href="https://obubba.com/privacy" target="_blank" rel="noopener noreferrer" style={{color:C.lt}}>Privacy</a> · <a href="https://obubba.com/terms" target="_blank" rel="noopener noreferrer" style={{color:C.lt}}>Terms</a></div>
+              <div style={{fontSize:10,color:C.lt,marginTop:6}}>Version 2.7.9 · © {new Date().getFullYear()} OLife Labs Limited · <a href="https://obubba.com/privacy" target="_blank" rel="noopener noreferrer" style={{color:C.lt}}>Privacy</a> · <a href="https://obubba.com/terms" target="_blank" rel="noopener noreferrer" style={{color:C.lt}}>Terms</a></div>
             </div>
           </div>
 
@@ -68385,7 +68394,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
         <div style={{position:"fixed",inset:0,zIndex:9990,background:"var(--sheet-overlay)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}} onClick={()=>setShowAddReminder(false)}>
           <div onClick={e=>e.stopPropagation()} style={{background:"var(--sheet-bg)",backdropFilter:"blur(30px) saturate(1.6)",WebkitBackdropFilter:"blur(30px) saturate(1.6)",borderRadius:24,padding:"24px 20px",maxWidth:360,width:"100%",boxShadow:"0 20px 60px rgba(0,0,0,0.4)",border:"1px solid var(--card-border)"}}>
             <div style={{fontFamily:"Georgia,serif",fontSize:20,fontWeight:700,color:C.deep,marginBottom:16}}>🔔 Add Reminder</div>
-            <Inp label="Reminder" type="text" maxLength={200} placeholder="e.g. Massage Oliver, Tummy time..." value={reminderForm.text} onChange={e=>setReminderForm(f=>({...f,text:safeTextPayload(e.target.value, "", 200)}))}/>
+            <Inp label="Reminder" type="text" maxLength={200} placeholder={`e.g. Massage ${babyName||"baby"}, Tummy time...`} value={reminderForm.text} onChange={e=>setReminderForm(f=>({...f,text:safeTextPayload(e.target.value, "", 200)}))}/>
             <div style={{fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Trigger</div>
             <div style={{display:"flex",flexWrap:"wrap",gap:5,marginBottom:14}}>
               {[
@@ -69473,7 +69482,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
       {/* ═══ Weekly Shopping List Modal ═══ */}
       {showShoppingListModal && shoppingDraft && (()=>{
         // Single source of truth: pull foods from the shared FIRST_TASTES_CATALOGUE.
-        // Filter by phase gate so Oliver (early First Tastes) doesn't see
+        // Filter by phase gate so early First Tastes babies don't see
         // allergens that are blocked for him yet.
         const _modalWeaningDays = (weaning||[]).length;
         const _modalPhaseMax = _modalWeaningDays >= 8 ? 3 : _modalWeaningDays >= 5 ? 2 : 1;
@@ -70653,13 +70662,10 @@ window.obTestClock = function obTestClock() {
 // Clock tests available via window.obTestClock() — no auto-run
 
 
-// Guard: prevent double-render if script executes twice
-if (!window.__obReactMounted) {
-  window.__obReactMounted = true;
+// Guard: prevent double-render if script executes twice. App marks
+// __obReactMounted after the first committed render so splash fallbacks
+// do not disappear while React is still parsing or rendering.
+if (!window.__obReactRenderScheduled) {
+  window.__obReactRenderScheduled = true;
   ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(ErrorBoundary,null,React.createElement(AppRouter)));
-  // Hide splash screens ASAP. both web and native
-  requestAnimationFrame(function(){
-    var s=document.getElementById('ob-splash');if(s)s.style.display='none';
-    try{if(window.Capacitor&&window.Capacitor.Plugins&&window.Capacitor.Plugins.SplashScreen)window.Capacitor.Plugins.SplashScreen.hide();}catch{}
-  });
 }

@@ -68,7 +68,7 @@ cp -f public/manifest.json dist/manifest.json
 cp -f public/icon.png dist/icon.png 2>/dev/null || true
 mkdir -p dist/icons
 cp -f public/icons/*.png dist/icons/ 2>/dev/null || true
-cp -f app.js dist/app.js
+cp -f app.min.js dist/app.js
 cp -f app.jsx dist/app.jsx
 cp -f styles.css dist/styles.css
 cp -f i18n.js dist/i18n.js

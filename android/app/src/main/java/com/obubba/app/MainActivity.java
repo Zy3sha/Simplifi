@@ -1,8 +1,11 @@
 package com.obubba.app;
 
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.content.Intent;
+import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
 import android.webkit.WebView;
 import androidx.activity.EdgeToEdge;
 import androidx.activity.SystemBarStyle;
@@ -15,6 +18,8 @@ import com.obubba.app.shortcuts.AppShortcutsManager;
 import org.json.JSONObject;
 
 public class MainActivity extends BridgeActivity {
+    private static final String NATIVE_PREFS = "obubba_native_runtime";
+    private static final String LAST_CACHE_CLEAR_VERSION = "last_webview_cache_clear_version";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -32,18 +37,44 @@ public class MainActivity extends BridgeActivity {
         );
         super.onCreate(savedInstanceState);
 
-        // Clear WebView cache to ensure latest web assets are loaded
-        // after an APK update. Without this, the WebView serves stale
-        // cached JS/HTML from the previous install.
+        // Clear WebView cache only after an app update. Doing this on every
+        // cold start blocks startup on some Android WebView builds.
         try {
             if (getBridge() != null && getBridge().getWebView() != null) {
                 WebView webView = getBridge().getWebView();
-                webView.clearCache(true);
+                webView.setBackgroundResource(R.drawable.launch_background);
+                clearWebViewCacheAfterAppUpdate(webView);
                 applyEdgeToEdgeInsets(webView);
             }
         } catch (Exception e) { /* ignore */ }
 
         handleAction(getIntent());
+    }
+
+    private long currentVersionCode() {
+        try {
+            PackageInfo info = getPackageManager().getPackageInfo(getPackageName(), 0);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                return info.getLongVersionCode();
+            }
+            return info.versionCode;
+        } catch (Exception e) {
+            return -1L;
+        }
+    }
+
+    private void clearWebViewCacheAfterAppUpdate(WebView webView) {
+        long versionCode = currentVersionCode();
+        if (versionCode <= 0) return;
+        SharedPreferences prefs = getSharedPreferences(NATIVE_PREFS, MODE_PRIVATE);
+        if (prefs.getLong(LAST_CACHE_CLEAR_VERSION, -1L) == versionCode) return;
+
+        webView.postDelayed(() -> {
+            try {
+                webView.clearCache(true);
+                prefs.edit().putLong(LAST_CACHE_CLEAR_VERSION, versionCode).apply();
+            } catch (Exception e) { /* ignore */ }
+        }, 1200L);
     }
 
     private void applyEdgeToEdgeInsets(WebView webView) {
