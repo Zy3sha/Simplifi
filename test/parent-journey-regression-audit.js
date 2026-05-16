@@ -79,7 +79,7 @@ function createNewAccountJourney({ username, babyName, dob, feedingMode, dayBoun
     trialFirstInstallAtClient: "2026-05-13T08:00:00.000Z",
     trialDeviceKey: "device-key-for-sim",
     trialUsed: false,
-    appTourPending: "new_account",
+    appTourPending: null,
     dayBoundary,
     children: {},
     activeChildId: normaliseUsername(babyName) || "baby",
@@ -533,7 +533,7 @@ function runOnboardingSimulation() {
   });
   assert("new account simulation normalises family username", account.username === "liznolfamily");
   assert("new account simulation creates one active child with day-one profile", account.activeChildId === "amelia" && !!account.children.amelia.day1Profile);
-  assert("new account simulation queues the app tour and trial fields", account.appTourPending === "new_account" && !!account.trialStartedAtClient && !!account.trialFirstInstallAtClient && !!account.trialDeviceKey);
+  assert("new account simulation keeps trial fields and skips the auto tour", account.appTourPending === null && !!account.trialStartedAtClient && !!account.trialFirstInstallAtClient && !!account.trialDeviceKey);
 }
 
 function runBreastfeedingWakeModeJourney() {
@@ -671,7 +671,7 @@ function runSourceWiringChecks() {
   const breastActionAt = appSource.indexOf("const clockQuickBreastLog = () => {");
   const breastActionEnd = breastActionAt > -1 ? appSource.indexOf("const clockLabCoreActions", breastActionAt) : -1;
   const breastActionBlock = breastActionAt > -1 && breastActionEnd > breastActionAt ? appSource.slice(breastActionAt, breastActionEnd) : "";
-  assert("live onboarding/new-account setup carries trial and app-tour state", appSource.includes("trialStartedAtClient") && appSource.includes("trialFirstInstallAtClient") && appSource.includes("trialDeviceKey") && appSource.includes('localStorage.setItem("ob_app_tour_pending_v1"') && appSource.includes("safeDay1Profile(activeChild?.day1Profile"));
+  assert("live onboarding/new-account setup carries trial state and drops parents into Clock Track", appSource.includes("trialStartedAtClient") && appSource.includes("trialFirstInstallAtClient") && appSource.includes("trialDeviceKey") && appSource.includes('localStorage.removeItem("ob_app_tour_pending_v1")') && appSource.includes('setTab("day")') && appSource.includes('setTodayPanel("log")') && appSource.includes("safeDay1Profile(activeChild?.day1Profile"));
   assert("live Care dashboard exposes the breastfeeding guide modal", careLandingBlock.includes('{id:"breastfeeding",label:"Breastfeeding"') && appSource.includes('if (f.id === "breastfeeding") { setBfHubSection(null); setShowBfHub(true); return; }') && appSource.includes("Breastfeeding Guide") && appSource.includes("{showBfHub&&("));
   assert("live Clock breast action exposes next L/R and active/paused L/R state", appSource.includes('const clockNextBreastSide = clockLastBreastSide === "L" ? "R" : "L";') && appSource.includes('const clockBreastSideBadge = clockFeedTimerOnThisDay ? clockBreastActionSide + (breastActive ? " active" : " paused") : "Next " + clockBreastActionSide;') && appSource.includes('data-testid="clock-breast-side-toggle"'));
   assert("live Clock breast tap starts or resumes the timer while long press owns edit", breastActionBlock.includes("startBreastTimer(sideKey);") && breastActionBlock.includes("resumeBreastTimer(clockActiveBreastSide)") && breastActionBlock.includes("Hold Breast to edit") && !breastActionBlock.includes("quickAddLog") && !breastActionBlock.includes("if (breastActive) { openBreastTimerEdit"));

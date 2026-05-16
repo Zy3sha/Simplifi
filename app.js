@@ -1838,6 +1838,30 @@ function normaliseLettersPayload(value) {
     };
   }).filter(Boolean);
 }
+function observationTopicKeyFromParts(title = "", body = "") {
+  const text = (String(title || "") + " " + String(body || "")).toLowerCase().replace(/\s+/g, " ").trim();
+  if (!text) return "notice_observation";
+  if (/\broutine consistency\b|\bschedule needs more consistency\b|\binconsistent\b|\bconsistency score\b|wake time (?:varies|shifts)|bedtime (?:varies|shifts)|total nap time (?:varies|swings)|nap length is inconsistent|day-to-day rhythm shifts|schedule needs steadying/.test(text)) return "routine_consistency";
+  if (/short nap|lots of short naps|nap timer|brief wake-ups|sleep cycles|fragmented nap/.test(text)) return "nap_quality";
+  if (/last nap|long nap|day sleep|nap total|naps could use|day naps may/.test(text)) return "nap_balance";
+  if (/night wake|night waking|split night|false start|early-morning|early morning|late bedtime/.test(text)) return "night_wakes";
+  if (/feed|feeding|milk|bottle|intake|hunger/.test(text)) return "feeding";
+  if (/tooth|teeth|teething/.test(text)) return "teething";
+  if (/wet nappy|wet nappies|hydration|nappy count/.test(text)) return "hydration";
+  if (/today different|why is today different|not a normal day|off day|illness|vaccin|jabs|growth spurt/.test(text)) return "today_context";
+  return "notice_" + safeStorageToken(title || body || "observation", "observation", 60);
+}
+function mergeObservationCopy(existing = "", incoming = "", maxLen = 1200) {
+  const a = safeTextPayload(existing, "", maxLen).trim();
+  const b = safeTextPayload(incoming, "", maxLen).trim();
+  if (!a) return b;
+  if (!b) return a;
+  const al = a.toLowerCase();
+  const bl = b.toLowerCase();
+  if (al.includes(bl)) return a;
+  if (bl.includes(al)) return b;
+  return safeTextPayload(a + "\n\nAlso: " + b, a, maxLen).trim();
+}
 function normaliseObservationRecord(obs) {
   if (!obs || typeof obs !== "object" || Array.isArray(obs)) return null;
   const title = safeTextPayload(obs.title, "", 140).replace(/\s+/g, " ").trim();
@@ -1850,6 +1874,7 @@ function normaliseObservationRecord(obs) {
   const time = safeIsoDateText(obs.time, "");
   const ts = safeTimestampMs(obs.ts, time ? Date.parse(time) : safeTimestampMs(obs.date || obs.createdAt, 0));
   const priority = safeNumberRange(obs.priority, 3, 1, 5);
+  const topic = safeTextPayload(obs.topic, "", 80).replace(/[^A-Za-z0-9_-]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 80) || observationTopicKeyFromParts(title, body || text);
   const next = {
     id: safeChildId(obs.id),
     ts,
@@ -1860,7 +1885,8 @@ function normaliseObservationRecord(obs) {
     text,
     type,
     ack: obs.ack === true,
-    priority
+    priority,
+    topic
   };
   if (time) next.time = time;
   if (score !== null) next.score = score;
@@ -3373,11 +3399,83 @@ window._obPrint = function() {
 const _locale = (navigator.language || "en-GB").toLowerCase();
 const _toothLabels = { "UR-E": "Upper right 2nd molar", "UR-D": "Upper right 1st molar", "UR-C": "Upper right canine", "UR-B": "Upper right lateral", "UR-A": "Upper right central", "UL-A": "Upper left central", "UL-B": "Upper left lateral", "UL-C": "Upper left canine", "UL-D": "Upper left 1st molar", "UL-E": "Upper left 2nd molar", "LR-E": "Lower right 2nd molar", "LR-D": "Lower right 1st molar", "LR-C": "Lower right canine", "LR-B": "Lower right lateral", "LR-A": "Lower right central", "LL-A": "Lower left central", "LL-B": "Lower left lateral", "LL-C": "Lower left canine", "LL-D": "Lower left 1st molar", "LL-E": "Lower left 2nd molar" };
 const toothLabel = (id) => _toothLabels[id] || id;
-const _isUS = _locale.startsWith("en-us");
-const _isAU = _locale.startsWith("en-au");
-const _isIE = _locale.startsWith("en-ie") || _locale === "ga";
-const _isCA = _locale.startsWith("en-ca") || _locale.startsWith("fr-ca");
-const _isNZ = _locale.startsWith("en-nz");
+const OB_COUNTRY_KEYS = Object.freeze({ UK: true, US: true, CA: true, AU: true, NZ: true, IE: true });
+const OB_REGION_TO_COUNTRY_KEY = Object.freeze({ GB: "UK", UK: "UK", GG: "UK", JE: "UK", IM: "UK", US: "US", CA: "CA", AU: "AU", NZ: "NZ", IE: "IE" });
+function obNavigatorLocales(primary = _locale) {
+  const out = [];
+  if (primary) out.push(primary);
+  try {
+    if (Array.isArray(navigator.languages)) {
+      navigator.languages.forEach((l) => {
+        if (l && !out.includes(l)) out.push(l);
+      });
+    }
+  } catch (e) {
+  }
+  return out;
+}
+function localeRegionCode(locale = _locale) {
+  const candidates = obNavigatorLocales(locale);
+  for (const raw of candidates) {
+    const value = String(raw || "").trim();
+    if (!value) continue;
+    try {
+      const region = new Intl.Locale(value).region;
+      if (region) return String(region).toUpperCase();
+    } catch (e) {
+    }
+    const parts = value.replace(/_/g, "-").split("-").filter(Boolean);
+    if (parts.length > 1) {
+      const region = parts[parts.length - 1].toUpperCase();
+      if (/^[A-Z]{2}$/.test(region)) return region;
+    }
+  }
+  const lang = String(locale || "").toLowerCase();
+  if (lang === "ga") return "IE";
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    if (tz === "Europe/London" || tz === "Europe/Guernsey" || tz === "Europe/Jersey" || tz === "Europe/Isle_of_Man") return "GB";
+    if (tz === "Europe/Dublin") return "IE";
+    if (tz.startsWith("Australia/")) return "AU";
+    if (tz === "Pacific/Auckland" || tz === "Pacific/Chatham") return "NZ";
+    if (/^America\/(Toronto|Vancouver|Edmonton|Winnipeg|Regina|Halifax|St_Johns|Moncton|Whitehorse|Dawson|Yellowknife|Inuvik|Iqaluit|Rankin_Inlet|Resolute|Cambridge_Bay|Goose_Bay)/.test(tz)) return "CA";
+    if (/^America\/(New_York|Detroit|Chicago|Denver|Phoenix|Los_Angeles|Anchorage|Adak|Honolulu|Boise|Juneau|Nome|Sitka|Metlakatla|Yakutat|Indiana\/|Kentucky\/|North_Dakota\/)/.test(tz)) return "US";
+  } catch (e) {
+  }
+  return "";
+}
+function localeRegionName(regionCode) {
+  const code = String(regionCode || "").toUpperCase();
+  if (!code) return "";
+  try {
+    const dn = new Intl.DisplayNames([_locale || "en"], { type: "region" });
+    return dn.of(code) || code;
+  } catch (e) {
+    return code;
+  }
+}
+function safeCountryKey(value, fallback = "UK") {
+  const key = String(value || "").trim().toUpperCase();
+  if (OB_COUNTRY_KEYS[key]) return key;
+  return fallback && OB_COUNTRY_KEYS[fallback] ? fallback : "";
+}
+function localeCountryKey(locale = _locale) {
+  const region = localeRegionCode(locale);
+  return OB_REGION_TO_COUNTRY_KEY[region] || (String(locale || "").toLowerCase() === "ga" ? "IE" : "");
+}
+function countryDefaultUnits(countryKey) {
+  const key = safeCountryKey(countryKey, "UK");
+  return key === "US" ? { fluid: "oz", measure: "lbs", temp: "f" } : { fluid: "ml", measure: "metric", temp: "c" };
+}
+const _localeRegionCode = localeRegionCode(_locale);
+const _localeRegionName = localeRegionName(_localeRegionCode);
+const _countryKey = localeCountryKey(_locale);
+const _guidanceCountryKey = safeCountryKey(_countryKey, "UK");
+const _isUS = _guidanceCountryKey === "US";
+const _isAU = _guidanceCountryKey === "AU";
+const _isIE = _guidanceCountryKey === "IE";
+const _isCA = _guidanceCountryKey === "CA";
+const _isNZ = _guidanceCountryKey === "NZ";
 const _healthChecks = _isUS ? [
   { day: 3, label: "First pediatrician visit", detail: "Weight check, jaundice screening, feeding assessment. Bring your hospital discharge papers." },
   { day: 14, label: "2-week well-baby visit", detail: "Weight, length, head circumference. Discuss feeding, sleep, and any concerns." },
@@ -3525,10 +3623,18 @@ const _localeData = (function() {
   if (countries[lang]) return countries[lang];
   return ["999", "111 (NHS) or your GP", "GP or health visitor"];
 })();
-const _emergNum = _localeData[0];
-const _helpLine = _localeData[1];
-const _doctor = _localeData[2];
-const _countryKey = _isUS ? "US" : _isCA ? "CA" : _isAU ? "AU" : _isNZ ? "NZ" : _isIE ? "IE" : "UK";
+const _countryLocaleData = {
+  UK: ["999", "111 (NHS) or your GP", "GP or health visitor"],
+  US: ["911", "your pediatrician", "pediatrician"],
+  CA: ["911", "your paediatrician or 811 (Health Link)", "paediatrician or family doctor"],
+  AU: ["000", "your GP or Health Direct (1800 022 222)", "GP"],
+  NZ: ["111", "Plunket Line (0800 933 922) or your GP", "GP or Plunket nurse"],
+  IE: ["999/112", "your GP or HSE Live (1800 700 700)", "GP or public health nurse"]
+};
+const _effectiveLocaleData = _countryKey ? _countryLocaleData[_countryKey] || _localeData : _localeData;
+const _emergNum = _effectiveLocaleData[0];
+const _helpLine = _effectiveLocaleData[1];
+const _doctor = _effectiveLocaleData[2];
 const _countryGuidanceMap = {
   UK: {
     country: "UK",
@@ -3717,7 +3823,41 @@ const _countryGuidanceMap = {
     reportTitle: "Health Report"
   }
 };
-const _guide = _countryGuidanceMap[_countryKey] || _countryGuidanceMap.UK;
+function localeGuidanceFallback() {
+  const contact = _doctor || "local health professional";
+  const nonEmergency = _helpLine || contact;
+  const country = _localeRegionName || "your region";
+  return {
+    country,
+    healthContact: contact,
+    healthProfessional: contact,
+    newbornContact: contact,
+    weighInContact: contact,
+    vaccinationContact: contact,
+    nonEmergencyLabel: nonEmergency,
+    nonEmergencyTel: "",
+    sleepSource: "WHO / local safe sleep guidance",
+    safeSleepSource: "WHO / local safe sleep guidance",
+    feedingSource: "WHO / local infant feeding guidance",
+    weaningSource: "WHO / local infant feeding guidance",
+    allergenSource: "local allergy guidance",
+    growthSource: "WHO growth standards",
+    developmentSource: "local child development guidance",
+    vaccineSource: "local immunisation schedule",
+    pooSource: "local child-health guidance",
+    vitaminDSource: "local public-health guidance",
+    vitaminDContact: contact,
+    appointmentExample: "health visit, vaccination, clinic appointment",
+    locationExample: "clinic or health centre",
+    cupGuidance: "Local infant feeding guidance usually supports helping babies practise with an open or free-flow cup as solids progress.",
+    breastfeedingSupport: [
+      { who: contact, when: "Feeding, weight, or wellbeing concerns", how: "Use your local clinic or health service" },
+      { who: "IBCLC lactation consultant", when: "Persistent pain, tongue tie, supply", how: "Ask your local health service or search a recognised lactation directory" }
+    ],
+    reportTitle: "Health Report"
+  };
+}
+const _guide = _countryGuidanceMap[_countryKey] || localeGuidanceFallback();
 const _healthContact = _guide.healthContact || _doctor;
 const _healthProfessional = _guide.healthProfessional || _doctor;
 const _nonEmergencyTel = (_guide.nonEmergencyTel || "").replace(/[^0-9+]/g, "");
@@ -16147,10 +16287,30 @@ function App() {
     const _entry = normaliseObservationRecord({ id: "obs_" + _now + "_" + randomIdSuffix(6), ts: _now, icon, title, body, wedid, ack: false, priority: priority || 3 });
     if (!_entry || !_entry.title) return;
     const _prio = _entry.priority || 3;
+    const _topic = _entry.topic || observationTopicKeyFromParts(_entry.title, _entry.body);
     setObservations((prev) => {
       const _prev = normaliseObservationsPayload(prev);
-      const _recent = _prev.find((o) => o.title === _entry.title && (o.ts || 0) >= _todayStart.getTime());
-      if (_recent) return prev;
+      const _recentIdx = _prev.findIndex((o) => {
+        if ((o.ts || 0) < _todayStart.getTime()) return false;
+        const _existingTopic = o.topic || observationTopicKeyFromParts(o.title, o.body || o.text);
+        return _existingTopic === _topic || o.title === _entry.title;
+      });
+      if (_recentIdx >= 0) {
+        const _recent = _prev[_recentIdx];
+        const _merged = normaliseObservationRecord({
+          ..._recent,
+          ts: Math.max(_recent.ts || 0, _entry.ts || 0),
+          icon: _recent.icon || _entry.icon,
+          title: _topic === "routine_consistency" ? "Routine consistency needs attention" : _recent.title || _entry.title,
+          body: mergeObservationCopy(_recent.body, _entry.body, 1200),
+          wedid: mergeObservationCopy(_recent.wedid, _entry.wedid, 800),
+          priority: Math.min(_recent.priority || 3, _prio),
+          topic: _topic,
+          ack: _recent.ack === true
+        });
+        if (!_merged || JSON.stringify(_merged) === JSON.stringify(_recent)) return prev;
+        return normaliseObservationsPayload([_merged, ..._prev.filter((_, i) => i !== _recentIdx)]).slice(0, 20);
+      }
       const _todayCount = _prev.filter((o) => (o.ts || 0) >= _todayStart.getTime()).length;
       if (_todayCount >= 3) {
         if (_prio > 2) return prev;
@@ -17686,6 +17846,7 @@ function App() {
   const [obLinkStatus, setObLinkStatus] = useState("");
   const [obLinkError, setObLinkError] = useState("");
   const [obChildMode, setObChildMode] = useState("new");
+  const [obChildUnborn, setObChildUnborn] = useState(false);
   const [editEntry, setEditEntry] = useState(null);
   const [usePersonalRecs, setUsePersonalRecs] = useState(() => {
     try {
@@ -17702,7 +17863,7 @@ function App() {
     try {
       const _saved = safeFluidUnit(localStorage.getItem("fluid_unit_v1"), "");
       if (_saved) return _saved;
-      return _isUS ? "oz" : "ml";
+      return countryDefaultUnits(_countryKey).fluid;
     } catch (e) {
       return "ml";
     }
@@ -17727,7 +17888,7 @@ function App() {
     try {
       const _saved = safeMeasureUnit(localStorage.getItem("measure_unit_v1"), "");
       if (_saved) return _saved;
-      return _isUS ? "lbs" : "metric";
+      return countryDefaultUnits(_countryKey).measure;
     } catch (e) {
       return "metric";
     }
@@ -17736,7 +17897,7 @@ function App() {
     try {
       const _saved = safeTempUnit(localStorage.getItem("temp_unit_v1"), "");
       if (_saved) return _saved;
-      return _isUS ? "f" : "c";
+      return countryDefaultUnits(_countryKey).temp;
     } catch (e) {
       return "c";
     }
@@ -45792,7 +45953,30 @@ Start with wake time. once that anchors, the rest tends to follow.`
       return "";
     }
   })();
-  const clockHomeLabIsDay = clockHomeLabThemeOverride === "day" || clockHomeLabThemeOverride !== "night" && !isDark;
+  const clockHomeLabBedtimeSoonTheme = (() => {
+    try {
+      if (clockHomeLabThemeOverride) return false;
+      if ((selDay || todayStr()) !== todayStr()) return false;
+      const _activeBedDay = bedTimerDay || localStorage.getItem("bed_timer_day") || "";
+      if (_activeBedDay === todayStr()) return true;
+      const _td = tickDataRef.current || {};
+      if (_td.hasBedtime) return false;
+      const _now = /* @__PURE__ */ new Date();
+      const _nowMins = _now.getHours() * 60 + _now.getMinutes();
+      const _bedRaw = typeof _td.bedMins === "number" ? _td.bedMins : _td.bed && _td.bed.time ? clockMins(_td.bed.time) : null;
+      const _next = _td.nextEvent || null;
+      const _nextIsBed = _next && (_next.type === "bed" || _next.type === "sleep");
+      const _bedMins = _nextIsBed && typeof _next.timeMins === "number" ? _next.timeMins : _bedRaw;
+      if (typeof _bedMins !== "number" || !Number.isFinite(_bedMins)) return false;
+      let _delta = Math.round(_bedMins - _nowMins);
+      if (_delta < -720) _delta += 1440;
+      if (_delta > 720) _delta -= 1440;
+      return _delta <= 15 && _delta >= -240;
+    } catch (e) {
+      return false;
+    }
+  })();
+  const clockHomeLabIsDay = clockHomeLabThemeOverride === "day" || clockHomeLabThemeOverride !== "night" && !isDark && !clockHomeLabBedtimeSoonTheme;
   const clockHomeLabTheme = clockHomeLabIsDay ? "day" : "night";
   const clockPresencePreviewActive = (() => {
     try {
@@ -46090,6 +46274,7 @@ Start with wake time. once that anchors, the rest tends to follow.`
   const [clockLabPanel, setClockLabPanel] = useState("logs");
   const [clockLabLogsOpen, setClockLabLogsOpen] = useState(false);
   const [clockGuidanceSeenSig, setClockGuidanceSeenSig] = useState("");
+  const [clockGuidanceDismissVersion, setClockGuidanceDismissVersion] = useState(0);
   const clockGuidanceSeenTimerRef = React.useRef(null);
   const clockLabLongPressRef = React.useRef({ timer: null, resetTimer: null, fired: false, suppressClickUntil: 0, action: null, x: null, y: null });
   const clockLabTapGuardRef = React.useRef({ id: "", time: 0 });
@@ -47809,9 +47994,8 @@ Start with wake time. once that anchors, the rest tends to follow.`
     const clockLogRowDetailLab = (item) => {
       if (!item || !item.entry) return "";
       if (clockLogIsActiveBedtimeLab(item.entry)) {
-        const bedTimerStatus = bedPaused ? "sleep timer paused" : "sleep timer running";
-        const bedTimerSeconds = bedPaused ? bedPausedAtSec : clockLabBedElapsedSec;
-        return clockLogJoinLab(bedTimerStatus, hm(Math.max(1, Math.floor(bedTimerSeconds / 60))));
+        if (bedPaused) return clockLogJoinLab("sleep timer paused", hm(Math.max(1, Math.floor((bedPausedAtSec || clockLabBedElapsedSec) / 60))));
+        return clockLogJoinLab("sleep timer running", hm(Math.max(1, Math.floor(clockLabBedElapsedSec / 60))));
       }
       const feeds = clockNightWakeSettlingFeedMapLab.get(String(item.entry.id || item.index)) || [];
       const detail = entryLogDetailLab(clockLogDisplayEntryLab(item));
@@ -48566,6 +48750,24 @@ Start with wake time. once that anchors, the rest tends to follow.`
         return false;
       }
     };
+    const clockGuidanceCardDismissKey = (card2, scope = dayKey) => {
+      return "ob_clock_guidance_card_done_v1_" + safeStorageToken(activeChild && activeChild.id || babyName || "baby", "baby", 40) + "_" + safeStorageToken(scope || "ever", "scope", 32) + "_" + safeStorageToken(card2 || "card", "card", 80);
+    };
+    const clockGuidanceCardDismissed = (card2, scope = dayKey) => {
+      void clockGuidanceDismissVersion;
+      try {
+        return localStorage.getItem(clockGuidanceCardDismissKey(card2, scope)) === "1";
+      } catch (e) {
+        return false;
+      }
+    };
+    const markClockGuidanceCardRead = (card2, scope = dayKey) => {
+      try {
+        localStorage.setItem(clockGuidanceCardDismissKey(card2, scope), "1");
+      } catch (e) {
+      }
+      setClockGuidanceDismissVersion((v) => v + 1);
+    };
     const clockGuidanceNoticeItems = (() => {
       try {
         const start = /* @__PURE__ */ new Date();
@@ -48603,8 +48805,10 @@ Start with wake time. once that anchors, the rest tends to follow.`
       };
       if (clockLastNightDebrief) add("debrief", clockLastNightDebrief.title + "|" + clockLastNightDebrief.body);
       if (clockLastNightSignals.length) add("signals", clockLastNightSignals.map((sig) => [sig.type, sig.label, sig.detail].filter(Boolean).join("/")).join("|"));
-      if (clockNightFocus) add("focus", [clockNightFocus.title, ...clockNightFocus.steps || [], clockNightFocus.why].filter(Boolean).join("|"));
-      if (!clockLastNightDebrief && clockSleepEngineGuide && clockSleepEngineGuide.title && clockSleepEngineGuide.title !== "Sleep engine") add("engine", clockSleepEngineGuide.title + "|" + clockSleepEngineGuide.body);
+      if (clockNightFocus && !clockGuidanceCardDismissed("tonights-focus")) add("focus", [clockNightFocus.title, ...clockNightFocus.steps || [], clockNightFocus.why].filter(Boolean).join("|"));
+      if (!clockLastNightDebrief && clockSleepEngineGuide && clockSleepEngineGuide.title && clockSleepEngineGuide.title !== "Sleep engine") {
+        if (!clockGuidanceCardDismissed("sleep-engine")) add("engine", clockSleepEngineGuide.title + "|" + clockSleepEngineGuide.body);
+      }
       if (clockGuidanceNoticeItems.length > 0) add("notices", clockGuidanceNoticeItems.map((o) => [o.id, o.title, o.ts].filter(Boolean).join("/")).join("|"));
       if (clockAutoContext && clockAutoContext.active) add("auto", (clockAutoContext.reasons || []).join("|") || "active");
       if (clockDisruptionActive) add("day", clockDisruptionActive.reason || clockDisruptionActive.label || "softened");
@@ -49920,19 +50124,22 @@ Start with wake time. once that anchors, the rest tends to follow.`
       const _hydCount = clockLabHydrationSmart.count || 0;
       const _hydTarget = clockLabHydrationSmart.target;
       if (_hydCount >= _hydTarget) return null;
+      if (clockGuidanceCardDismissed("hydration")) return null;
       const _hydRemaining = _hydTarget - _hydCount;
       return /* @__PURE__ */ React.createElement("button", { type: "button", className: "ob-clock-guidance-notice", "data-testid": "clock-guidance-hydration", onClick: () => {
         haptic();
-        setHelpTip({ title: "Wet nappies: " + _hydCount + " of " + _hydTarget + " today", body: (_hydRemaining === 1 ? name + " needs about 1 more wet nappy today to be on track." : name + " needs about " + _hydRemaining + " more wet nappies today to be on track.") + " A long overnight nappy counts as 2\u20133. " + (_ccCheckGuidance || "") });
+        setHelpTip({ title: "Wet nappies: " + _hydCount + " of " + _hydTarget + " today", body: (_hydRemaining === 1 ? name + " needs about 1 more wet nappy today to be on track." : name + " needs about " + _hydRemaining + " more wet nappies today to be on track.") + " A long overnight nappy counts as 2\u20133. " + (_ccCheckGuidance || ""), onDismiss: () => markClockGuidanceCardRead("hydration") });
       } }, /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true" }, "\u{1F4A7}"), /* @__PURE__ */ React.createElement("b", null, "Wet nappies: ", _hydCount, " of ", _hydTarget, " today"), /* @__PURE__ */ React.createElement("em", null, _hydRemaining === 1 ? "1 more needed to be on track" : _hydRemaining + " more needed to be on track"));
     })(), clockLabIsToday && (() => {
       try {
         const _cs = getConsistencyScore(days, dayKey, ageWeeks);
         if (!_cs || _cs.score >= 65) return null;
         if (_cs.components.bed < 15 && wasBedrimeVariationAppDriven(dayKey, 7)) return null;
+        if (clockGuidanceNoticeItems.some((o) => (o.topic || observationTopicKeyFromParts(o.title, o.body)) === "routine_consistency")) return null;
+        if (clockGuidanceCardDismissed("routine-consistency")) return null;
         return /* @__PURE__ */ React.createElement("button", { type: "button", className: "ob-clock-guidance-notice", "data-testid": "clock-guidance-consistency", onClick: () => {
           haptic();
-          setHelpTip({ title: "Routine consistency: " + _cs.score + "/100 \u2014 " + _cs.label, body: _cs.summary + "\n\nBreakdown:\n\u2022 Wake time: " + _cs.components.wake + "/25\n\u2022 Bedtime: " + _cs.components.bed + "/25\n\u2022 Nap count: " + _cs.components.naps + "/25\n\u2022 Feed count: " + _cs.components.feeds + "/25" + (_cs.goodNightRate !== null ? "\n\nGood night rate: " + _cs.goodNightRate + "%" : "") });
+          setHelpTip({ title: "Routine consistency: " + _cs.score + "/100 \u2014 " + _cs.label, body: _cs.summary + "\n\nBreakdown:\n\u2022 Wake time: " + _cs.components.wake + "/25\n\u2022 Bedtime: " + _cs.components.bed + "/25\n\u2022 Nap count: " + _cs.components.naps + "/25\n\u2022 Feed count: " + _cs.components.feeds + "/25" + (_cs.goodNightRate !== null ? "\n\nGood night rate: " + _cs.goodNightRate + "%" : ""), onDismiss: () => markClockGuidanceCardRead("routine-consistency") });
         } }, /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true" }, "\u{1F4CA}"), /* @__PURE__ */ React.createElement("b", null, "Routine consistency: ", _cs.score, "/100"), /* @__PURE__ */ React.createElement("em", null, _cs.label, " \u2014 ", _cs.score < 45 ? "schedule needs steadying" : "getting there, keep going"));
       } catch (e) {
         return null;
@@ -49941,19 +50148,20 @@ Start with wake time. once that anchors, the rest tends to follow.`
       try {
         const _dn = predictTonightFromToday(days, dayKey, ageWeeks);
         if (!_dn || !_dn.summary || _dn.sampleSize < 7) return null;
+        if (clockGuidanceCardDismissed("day-night-pattern")) return null;
         return /* @__PURE__ */ React.createElement("button", { type: "button", className: "ob-clock-guidance-notice", "data-testid": "clock-guidance-day-night", onClick: () => {
           haptic();
-          setHelpTip({ title: "What predicts a good night for " + name, body: _dn.insights.join(" ") + "\n\nBased on " + _dn.sampleSize + " days of data.\nGood night rate: " + _dn.goodNightRate + "%." });
+          setHelpTip({ title: "What predicts a good night for " + name, body: _dn.insights.join(" ") + "\n\nBased on " + _dn.sampleSize + " days of data.\nGood night rate: " + _dn.goodNightRate + "%.", onDismiss: () => markClockGuidanceCardRead("day-night-pattern") });
         } }, /* @__PURE__ */ React.createElement("span", { "aria-hidden": "true" }, "\u{1F52E}"), /* @__PURE__ */ React.createElement("b", null, "Good nights: ", _dn.goodNightRate, "% of the time"), /* @__PURE__ */ React.createElement("em", null, _dn.summary));
       } catch (e) {
         return null;
       }
-    })(), /* @__PURE__ */ React.createElement("div", { className: "ob-hero-more-drawer ob-clock-guidance-direct", "data-testid": "clock-guidance-direct-actions" }, !clockLastNightDebrief && clockSleepEngineGuide && /* @__PURE__ */ React.createElement("button", { type: "button", "data-testid": "clock-guidance-sleep-engine", onClick: () => {
+    })(), /* @__PURE__ */ React.createElement("div", { className: "ob-hero-more-drawer ob-clock-guidance-direct", "data-testid": "clock-guidance-direct-actions" }, !clockLastNightDebrief && clockSleepEngineGuide && (!clockGuidanceCardDismissed("sleep-engine") ? /* @__PURE__ */ React.createElement("button", { type: "button", "data-testid": "clock-guidance-sleep-engine", onClick: () => {
       haptic();
-      setHelpTip({ title: clockSleepEngineGuide.title || "Sleep engine", body: clockSleepEngineGuide.body || clockWhyGuide });
-    } }, /* @__PURE__ */ React.createElement("b", null, clockSleepEngineGuide.title || "Sleep engine"), /* @__PURE__ */ React.createElement("span", null, clockSleepEngineGuide.body || "OBubba is reading the existing sleep engine and intelligence layer.")), clockNightFocus && /* @__PURE__ */ React.createElement("button", { type: "button", "data-testid": "clock-guidance-tonights-focus", onClick: () => {
+      setHelpTip({ title: clockSleepEngineGuide.title || "Sleep engine", body: clockSleepEngineGuide.body || clockWhyGuide, onDismiss: () => markClockGuidanceCardRead("sleep-engine") });
+    } }, /* @__PURE__ */ React.createElement("b", null, clockSleepEngineGuide.title || "Sleep engine"), /* @__PURE__ */ React.createElement("span", null, clockSleepEngineGuide.body || "OBubba is reading the existing sleep engine and intelligence layer.")) : null), clockNightFocus && !clockGuidanceCardDismissed("tonights-focus") && /* @__PURE__ */ React.createElement("button", { type: "button", "data-testid": "clock-guidance-tonights-focus", onClick: () => {
       haptic();
-      setHelpTip({ title: clockNightFocus.title || "Tonight's focus", body: [...clockNightFocus.steps || [], clockNightFocus.why].filter(Boolean).join(" ") });
+      setHelpTip({ title: clockNightFocus.title || "Tonight's focus", body: [...clockNightFocus.steps || [], clockNightFocus.why].filter(Boolean).join(" "), onDismiss: () => markClockGuidanceCardRead("tonights-focus") });
     } }, /* @__PURE__ */ React.createElement("b", null, clockNightFocus.title || "Tonight's focus"), /* @__PURE__ */ React.createElement("span", null, clockTrim((clockNightFocus.steps || [])[0] || clockNightFocus.why || "Tonight's guide comes from the sleep engine.", 118))), clockAutoContext && clockAutoContext.active && /* @__PURE__ */ React.createElement("div", { className: "ob-hero-more-note" }, /* @__PURE__ */ React.createElement("b", null, "Adjusted today"), /* @__PURE__ */ React.createElement("span", null, clockTrim((clockAutoContext.reasons || []).slice(0, 2).join(" + ") + " \xB7 wake windows softened", 100))), !clockLastNightDebrief && /* @__PURE__ */ React.createElement("button", { type: "button", onClick: () => {
       haptic();
       setHelpTip({ title: "Why this guide", body: clockWhyGuide });
@@ -50732,8 +50940,14 @@ Start with wake time. once that anchors, the rest tends to follow.`
         } catch (e) {
         }
       }
+      try {
+        localStorage.removeItem("ob_app_tour_pending_v1");
+      } catch (e) {
+      }
       setOnboarded(true);
-      queueAppTourAfterSetup("onboarding");
+      setShowTutPrompt(false);
+      setTutStep(-1);
+      setDayTutStep(-1);
       try {
         trackEvent("onboarding_completed", { feed_type: obFeedType || "unknown", dashboard_mode: "clock" });
       } catch (e) {
@@ -50742,7 +50956,9 @@ Start with wake time. once that anchors, the rest tends to follow.`
         if (_day1Profile) trackEvent("day1_questionnaire_completed", { concerns: _day1Profile.concerns.length, factors: _day1Profile.factors.length, safety: _day1Profile.safety.filter((x) => x !== "none").length });
       } catch (e) {
       }
-      setTab("insights");
+      setTab("day");
+      setDaySubScreen(null);
+      setTodayPanel("log");
       setSelDay(_obToday);
     };
     const steps = [
@@ -50785,7 +51001,7 @@ Start with wake time. once that anchors, the rest tends to follow.`
         icon: "\u{1F382}",
         title: "When was " + ((obName || "").trim() || "baby") + " born?",
         sub: "This helps OBubba give age-appropriate predictions, growth charts, and milestone tracking.",
-        action: /* @__PURE__ */ React.createElement("div", { style: { width: "100%", marginTop: 20 } }, /* @__PURE__ */ React.createElement(
+        action: /* @__PURE__ */ React.createElement("div", { style: { width: "100%", marginTop: 20 } }, /* @__PURE__ */ React.createElement("label", { htmlFor: "ob-onboarding-dob", style: { display: "block", fontSize: 12, fontFamily: _fM, color: C.lt, textTransform: "uppercase", letterSpacing: _ls08, marginBottom: 6 } }, "Date of birth"), /* @__PURE__ */ React.createElement(
           "input",
           {
             type: "date",
@@ -50793,9 +51009,11 @@ Start with wake time. once that anchors, the rest tends to follow.`
             value: obDob,
             onChange: (e) => setObDob(e.target.value),
             max: todayStr(),
+            id: "ob-onboarding-dob",
+            "data-testid": "onboarding-date-of-birth",
             style: { width: "100%", fontSize: 16, padding: "10px 14px", borderRadius: 14, border: `2px solid ${obDob ? "#9BB8A8" : C.blush}`, background: "var(--card-bg-solid)", outline: _oN, fontFamily: _fI, textAlign: "center", boxSizing: _bBB, color: "inherit", WebkitAppearance: "none" }
           }
-        ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 12, justifyContent: "center" } }, [["Girl", "\u{1F338}", "girl"], ["Boy", "\u{1F4D8}", "boy"], ["Prefer not to say", "\u2728", ""]].map(([label, emoji, val]) => /* @__PURE__ */ React.createElement(
+        ), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: C.lt, marginTop: 6, lineHeight: 1.4 } }, "Used for sleep windows, feeds, growth and milestone guidance. You can change it later."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginTop: 12, justifyContent: "center" } }, [["Girl", "\u{1F338}", "girl"], ["Boy", "\u{1F4D8}", "boy"], ["Prefer not to say", "\u2728", ""]].map(([label, emoji, val]) => /* @__PURE__ */ React.createElement(
           "button",
           {
             key: val,
@@ -51038,7 +51256,7 @@ Start with wake time. once that anchors, the rest tends to follow.`
   if (needsChildSetup && tutStep === -1) {
     const finishChildSetup = async (childData) => {
       if (childData) {
-        const patch = { name: safeChildName(childData.name), dob: safeChildDate(childData.dob), sex: safeChildSex(childData.sex), dueDate: safeChildDate(childData.dueDate) || null };
+        const patch = { name: safeChildName(childData.name), dob: safeChildDate(childData.dob), sex: safeChildSex(childData.sex), dueDate: safeChildDate(childData.dueDate) || null, unborn: childData.unborn === true };
         const curChildren = childrenRef.current || children || {};
         let targetId = safeChildId(resolvedActiveId || localStorage.getItem("active_child") || Object.keys(curChildren)[0] || uid());
         if (curChildren && Object.keys(curChildren).length && !curChildren[targetId]) targetId = Object.keys(curChildren)[0];
@@ -51059,13 +51277,15 @@ Start with wake time. once that anchors, the rest tends to follow.`
       }
       try {
         localStorage.removeItem("needs_child_setup_v1");
+        localStorage.removeItem("ob_app_tour_pending_v1");
         localStorage.setItem("onboarded_v2", "1");
       } catch (e) {
       }
-      queueAppTourAfterSetup("new_account");
       setNeedsChildSetup(false);
       setOnboarded(true);
       setTab("day");
+      setDaySubScreen(null);
+      setTodayPanel("log");
       setSelDay(todayStr());
     };
     return /* @__PURE__ */ React.createElement("div", { style: { minHeight: "100vh", background: "var(--bg-grad)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "env(safe-area-inset-top,30px) 24px 40px", fontFamily: "'DM Sans',sans-serif", boxSizing: _bBB, overflowY: "auto" } }, /* @__PURE__ */ React.createElement("style", null, `@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}`), /* @__PURE__ */ React.createElement("div", { key: "child-setup", style: { animation: "fadeUp 0.4s ease", textAlign: "center", width: "100%", maxWidth: 360 } }, /* @__PURE__ */ React.createElement(OBubbaMascot, { type: "happy", size: 112, alt: "OBubba", style: { marginBottom: 12 } }), /* @__PURE__ */ React.createElement("div", { className: "ob-brand-display", style: { fontSize: 26, color: C.deep, lineHeight: 1.25, marginBottom: 6 } }, "Now let's add your baby \u2728"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: C.lt, lineHeight: 1.6, marginBottom: 20 } }, "OBubba uses your baby's details to personalise nap predictions, feeding recommendations, milestones and growth charts."), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", background: "var(--card-bg-alt)", borderRadius: 99, padding: 3, marginBottom: 18, gap: 3 } }, [["new", "\u{1F476} Add my baby"], ["link", "\u{1F517} Join via share code"]].map(([m, l]) => /* @__PURE__ */ React.createElement(
@@ -51080,7 +51300,7 @@ Start with wake time. once that anchors, the rest tends to follow.`
         style: { flex: 1, padding: "9px 6px", borderRadius: 99, border: _bN, background: obChildMode === m ? "white" : "transparent", color: obChildMode === m ? C.ter : C.lt, fontWeight: 700, fontSize: 13, cursor: _cP, fontFamily: _fI, transition: "background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease", boxShadow: obChildMode === m ? "0 1px 6px rgba(0,0,0,0.1)" : "none" }
       },
       l
-    ))), obChildMode === "new" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { background: "var(--card-bg-alt)", borderRadius: 14, padding: "12px 14px", marginBottom: 14, border: `1px solid ${C.blush}`, display: "flex", gap: 10, alignItems: "flex-start", textAlign: "left" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 18, flexShrink: 0 } }, "\u{1F4A1}"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: C.mid, lineHeight: 1.55 } }, "Used for ", /* @__PURE__ */ React.createElement("strong", null, "nap & wake windows"), ", ", /* @__PURE__ */ React.createElement("strong", null, "feed recommendations"), ", ", /* @__PURE__ */ React.createElement("strong", null, "milestones"), " and ", /* @__PURE__ */ React.createElement("strong", null, "growth percentiles"), ". Update anytime by tapping your baby\u2019s name on Today.")), /* @__PURE__ */ React.createElement(
+    ))), obChildMode === "new" && /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { background: "var(--card-bg-alt)", borderRadius: 14, padding: "12px 14px", marginBottom: 14, border: `1px solid ${C.blush}`, display: "flex", gap: 10, alignItems: "flex-start", textAlign: "left" } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 18, flexShrink: 0 } }, "\u{1F4A1}"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, color: C.mid, lineHeight: 1.55 } }, "Used for ", /* @__PURE__ */ React.createElement("strong", null, "nap & wake windows"), ", ", /* @__PURE__ */ React.createElement("strong", null, "feed recommendations"), ", ", /* @__PURE__ */ React.createElement("strong", null, "milestones"), " and ", /* @__PURE__ */ React.createElement("strong", null, "growth percentiles"), ". OBubba also detects your region from your device language for local health wording and units.")), /* @__PURE__ */ React.createElement(
       "input",
       {
         value: obName,
@@ -51090,16 +51310,19 @@ Start with wake time. once that anchors, the rest tends to follow.`
         placeholder: "Baby's name (optional)",
         style: { width: "100%", fontSize: 18, padding: "12px 16px", borderRadius: 14, border: `2px solid ${C.blush}`, background: "var(--card-bg-solid)", outline: _oN, fontFamily: _fI, textAlign: "center", marginBottom: 10, boxSizing: _bBB }
       }
-    ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, [["born", "Already born \u{1F389}"], ["unborn", "Not born yet \u{1F930}"]].map(([v, l]) => /* @__PURE__ */ React.createElement("div", { key: v, onClick: () => setBabyUnborn(v === "unborn"), style: { flex: 1, padding: "10px 6px", borderRadius: 12, border: `2px solid ${(v === "unborn" ? babyUnborn : !babyUnborn) ? C.ter : C.blush}`, background: (v === "unborn" ? babyUnborn : !babyUnborn) ? "var(--chip-bg-active)" : "white", textAlign: "center", cursor: _cP, fontSize: 13, fontWeight: 700, color: (v === "unborn" ? babyUnborn : !babyUnborn) ? C.ter : C.mid, transition: "background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease" } }, l))), /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 10 } }, [["born", "Already born \u{1F389}"], ["unborn", "Not born yet \u{1F930}"]].map(([v, l]) => /* @__PURE__ */ React.createElement("div", { key: v, onClick: () => setObChildUnborn(v === "unborn"), style: { flex: 1, padding: "10px 6px", borderRadius: 12, border: `2px solid ${(v === "unborn" ? obChildUnborn : !obChildUnborn) ? C.ter : C.blush}`, background: (v === "unborn" ? obChildUnborn : !obChildUnborn) ? "var(--chip-bg-active)" : "white", textAlign: "center", cursor: _cP, fontSize: 13, fontWeight: 700, color: (v === "unborn" ? obChildUnborn : !obChildUnborn) ? C.ter : C.mid, transition: "background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease" } }, l))), /* @__PURE__ */ React.createElement("label", { htmlFor: "ob-child-setup-dob", style: { display: "block", textAlign: "left", fontSize: 11, fontFamily: _fM, color: C.lt, textTransform: "uppercase", letterSpacing: _ls08, marginBottom: 6 } }, obChildUnborn ? "Due date" : "Date of birth"), /* @__PURE__ */ React.createElement(
       "input",
       {
+        id: "ob-child-setup-dob",
+        "data-testid": "child-setup-date-of-birth",
         type: "date",
-        "aria-label": "Baby date of birth",
+        "aria-label": obChildUnborn ? "Baby due date" : "Baby date of birth",
         value: obDob,
         onChange: (e) => setObDob(e.target.value),
-        style: { width: "100%", fontSize: 16, padding: "12px 16px", borderRadius: 14, border: `2px solid ${C.blush}`, background: "var(--card-bg-solid)", outline: _oN, fontFamily: _fI, textAlign: "center", marginBottom: 10, boxSizing: _bBB }
+        max: obChildUnborn ? void 0 : todayStr(),
+        style: { width: "100%", fontSize: 16, padding: "12px 16px", borderRadius: 14, border: `2px solid ${obDob ? C.mint : C.blush}`, background: "var(--card-bg-solid)", outline: _oN, fontFamily: _fI, textAlign: "center", marginBottom: 6, boxSizing: _bBB }
       }
-    ), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 } }, [["boy", "\u{1F466}", "Boy", "#eaf3fb", "#3d6a8a"], ["girl", "\u{1F467}", "Girl", "#fde7e4", "#a85070"], ["", "\u2B1C", "Not set", "#f0e8e0", "#7a5c52"]].map(([v, emoji, l, accent, col]) => /* @__PURE__ */ React.createElement(
+    ), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11, color: C.lt, lineHeight: 1.4, textAlign: "left", marginBottom: 10 } }, obChildUnborn ? "Used as their expected date until you update it after birth." : "This is needed for age-appropriate sleep, feeding, growth and milestone guidance."), /* @__PURE__ */ React.createElement("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 } }, [["boy", "\u{1F466}", "Boy", "#eaf3fb", "#3d6a8a"], ["girl", "\u{1F467}", "Girl", "#fde7e4", "#a85070"], ["", "\u2B1C", "Not set", "#f0e8e0", "#7a5c52"]].map(([v, emoji, l, accent, col]) => /* @__PURE__ */ React.createElement(
       "button",
       {
         key: v,
@@ -51111,7 +51334,7 @@ Start with wake time. once that anchors, the rest tends to follow.`
     ))), /* @__PURE__ */ React.createElement(
       "button",
       {
-        onClick: () => finishChildSetup({ name: obName, dob: obDob, sex: obSex }),
+        onClick: () => finishChildSetup({ name: obName, dob: obDob, sex: obSex, unborn: obChildUnborn }),
         style: { width: "100%", background: `linear-gradient(135deg,#c9705a,#a85a44)`, border: _bN, borderRadius: 99, padding: "14px", color: "white", fontSize: 16, fontWeight: 700, cursor: _cP, boxShadow: "0 4px 20px rgba(201,112,90,0.4)", marginBottom: 10, fontFamily: _fI }
       },
       obName.trim() || obDob ? "Let's go! \u2192" : "Continue \u2192"
@@ -58407,7 +58630,7 @@ This replaces whatever is currently saved in the cloud with what's on this devic
       style: { background: hapticsOff ? "var(--card-bg-alt)" : `linear-gradient(135deg,${C.ter},#a85a44)`, border: hapticsOff ? `1px solid ${C.blush}` : "none", borderRadius: 99, padding: "6px 14px", color: hapticsOff ? C.mid : "white", fontSize: 12, fontWeight: 700, cursor: _cP, minWidth: 54 }
     },
     hapticsOff ? "Off" : "On"
-  )), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: `1px solid ${C.blush}` } }, /* @__PURE__ */ React.createElement("div", { style: _S.flexCenter10 }, /* @__PURE__ */ React.createElement("span", { style: _S.f18 }, "\u{1F37C}"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, fontWeight: 700, color: C.deep } }, "Fluid")), /* @__PURE__ */ React.createElement("div", { style: { display: "inline-flex", background: "var(--card-bg-alt)", borderRadius: 99, border: `1px solid ${C.blush}`, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => {
+  )), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, padding: "12px 0", borderBottom: `1px solid ${C.blush}` } }, /* @__PURE__ */ React.createElement("div", { style: _S.flexCenter10 }, /* @__PURE__ */ React.createElement("span", { style: _S.f18 }, "\u{1F30D}"), /* @__PURE__ */ React.createElement("div", null, /* @__PURE__ */ React.createElement("div", { style: { fontSize: 13, fontWeight: 700, color: C.deep } }, "Local guidance"), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 10, color: C.lt, lineHeight: 1.35 } }, "Detected from device language/region. Using ", _guide.country, " guidance, ", _guide.nonEmergencyLabel, ", ", volLabel(FU), ", ", wtLabel(MU), " and ", TU === "f" ? "\xB0F" : "\xB0C", ".")))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 0", borderBottom: `1px solid ${C.blush}` } }, /* @__PURE__ */ React.createElement("div", { style: _S.flexCenter10 }, /* @__PURE__ */ React.createElement("span", { style: _S.f18 }, "\u{1F37C}"), /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, fontWeight: 700, color: C.deep } }, "Fluid")), /* @__PURE__ */ React.createElement("div", { style: { display: "inline-flex", background: "var(--card-bg-alt)", borderRadius: 99, border: `1px solid ${C.blush}`, overflow: "hidden" } }, /* @__PURE__ */ React.createElement("button", { onClick: () => {
     setFluidUnit("ml");
     try {
       trackEvent("setting_changed", { setting: "fluid_unit", value: "ml" });

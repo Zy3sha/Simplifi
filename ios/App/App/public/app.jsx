@@ -1891,6 +1891,30 @@ function normaliseLettersPayload(value) {
     };
   }).filter(Boolean);
 }
+function observationTopicKeyFromParts(title = "", body = "") {
+  const text = (String(title || "") + " " + String(body || "")).toLowerCase().replace(/\s+/g, " ").trim();
+  if (!text) return "notice_observation";
+  if (/\broutine consistency\b|\bschedule needs more consistency\b|\binconsistent\b|\bconsistency score\b|wake time (?:varies|shifts)|bedtime (?:varies|shifts)|total nap time (?:varies|swings)|nap length is inconsistent|day-to-day rhythm shifts|schedule needs steadying/.test(text)) return "routine_consistency";
+  if (/short nap|lots of short naps|nap timer|brief wake-ups|sleep cycles|fragmented nap/.test(text)) return "nap_quality";
+  if (/last nap|long nap|day sleep|nap total|naps could use|day naps may/.test(text)) return "nap_balance";
+  if (/night wake|night waking|split night|false start|early-morning|early morning|late bedtime/.test(text)) return "night_wakes";
+  if (/feed|feeding|milk|bottle|intake|hunger/.test(text)) return "feeding";
+  if (/tooth|teeth|teething/.test(text)) return "teething";
+  if (/wet nappy|wet nappies|hydration|nappy count/.test(text)) return "hydration";
+  if (/today different|why is today different|not a normal day|off day|illness|vaccin|jabs|growth spurt/.test(text)) return "today_context";
+  return "notice_" + safeStorageToken(title || body || "observation", "observation", 60);
+}
+function mergeObservationCopy(existing = "", incoming = "", maxLen = 1200) {
+  const a = safeTextPayload(existing, "", maxLen).trim();
+  const b = safeTextPayload(incoming, "", maxLen).trim();
+  if (!a) return b;
+  if (!b) return a;
+  const al = a.toLowerCase();
+  const bl = b.toLowerCase();
+  if (al.includes(bl)) return a;
+  if (bl.includes(al)) return b;
+  return safeTextPayload(a + "\n\nAlso: " + b, a, maxLen).trim();
+}
 function normaliseObservationRecord(obs) {
   if (!obs || typeof obs !== "object" || Array.isArray(obs)) return null;
   const title = safeTextPayload(obs.title, "", 140).replace(/\s+/g, " ").trim();
@@ -1903,6 +1927,7 @@ function normaliseObservationRecord(obs) {
   const time = safeIsoDateText(obs.time, "");
   const ts = safeTimestampMs(obs.ts, time ? Date.parse(time) : safeTimestampMs(obs.date || obs.createdAt, 0));
   const priority = safeNumberRange(obs.priority, 3, 1, 5);
+  const topic = safeTextPayload(obs.topic, "", 80).replace(/[^A-Za-z0-9_-]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 80) || observationTopicKeyFromParts(title, body || text);
   const next = {
     id: safeChildId(obs.id),
     ts,
@@ -1913,7 +1938,8 @@ function normaliseObservationRecord(obs) {
     text,
     type,
     ack: obs.ack === true,
-    priority
+    priority,
+    topic
   };
   if (time) next.time = time;
   if (score !== null) next.score = score;
@@ -3313,11 +3339,78 @@ window._obPrint=function(){try{var el=document.getElementById("print-overlay");i
 const _locale = (navigator.language||"en-GB").toLowerCase();
 const _toothLabels = {"UR-E":"Upper right 2nd molar","UR-D":"Upper right 1st molar","UR-C":"Upper right canine","UR-B":"Upper right lateral","UR-A":"Upper right central","UL-A":"Upper left central","UL-B":"Upper left lateral","UL-C":"Upper left canine","UL-D":"Upper left 1st molar","UL-E":"Upper left 2nd molar","LR-E":"Lower right 2nd molar","LR-D":"Lower right 1st molar","LR-C":"Lower right canine","LR-B":"Lower right lateral","LR-A":"Lower right central","LL-A":"Lower left central","LL-B":"Lower left lateral","LL-C":"Lower left canine","LL-D":"Lower left 1st molar","LL-E":"Lower left 2nd molar"};
 const toothLabel = (id) => _toothLabels[id] || id;
-const _isUS = _locale.startsWith("en-us");
-const _isAU = _locale.startsWith("en-au");
-const _isIE = _locale.startsWith("en-ie") || _locale === "ga";
-const _isCA = _locale.startsWith("en-ca") || _locale.startsWith("fr-ca");
-const _isNZ = _locale.startsWith("en-nz");
+const OB_COUNTRY_KEYS = Object.freeze({UK:true,US:true,CA:true,AU:true,NZ:true,IE:true});
+const OB_REGION_TO_COUNTRY_KEY = Object.freeze({GB:"UK",UK:"UK",GG:"UK",JE:"UK",IM:"UK",US:"US",CA:"CA",AU:"AU",NZ:"NZ",IE:"IE"});
+function obNavigatorLocales(primary = _locale) {
+  const out = [];
+  if (primary) out.push(primary);
+  try {
+    if (Array.isArray(navigator.languages)) {
+      navigator.languages.forEach(l => { if (l && !out.includes(l)) out.push(l); });
+    }
+  } catch {}
+  return out;
+}
+function localeRegionCode(locale = _locale) {
+  const candidates = obNavigatorLocales(locale);
+  for (const raw of candidates) {
+    const value = String(raw || "").trim();
+    if (!value) continue;
+    try {
+      const region = new Intl.Locale(value).region;
+      if (region) return String(region).toUpperCase();
+    } catch {}
+    const parts = value.replace(/_/g, "-").split("-").filter(Boolean);
+    if (parts.length > 1) {
+      const region = parts[parts.length - 1].toUpperCase();
+      if (/^[A-Z]{2}$/.test(region)) return region;
+    }
+  }
+  const lang = String(locale || "").toLowerCase();
+  if (lang === "ga") return "IE";
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+    if (tz === "Europe/London" || tz === "Europe/Guernsey" || tz === "Europe/Jersey" || tz === "Europe/Isle_of_Man") return "GB";
+    if (tz === "Europe/Dublin") return "IE";
+    if (tz.startsWith("Australia/")) return "AU";
+    if (tz === "Pacific/Auckland" || tz === "Pacific/Chatham") return "NZ";
+    if (/^America\/(Toronto|Vancouver|Edmonton|Winnipeg|Regina|Halifax|St_Johns|Moncton|Whitehorse|Dawson|Yellowknife|Inuvik|Iqaluit|Rankin_Inlet|Resolute|Cambridge_Bay|Goose_Bay)/.test(tz)) return "CA";
+    if (/^America\/(New_York|Detroit|Chicago|Denver|Phoenix|Los_Angeles|Anchorage|Adak|Honolulu|Boise|Juneau|Nome|Sitka|Metlakatla|Yakutat|Indiana\/|Kentucky\/|North_Dakota\/)/.test(tz)) return "US";
+  } catch {}
+  return "";
+}
+function localeRegionName(regionCode) {
+  const code = String(regionCode || "").toUpperCase();
+  if (!code) return "";
+  try {
+    const dn = new Intl.DisplayNames([_locale || "en"], {type:"region"});
+    return dn.of(code) || code;
+  } catch { return code; }
+}
+function safeCountryKey(value, fallback = "UK") {
+  const key = String(value || "").trim().toUpperCase();
+  if (OB_COUNTRY_KEYS[key]) return key;
+  return fallback && OB_COUNTRY_KEYS[fallback] ? fallback : "";
+}
+function localeCountryKey(locale = _locale) {
+  const region = localeRegionCode(locale);
+  return OB_REGION_TO_COUNTRY_KEY[region] || (String(locale || "").toLowerCase() === "ga" ? "IE" : "");
+}
+function countryDefaultUnits(countryKey) {
+  const key = safeCountryKey(countryKey, "UK");
+  return key === "US"
+    ? {fluid:"oz", measure:"lbs", temp:"f"}
+    : {fluid:"ml", measure:"metric", temp:"c"};
+}
+const _localeRegionCode = localeRegionCode(_locale);
+const _localeRegionName = localeRegionName(_localeRegionCode);
+const _countryKey = localeCountryKey(_locale);
+const _guidanceCountryKey = safeCountryKey(_countryKey, "UK");
+const _isUS = _guidanceCountryKey === "US";
+const _isAU = _guidanceCountryKey === "AU";
+const _isIE = _guidanceCountryKey === "IE";
+const _isCA = _guidanceCountryKey === "CA";
+const _isNZ = _guidanceCountryKey === "NZ";
 // Country-specific health check schedules (days from birth)
 // UK: NHS, US: AAP, AU: RACP, IE: HSE, CA: CPS, NZ: WCTO
 const _healthChecks = _isUS ? [
@@ -3471,10 +3564,18 @@ const _localeData = (function(){
   // Default: UK (largest user base)
   return ["999","111 (NHS) or your GP","GP or health visitor"];
 })();
-const _emergNum = _localeData[0];
-const _helpLine = _localeData[1];
-const _doctor = _localeData[2];
-const _countryKey = _isUS ? "US" : _isCA ? "CA" : _isAU ? "AU" : _isNZ ? "NZ" : _isIE ? "IE" : "UK";
+const _countryLocaleData = {
+  UK:["999","111 (NHS) or your GP","GP or health visitor"],
+  US:["911","your pediatrician","pediatrician"],
+  CA:["911","your paediatrician or 811 (Health Link)","paediatrician or family doctor"],
+  AU:["000","your GP or Health Direct (1800 022 222)","GP"],
+  NZ:["111","Plunket Line (0800 933 922) or your GP","GP or Plunket nurse"],
+  IE:["999/112","your GP or HSE Live (1800 700 700)","GP or public health nurse"],
+};
+const _effectiveLocaleData = _countryKey ? (_countryLocaleData[_countryKey] || _localeData) : _localeData;
+const _emergNum = _effectiveLocaleData[0];
+const _helpLine = _effectiveLocaleData[1];
+const _doctor = _effectiveLocaleData[2];
 const _countryGuidanceMap = {
   UK: {
     country:"UK",
@@ -3663,7 +3764,41 @@ const _countryGuidanceMap = {
     reportTitle:"Health Report",
   },
 };
-const _guide = _countryGuidanceMap[_countryKey] || _countryGuidanceMap.UK;
+function localeGuidanceFallback() {
+  const contact = _doctor || "local health professional";
+  const nonEmergency = _helpLine || contact;
+  const country = _localeRegionName || "your region";
+  return {
+    country,
+    healthContact:contact,
+    healthProfessional:contact,
+    newbornContact:contact,
+    weighInContact:contact,
+    vaccinationContact:contact,
+    nonEmergencyLabel:nonEmergency,
+    nonEmergencyTel:"",
+    sleepSource:"WHO / local safe sleep guidance",
+    safeSleepSource:"WHO / local safe sleep guidance",
+    feedingSource:"WHO / local infant feeding guidance",
+    weaningSource:"WHO / local infant feeding guidance",
+    allergenSource:"local allergy guidance",
+    growthSource:"WHO growth standards",
+    developmentSource:"local child development guidance",
+    vaccineSource:"local immunisation schedule",
+    pooSource:"local child-health guidance",
+    vitaminDSource:"local public-health guidance",
+    vitaminDContact:contact,
+    appointmentExample:"health visit, vaccination, clinic appointment",
+    locationExample:"clinic or health centre",
+    cupGuidance:"Local infant feeding guidance usually supports helping babies practise with an open or free-flow cup as solids progress.",
+    breastfeedingSupport:[
+      {who:contact,when:"Feeding, weight, or wellbeing concerns",how:"Use your local clinic or health service"},
+      {who:"IBCLC lactation consultant",when:"Persistent pain, tongue tie, supply",how:"Ask your local health service or search a recognised lactation directory"}
+    ],
+    reportTitle:"Health Report",
+  };
+}
+const _guide = _countryGuidanceMap[_countryKey] || localeGuidanceFallback();
 const _healthContact = _guide.healthContact || _doctor;
 const _healthProfessional = _guide.healthProfessional || _doctor;
 const _nonEmergencyTel = (_guide.nonEmergencyTel || "").replace(/[^0-9+]/g, "");
@@ -5274,7 +5409,9 @@ function dedupeNightWakeEvents(entries) {
       }
       let gap = Math.abs(e._nightEventKey - last._nightEventKey);
       if (gap > 720) gap = 1440 - gap;
-      if (gap <= 15) {
+      const sameClockEntry = String(e.time || e.start || "") && String(e.time || e.start || "") === String(last.time || last.start || "");
+      const closeEventsLookSameIncident = sameClockEntry || _isNightWakeSettlingContextEntry(e) || _isNightWakeSettlingContextEntry(last);
+      if (gap <= 15 && closeEventsLookSameIncident) {
         if (e.type === "wake" && _isNightFeedSettlingEntry(last)) out[out.length - 1] = _mergeNightWakeSettlingFeed(e, last, 0);
         else if (_nightWakeEventScore(e) > _nightWakeEventScore(last)) out[out.length - 1] = e;
         return;
@@ -15781,8 +15918,9 @@ function App(){
     (v)=>JSON.stringify(normaliseObservationsPayload(v)));
   const[showObservations,setShowObservations]=useState(false);
   const addObservation = React.useCallback((icon, title, body, wedid, priority) => {
-    // Dedupe: if an observation with same title exists today, skip
-    // Cap: max 3 observations per day. only show the most important ones
+    // Dedupe by parent-facing topic, not just exact title. Related routine
+    // guidance should become one useful card rather than three variants.
+    // Cap: max 3 observations per day. only show the most important ones.
     const _now = Date.now();
     const _todayStart = new Date(); _todayStart.setHours(0,0,0,0);
     let _didAdd = false;
@@ -15790,10 +15928,30 @@ function App(){
     const _entry = normaliseObservationRecord({ id: "obs_"+_now+"_"+randomIdSuffix(6), ts:_now, icon, title, body, wedid, ack:false, priority: priority || 3 });
     if (!_entry || !_entry.title) return;
     const _prio = _entry.priority || 3;
+    const _topic = _entry.topic || observationTopicKeyFromParts(_entry.title, _entry.body);
     setObservations(prev => {
       const _prev = normaliseObservationsPayload(prev);
-      const _recent = _prev.find(o => o.title === _entry.title && (o.ts||0) >= _todayStart.getTime());
-      if (_recent) return prev;
+      const _recentIdx = _prev.findIndex(o => {
+        if ((o.ts||0) < _todayStart.getTime()) return false;
+        const _existingTopic = o.topic || observationTopicKeyFromParts(o.title, o.body || o.text);
+        return _existingTopic === _topic || o.title === _entry.title;
+      });
+      if (_recentIdx >= 0) {
+        const _recent = _prev[_recentIdx];
+        const _merged = normaliseObservationRecord({
+          ..._recent,
+          ts: Math.max(_recent.ts || 0, _entry.ts || 0),
+          icon: _recent.icon || _entry.icon,
+          title: _topic === "routine_consistency" ? "Routine consistency needs attention" : (_recent.title || _entry.title),
+          body: mergeObservationCopy(_recent.body, _entry.body, 1200),
+          wedid: mergeObservationCopy(_recent.wedid, _entry.wedid, 800),
+          priority: Math.min(_recent.priority || 3, _prio),
+          topic: _topic,
+          ack: _recent.ack === true
+        });
+        if (!_merged || JSON.stringify(_merged) === JSON.stringify(_recent)) return prev;
+        return normaliseObservationsPayload([_merged, ..._prev.filter((_, i) => i !== _recentIdx)]).slice(0, 20);
+      }
       // Daily cap: count today's observations
       const _todayCount = _prev.filter(o => (o.ts||0) >= _todayStart.getTime()).length;
       if (_todayCount >= 3) {
@@ -16067,9 +16225,9 @@ function App(){
   const[bedTotalPausedSec,setBedTotalPausedSec]=useState(()=>{try{return parseInt(localStorage.getItem("bed_total_paused_sec"))||0;}catch{return 0;}});
   // Settle method selected during live-awake (used when resuming to log the wake)
   const[bedWakeSettle,setBedWakeSettle]=useState("assisted");
-  const bedPausedRef = useRef(false);
-  const bedPauseStartRef = useRef(null);
-  const bedTotalPausedSecRef = useRef(0);
+  const bedPausedRef = useRef(bedPaused);
+  const bedPauseStartRef = useRef(bedPauseStart);
+  const bedTotalPausedSecRef = useRef(bedTotalPausedSec);
   useEffect(()=>{bedPausedRef.current=bedPaused;bedPauseStartRef.current=bedPauseStart;bedTotalPausedSecRef.current=bedTotalPausedSec;},[bedPaused,bedPauseStart,bedTotalPausedSec]);
   function isClosedHistoricalAppDay(dayKey) {
     const dk = safeDateKey(dayKey);
@@ -16096,6 +16254,7 @@ function App(){
         const napActive = localStorage.getItem("nap_on") === "1" || localStorage.getItem("nap_on") === "true";
         const breastActiveLs = localStorage.getItem("breast_active") === "1" || localStorage.getItem("breast_active") === "true";
         const bedDay = bedTimerDay || localStorage.getItem("bed_timer_day");
+        const bedPausedLs = localStorage.getItem("bed_paused") === "1";
         if(napActive) {
           const startMs = parseInt(localStorage.getItem("nap_startMs")||"0",10) || asMs(todayStr(), localStorage.getItem("nap_startT") || nowTime());
           _androidTimerStart({type:"nap", startTime:startMs, babyName:safeName});
@@ -16117,6 +16276,12 @@ function App(){
           if (bedClosed) {
             try{["bed_timer_day","bed_timer_start","bed_total_paused_sec","bed_paused","bed_paused_sec","bed_pause_start"].forEach(k=>localStorage.removeItem(k));}catch{}
             setBedTimerDay(null); setBedPaused(false); setBedPauseStart(null); setBedPausedAtSec(0); setBedTotalPausedSec(0);
+            clearTimerNotification();
+            return;
+          }
+          if (bedPaused || bedPausedRef.current || bedPausedLs) {
+            forceWidgetTimerPaused("Night wake");
+            _androidTimerStop();
             clearTimerNotification();
             return;
           }
@@ -17096,6 +17261,7 @@ function App(){
   const[obLinkStatus,setObLinkStatus]=useState("");
   const[obLinkError,setObLinkError]=useState("");
   const[obChildMode,setObChildMode]=useState("new");
+  const[obChildUnborn,setObChildUnborn]=useState(false);
   const[editEntry,setEditEntry]=useState(null);
   const[usePersonalRecs,setUsePersonalRecs]=useState(()=>{
     // Read from child data first (survives localStorage wipes), then localStorage fallback
@@ -17108,7 +17274,7 @@ function App(){
     }catch{return null;}
   });
   const[fluidUnit,setFluidUnit]=useState(()=>{
-    try{const _saved=safeFluidUnit(localStorage.getItem("fluid_unit_v1"), ""); if(_saved) return _saved; return _isUS?"oz":"ml";}catch{return "ml";}
+    try{const _saved=safeFluidUnit(localStorage.getItem("fluid_unit_v1"), ""); if(_saved) return _saved; return countryDefaultUnits(_countryKey).fluid;}catch{return "ml";}
   });
   const[hapticsOff,setHapticsOffState]=useState(()=>{try{return localStorage.getItem(HAPTICS_DISABLED_KEY)==="1";}catch{return false;}});
   const setHapticsOff = (value)=>{
@@ -17117,10 +17283,10 @@ function App(){
     try{if(next)localStorage.setItem(HAPTICS_DISABLED_KEY,"1");else localStorage.removeItem(HAPTICS_DISABLED_KEY);}catch{}
   };
   const[measureUnit,setMeasureUnit]=useState(()=>{
-    try{const _saved=safeMeasureUnit(localStorage.getItem("measure_unit_v1"), ""); if(_saved) return _saved; return _isUS?"lbs":"metric";}catch{return "metric";}
+    try{const _saved=safeMeasureUnit(localStorage.getItem("measure_unit_v1"), ""); if(_saved) return _saved; return countryDefaultUnits(_countryKey).measure;}catch{return "metric";}
   });
   const[tempUnit,setTempUnit]=useState(()=>{
-    try{const _saved=safeTempUnit(localStorage.getItem("temp_unit_v1"), ""); if(_saved) return _saved; return _isUS?"f":"c";}catch{return "c";}
+    try{const _saved=safeTempUnit(localStorage.getItem("temp_unit_v1"), ""); if(_saved) return _saved; return countryDefaultUnits(_countryKey).temp;}catch{return "c";}
   });
   const FU=fluidUnit; // shorthand for templates
   const MU=measureUnit; // "metric" or "lbs"
@@ -37796,8 +37962,12 @@ function App(){
       if (_effectiveBTD) { setBedTimerDay(_effectiveBTD); try{localStorage.setItem("bed_timer_day",_effectiveBTD);}catch{} }
     }
     // In midnight mode, we don't need bedTimerDay to route — entries go to todayStr().
-    // Only bail if: already paused, OR (wake mode AND no bedTimerDay found)
-    if (bedPaused) { console.log("[OBubba] pauseBedTimer: already paused, ignoring"); return null; }
+    // Only bail if: already paused/pending, OR (wake mode AND no bedTimerDay found).
+    // React state can lag behind a fast repeat tap, so also check refs and
+    // localStorage before writing another pending night-wake entry.
+    const _alreadyPausedNow = bedPaused || bedPausedRef.current || (()=>{try{return localStorage.getItem("bed_paused")==="1";}catch{return false;}})();
+    const _hasPendingWakeNow = (()=>{try{return !!localStorage.getItem("bed_wake_entry_id");}catch{return false;}})();
+    if (_alreadyPausedNow || _hasPendingWakeNow) { console.log("[OBubba] pauseBedTimer: already paused, ignoring"); return null; }
     if (!_effectiveBTD && dayBoundary === "wake") { console.log("[OBubba] pauseBedTimer: no bedTimerDay and wake mode, bailing. bedTimerDay=",bedTimerDay,"ls=",localStorage.getItem("bed_timer_day")); return null; }
     // For midnight mode with no _effectiveBTD, use todayStr() as the routing target
     if (!_effectiveBTD) _effectiveBTD = todayStr();
@@ -37861,7 +38031,7 @@ function App(){
 	  function resumeBedTimer(overrideSettleMethod, opts){
 		    // Check both React state AND localStorage (state may be stale from async setBedTimerDay)
 		    const _btdResume = bedTimerDay || (()=>{try{return localStorage.getItem("bed_timer_day");}catch{return null;}})();
-		    const _bedPausedResume = bedPaused || (()=>{try{return localStorage.getItem("bed_paused")==="1";}catch{return false;}})();
+		    const _bedPausedResume = bedPaused || bedPausedRef.current || (()=>{try{return localStorage.getItem("bed_paused")==="1";}catch{return false;}})();
 		    if (!_btdResume || !_bedPausedResume) return;
 		    haptic();
 		    const pauseStart = bedPauseStart || Number((()=>{try{return localStorage.getItem("bed_pause_start");}catch{return 0;}})()) || Date.now();
@@ -37870,13 +38040,17 @@ function App(){
     const pauseDurMin = Math.round(pauseDurSec / 60);
     // Accumulate total paused time. this is subtracted from raw elapsed in both tick loops
     // Formula: sleep_resume_time = wake_time + awake_duration (user spec point 4)
-    const newTotalPaused = (bedTotalPausedSec || 0) + pauseDurSec;
+    const _existingPausedTotal = Math.max(0, Number(bedTotalPausedSecRef.current || bedTotalPausedSec || (()=>{try{return localStorage.getItem("bed_total_paused_sec");}catch{return 0;}})() || 0) || 0);
+    const newTotalPaused = _existingPausedTotal + pauseDurSec;
     setBedTotalPausedSec(newTotalPaused);
+    bedTotalPausedSecRef.current = newTotalPaused;
     try{localStorage.setItem("bed_total_paused_sec",String(newTotalPaused));}catch{}
     // Clear pause state
     setBedPaused(false);
     setBedPauseStart(null);
     setBedPausedAtSec(0);
+    bedPausedRef.current = false;
+    bedPauseStartRef.current = null;
     try{localStorage.removeItem("bed_paused");localStorage.removeItem("bed_paused_sec");localStorage.removeItem("bed_pause_start");}catch{}
     // Update the night wake entry (logged on pause) with duration and settle method
 	    const settleMethod = overrideSettleMethod || bedWakeSettle || "assisted";
@@ -44429,8 +44603,30 @@ function App(){
 
 			  const isTrackDailySurface = !daySubScreen || daySubScreen==="today" || daySubScreen==="log" || daySubScreen==="plan";
 		  const clockHomeLabEnabled = true;
-		  const clockHomeLabThemeOverride = (()=>{try{const p=new URLSearchParams(window.location.search||"");const t=(p.get("clockThemePreview")||p.get("clockThemeForce")||"").toLowerCase();return t==="day"||t==="night"?t:"";}catch{return "";}})();
-		  const clockHomeLabIsDay = clockHomeLabThemeOverride === "day" || (clockHomeLabThemeOverride !== "night" && !isDark);
+			  const clockHomeLabThemeOverride = (()=>{try{const p=new URLSearchParams(window.location.search||"");const t=(p.get("clockThemePreview")||p.get("clockThemeForce")||"").toLowerCase();return t==="day"||t==="night"?t:"";}catch{return "";}})();
+			  const clockHomeLabBedtimeSoonTheme = (() => {
+			    try {
+			      if (clockHomeLabThemeOverride) return false;
+			      if ((selDay || todayStr()) !== todayStr()) return false;
+			      const _activeBedDay = bedTimerDay || localStorage.getItem("bed_timer_day") || "";
+			      if (_activeBedDay === todayStr()) return true;
+			      const _td = tickDataRef.current || {};
+			      if (_td.hasBedtime) return false;
+			      const _now = new Date();
+			      const _nowMins = _now.getHours() * 60 + _now.getMinutes();
+			      const _bedRaw = typeof _td.bedMins === "number" ? _td.bedMins
+			        : (_td.bed && _td.bed.time ? clockMins(_td.bed.time) : null);
+			      const _next = _td.nextEvent || null;
+			      const _nextIsBed = _next && (_next.type === "bed" || _next.type === "sleep");
+			      const _bedMins = _nextIsBed && typeof _next.timeMins === "number" ? _next.timeMins : _bedRaw;
+			      if (typeof _bedMins !== "number" || !Number.isFinite(_bedMins)) return false;
+			      let _delta = Math.round(_bedMins - _nowMins);
+			      if (_delta < -720) _delta += 1440;
+			      if (_delta > 720) _delta -= 1440;
+			      return _delta <= 15 && _delta >= -240;
+			    } catch { return false; }
+			  })();
+			  const clockHomeLabIsDay = clockHomeLabThemeOverride === "day" || (clockHomeLabThemeOverride !== "night" && !isDark && !clockHomeLabBedtimeSoonTheme);
 		  const clockHomeLabTheme = clockHomeLabIsDay ? "day" : "night";
 			  const clockPresencePreviewActive = (()=>{try{const p=new URLSearchParams(window.location.search||"");return p.get("presencePreview")==="1" || localStorage.getItem("ob_clock_presence_preview")==="1";}catch{return false;}})();
 			  const clockPresenceQueryLimit = 60;
@@ -44677,11 +44873,12 @@ function App(){
     });
     return ()=>{ if (timer) clearTimeout(timer); };
   }, [activationStats.totalLogs, activationStats.loggedDays, activationStats.shouldShow, activationStats.childKey, tab, daySubScreen, selDay, showReviewPrompt]);
-	  const[clockLabTip,setClockLabTip]=useState(null);
-	  const[clockLabPanel,setClockLabPanel]=useState("logs");
-	  const[clockLabLogsOpen,setClockLabLogsOpen]=useState(false);
-	  const[clockGuidanceSeenSig,setClockGuidanceSeenSig]=useState("");
-	  const clockGuidanceSeenTimerRef = React.useRef(null);
+		  const[clockLabTip,setClockLabTip]=useState(null);
+		  const[clockLabPanel,setClockLabPanel]=useState("logs");
+		  const[clockLabLogsOpen,setClockLabLogsOpen]=useState(false);
+		  const[clockGuidanceSeenSig,setClockGuidanceSeenSig]=useState("");
+		  const[clockGuidanceDismissVersion,setClockGuidanceDismissVersion]=useState(0);
+		  const clockGuidanceSeenTimerRef = React.useRef(null);
 	  const clockLabLongPressRef = React.useRef({timer:null,resetTimer:null,fired:false,suppressClickUntil:0,action:null,x:null,y:null});
 	  const clockLabTapGuardRef = React.useRef({id:"", time:0});
 	  const clockLabDrawerScrollRef = React.useRef({ready:false,panel:"logs",logs:false,token:0});
@@ -46390,7 +46587,10 @@ function App(){
 	    };
 	    const clockLogRowDetailLab = (item) => {
 	      if (!item || !item.entry) return "";
-	      if (clockLogIsActiveBedtimeLab(item.entry)) return clockLogJoinLab("sleep timer running", hm(Math.max(1, Math.floor(clockLabBedElapsedSec / 60))));
+	      if (clockLogIsActiveBedtimeLab(item.entry)) {
+	        if (bedPaused) return clockLogJoinLab("sleep timer paused", hm(Math.max(1, Math.floor((bedPausedAtSec || clockLabBedElapsedSec) / 60))));
+	        return clockLogJoinLab("sleep timer running", hm(Math.max(1, Math.floor(clockLabBedElapsedSec / 60))));
+	      }
 		      const feeds = clockNightWakeSettlingFeedMapLab.get(String(item.entry.id || item.index)) || [];
 		      const detail = entryLogDetailLab(clockLogDisplayEntryLab(item));
 	      if (item.entry.type !== "wake" || !clockIsNightWakeTimelineEntryLab(item.entry) || !feeds.length) return detail;
@@ -47115,6 +47315,17 @@ function App(){
 	    const clockGuidanceNoticeDismissed = (notice) => {
 	      try { return localStorage.getItem(clockGuidanceNoticeDismissKey(notice)) === "1"; } catch { return false; }
 	    };
+	    const clockGuidanceCardDismissKey = (card, scope = dayKey) => {
+	      return "ob_clock_guidance_card_done_v1_" + safeStorageToken((activeChild&&activeChild.id)||babyName||"baby","baby",40) + "_" + safeStorageToken(scope || "ever","scope",32) + "_" + safeStorageToken(card || "card","card",80);
+	    };
+	    const clockGuidanceCardDismissed = (card, scope = dayKey) => {
+	      void clockGuidanceDismissVersion;
+	      try { return localStorage.getItem(clockGuidanceCardDismissKey(card, scope)) === "1"; } catch { return false; }
+	    };
+	    const markClockGuidanceCardRead = (card, scope = dayKey) => {
+	      try { localStorage.setItem(clockGuidanceCardDismissKey(card, scope), "1"); } catch {}
+	      setClockGuidanceDismissVersion(v => v + 1);
+	    };
 	    const clockGuidanceNoticeItems = (() => {
 	      try {
 	        const start = new Date(); start.setHours(0,0,0,0);
@@ -47153,8 +47364,10 @@ function App(){
 	      };
 	      if (clockLastNightDebrief) add("debrief", clockLastNightDebrief.title + "|" + clockLastNightDebrief.body);
 	      if (clockLastNightSignals.length) add("signals", clockLastNightSignals.map(sig => [sig.type, sig.label, sig.detail].filter(Boolean).join("/")).join("|"));
-	      if (clockNightFocus) add("focus", [clockNightFocus.title, ...(clockNightFocus.steps || []), clockNightFocus.why].filter(Boolean).join("|"));
-	      if (!clockLastNightDebrief && clockSleepEngineGuide && clockSleepEngineGuide.title && clockSleepEngineGuide.title !== "Sleep engine") add("engine", clockSleepEngineGuide.title + "|" + clockSleepEngineGuide.body);
+	      if (clockNightFocus && !clockGuidanceCardDismissed("tonights-focus")) add("focus", [clockNightFocus.title, ...(clockNightFocus.steps || []), clockNightFocus.why].filter(Boolean).join("|"));
+      if (!clockLastNightDebrief && clockSleepEngineGuide && clockSleepEngineGuide.title && clockSleepEngineGuide.title !== "Sleep engine") {
+        if (!clockGuidanceCardDismissed("sleep-engine")) add("engine", clockSleepEngineGuide.title + "|" + clockSleepEngineGuide.body);
+      }
 	      if (clockGuidanceNoticeItems.length > 0) add("notices", clockGuidanceNoticeItems.map(o => [o.id, o.title, o.ts].filter(Boolean).join("/")).join("|"));
 	      if (clockAutoContext && clockAutoContext.active) add("auto", (clockAutoContext.reasons || []).join("|") || "active");
 	      if (clockDisruptionActive) add("day", clockDisruptionActive.reason || clockDisruptionActive.label || "softened");
@@ -48386,14 +48599,15 @@ function App(){
             ))}
           </div>
         )}
-        {clockLabIsToday && (()=>{
-          if (!clockLabHydrationSmart || !clockLabHydrationSmart.target) return null;
-          const _hydCount = clockLabHydrationSmart.count || 0;
-          const _hydTarget = clockLabHydrationSmart.target;
-          if (_hydCount >= _hydTarget) return null;
-          const _hydRemaining = _hydTarget - _hydCount;
-          return (
-            <button type="button" className="ob-clock-guidance-notice" data-testid="clock-guidance-hydration" onClick={()=>{haptic();setHelpTip({title:"Wet nappies: "+_hydCount+" of "+_hydTarget+" today",body:(_hydRemaining === 1 ? name+" needs about 1 more wet nappy today to be on track." : name+" needs about "+_hydRemaining+" more wet nappies today to be on track.")+" A long overnight nappy counts as 2\u20133. "+(_ccCheckGuidance||"")});}}>
+	        {clockLabIsToday && (()=>{
+	          if (!clockLabHydrationSmart || !clockLabHydrationSmart.target) return null;
+	          const _hydCount = clockLabHydrationSmart.count || 0;
+	          const _hydTarget = clockLabHydrationSmart.target;
+	          if (_hydCount >= _hydTarget) return null;
+	          if (clockGuidanceCardDismissed("hydration")) return null;
+	          const _hydRemaining = _hydTarget - _hydCount;
+	          return (
+	            <button type="button" className="ob-clock-guidance-notice" data-testid="clock-guidance-hydration" onClick={()=>{haptic();setHelpTip({title:"Wet nappies: "+_hydCount+" of "+_hydTarget+" today",body:(_hydRemaining === 1 ? name+" needs about 1 more wet nappy today to be on track." : name+" needs about "+_hydRemaining+" more wet nappies today to be on track.")+" A long overnight nappy counts as 2\u20133. "+(_ccCheckGuidance||""),onDismiss:()=>markClockGuidanceCardRead("hydration")});}}>
               <span aria-hidden="true">💧</span>
               <b>Wet nappies: {_hydCount} of {_hydTarget} today</b>
               <em>{_hydRemaining === 1 ? "1 more needed to be on track" : _hydRemaining + " more needed to be on track"}</em>
@@ -48402,12 +48616,14 @@ function App(){
         })()}
         {clockLabIsToday && (()=>{
           try {
-            const _cs = getConsistencyScore(days, dayKey, ageWeeks);
-            if (!_cs || _cs.score >= 65) return null;
-            // Don't show consistency complaints when OBubba's own bedtime shifts caused the variation
-            if (_cs.components.bed < 15 && wasBedrimeVariationAppDriven(dayKey, 7)) return null;
-            return (
-              <button type="button" className="ob-clock-guidance-notice" data-testid="clock-guidance-consistency" onClick={()=>{haptic();setHelpTip({title:"Routine consistency: " + _cs.score + "/100 — " + _cs.label,body:_cs.summary + "\n\nBreakdown:\n• Wake time: " + _cs.components.wake + "/25\n• Bedtime: " + _cs.components.bed + "/25\n• Nap count: " + _cs.components.naps + "/25\n• Feed count: " + _cs.components.feeds + "/25" + (_cs.goodNightRate !== null ? "\n\nGood night rate: " + _cs.goodNightRate + "%" : "")});}}>
+	            const _cs = getConsistencyScore(days, dayKey, ageWeeks);
+	            if (!_cs || _cs.score >= 65) return null;
+	            // Don't show consistency complaints when OBubba's own bedtime shifts caused the variation
+	            if (_cs.components.bed < 15 && wasBedrimeVariationAppDriven(dayKey, 7)) return null;
+	            if (clockGuidanceNoticeItems.some(o => (o.topic || observationTopicKeyFromParts(o.title, o.body)) === "routine_consistency")) return null;
+	            if (clockGuidanceCardDismissed("routine-consistency")) return null;
+	            return (
+	              <button type="button" className="ob-clock-guidance-notice" data-testid="clock-guidance-consistency" onClick={()=>{haptic();setHelpTip({title:"Routine consistency: " + _cs.score + "/100 — " + _cs.label,body:_cs.summary + "\n\nBreakdown:\n• Wake time: " + _cs.components.wake + "/25\n• Bedtime: " + _cs.components.bed + "/25\n• Nap count: " + _cs.components.naps + "/25\n• Feed count: " + _cs.components.feeds + "/25" + (_cs.goodNightRate !== null ? "\n\nGood night rate: " + _cs.goodNightRate + "%" : ""),onDismiss:()=>markClockGuidanceCardRead("routine-consistency")});}}>
                 <span aria-hidden="true">📊</span>
                 <b>Routine consistency: {_cs.score}/100</b>
                 <em>{_cs.label} — {_cs.score < 45 ? "schedule needs steadying" : "getting there, keep going"}</em>
@@ -48417,10 +48633,11 @@ function App(){
         })()}
         {clockLabIsToday && (()=>{
           try {
-            const _dn = predictTonightFromToday(days, dayKey, ageWeeks);
-            if (!_dn || !_dn.summary || _dn.sampleSize < 7) return null;
-            return (
-              <button type="button" className="ob-clock-guidance-notice" data-testid="clock-guidance-day-night" onClick={()=>{haptic();setHelpTip({title:"What predicts a good night for " + name,body:_dn.insights.join(" ") + "\n\nBased on " + _dn.sampleSize + " days of data.\nGood night rate: " + _dn.goodNightRate + "%."});}}>
+	            const _dn = predictTonightFromToday(days, dayKey, ageWeeks);
+	            if (!_dn || !_dn.summary || _dn.sampleSize < 7) return null;
+	            if (clockGuidanceCardDismissed("day-night-pattern")) return null;
+	            return (
+	              <button type="button" className="ob-clock-guidance-notice" data-testid="clock-guidance-day-night" onClick={()=>{haptic();setHelpTip({title:"What predicts a good night for " + name,body:_dn.insights.join(" ") + "\n\nBased on " + _dn.sampleSize + " days of data.\nGood night rate: " + _dn.goodNightRate + "%.",onDismiss:()=>markClockGuidanceCardRead("day-night-pattern")});}}>
                 <span aria-hidden="true">🔮</span>
                 <b>Good nights: {_dn.goodNightRate}% of the time</b>
                 <em>{_dn.summary}</em>
@@ -48429,14 +48646,14 @@ function App(){
           } catch { return null; }
         })()}
         <div className="ob-hero-more-drawer ob-clock-guidance-direct" data-testid="clock-guidance-direct-actions">
-          {!clockLastNightDebrief && clockSleepEngineGuide && (
-            <button type="button" data-testid="clock-guidance-sleep-engine" onClick={()=>{haptic();setHelpTip({title:clockSleepEngineGuide.title || "Sleep engine",body:clockSleepEngineGuide.body || clockWhyGuide});}}>
-              <b>{clockSleepEngineGuide.title || "Sleep engine"}</b>
-              <span>{clockSleepEngineGuide.body || "OBubba is reading the existing sleep engine and intelligence layer."}</span>
-            </button>
-          )}
-          {clockNightFocus && (
-            <button type="button" data-testid="clock-guidance-tonights-focus" onClick={()=>{haptic();setHelpTip({title:clockNightFocus.title || "Tonight's focus",body:[...(clockNightFocus.steps || []), clockNightFocus.why].filter(Boolean).join(" ")});}}>
+		          {!clockLastNightDebrief && clockSleepEngineGuide && (
+		            !clockGuidanceCardDismissed("sleep-engine") ? <button type="button" data-testid="clock-guidance-sleep-engine" onClick={()=>{haptic();setHelpTip({title:clockSleepEngineGuide.title || "Sleep engine",body:clockSleepEngineGuide.body || clockWhyGuide,onDismiss:()=>markClockGuidanceCardRead("sleep-engine")});}}>
+	              <b>{clockSleepEngineGuide.title || "Sleep engine"}</b>
+	              <span>{clockSleepEngineGuide.body || "OBubba is reading the existing sleep engine and intelligence layer."}</span>
+	            </button> : null
+	          )}
+	          {clockNightFocus && !clockGuidanceCardDismissed("tonights-focus") && (
+	            <button type="button" data-testid="clock-guidance-tonights-focus" onClick={()=>{haptic();setHelpTip({title:clockNightFocus.title || "Tonight's focus",body:[...(clockNightFocus.steps || []), clockNightFocus.why].filter(Boolean).join(" "),onDismiss:()=>markClockGuidanceCardRead("tonights-focus")});}}>
               <b>{clockNightFocus.title || "Tonight's focus"}</b>
               <span>{clockTrim(((clockNightFocus.steps || [])[0] || clockNightFocus.why || "Tonight's guide comes from the sleep engine."), 118)}</span>
             </button>
@@ -49428,11 +49645,16 @@ function App(){
       if (obFeedType === "breast" || obFeedType === "both") {
         try{ localStorage.setItem("_hasBreast","1"); }catch{}
       }
+      try{ localStorage.removeItem("ob_app_tour_pending_v1"); }catch{}
 		      setOnboarded(true);
-		      queueAppTourAfterSetup("onboarding");
+      setShowTutPrompt(false);
+      setTutStep(-1);
+      setDayTutStep(-1);
 		      try { trackEvent("onboarding_completed", { feed_type: obFeedType || "unknown", dashboard_mode: "clock" }); } catch {}
       try { if (_day1Profile) trackEvent("day1_questionnaire_completed", { concerns: _day1Profile.concerns.length, factors: _day1Profile.factors.length, safety: _day1Profile.safety.filter(x=>x!=="none").length }); } catch {}
-	      setTab("insights");
+      setTab("day");
+      setDaySubScreen(null);
+      setTodayPanel("log");
       setSelDay(_obToday);
 	      // Day explainer disabled by user request.
     };
@@ -49461,12 +49683,15 @@ function App(){
       {
         icon:"\u{1F382}",
         title:"When was "+((obName||"").trim()||"baby")+" born?",
-        sub:"This helps OBubba give age-appropriate predictions, growth charts, and milestone tracking.",
-        action: (
-          <div style={{width:"100%",marginTop:20}}>
-            <input type="date" aria-label="Baby date of birth" value={obDob} onChange={e=>setObDob(e.target.value)} max={todayStr()}
-              style={{width:"100%",fontSize:16,padding:"10px 14px",borderRadius:14,border:`2px solid ${obDob?"#9BB8A8":C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fI,textAlign:"center",boxSizing:_bBB,color:"inherit",WebkitAppearance:"none"}}/>
-            <div style={{display:"flex",gap:8,marginTop:12,justifyContent:"center"}}>
+	        sub:"This helps OBubba give age-appropriate predictions, growth charts, and milestone tracking.",
+	        action: (
+	          <div style={{width:"100%",marginTop:20}}>
+	            <label htmlFor="ob-onboarding-dob" style={{display:"block",fontSize:12,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Date of birth</label>
+	            <input type="date" aria-label="Baby date of birth" value={obDob} onChange={e=>setObDob(e.target.value)} max={todayStr()}
+                id="ob-onboarding-dob" data-testid="onboarding-date-of-birth"
+	              style={{width:"100%",fontSize:16,padding:"10px 14px",borderRadius:14,border:`2px solid ${obDob?"#9BB8A8":C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fI,textAlign:"center",boxSizing:_bBB,color:"inherit",WebkitAppearance:"none"}}/>
+	            <div style={{fontSize:11,color:C.lt,marginTop:6,lineHeight:1.4}}>Used for sleep windows, feeds, growth and milestone guidance. You can change it later.</div>
+	            <div style={{display:"flex",gap:8,marginTop:12,justifyContent:"center"}}>
               {[["Girl","\u{1F338}","girl"],["Boy","\u{1F4D8}","boy"],["Prefer not to say","\u2728",""]].map(([label,emoji,val])=>(
                 <button key={val} onClick={()=>setObSex(val)}
                   style={{flex:1,padding:"10px 6px",borderRadius:12,border:`2px solid ${obSex===val?"#9BB8A8":C.blush}`,background:obSex===val?"rgba(155,184,168,0.1)":"var(--card-bg-solid)",cursor:_cP,textAlign:"center"}}>
@@ -49806,11 +50031,11 @@ function App(){
     );
   }
 
-  // ── CHILD SETUP SCREEN (after new account creation, before app) ──
-  if (needsChildSetup && tutStep === -1) {
-    const finishChildSetup = async (childData) => {
-      if (childData) {
-        const patch = { name: safeChildName(childData.name), dob: safeChildDate(childData.dob), sex: safeChildSex(childData.sex), dueDate: safeChildDate(childData.dueDate)||null };
+	  // ── CHILD SETUP SCREEN (after new account creation, before app) ──
+	  if (needsChildSetup && tutStep === -1) {
+	    const finishChildSetup = async (childData) => {
+	      if (childData) {
+	        const patch = { name: safeChildName(childData.name), dob: safeChildDate(childData.dob), sex: safeChildSex(childData.sex), dueDate: safeChildDate(childData.dueDate)||null, unborn: childData.unborn === true };
         const curChildren = childrenRef.current || children || {};
         let targetId = safeChildId(resolvedActiveId || localStorage.getItem("active_child") || Object.keys(curChildren)[0] || uid());
         if (curChildren && Object.keys(curChildren).length && !curChildren[targetId]) targetId = Object.keys(curChildren)[0];
@@ -49828,13 +50053,14 @@ function App(){
         setChildren(next);
         setActiveChildId(safeTargetId);
       }
-		      try{ localStorage.removeItem("needs_child_setup_v1"); localStorage.setItem("onboarded_v2","1"); }catch{}
-	      queueAppTourAfterSetup("new_account");
-	      setNeedsChildSetup(false);
-      setOnboarded(true);
-      setTab("day");
-      setSelDay(todayStr());
-    };
+			      try{ localStorage.removeItem("needs_child_setup_v1"); localStorage.removeItem("ob_app_tour_pending_v1"); localStorage.setItem("onboarded_v2","1"); }catch{}
+		      setNeedsChildSetup(false);
+	      setOnboarded(true);
+	      setTab("day");
+      setDaySubScreen(null);
+      setTodayPanel("log");
+	      setSelDay(todayStr());
+	    };
     return (
       <div style={{minHeight:"100vh",background:"var(--bg-grad)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"env(safe-area-inset-top,30px) 24px 40px",fontFamily:"'DM Sans',sans-serif",boxSizing:_bBB,overflowY:"auto"}}>
         <style>{`@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}`}</style>
@@ -49855,20 +50081,22 @@ function App(){
             <div>
               <div style={{background:"var(--card-bg-alt)",borderRadius:14,padding:"12px 14px",marginBottom:14,border:`1px solid ${C.blush}`,display:"flex",gap:10,alignItems:"flex-start",textAlign:"left"}}>
                 <span style={{fontSize:18,flexShrink:0}}>💡</span>
-                <div style={{fontSize:13,color:C.mid,lineHeight:1.55}}>Used for <strong>nap & wake windows</strong>, <strong>feed recommendations</strong>, <strong>milestones</strong> and <strong>growth percentiles</strong>. Update anytime by tapping your baby’s name on Today.</div>
-              </div>
+	                <div style={{fontSize:13,color:C.mid,lineHeight:1.55}}>Used for <strong>nap & wake windows</strong>, <strong>feed recommendations</strong>, <strong>milestones</strong> and <strong>growth percentiles</strong>. OBubba also detects your region from your device language for local health wording and units.</div>
+	              </div>
               <input value={obName} aria-label="Baby name" maxLength={40} onChange={e=>setObName(e.target.value)}
                 placeholder="Baby's name (optional)"
                 style={{width:"100%",fontSize:18,padding:"12px 16px",borderRadius:14,border:`2px solid ${C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fI,textAlign:"center",marginBottom:10,boxSizing:_bBB}}/>
-              <div style={{display:"flex",gap:8,marginBottom:10}}>
-                {[["born","Already born 🎉"],["unborn","Not born yet 🤰"]].map(([v,l])=>(
-                  <div key={v} onClick={()=>setBabyUnborn(v==="unborn")} style={{flex:1,padding:"10px 6px",borderRadius:12,border:`2px solid ${(v==="unborn"?babyUnborn:!babyUnborn)?C.ter:C.blush}`,background:(v==="unborn"?babyUnborn:!babyUnborn)?"var(--chip-bg-active)":"white",textAlign:"center",cursor:_cP,fontSize:13,fontWeight:700,color:(v==="unborn"?babyUnborn:!babyUnborn)?C.ter:C.mid,transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease"}}>
-                    {l}
-                  </div>
-                ))}
-              </div>
-              <input type="date" aria-label="Baby date of birth" value={obDob} onChange={e=>setObDob(e.target.value)}
-                style={{width:"100%",fontSize:16,padding:"12px 16px",borderRadius:14,border:`2px solid ${C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fI,textAlign:"center",marginBottom:10,boxSizing:_bBB}}/>
+	              <div style={{display:"flex",gap:8,marginBottom:10}}>
+	                {[["born","Already born 🎉"],["unborn","Not born yet 🤰"]].map(([v,l])=>(
+	                  <div key={v} onClick={()=>setObChildUnborn(v==="unborn")} style={{flex:1,padding:"10px 6px",borderRadius:12,border:`2px solid ${(v==="unborn"?obChildUnborn:!obChildUnborn)?C.ter:C.blush}`,background:(v==="unborn"?obChildUnborn:!obChildUnborn)?"var(--chip-bg-active)":"white",textAlign:"center",cursor:_cP,fontSize:13,fontWeight:700,color:(v==="unborn"?obChildUnborn:!obChildUnborn)?C.ter:C.mid,transition:"background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease, opacity 0.2s ease"}}>
+	                    {l}
+	                  </div>
+	                ))}
+	              </div>
+	              <label htmlFor="ob-child-setup-dob" style={{display:"block",textAlign:"left",fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>{obChildUnborn ? "Due date" : "Date of birth"}</label>
+	              <input id="ob-child-setup-dob" data-testid="child-setup-date-of-birth" type="date" aria-label={obChildUnborn ? "Baby due date" : "Baby date of birth"} value={obDob} onChange={e=>setObDob(e.target.value)} max={obChildUnborn?undefined:todayStr()}
+	                style={{width:"100%",fontSize:16,padding:"12px 16px",borderRadius:14,border:`2px solid ${obDob?C.mint:C.blush}`,background:"var(--card-bg-solid)",outline:_oN,fontFamily:_fI,textAlign:"center",marginBottom:6,boxSizing:_bBB}}/>
+	              <div style={{fontSize:11,color:C.lt,lineHeight:1.4,textAlign:"left",marginBottom:10}}>{obChildUnborn ? "Used as their expected date until you update it after birth." : "This is needed for age-appropriate sleep, feeding, growth and milestone guidance."}</div>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:16}}>
                 {[["boy","👦","Boy","#eaf3fb","#3d6a8a"],["girl","👧","Girl","#fde7e4","#a85070"],["","⬜","Not set","#f0e8e0","#7a5c52"]].map(([v,emoji,l,accent,col])=>(
                   <button key={v} onClick={()=>setObSex(v)}
@@ -49877,7 +50105,7 @@ function App(){
                   </button>
                 ))}
               </div>
-	              <button onClick={()=>finishChildSetup({name:obName,dob:obDob,sex:obSex})}
+		              <button onClick={()=>finishChildSetup({name:obName,dob:obDob,sex:obSex,unborn:obChildUnborn})}
                 style={{width:"100%",background:`linear-gradient(135deg,#c9705a,#a85a44)`,border:_bN,borderRadius:99,padding:"14px",color:"white",fontSize:16,fontWeight:700,cursor:_cP,boxShadow:"0 4px 20px rgba(201,112,90,0.4)",marginBottom:10,fontFamily:_fI}}>
                 {obName.trim()||obDob ? "Let's go! →" : "Continue →"}
               </button>
@@ -61951,11 +62179,21 @@ function App(){
                 style={{background:hapticsOff?"var(--card-bg-alt)":`linear-gradient(135deg,${C.ter},#a85a44)`,border:hapticsOff?`1px solid ${C.blush}`:"none",borderRadius:99,padding:"6px 14px",color:hapticsOff?C.mid:"white",fontSize:12,fontWeight:700,cursor:_cP,minWidth:54}}
               >
                 {hapticsOff ? "Off" : "On"}
-              </button>
-            </div>
+	              </button>
+	            </div>
 
-            {/* Fluid unit */}
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0",borderBottom:`1px solid ${C.blush}`}}>
+	            <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:12,padding:"12px 0",borderBottom:`1px solid ${C.blush}`}}>
+	              <div style={_S.flexCenter10}>
+	                <span style={_S.f18}>🌍</span>
+	                <div>
+	                  <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Local guidance</div>
+	                  <div style={{fontSize:10,color:C.lt,lineHeight:1.35}}>Detected from device language/region. Using {_guide.country} guidance, {_guide.nonEmergencyLabel}, {volLabel(FU)}, {wtLabel(MU)} and {TU==="f"?"°F":"°C"}.</div>
+	                </div>
+	              </div>
+	            </div>
+
+	            {/* Fluid unit */}
+	            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0",borderBottom:`1px solid ${C.blush}`}}>
               <div style={_S.flexCenter10}>
                 <span style={_S.f18}>🍼</span>
                 <span style={{fontSize:13,fontWeight:700,color:C.deep}}>Fluid</span>
