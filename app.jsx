@@ -14598,7 +14598,12 @@ function App(){
   useEffect(() => {
     if(_trialTimeExpired && !trialDeviceUsed) _markTrialUsed("time_expired");
   }, [_trialTimeExpired, trialDeviceUsed]);
-  // Grandfathered pricing: users whose account/install/baby profile started before 1 May 2026 keep old prices.
+  // Founding parent pricing: keep the lower v1 products as the public offer while
+  // retention and trust recover. v2 products remain recognised natively for anyone
+  // who already bought them, but the paywall should no longer prefer them.
+  const FOUNDING_PARENT_PRICING = true;
+  const FOUNDING_YEARLY_PRICE_US = "49.99";
+  const FOUNDING_YEARLY_PRICE_GB = "44.99";
   const PRICE_CUTOFF = new Date("2026-05-01T00:00:00+01:00");
   const _legacyAnchorMs = (()=>{
     const vals = [];
@@ -14614,12 +14619,12 @@ function App(){
     const times = vals.map(_obDateMs).filter(ms => Number.isFinite(ms) && ms > 0);
     return times.length ? Math.min(...times) : null;
   })();
-  const isLegacyUser = _legacyAnchorMs ? _legacyAnchorMs < PRICE_CUTOFF.getTime() : (()=>{try{return !!localStorage.getItem("children_v1");}catch{return false;}})();
+  const isLegacyUser = FOUNDING_PARENT_PRICING || (_legacyAnchorMs ? _legacyAnchorMs < PRICE_CUTOFF.getTime() : (()=>{try{return !!localStorage.getItem("children_v1");}catch{return false;}})());
   useEffect(()=>{try{window._obLegacyPricing=!!isLegacyUser;}catch{}},[isLegacyUser]);
-  const monthlyPrice = isLegacyUser ? "4.99" : "7.99";
-  const yearlyPrice = isLegacyUser ? "44.99" : "79.99";
-  const lifetimePrice = isLegacyUser ? "79.99" : "129.99";
-  const yearlySaving = isLegacyUser ? "25" : "17";
+  const monthlyPrice = "4.99";
+  const yearlyPrice = FOUNDING_YEARLY_PRICE_GB;
+  const lifetimePrice = "79.99";
+  const yearlySaving = "25";
   const _storeProductForPlanFrom = (planKey, productList) => {
     const period = planKey === "lifetime" ? "lifetime" : planKey === "monthly" ? "monthly" : "annual";
     const products = Array.isArray(productList) ? productList : [];
@@ -14632,15 +14637,15 @@ function App(){
     if (!matches.length) return null;
     const legacy = matches.find(p => !String(p?.id || "").includes(".v2"));
     const current = matches.find(p => String(p?.id || "").includes(".v2"));
-    return isLegacyUser ? (legacy || current || matches[0]) : (current || legacy || matches[0]);
+    return legacy || current || matches[0];
   };
   const _storeProductForPlan = (planKey) => {
     return _storeProductForPlanFrom(planKey, paywallProducts);
   };
   const _fallbackPlanPrice = (planKey) => {
-    if (planKey === "monthly") return _isUS?"$"+monthlyPrice:_isAU?"A$12.99":_isCA?"C$9.99":"£"+monthlyPrice;
-    if (planKey === "lifetime") return _isUS?"$"+lifetimePrice:_isAU?"A$199.99":_isCA?"C$179.99":"£"+lifetimePrice;
-    return _isUS?"$"+yearlyPrice:_isAU?"A$129.99":_isCA?"C$99.99":"£"+yearlyPrice;
+    if (planKey === "monthly") return _isUS?"$"+monthlyPrice:_isAU?"A$7.99":_isCA?"C$6.99":"£"+monthlyPrice;
+    if (planKey === "lifetime") return _isUS?"$"+lifetimePrice:_isAU?"A$129.99":_isCA?"C$109.99":"£"+lifetimePrice;
+    return _isUS?"$"+FOUNDING_YEARLY_PRICE_US:_isAU?"A$79.99":_isCA?"C$69.99":"£"+yearlyPrice;
   };
   const _planDisplayPrice = (planKey) => {
     const product = _storeProductForPlan(planKey);
@@ -64473,6 +64478,10 @@ function App(){
                   <span>{txt}</span>
                 </div>
               ))}
+            </div>
+
+            <div style={{fontSize:11.5,fontWeight:800,color:C.ter,marginBottom:12,letterSpacing:0}}>
+              Founding parent price while OBubba grows
             </div>
 
             {/* Plan selector. 3 tappable cards */}

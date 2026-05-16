@@ -19,7 +19,8 @@ import java.util.List;
 public class StorePlugin extends Plugin implements PurchasesUpdatedListener {
 
     private static final String TAG = "OBStore";
-    // v1 kept for existing subscribers (Google grandfathers their price)
+    // v1 is the current founding-price offer. v2 remains recognised for
+    // entitlement checks so earlier higher-price purchasers keep access.
     private static final List<String> PRODUCT_IDS = Arrays.asList(
         "com.obubba.premium.monthly",
         "com.obubba.premium.annual",
@@ -30,13 +31,10 @@ public class StorePlugin extends Plugin implements PurchasesUpdatedListener {
     );
     private static final List<String> SUB_IDS = Arrays.asList(
         "com.obubba.premium.monthly",
-        "com.obubba.premium.annual",
-        "com.obubba.premium.monthly.v2",
-        "com.obubba.premium.annual.v2"
+        "com.obubba.premium.annual"
     );
     private static final List<String> LIFETIME_IDS = Arrays.asList(
-        "com.obubba.premium.lifetime",
-        "com.obubba.premium.lifetime.v2"
+        "com.obubba.premium.lifetime"
     );
 
     private BillingClient billingClient;

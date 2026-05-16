@@ -110,18 +110,15 @@ baby,tracker,sleep,nap,feed,breastfeeding,weaning,growth,nappy,diary,schedule,pr
 ## In-App Purchases
 
 **OBubba Premium — Monthly**
-- £7.99/month UK price for new users
-- Grandfathered eligible existing users may see £4.99/month UK price
+- £4.99/month UK founding parent price
 - Personal rhythm predictions, sleep consultant insights, growth charts, 77 recipes, partner sync, shareable albums, reports & trends
 
 **OBubba Premium — Annual**
-- £79.99/year UK price for new users
-- Grandfathered eligible existing users may see £44.99/year UK price
+- £44.99/year UK founding parent price
 - Everything in monthly, billed annually
 
 **OBubba Premium — Lifetime**
-- £129.99 one-time UK price for new users
-- Grandfathered eligible existing users may see £79.99 one-time UK price
+- £79.99 one-time UK founding parent price
 - All premium features forever
 
 Prices in other countries are set by Apple and Google using their local pricing tiers, exchange-rate handling, taxes, and store rules. The final local price is shown by the store before purchase confirmation.

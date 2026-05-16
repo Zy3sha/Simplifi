@@ -15,9 +15,15 @@ public class StorePlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "getEntitlements", returnType: CAPPluginReturnPromise),
     ]
 
-    // Product IDs — must match App Store Connect
-    // v1 kept for existing subscribers (Apple grandfathers their price)
-    private let productIds: Set<String> = [
+    // Product IDs — must match App Store Connect.
+    // v1 is the current founding-price offer. v2 remains recognised for
+    // entitlement checks so earlier higher-price purchasers keep access.
+    private let sellableProductIds: Set<String> = [
+        "com.obubba.premium.monthly",
+        "com.obubba.premium.annual",
+        "com.obubba.premium.lifetime"
+    ]
+    private let entitlementProductIds: Set<String> = [
         "com.obubba.premium.monthly",
         "com.obubba.premium.annual",
         "com.obubba.premium.lifetime",
@@ -30,7 +36,7 @@ public class StorePlugin: CAPPlugin, CAPBridgedPlugin {
     @objc func getProducts(_ call: CAPPluginCall) {
         Task {
             do {
-                let products = try await Product.products(for: productIds)
+                let products = try await Product.products(for: sellableProductIds)
                 var result: [[String: Any]] = []
                 for product in products {
                     var info: [String: Any] = [
@@ -143,7 +149,7 @@ public class StorePlugin: CAPPlugin, CAPBridgedPlugin {
         for await result in Transaction.currentEntitlements {
             switch result {
             case .verified(let transaction):
-                if productIds.contains(transaction.productID) {
+                if entitlementProductIds.contains(transaction.productID) {
                     // For subscriptions, check not expired/revoked
                     let notExpired = transaction.expirationDate == nil || transaction.expirationDate! > Date()
                     if transaction.revocationDate == nil && notExpired {

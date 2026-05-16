@@ -14676,6 +14676,9 @@ function App() {
   useEffect(() => {
     if (_trialTimeExpired && !trialDeviceUsed) _markTrialUsed("time_expired");
   }, [_trialTimeExpired, trialDeviceUsed]);
+  const FOUNDING_PARENT_PRICING = true;
+  const FOUNDING_YEARLY_PRICE_US = "49.99";
+  const FOUNDING_YEARLY_PRICE_GB = "44.99";
   const PRICE_CUTOFF = /* @__PURE__ */ new Date("2026-05-01T00:00:00+01:00");
   const _legacyAnchorMs = (() => {
     const vals = [];
@@ -14693,23 +14696,23 @@ function App() {
     const times = vals.map(_obDateMs).filter((ms) => Number.isFinite(ms) && ms > 0);
     return times.length ? Math.min(...times) : null;
   })();
-  const isLegacyUser = _legacyAnchorMs ? _legacyAnchorMs < PRICE_CUTOFF.getTime() : (() => {
+  const isLegacyUser = FOUNDING_PARENT_PRICING || (_legacyAnchorMs ? _legacyAnchorMs < PRICE_CUTOFF.getTime() : (() => {
     try {
       return !!localStorage.getItem("children_v1");
     } catch (e) {
       return false;
     }
-  })();
+  })());
   useEffect(() => {
     try {
       window._obLegacyPricing = !!isLegacyUser;
     } catch (e) {
     }
   }, [isLegacyUser]);
-  const monthlyPrice = isLegacyUser ? "4.99" : "7.99";
-  const yearlyPrice = isLegacyUser ? "44.99" : "79.99";
-  const lifetimePrice = isLegacyUser ? "79.99" : "129.99";
-  const yearlySaving = isLegacyUser ? "25" : "17";
+  const monthlyPrice = "4.99";
+  const yearlyPrice = FOUNDING_YEARLY_PRICE_GB;
+  const lifetimePrice = "79.99";
+  const yearlySaving = "25";
   const _storeProductForPlanFrom = (planKey, productList) => {
     const period = planKey === "lifetime" ? "lifetime" : planKey === "monthly" ? "monthly" : "annual";
     const products = Array.isArray(productList) ? productList : [];
@@ -14722,15 +14725,15 @@ function App() {
     if (!matches.length) return null;
     const legacy = matches.find((p) => !String((p == null ? void 0 : p.id) || "").includes(".v2"));
     const current = matches.find((p) => String((p == null ? void 0 : p.id) || "").includes(".v2"));
-    return isLegacyUser ? legacy || current || matches[0] : current || legacy || matches[0];
+    return legacy || current || matches[0];
   };
   const _storeProductForPlan = (planKey) => {
     return _storeProductForPlanFrom(planKey, paywallProducts);
   };
   const _fallbackPlanPrice = (planKey) => {
-    if (planKey === "monthly") return _isUS ? "$" + monthlyPrice : _isAU ? "A$12.99" : _isCA ? "C$9.99" : "\xA3" + monthlyPrice;
-    if (planKey === "lifetime") return _isUS ? "$" + lifetimePrice : _isAU ? "A$199.99" : _isCA ? "C$179.99" : "\xA3" + lifetimePrice;
-    return _isUS ? "$" + yearlyPrice : _isAU ? "A$129.99" : _isCA ? "C$99.99" : "\xA3" + yearlyPrice;
+    if (planKey === "monthly") return _isUS ? "$" + monthlyPrice : _isAU ? "A$7.99" : _isCA ? "C$6.99" : "\xA3" + monthlyPrice;
+    if (planKey === "lifetime") return _isUS ? "$" + lifetimePrice : _isAU ? "A$129.99" : _isCA ? "C$109.99" : "\xA3" + lifetimePrice;
+    return _isUS ? "$" + FOUNDING_YEARLY_PRICE_US : _isAU ? "A$79.99" : _isCA ? "C$69.99" : "\xA3" + yearlyPrice;
   };
   const _planDisplayPrice = (planKey) => {
     const product = _storeProductForPlan(planKey);
@@ -60177,7 +60180,7 @@ This replaces whatever is currently saved in the cloud with what's on this devic
       ["\u{1F46B}", "Partner sync. always on the same page"],
       ["\u{1F4A1}", '"Why are they crying?". ranked by data'],
       ["\u{1F4CB}", "Today's plan + tomorrow's schedule"]
-    ].map(([ic, txt], i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 11.5, color: C.deep } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, flexShrink: 0 } }, ic), /* @__PURE__ */ React.createElement("span", null, txt)))), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 14 } }, [
+    ].map(([ic, txt], i) => /* @__PURE__ */ React.createElement("div", { key: i, style: { display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 11.5, color: C.deep } }, /* @__PURE__ */ React.createElement("span", { style: { fontSize: 13, flexShrink: 0 } }, ic), /* @__PURE__ */ React.createElement("span", null, txt)))), /* @__PURE__ */ React.createElement("div", { style: { fontSize: 11.5, fontWeight: 800, color: C.ter, marginBottom: 12, letterSpacing: 0 } }, "Founding parent price while OBubba grows"), /* @__PURE__ */ React.createElement("div", { style: { display: "flex", gap: 8, marginBottom: 14 } }, [
       { key: "monthly", label: "Monthly", price: _planDisplayPrice("monthly"), sub: "/month", badge: null },
       { key: "annual", label: "Annual", price: _planDisplayPrice("annual"), sub: "/year", badge: "Best value" },
       { key: "lifetime", label: "Lifetime", price: _planDisplayPrice("lifetime"), sub: "once", badge: "One-time" }
