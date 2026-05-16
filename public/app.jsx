@@ -16067,9 +16067,9 @@ function App(){
   const[bedTotalPausedSec,setBedTotalPausedSec]=useState(()=>{try{return parseInt(localStorage.getItem("bed_total_paused_sec"))||0;}catch{return 0;}});
   // Settle method selected during live-awake (used when resuming to log the wake)
   const[bedWakeSettle,setBedWakeSettle]=useState("assisted");
-  const bedPausedRef = useRef(false);
-  const bedPauseStartRef = useRef(null);
-  const bedTotalPausedSecRef = useRef(0);
+  const bedPausedRef = useRef(bedPaused);
+  const bedPauseStartRef = useRef(bedPauseStart);
+  const bedTotalPausedSecRef = useRef(bedTotalPausedSec);
   useEffect(()=>{bedPausedRef.current=bedPaused;bedPauseStartRef.current=bedPauseStart;bedTotalPausedSecRef.current=bedTotalPausedSec;},[bedPaused,bedPauseStart,bedTotalPausedSec]);
   function isClosedHistoricalAppDay(dayKey) {
     const dk = safeDateKey(dayKey);
@@ -16096,6 +16096,7 @@ function App(){
         const napActive = localStorage.getItem("nap_on") === "1" || localStorage.getItem("nap_on") === "true";
         const breastActiveLs = localStorage.getItem("breast_active") === "1" || localStorage.getItem("breast_active") === "true";
         const bedDay = bedTimerDay || localStorage.getItem("bed_timer_day");
+        const bedPausedLs = localStorage.getItem("bed_paused") === "1";
         if(napActive) {
           const startMs = parseInt(localStorage.getItem("nap_startMs")||"0",10) || asMs(todayStr(), localStorage.getItem("nap_startT") || nowTime());
           _androidTimerStart({type:"nap", startTime:startMs, babyName:safeName});
@@ -16117,6 +16118,12 @@ function App(){
           if (bedClosed) {
             try{["bed_timer_day","bed_timer_start","bed_total_paused_sec","bed_paused","bed_paused_sec","bed_pause_start"].forEach(k=>localStorage.removeItem(k));}catch{}
             setBedTimerDay(null); setBedPaused(false); setBedPauseStart(null); setBedPausedAtSec(0); setBedTotalPausedSec(0);
+            clearTimerNotification();
+            return;
+          }
+          if (bedPaused || bedPausedRef.current || bedPausedLs) {
+            forceWidgetTimerPaused("Night wake");
+            _androidTimerStop();
             clearTimerNotification();
             return;
           }
@@ -37796,8 +37803,12 @@ function App(){
       if (_effectiveBTD) { setBedTimerDay(_effectiveBTD); try{localStorage.setItem("bed_timer_day",_effectiveBTD);}catch{} }
     }
     // In midnight mode, we don't need bedTimerDay to route — entries go to todayStr().
-    // Only bail if: already paused, OR (wake mode AND no bedTimerDay found)
-    if (bedPaused) { console.log("[OBubba] pauseBedTimer: already paused, ignoring"); return null; }
+    // Only bail if: already paused/pending, OR (wake mode AND no bedTimerDay found).
+    // React state can lag behind a fast repeat tap, so also check refs and
+    // localStorage before writing another pending night-wake entry.
+    const _alreadyPausedNow = bedPaused || bedPausedRef.current || (()=>{try{return localStorage.getItem("bed_paused")==="1";}catch{return false;}})();
+    const _hasPendingWakeNow = (()=>{try{return !!localStorage.getItem("bed_wake_entry_id");}catch{return false;}})();
+    if (_alreadyPausedNow || _hasPendingWakeNow) { console.log("[OBubba] pauseBedTimer: already paused, ignoring"); return null; }
     if (!_effectiveBTD && dayBoundary === "wake") { console.log("[OBubba] pauseBedTimer: no bedTimerDay and wake mode, bailing. bedTimerDay=",bedTimerDay,"ls=",localStorage.getItem("bed_timer_day")); return null; }
     // For midnight mode with no _effectiveBTD, use todayStr() as the routing target
     if (!_effectiveBTD) _effectiveBTD = todayStr();
@@ -37861,7 +37872,7 @@ function App(){
 	  function resumeBedTimer(overrideSettleMethod, opts){
 		    // Check both React state AND localStorage (state may be stale from async setBedTimerDay)
 		    const _btdResume = bedTimerDay || (()=>{try{return localStorage.getItem("bed_timer_day");}catch{return null;}})();
-		    const _bedPausedResume = bedPaused || (()=>{try{return localStorage.getItem("bed_paused")==="1";}catch{return false;}})();
+		    const _bedPausedResume = bedPaused || bedPausedRef.current || (()=>{try{return localStorage.getItem("bed_paused")==="1";}catch{return false;}})();
 		    if (!_btdResume || !_bedPausedResume) return;
 		    haptic();
 		    const pauseStart = bedPauseStart || Number((()=>{try{return localStorage.getItem("bed_pause_start");}catch{return 0;}})()) || Date.now();
@@ -37870,13 +37881,17 @@ function App(){
     const pauseDurMin = Math.round(pauseDurSec / 60);
     // Accumulate total paused time. this is subtracted from raw elapsed in both tick loops
     // Formula: sleep_resume_time = wake_time + awake_duration (user spec point 4)
-    const newTotalPaused = (bedTotalPausedSec || 0) + pauseDurSec;
+    const _existingPausedTotal = Math.max(0, Number(bedTotalPausedSecRef.current || bedTotalPausedSec || (()=>{try{return localStorage.getItem("bed_total_paused_sec");}catch{return 0;}})() || 0) || 0);
+    const newTotalPaused = _existingPausedTotal + pauseDurSec;
     setBedTotalPausedSec(newTotalPaused);
+    bedTotalPausedSecRef.current = newTotalPaused;
     try{localStorage.setItem("bed_total_paused_sec",String(newTotalPaused));}catch{}
     // Clear pause state
     setBedPaused(false);
     setBedPauseStart(null);
     setBedPausedAtSec(0);
+    bedPausedRef.current = false;
+    bedPauseStartRef.current = null;
     try{localStorage.removeItem("bed_paused");localStorage.removeItem("bed_paused_sec");localStorage.removeItem("bed_pause_start");}catch{}
     // Update the night wake entry (logged on pause) with duration and settle method
 	    const settleMethod = overrideSettleMethod || bedWakeSettle || "assisted";
@@ -46390,7 +46405,11 @@ function App(){
 	    };
 	    const clockLogRowDetailLab = (item) => {
 	      if (!item || !item.entry) return "";
-	      if (clockLogIsActiveBedtimeLab(item.entry)) return clockLogJoinLab("sleep timer running", hm(Math.max(1, Math.floor(clockLabBedElapsedSec / 60))));
+	      if (clockLogIsActiveBedtimeLab(item.entry)) {
+	        const bedTimerStatus = bedPaused ? "sleep timer paused" : "sleep timer running";
+	        const bedTimerSeconds = bedPaused ? bedPausedAtSec : clockLabBedElapsedSec;
+	        return clockLogJoinLab(bedTimerStatus, hm(Math.max(1, Math.floor(bedTimerSeconds / 60))));
+	      }
 		      const feeds = clockNightWakeSettlingFeedMapLab.get(String(item.entry.id || item.index)) || [];
 		      const detail = entryLogDetailLab(clockLogDisplayEntryLab(item));
 	      if (item.entry.type !== "wake" || !clockIsNightWakeTimelineEntryLab(item.entry) || !feeds.length) return detail;

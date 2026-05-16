@@ -16503,9 +16503,9 @@ function App() {
     }
   });
   const [bedWakeSettle, setBedWakeSettle] = useState("assisted");
-  const bedPausedRef = useRef(false);
-  const bedPauseStartRef = useRef(null);
-  const bedTotalPausedSecRef = useRef(0);
+  const bedPausedRef = useRef(bedPaused);
+  const bedPauseStartRef = useRef(bedPauseStart);
+  const bedTotalPausedSecRef = useRef(bedTotalPausedSec);
   useEffect(() => {
     bedPausedRef.current = bedPaused;
     bedPauseStartRef.current = bedPauseStart;
@@ -16545,6 +16545,7 @@ function App() {
         const napActive = localStorage.getItem("nap_on") === "1" || localStorage.getItem("nap_on") === "true";
         const breastActiveLs = localStorage.getItem("breast_active") === "1" || localStorage.getItem("breast_active") === "true";
         const bedDay = bedTimerDay || localStorage.getItem("bed_timer_day");
+        const bedPausedLs = localStorage.getItem("bed_paused") === "1";
         if (napActive) {
           const startMs = parseInt(localStorage.getItem("nap_startMs") || "0", 10) || asMs(todayStr(), localStorage.getItem("nap_startT") || nowTime());
           _androidTimerStart({ type: "nap", startTime: startMs, babyName: safeName });
@@ -16573,6 +16574,12 @@ function App() {
             setBedPauseStart(null);
             setBedPausedAtSec(0);
             setBedTotalPausedSec(0);
+            clearTimerNotification();
+            return;
+          }
+          if (bedPaused || bedPausedRef.current || bedPausedLs) {
+            forceWidgetTimerPaused("Night wake");
+            _androidTimerStop();
             clearTimerNotification();
             return;
           }
@@ -38612,7 +38619,21 @@ Start with wake time. once that anchors, the rest tends to follow.`
         }
       }
     }
-    if (bedPaused) {
+    const _alreadyPausedNow = bedPaused || bedPausedRef.current || (() => {
+      try {
+        return localStorage.getItem("bed_paused") === "1";
+      } catch (e) {
+        return false;
+      }
+    })();
+    const _hasPendingWakeNow = (() => {
+      try {
+        return !!localStorage.getItem("bed_wake_entry_id");
+      } catch (e) {
+        return false;
+      }
+    })();
+    if (_alreadyPausedNow || _hasPendingWakeNow) {
       console.log("[OBubba] pauseBedTimer: already paused, ignoring");
       return null;
     }
@@ -38686,7 +38707,7 @@ Start with wake time. once that anchors, the rest tends to follow.`
         return null;
       }
     })();
-    const _bedPausedResume = bedPaused || (() => {
+    const _bedPausedResume = bedPaused || bedPausedRef.current || (() => {
       try {
         return localStorage.getItem("bed_paused") === "1";
       } catch (e) {
@@ -38705,8 +38726,16 @@ Start with wake time. once that anchors, the rest tends to follow.`
     const pauseEnd = Date.now();
     const pauseDurSec = Math.max(0, Math.round((pauseEnd - pauseStart) / 1e3));
     const pauseDurMin = Math.round(pauseDurSec / 60);
-    const newTotalPaused = (bedTotalPausedSec || 0) + pauseDurSec;
+    const _existingPausedTotal = Math.max(0, Number(bedTotalPausedSecRef.current || bedTotalPausedSec || (() => {
+      try {
+        return localStorage.getItem("bed_total_paused_sec");
+      } catch (e) {
+        return 0;
+      }
+    })() || 0) || 0);
+    const newTotalPaused = _existingPausedTotal + pauseDurSec;
     setBedTotalPausedSec(newTotalPaused);
+    bedTotalPausedSecRef.current = newTotalPaused;
     try {
       localStorage.setItem("bed_total_paused_sec", String(newTotalPaused));
     } catch (e) {
@@ -38714,6 +38743,8 @@ Start with wake time. once that anchors, the rest tends to follow.`
     setBedPaused(false);
     setBedPauseStart(null);
     setBedPausedAtSec(0);
+    bedPausedRef.current = false;
+    bedPauseStartRef.current = null;
     try {
       localStorage.removeItem("bed_paused");
       localStorage.removeItem("bed_paused_sec");
@@ -47775,7 +47806,11 @@ Start with wake time. once that anchors, the rest tends to follow.`
     };
     const clockLogRowDetailLab = (item) => {
       if (!item || !item.entry) return "";
-      if (clockLogIsActiveBedtimeLab(item.entry)) return clockLogJoinLab("sleep timer running", hm(Math.max(1, Math.floor(clockLabBedElapsedSec / 60))));
+      if (clockLogIsActiveBedtimeLab(item.entry)) {
+        const bedTimerStatus = bedPaused ? "sleep timer paused" : "sleep timer running";
+        const bedTimerSeconds = bedPaused ? bedPausedAtSec : clockLabBedElapsedSec;
+        return clockLogJoinLab(bedTimerStatus, hm(Math.max(1, Math.floor(bedTimerSeconds / 60))));
+      }
       const feeds = clockNightWakeSettlingFeedMapLab.get(String(item.entry.id || item.index)) || [];
       const detail = entryLogDetailLab(clockLogDisplayEntryLab(item));
       if (item.entry.type !== "wake" || !clockIsNightWakeTimelineEntryLab(item.entry) || !feeds.length) return detail;
