@@ -642,8 +642,10 @@ service cloud.firestore {
         && childSyncCodeId(code)
         && validChildSyncWrite()
         && request.resource.data.ownerUid == request.auth.uid
-        && request.resource.data.participantUids is list
-        && request.resource.data.participantUids.hasAny([request.auth.uid]);
+        && (
+          !('participantUids' in request.resource.data)
+          || request.resource.data.participantUids.hasAny([request.auth.uid])
+        );
       allow update: if signedIn()
         && childSyncCodeId(code)
         && validChildSyncWrite()
