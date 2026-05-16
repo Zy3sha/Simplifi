@@ -6,6 +6,7 @@ const androidGradle = fs.readFileSync(path.join(root, "android/app/build.gradle"
 const androidCapacitorGradle = fs.readFileSync(path.join(root, "android/app/capacitor.build.gradle"), "utf8");
 const androidCapacitorSettings = fs.readFileSync(path.join(root, "android/capacitor.settings.gradle"), "utf8");
 const androidManifest = fs.readFileSync(path.join(root, "android/app/src/main/AndroidManifest.xml"), "utf8");
+const androidMainActivity = fs.readFileSync(path.join(root, "android/app/src/main/java/com/obubba/app/MainActivity.java"), "utf8");
 const iosProject = fs.readFileSync(path.join(root, "ios/App/App.xcodeproj/project.pbxproj"), "utf8");
 const iosInfo = fs.readFileSync(path.join(root, "ios/App/App/Info.plist"), "utf8");
 const iosPodfile = fs.readFileSync(path.join(root, "ios/App/Podfile"), "utf8");
@@ -16,10 +17,6 @@ const entitlements = fs.readFileSync(path.join(root, "ios/App/App/OBubba.entitle
 const releaseEntitlements = fs.readFileSync(path.join(root, "ios/App/App/OBubbaRelease.entitlements"), "utf8");
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
 const rules = fs.readFileSync(path.join(root, "firestore.rules"), "utf8");
-const hugRules = rules.slice(
-  rules.indexOf("match /bubba_hugs/{hugId}"),
-  rules.indexOf("// ── Carer Logs ──")
-);
 
 function assert(name, ok) {
   if (!ok) {
@@ -53,6 +50,8 @@ assert("Android reminders avoid Play-policy exact-alarm permissions", !androidMa
 assert("Android removes transitive advertising ID permission", androidManifest.includes('com.google.android.gms.permission.AD_ID" tools:node="remove"'));
 assert("unused badge plugin stays removed to avoid launcher badge permission sprawl", !pkg.dependencies["@capawesome/capacitor-badge"] && !androidCapacitorGradle.includes("capawesome-capacitor-badge") && !androidCapacitorSettings.includes("capawesome-capacitor-badge") && !iosPodfile.includes("CapawesomeCapacitorBadge"));
 assert("Android foreground timer special-use service has a clear store-review subtype", androidManifest.includes("android.permission.FOREGROUND_SERVICE_SPECIAL_USE") && androidManifest.includes('android:foregroundServiceType="specialUse"') && androidManifest.includes("Baby activity timer showing elapsed time for feeds, naps, and sleep tracking"));
+assert("Android 15 edge-to-edge is explicitly enabled and system insets protect the WebView", androidGradle.includes("androidx.activity:activity:$androidxActivityVersion") && androidMainActivity.includes("EdgeToEdge.enable(") && androidMainActivity.includes("WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout()") && androidManifest.includes('android:windowSoftInputMode="adjustResize"'));
+assert("Android keyboard and native insets stay clear of app chrome", fs.readFileSync(path.join(root, "capacitor.config.ts"), "utf8").includes("resizeOnFullScreen: true") && fs.readFileSync(path.join(root, "capacitor.config.ts"), "utf8").includes("scroll: true") && androidMainActivity.includes("webView.setClipToPadding(true)") && androidMainActivity.includes("syncCssInsets(webView, insets)") && androidMainActivity.includes("--ob-native-bottom-inset"));
 assert("iOS privacy manifest is present and declares required API reasons", privacyManifest.includes("NSPrivacyAccessedAPITypes") && privacyManifest.includes("NSPrivacyAccessedAPICategoryUserDefaults"));
 assert("iOS privacy manifest marks account-synced baby content as linked", ["NSPrivacyCollectedDataTypePhotosOrVideos", "NSPrivacyCollectedDataTypeOtherUserContent", "NSPrivacyCollectedDataTypeName"].every(type => privacyDataTypeBlock(type).includes("NSPrivacyCollectedDataTypeLinked</key><true/>")));
 assert("iOS privacy manifest declares optional travel-time location accurately", privacyDataTypeBlock("NSPrivacyCollectedDataTypePreciseLocation").includes("NSPrivacyCollectedDataTypeLinked</key><false/>") && privacyDataTypeBlock("NSPrivacyCollectedDataTypePreciseLocation").includes("NSPrivacyCollectedDataTypeTracking</key><false/>") && iosInfo.includes("NSLocationWhenInUseUsageDescription") && !privacyManifest.includes("NSPrivacyCollectedDataTypeCoarseLocation"));
@@ -69,7 +68,7 @@ assert("iOS entitlements are limited to declared OBubba capabilities", [entitlem
 assert("review prompt avoids store review gating", appSource.includes("Help shape OBubba") && appSource.includes("Leave a review") && appSource.includes("Send feedback") && !/Love it!|It needs some work|Love it\\?/.test(appSource));
 assert("review prompt ignores corrupted future snooze storage", appSource.includes("const lastPromptMs = safeTimestampMs(lastPrompt, NaN);") && appSource.includes("lastPromptMs <= Date.now()") && !appSource.includes("Date.now() - parseInt(lastPrompt)"));
 assert("trial upgrade CTAs are hidden for premium accounts and open active-trial paywall copy", appSource.includes("STORE_READY && !isPremium && trialActive && trialDaysLeft <= 5") && appSource.includes("!isPremium && trialActive && trialDaysLeft <= 5") && appSource.includes('onClick={()=>{haptic();triggerPaywall("trial");}}') && appSource.includes("Keep OBubba Premium after your trial") && appSource.includes("Your trial still has \" + trialDaysLeft"));
-assert("Bubba Hug stays preset-only for store UGC safety", appSource.includes("No names, custom messages, location, or baby data.") && appSource.includes("ob_bubba_hugs_muted") && hugRules.includes("messageKey in ['not_alone', 'keep_going', 'one_breath', 'tiny_step']") && !hugRules.includes("'message'") && !hugRules.includes("'babyName'"));
-assert("Bubba Hug avoids direct messaging or user targeting", appSource.includes("No names. no replies. just a tiny sign that another parent is awake with you.") && appSource.includes("Send one onward") && !appSource.includes("Send one back") && !appSource.includes("recipientId"));
+assert("paywall shows configured fallback prices when native store products are unavailable", appSource.includes('return paywallProductsLoaded ? _fallbackPlanPrice(planKey) : "Loading";') && !appSource.includes('paywallProductsLoaded ? "See store"'));
+assert("retired parent-to-parent UGC surface stays removed", !/Bubba Hug|bubba_hugs|ob_bubba_hugs|ob-parent-room-bubba-hug|sendBubbaHug|sendClockPresenceHug|Send one onward/.test(appSource + rules));
 
 if (!process.exitCode) console.log("Store readiness audit passed.");

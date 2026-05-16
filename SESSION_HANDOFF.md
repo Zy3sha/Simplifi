@@ -1,7 +1,7 @@
 # Session Handoff — Apr 17 2026
 
 ## Context
-User: Zyesha. Project: OBubba baby sleep tracking app (React + Capacitor, iOS + Android + PWA).
+User/company: OLife Labs Limited. Project: OBubba baby sleep tracking app (React + Capacitor, iOS + Android + PWA).
 
 Across this session we discovered that **~70+ commits of unmerged work** were scattered across multiple claude branches + uncommitted files, plus the user was running on an older build for a while.
 

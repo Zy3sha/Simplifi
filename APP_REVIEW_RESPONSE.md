@@ -38,5 +38,5 @@ Note that In-App Purchases are restricted by the Apple sandbox environment — p
 Thank you for your review. We look forward to your confirmation.
 
 Best regards,
-Zeenat Reynolds
+OLife Labs Limited
 OBubba

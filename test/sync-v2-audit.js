@@ -7,6 +7,14 @@ const root = path.resolve(__dirname, "..");
 const app = fs.readFileSync(path.join(root, "app.jsx"), "utf8");
 const rules = fs.readFileSync(path.join(root, "firestore.rules"), "utf8");
 const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+const localPreviewCollectionsAt = app.indexOf("const OB_LOCAL_PREVIEW_WRITE_COLLECTIONS = new Set([");
+const localPreviewCollectionsBlock = localPreviewCollectionsAt >= 0
+  ? app.slice(localPreviewCollectionsAt, app.indexOf("]);", localPreviewCollectionsAt) + 3)
+  : "";
+const activeTimerSyncAt = app.indexOf("// Sync active timer state so partner's device sees it");
+const activeTimerSyncBlock = activeTimerSyncAt >= 0
+  ? app.slice(activeTimerSyncAt, app.indexOf("        }\n      } catch {}", activeTimerSyncAt) + "        }\n      } catch {}".length)
+  : "";
 
 function assert(name, condition) {
   if (!condition) throw new Error(name);
@@ -79,10 +87,73 @@ assert(
 
 assert(
   "bed timer sync uses the saved bedtime start rather than regenerating startMs every push",
-  app.includes("const _bedTimerDayForCloud = _bedActive ? localStorage.getItem(\"bed_timer_day\") : null") &&
-    app.includes("const _bedStartMsForCloud = (_bedActive && _bedTimerDayForCloud && _bedStartForCloud)") &&
-    app.includes("clockDateMs(_bedTimerDayForCloud, _bedStartForCloud, NaN)") &&
-    app.includes("startTime: _napActive ? (localStorage.getItem(\"nap_startT\") || \"\") : _breastActive ? (localStorage.getItem(\"breast_startTime\") || \"\") : _bedStartForCloud")
+  activeTimerSyncBlock.includes("const _bedTimerDayForCloud = _bedActive ? localStorage.getItem(\"bed_timer_day\") : null") &&
+    activeTimerSyncBlock.includes("const _bedStartMsForCloud = (_bedActive && _bedTimerDayForCloud && _bedStartForCloud)") &&
+    activeTimerSyncBlock.includes("clockDateMs(_bedTimerDayForCloud, _bedStartForCloud, NaN)") &&
+    activeTimerSyncBlock.includes("const _timerStartValidForCloud = Number.isFinite(_timerStartMsForCloud)") &&
+    activeTimerSyncBlock.includes("_sharedData.activeTimer = _timerStartValidForCloud ? {") &&
+    activeTimerSyncBlock.includes("startTime: _bedActive ? _bedStartForCloud : _breastActive ? _breastStartForCloud : _napStartForCloud") &&
+    activeTimerSyncBlock.includes("startMs: _timerStartMsForCloud") &&
+    !activeTimerSyncBlock.includes("startMs: (Number.isFinite(_timerStartMsForCloud)")
+);
+
+assert(
+  "partner active timer sync is type-fresh and carries nap identity",
+  app.includes("function partnerTimerFreshWindowMs(type)") &&
+    app.includes('if (type === "nap") return OB_NAP_TIMER_RESTORE_MAX_MS;') &&
+    app.includes('if (type === "bed") return OB_BED_TIMER_RESTORE_MAX_MS;') &&
+    app.includes("function isFreshPartnerActiveTimer(timer") &&
+    app.includes("function partnerActiveTimerCanHydrate(rt)") &&
+    app.includes("localActiveTimerSnapshotForHydration") &&
+    app.includes("partnerActiveTimerCanHydrate(_rt)") &&
+    app.includes("partnerActiveTimerCanHydrate(_rt2)") &&
+    activeTimerSyncBlock.includes('entryId: (!_bedActive && !_breastActive) ? (localStorage.getItem("nap_entry_id") || "") : ""') &&
+    activeTimerSyncBlock.includes("dayKey: _bedActive ? safeDateKey(_bedTimerDayForCloud) : _breastActive ? todayStr() : _napDayForCloud") &&
+    app.includes('function hydratePartnerActiveNapTimer(rt, reason = "partner_sync")') &&
+    app.includes("setNapStartMs(startMs);") &&
+    app.includes("setNapSec(elapsed);") &&
+    app.includes('_androidTimerStart({type:"nap", startTime:startMs, babyName:safeName});')
+);
+
+assert(
+  "active nap starts bypass sync throttles so partner phones get the live timer immediately",
+  app.includes("const forceActiveTimer = !!(opts && opts.forceActiveTimer);") &&
+    app.includes("if (!forceActiveTimer && _elapsed < PUSH_MIN_INTERVAL)") &&
+    app.includes("if (!forceActiveTimer && _recentSameSyncHash(childPushCacheKey, childPreflightHash)) return;") &&
+    app.includes("if(!forceActiveTimer && childPushElapsed < CHILD_PUSH_MIN_INTERVAL)") &&
+    app.includes("pushToCloud(backupCodeRef.current, childrenForTimerSync, {forceActiveTimer:true});") &&
+    app.includes("pushChildSync(resolvedActiveId, syncCode, childForTimerSync, {forceActiveTimer:true});")
+);
+
+assert(
+  "completed nap edits beat stale active timer heartbeats across partner sync",
+  app.includes("function completedNapBeatsActiveTimer(entry, timer)") &&
+    app.includes("function findCompletedNapForActiveTimerInChild(child, timer)") &&
+    app.includes("findCompletedNapForActiveTimerInChildren(_incomingChildrenForTimer || childrenRef.current, _rt") &&
+    app.includes('clearLocalNapTimerStateFromSync("child_sync_completed_beat_active_timer")') &&
+    app.includes("childActiveTimerForCloud = null;") &&
+    app.includes("completedNapBeatsActiveTimer({...synced, _dayKey:syncedDay}, _localTimer)") &&
+    app.includes('forcePushNapStopToCloud("end_nap_completed");')
+);
+
+	assert(
+	  "child sync active nap snapshots hydrate the receiver even without family sharedData",
+	  app.includes("function activeNapTimerPayloadForChildSync(childId, childOverride)") &&
+	    app.includes("findCompletedNapForActiveTimerInChild(sourceChild, payload)") &&
+	    app.includes("activeTimer: childActiveTimerForCloud || null") &&
+	    app.includes("function activeNapTimerPayloadFromSyncedChild(child)") &&
+	    app.includes("const _timerFromChildRows = activeNapTimerPayloadFromSyncedChild(remoteChild);") &&
+	    app.includes('hydratePartnerActiveNapTimer(_timerFromChildRows, "partner_sync");')
+	);
+
+assert(
+  "firestore rules allow activeTimer through child sync docs",
+  rules.includes("'activeTimer'") &&
+    rules.includes("function validActiveTimerPayload(timer)") &&
+    rules.includes("validActiveTimerPayload(request.resource.data.activeTimer)") &&
+    rules.includes("'deletedEntryIds', 'deletedDays', 'deletedGrowthMeasurements', 'activeTimer'") &&
+    rules.includes("'child', 'childName', 'updatedAt', 'updatedBy', 'writeToken',") &&
+    rules.includes("'deletedEntryIds', 'deletedDays', 'deletedGrowthMeasurements', 'activeTimer'")
 );
 
 assert(
@@ -176,20 +247,63 @@ assert(
 assert(
   "child sync legacy writes merge cloud days before overwrite",
   app.includes("function mergeChildSyncCloudChildForPush") &&
+    app.includes("function applyChildSyncDeleteTombstonesToChild") &&
     app.includes('deletedDaysRef.current.has(childId + ":" + dayKey)') &&
     app.includes("deletedEntryIdsRef.current.has(id)") &&
+    app.includes("applyGrowthMeasurementDeleteTombstonesToChild(childId") &&
+    app.includes("weights: normaliseWeightPayload([...(cloud.weights || []), ...(local.weights || [])])") &&
     app.includes("childForCloud = mergeChildSyncCloudChildForPush(childId, childForCloud, cloudChild);")
+);
+
+assert(
+  "child sync overwrite guard compares against tombstone-filtered cloud data",
+  app.includes("const childPreflightClean = applyGrowthMeasurementDeleteTombstonesToChild(childId, applyChildSyncDeleteTombstonesToChild(childId, child), deletedGrowthMeasurementsRef.current);") &&
+    app.includes("let childForCloud = applyGrowthMeasurementDeleteTombstonesToChild(childId, applyChildSyncDeleteTombstonesToChild(childId, child), deletedGrowthMeasurementsRef.current);") &&
+    app.includes("const localEntryCount = Object.values(childForCloud.days || {}).reduce") &&
+    app.includes("const cloudChild = applyGrowthMeasurementDeleteTombstonesToChild(childId, applyChildSyncDeleteTombstonesToChild(childId, safeObjectPayload(existingData.child)), deletedGrowthMeasurementsRef.current);") &&
+    app.indexOf("const cloudChild = applyGrowthMeasurementDeleteTombstonesToChild(childId, applyChildSyncDeleteTombstonesToChild(childId, safeObjectPayload(existingData.child)), deletedGrowthMeasurementsRef.current);") < app.indexOf("const cloudEntryCount = Object.values(cloudChild.days || {}).reduce")
 );
 
 assert(
   "child sync legacy writes and reads deletion tombstones",
     app.includes("function _absorbChildSyncTombstones(data)") &&
     app.includes("_absorbChildSyncTombstones(existingData);") &&
+    app.includes("_absorbChildSyncTombstones(_cloudData);") &&
     app.includes("_absorbChildSyncTombstones(d);") &&
     app.includes("deletedEntryIds: deletedEntryIdsJson") &&
     app.includes("deletedDays: deletedDaysJson") &&
+    app.includes("deletedGrowthMeasurements: deletedGrowthMeasurementsJson") &&
+    app.includes("_absorbGrowthMeasurementTombstones") &&
     app.includes("mergedDays[date] = normaliseDayEntries(mergedDays[date]).filter(e =>") &&
     app.includes("Object.entries(childSyncCodes || {}).forEach(([cid, syncCode])")
+);
+
+assert(
+	  "firestore rules allow legacy sync deletion tombstones",
+	  rules.includes("'deletedGrowthMeasurements'") &&
+	    rules.includes("request.resource.data.deletedGrowthMeasurements is string") &&
+	    rules.includes("'deletedEntryIds', 'deletedDays', 'deletedGrowthMeasurements', 'prediction'") &&
+	    rules.includes("'deletedEntryIds', 'deletedDays', 'deletedGrowthMeasurements'") &&
+	    rules.includes("'deletedEntryIds', 'deletedDays', 'deletedGrowthMeasurements',\n        'activeTimer'") &&
+	    (rules.match(/deletedGrowthMeasurements/g) || []).length >= 7
+	);
+
+assert(
+  "local browser preview blocks whole-family writes but keeps partner sync testable",
+  localPreviewCollectionsBlock.includes("const OB_LOCAL_PREVIEW_WRITE_COLLECTIONS = new Set([") &&
+    localPreviewCollectionsBlock.includes('"families"') &&
+    localPreviewCollectionsBlock.includes('"family_sync_v2"') &&
+    !localPreviewCollectionsBlock.includes('"child_syncs"') &&
+    !localPreviewCollectionsBlock.includes('"child_sync_v2"') &&
+    !localPreviewCollectionsBlock.includes('"uid_to_backup"') &&
+    !localPreviewCollectionsBlock.includes('"child_code_map"') &&
+    app.includes("function shouldBlockLocalPreviewCloudWrite(collection)") &&
+    app.includes("function isLocalWebPreviewRuntime()") &&
+    app.includes('params.get("allowCloudWrites") === "1"') &&
+    app.includes('localStorage.getItem("ob_allow_preview_cloud_writes") === "1"') &&
+    app.includes('if (shouldBlockLocalPreviewCloudWrite("families")) return;') &&
+    !app.includes('if (shouldBlockLocalPreviewCloudWrite("child_syncs")) return;') &&
+    app.includes("if (shouldBlockLocalPreviewCloudWrite(collection))")
 );
 
 assert(
@@ -198,6 +312,16 @@ assert(
     app.includes("setActiveChildId(childId);") &&
     app.includes("if(childrenSnapshot[childId]) pushChildSync(childId, code, childrenSnapshot[childId]);") &&
     app.includes("_promoteChildSyncChildIfBlank(syncChildId, remoteChild);")
+);
+
+assert(
+  "child sync code writes fail visibly instead of showing fake success",
+  app.includes('const created = await fsSet("child_syncs", code, _newSyncDoc);') &&
+    app.includes('if(!created) return {ok:false, error:"Could not create sync code. check your connection and try again"};') &&
+    app.includes('const createdNew = await fsSet("child_syncs", newCode, _newSyncDoc);') &&
+    app.includes('if(!deactivatedOld) {') &&
+    app.includes('if(d.isActive === false) return {ok:false, error:"This sync code is no longer active. ask the other parent for the new code"};') &&
+    app.includes('localStorage.setItem("child_sync_codes_v1", JSON.stringify(_allCodesJ));')
 );
 
 assert(
@@ -211,15 +335,17 @@ assert(
 assert(
   "synced active nap timers stay live even when an older build wrote a moving end time",
   app.includes("if (e._active === true) return true;") &&
-    app.includes("return {...e, end:e.start, duration:0, modifiedAt:Date.now()};") &&
+    app.includes("Older builds could leave a moving `end` on an active nap") &&
+    app.includes("Treat `_active`") &&
+    !app.includes("return {...e, end:e.start, duration:0, modifiedAt:Date.now()};") &&
     app.includes("Finalise only old stale stubs") === false &&
-    app.includes("Finalize only old stale stubs; recent synced stubs may still be running on another device.") &&
+    !app.includes("Finalize only old stale stubs; recent synced stubs may still be running on another device.") &&
     app.includes("clockNapOnThisDay && isActiveNapStub(entry)")
 );
 
 assert(
   "android foreground timer restarts after a synced timer is recovered",
-  app.includes("},[babyName, bedTimerDay, resolvedActiveId, napOn, napStartT, napStartMs, bedPaused]);") &&
+  app.includes("},[babyName, bedTimerDay, resolvedActiveId, napOn, napStartT, napStartMs, bedPaused, children]);") &&
     app.includes('_androidTimerStart({type:"nap", startTime:startMs, babyName:safeName});')
 );
 
@@ -237,6 +363,32 @@ assert(
     app.includes("_syncCodesForCloud = _parseChildSyncCodes(localStorage.getItem(\"child_sync_codes_v1\"));") &&
     app.includes("if (!Object.keys(_syncCodesForCloud).length && _cloudData.childSyncCodes)") &&
     app.includes("Object.entries(_cloudSyncCodes).forEach(([cid, sc]) => subscribeToChildSync(cid, sc));")
+);
+
+assert(
+  "family child sync codes can refresh stale account metadata during restore",
+    app.includes("function _applyChildSyncCodesFromCloud(raw, opts = {})") &&
+    app.includes("preferExisting ? {...incoming, ...existing} : {...existing, ...incoming}") &&
+    app.includes("_applyChildSyncCodesFromCloud(data.childSyncCodes, {merge:false, source:opts.source || \"account\"});") &&
+    app.includes("_applyChildSyncCodesFromCloud(d.childSyncCodes, {merge:true, preferExisting:false, source:\"family\"});") &&
+    app.includes("fsSet(\"families\", resolvedBackup, {childSyncCodes:JSON.stringify(_mergedCodesLogin)}, true).catch(()=>{});")
+);
+
+assert(
+  "regenerated child sync codes redirect stale devices instead of being resurrected",
+  app.includes("isActive: false, replacedBy: newCode") &&
+    app.includes("await _switchChildSyncCode(childId, replacementCode, child);") &&
+    app.includes("_switchChildSyncCode(syncChildId || childId, replacementCode") &&
+    app.includes("if(codeSnap.exists()) {") &&
+    app.includes("if(replacementSnap.exists() && replacementSnap.data().isActive !== false)")
+);
+
+assert(
+  "competing active nap stubs collapse to one timer after sync-lane migration",
+  app.includes("function collapseCompetingActiveNapStubs(entries)") &&
+    app.includes("activeIndexes.length <= 1") &&
+    app.includes("kept.push({...entry, _active:false});") &&
+    app.includes("return collapseCompetingActiveNapStubs(result);")
 );
 
 assert(

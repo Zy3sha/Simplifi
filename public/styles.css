@@ -96,6 +96,24 @@ body.dark-mode .ob-bubbamoji{filter:drop-shadow(0 8px 14px rgba(0,0,0,0.28)) dro
 .ob-mascot-img{position:relative;z-index:2;width:100%;height:100%;object-fit:contain;user-select:none;-webkit-user-drag:none;filter:drop-shadow(0 18px 32px rgba(91,64,54,0.16))}
 .ob-mascot-glow{position:absolute;z-index:0;left:12%;right:12%;bottom:4%;height:36%;border-radius:999px;background:radial-gradient(ellipse at center,rgba(245,218,210,0.46),rgba(217,207,243,0.18) 54%,transparent 72%);filter:blur(12px);opacity:0.88}
 .ob-mascot-shine{position:absolute;z-index:3;inset:9% 6% 28%;border-radius:44% 48% 42% 44%;background:linear-gradient(115deg,transparent 0%,rgba(255,255,255,0.0) 38%,rgba(255,255,255,0.36) 49%,rgba(255,255,255,0.0) 61%,transparent 100%);mix-blend-mode:screen;opacity:0;animation:obMascotShine 5.8s ease-in-out infinite;pointer-events:none}
+.ob-welcome-hero-mascot,
+.ob-auth-mascot{overflow:visible}
+.ob-welcome-hero-mascot .ob-mascot-img,
+.ob-auth-mascot .ob-mascot-img{
+  border-radius:999px;
+  -webkit-mask-image:radial-gradient(ellipse at 50% 50%,#000 0 64%,rgba(0,0,0,0.88) 71%,transparent 84%);
+  mask-image:radial-gradient(ellipse at 50% 50%,#000 0 64%,rgba(0,0,0,0.88) 71%,transparent 84%);
+  filter:drop-shadow(0 16px 28px rgba(91,64,54,0.16));
+}
+
+.ob-welcome-hero-mascot .ob-mascot-glow,
+.ob-auth-mascot .ob-mascot-glow{
+  left:4%;
+  right:4%;
+  bottom:0;
+  height:54%;
+  filter:blur(16px);
+}
 .ob-mascot-thinking{animation-name:obMascotThink}
 .ob-mascot-celebration{animation-name:obMascotCelebrate;animation-duration:1.45s}
 .ob-mascot-loading{animation-name:obMascotSleep;animation-duration:4.2s}
@@ -429,7 +447,8 @@ body.dark-mode .ob-hero:not(.prio-glow){
 }
 
 /* ═══ EDGE GLOW — light concentrated at the border, not filling interior ═══ */
-
+@keyframes obEdgeGlow{
+  0%,100%{opacity:.72}
   50%{opacity:1}
 }
 
@@ -4088,45 +4107,6 @@ body.dark-mode .ob-app-root .ob-night-wake-tip{
   background:rgba(255,255,255,0.998)!important;
   backdrop-filter:blur(5px) saturate(1.05)!important;
 }
-@keyframes obBubbaHugFlash{
-  0%{opacity:0;transform:scale(0.55)}
-  18%{opacity:1;transform:scale(1.12)}
-  38%{opacity:0.72;transform:scale(0.96)}
-  58%{opacity:1;transform:scale(1.08)}
-  100%{opacity:0;transform:scale(1.34)}
-}
-.ob-bubba-hug-pulse{
-  position:fixed;
-  inset:0;
-  z-index:9996;
-  pointer-events:none;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-}
-.ob-bubba-hug-heart{
-  width:92px;
-  height:92px;
-  border-radius:999px;
-  display:flex;
-  align-items:center;
-  justify-content:center;
-  color:#ff5f9f;
-  font-size:68px;
-  line-height:1;
-  background:rgba(255,240,247,0.92);
-  box-shadow:0 16px 46px rgba(255,95,159,0.28), 0 0 0 10px rgba(255,95,159,0.10);
-  animation:obBubbaHugFlash 1.65s cubic-bezier(0.18,0.84,0.28,1) both;
-}
-.ob-bubba-hug-card-heart{
-  text-shadow:0 10px 26px rgba(255,95,159,0.22);
-}
-@media(prefers-reduced-motion:reduce){
-  .ob-bubba-hug-heart{
-    animation:none;
-    opacity:1;
-  }
-}
 body.dark-mode .ob-global-toast{
   background:rgba(6,14,27,0.998)!important;
   border-color:rgba(213,198,255,0.72)!important;
@@ -4420,6 +4400,8 @@ body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]
    .ob-pressing for one short beat after touch. Keep the glow local to the
    clicked control and use a persistent spotlight only for the selected dock tab. */
 
+@keyframes obButtonPressPop{
+  0%{filter:brightness(1);transform:scale(0.985)}
   42%{filter:brightness(1.16);transform:scale(0.965)}
   100%{filter:brightness(1.04);transform:scale(0.985)}
 }
@@ -4494,6 +4476,8 @@ body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]
 
 /* Retired Track status card readability guard. */
 
+@keyframes obActionGlow{
+  0%{box-shadow:0 0 0 2px rgba(255,255,255,0),0 0 6px var(--ob-action-glow),var(--card-shadow);transform:translateY(0) scale(1);}
   42%{box-shadow:0 0 0 3px var(--ob-action-glow),0 0 16px var(--ob-action-glow),var(--card-shadow);transform:translateY(1px) scale(0.975);}
   100%{box-shadow:0 0 0 2px rgba(255,255,255,0),0 0 6px var(--ob-action-glow),var(--card-shadow);transform:translateY(0) scale(1);}
 }
@@ -4644,13 +4628,11 @@ details.ob-parent-room-more[open] > summary::after{
   }
 }
 .ob-parent-room-hero,
-.ob-parent-room-mood,
-.ob-parent-room-bubba-hug{
+.ob-parent-room-mood{
   position:relative!important;
   overflow:hidden!important;
 }
-.ob-parent-room-hero::after,
-.ob-parent-room-bubba-hug::after{
+.ob-parent-room-hero::after{
   content:""!important;
   position:absolute!important;
   inset:0!important;
@@ -4658,8 +4640,7 @@ details.ob-parent-room-more[open] > summary::after{
   background:radial-gradient(ellipse 70% 64% at 92% 0%,rgba(126,195,255,0.18),transparent 62%)!important;
 }
 body.dark-mode .ob-parent-room-section-title span{color:#f4f7fb!important}
-body.dark-mode .ob-parent-room-hero,
-body.dark-mode .ob-parent-room-bubba-hug{
+body.dark-mode .ob-parent-room-hero{
   background:
     radial-gradient(ellipse 90% 70% at 86% 0%,rgba(143,197,255,0.12),transparent 62%),
     linear-gradient(135deg,rgba(123,104,238,0.16),rgba(255,255,255,0.075))!important;
@@ -6929,10 +6910,9 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-actions button{
   gap:7px!important;
   font:800 12.5px/1.1 inherit!important;
 }
-body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-actions button.is-morning-wake{
-  grid-column:1 / -1!important;
-  justify-self:center!important;
-  width:calc((100% - 8px) / 2)!important;
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-actions.is-history{
+  grid-template-columns:minmax(0,1fr)!important;
+  width:min(100%,320px)!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-actions span{
   font-size:18px!important;
@@ -7139,9 +7119,6 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-panel-soft{
   body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-actions button{
     min-height:42px!important;
     font-size:11.5px!important;
-  }
-  body[data-clock-home-lab="1"] .ob-app-root .ob-clock-night-actions button.is-morning-wake{
-    width:calc((100% - 6px) / 2)!important;
   }
   body[data-clock-home-lab="1"] .ob-app-root .ob-clock-guidance-actions{
     grid-template-columns:1fr!important;
@@ -10276,6 +10253,20 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-active-ring{
   grid-template-columns:repeat(4,minmax(0,1fr));
   gap:8px;
 }
+.ob-app-root .ob-clock-timer-controls.is-bottom-actions{
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:9px;
+  margin-top:-2px;
+  position:relative;
+  z-index:2;
+}
+.ob-app-root .ob-clock-breast-side-toggle{
+  order:1;
+  grid-column:1/-1;
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:8px;
+}
 .ob-app-root .ob-clock-timer-controls button,
 .ob-app-root .ob-clock-panel button,
 .ob-app-root .ob-clock-tabs button{
@@ -10291,6 +10282,98 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-active-ring{
   line-height:1.1;
   font-weight:850;
   cursor:pointer;
+}
+.ob-app-root .ob-clock-timer-controls.is-bottom-actions button{
+  min-height:48px;
+  font-size:14px;
+}
+.ob-app-root .ob-clock-breast-side-toggle button{
+  min-height:42px!important;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-wrap:wrap;
+  gap:4px 7px;
+  position:relative;
+  overflow:visible;
+  isolation:isolate;
+  border-color:rgba(211,147,105,0.34)!important;
+  background:rgba(255,248,239,0.78)!important;
+  color:#8C5B45!important;
+}
+.ob-app-root .ob-clock-breast-side-toggle button::after{
+  content:"";
+  position:absolute;
+  inset:-8px -5px -9px;
+  z-index:-1;
+  pointer-events:none;
+  border-radius:28px;
+  opacity:0;
+  transform:scale(0.92);
+  transition:opacity 180ms ease, transform 180ms ease;
+  background:radial-gradient(ellipse 72% 72% at 50% 48%,rgba(92,226,255,0.36),rgba(171,133,255,0.16) 48%,transparent 74%);
+  filter:blur(5px);
+}
+.ob-app-root .ob-clock-breast-side-toggle button.is-selected{
+  border-color:rgba(255,155,58,0.62)!important;
+  background:linear-gradient(180deg,rgba(255,235,202,0.96),rgba(255,214,150,0.9))!important;
+  color:#5F3C2D!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.78),0 8px 20px rgba(222,145,72,0.22)!important;
+}
+.ob-app-root .ob-clock-breast-side-toggle button.is-running{
+  border-color:rgba(255,190,117,0.84)!important;
+  background:linear-gradient(180deg,#DEB074,#B98245)!important;
+  color:#FFF7E9!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.34),0 5px 16px rgba(192,112,136,0.12),0 0 28px rgba(92,226,255,0.24),0 0 42px rgba(171,133,255,0.18),0 12px 24px rgba(185,130,69,0.26)!important;
+}
+.ob-app-root .ob-clock-breast-side-toggle button.is-running::after{
+  opacity:1;
+  transform:scale(1);
+}
+.ob-app-root .ob-clock-breast-side-toggle button.is-running::before{
+  content:"";
+  width:7px;
+  height:7px;
+  border-radius:999px;
+  background:#FFF2B2;
+  box-shadow:0 0 10px rgba(255,242,178,0.92);
+}
+.ob-app-root .ob-clock-breast-side-toggle span{
+  font-size:17px;
+  font-weight:900;
+  line-height:1;
+}
+.ob-app-root .ob-clock-breast-side-toggle em{
+  font-style:normal;
+  font-size:12px;
+  font-weight:850;
+  line-height:1;
+}
+.ob-app-root .ob-clock-breast-side-toggle small{
+  flex-basis:100%;
+  font-size:10px;
+  line-height:1;
+  font-weight:900;
+  opacity:0.72;
+}
+.ob-app-root .ob-clock-breast-side-toggle button.is-running small{
+  opacity:0.92;
+}
+body.dark-mode .ob-app-root .ob-clock-breast-side-toggle button.is-running::after{
+  background:radial-gradient(ellipse 76% 72% at 50% 50%,rgba(255,202,126,0.46),rgba(255,126,46,0.22) 50%,transparent 76%);
+  filter:blur(6px);
+}
+.ob-app-root .ob-clock-timer-controls.is-bottom-actions .is-end{
+  order:2;
+}
+.ob-app-root .ob-clock-timer-controls.is-bottom-actions .is-edit{
+  order:3;
+}
+.ob-app-root .ob-clock-timer-controls.is-bottom-actions .is-pause{
+  order:4;
+}
+.ob-app-root .ob-clock-timer-controls.is-bottom-actions .is-cancel{
+  order:5;
 }
 .ob-app-root .ob-clock-timer-controls button.is-primary,
 .ob-app-root .ob-clock-panel button{
@@ -10310,6 +10393,7 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-active-ring{
 }
 .ob-app-root .ob-clock-log-btn{
   appearance:none;
+  position:relative;
   min-width:0;
   min-height:86px;
   border:1px solid rgba(112,174,202,0.26);
@@ -10353,6 +10437,29 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-active-ring{
   font-style:normal;
   font-weight:760;
   overflow-wrap:anywhere;
+}
+.ob-app-root .ob-clock-log-badge{
+  position:absolute;
+  top:5px;
+  right:5px;
+  min-width:0!important;
+  max-width:calc(100% - 10px);
+  display:inline-flex!important;
+  align-items:center;
+  justify-content:center;
+  padding:2px 5px;
+  border-radius:999px;
+  border:1px solid rgba(255,190,104,0.45);
+  background:rgba(255,232,190,0.92);
+  color:#70422B!important;
+  font-size:9.4px!important;
+  line-height:1!important;
+  font-weight:950!important;
+  letter-spacing:0!important;
+  white-space:nowrap!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  box-shadow:0 4px 10px rgba(80,48,32,0.16),inset 0 1px 0 rgba(255,255,255,0.68);
 }
 .ob-app-root .ob-clock-tabs{
   display:grid;
@@ -11231,6 +11338,8 @@ body.dark-mode .ob-app-root .ob-day-tool-title{
   color:#F5F0F5!important;
 }
 
+@keyframes obButtonPressPop{
+  0%{filter:brightness(1);transform:scale(0.985)}
   42%{filter:brightness(1.16);transform:scale(0.965)}
   100%{filter:brightness(1.04);transform:scale(0.985)}
 }
@@ -12419,6 +12528,27 @@ body{
   width:100%!important;
   max-width:min(var(--ob-app-max-w,520px), calc(var(--ob-vw,100vw) - var(--ob-modal-pad,16px) - var(--ob-modal-pad,16px)))!important;
   overflow-x:hidden!important;
+}
+/* Plan window bottom-sheet dock clearance.
+   Clock Track mounts the plan editor from inside a transformed panel, so the
+   shared sheet is portalled to app chrome and given enough scroll room for the
+   fixed bottom navigation on small phones. */
+.ob-app-root .ob-sheet-overlay{
+  z-index:9000!important;
+}
+.ob-app-root .ob-sheet-content{
+  z-index:9001!important;
+}
+.ob-app-root .ob-plan-window-sheet{
+  padding-bottom:calc(112px + env(safe-area-inset-bottom,0px))!important;
+  scroll-padding-bottom:calc(132px + env(safe-area-inset-bottom,0px))!important;
+}
+.ob-app-root .ob-plan-window-sheet .ob-plan-window-list{
+  padding-bottom:calc(14px + env(safe-area-inset-bottom,0px))!important;
+}
+body[data-ob-sheet-open="1"] .ob-app-root div[role="navigation"][aria-label="Main navigation"]{
+  display:none!important;
+  pointer-events:none!important;
 }
 body[data-kb-open="1"] .ob-app-root :where(.ob-sheet-overlay,.ob-keyboard-safe-overlay){
   bottom:var(--ob-keyboard-bottom, var(--keyboard-height,0px))!important;
@@ -14569,6 +14699,29 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .o
   line-height:1.05!important;
   font-size:11.4px!important;
 }
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-badge,
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn span.ob-clock-log-badge{
+  position:absolute!important;
+  top:5px!important;
+  right:5px!important;
+  display:inline-flex!important;
+  width:auto!important;
+  min-width:0!important;
+  min-height:0!important;
+  max-width:calc(100% - 10px)!important;
+  padding:2px 5px!important;
+  border-radius:999px!important;
+  border:1px solid rgba(255,190,104,0.45)!important;
+  background:rgba(255,232,190,0.92)!important;
+  color:#70422B!important;
+  font-size:9.4px!important;
+  line-height:1!important;
+  font-weight:950!important;
+  white-space:nowrap!important;
+  overflow:visible!important;
+  text-overflow:clip!important;
+  box-shadow:0 4px 10px rgba(80,48,32,0.16),inset 0 1px 0 rgba(255,255,255,0.68)!important;
+}
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions.is-expanded .ob-clock-log-btn{
   min-height:91px!important;
 }
@@ -14875,6 +15028,20 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-sub{
   paint-order:stroke!important;
   stroke-width:0.22px!important;
 }
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-sub.is-overdue{
+  font-size:7.1px!important;
+  font-weight:720!important;
+  opacity:0.88!important;
+  stroke-width:0.16px!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-sub.is-overdue .is-overdue-label{
+  font-size:6.6px!important;
+  font-weight:720!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-sub.is-overdue .is-overdue-amount{
+  font-size:8px!important;
+  font-weight:800!important;
+}
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-rule{
   stroke-linecap:round!important;
   stroke-width:0.68!important;
@@ -14957,16 +15124,16 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot{
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot.is-feed,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-event-dot.is-feed,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-event-dot.is-feed{
-  fill:#C8FF3D!important;
-  stroke:#C8FF3D!important;
-  filter:drop-shadow(0 0 6px rgba(200,255,61,0.64)) drop-shadow(0 0 15px rgba(200,255,61,0.30))!important;
+  fill:#B8FF2E!important;
+  stroke:#B8FF2E!important;
+  filter:drop-shadow(0 0 6px rgba(184,255,46,0.66)) drop-shadow(0 0 15px rgba(184,255,46,0.32))!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot.is-poop,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-event-dot.is-poop,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-event-dot.is-poop{
-  fill:#29D7FF!important;
-  stroke:#29D7FF!important;
-  filter:drop-shadow(0 0 6px rgba(41,215,255,0.58)) drop-shadow(0 0 15px rgba(41,215,255,0.26))!important;
+  fill:#2DD4BF!important;
+  stroke:#2DD4BF!important;
+  filter:drop-shadow(0 0 6px rgba(45,212,191,0.60)) drop-shadow(0 0 15px rgba(45,212,191,0.28))!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot.is-wake,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-event-dot.is-wake,
@@ -14978,9 +15145,9 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .o
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot.is-night-wake,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-event-dot.is-night-wake,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-event-dot.is-night-wake{
-  fill:#00D9FF!important;
-  stroke:#00D9FF!important;
-  filter:drop-shadow(0 0 6px rgba(0,217,255,0.66)) drop-shadow(0 0 15px rgba(0,217,255,0.34))!important;
+  fill:#00F0FF!important;
+  stroke:#00F0FF!important;
+  filter:drop-shadow(0 0 6px rgba(0,240,255,0.68)) drop-shadow(0 0 15px rgba(0,240,255,0.36))!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot.is-pump,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-event-dot.is-pump,
@@ -14992,9 +15159,9 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .o
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot.is-medicine,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-event-dot.is-medicine,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-event-dot.is-medicine{
-  fill:#FF6B4A!important;
-  stroke:#FF6B4A!important;
-  filter:drop-shadow(0 0 6px rgba(255,107,74,0.58)) drop-shadow(0 0 15px rgba(255,107,74,0.26))!important;
+  fill:#FF4F6D!important;
+  stroke:#FF4F6D!important;
+  filter:drop-shadow(0 0 6px rgba(255,79,109,0.60)) drop-shadow(0 0 15px rgba(255,79,109,0.28))!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-dot.is-tummy,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-event-dot.is-tummy,
@@ -15030,8 +15197,8 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .o
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc.is-night-wake,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-event-arc.is-night-wake,
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-event-arc.is-night-wake{
-  stroke:#00D9FF!important;
-  filter:drop-shadow(0 0 6px rgba(0,217,255,0.68)) drop-shadow(0 0 16px rgba(0,217,255,0.36))!important;
+  stroke:#00F0FF!important;
+  filter:drop-shadow(0 0 6px rgba(0,240,255,0.70)) drop-shadow(0 0 16px rgba(0,240,255,0.38))!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc.is-sleep-carry,
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-arc.is-sleep-carry.is-hollow,
@@ -15134,10 +15301,10 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-center-plinth{
   100%{transform:translate(0,0) scale(0.95);opacity:0.65;}
 }
 @keyframes obClockPresenceBehindGlassDrift{
-  0%{transform:translate(0,0) scale(0.70);opacity:0.35;}
-  33%{transform:translate(3px,-4px) scale(0.82);opacity:0.50;}
-  66%{transform:translate(-2px,-6px) scale(0.75);opacity:0.42;}
-  100%{transform:translate(0,0) scale(0.70);opacity:0.35;}
+  0%{opacity:0.54;}
+  33%{opacity:0.78;}
+  66%{opacity:0.62;}
+  100%{opacity:0.54;}
 }
 @keyframes obClockFireflyLantern{
   0%,100%{opacity:0.76;filter:drop-shadow(0 0 6px rgba(255,190,104,0.46));}
@@ -15213,7 +15380,7 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-presence-glyph.is-behind-gl
   mix-blend-mode:screen!important;
   animation:obClockPresenceBehindGlassDrift 6.5s ease-in-out infinite!important;
   animation-delay:var(--ob-presence-delay,0s)!important;
-  will-change:transform,opacity!important;
+  will-change:opacity,filter!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-presence-firefly{
   transform-box:fill-box!important;
@@ -15244,7 +15411,7 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-presence-lantern{
   animation:obClockFireflyLantern 2.35s ease-in-out infinite!important;
   animation-delay:var(--ob-presence-delay,0s)!important;
 }
-/* Clock lab firefly orb final lock: night Bubba Hug presence uses the pressed navigation amber glow, not insect wings. */
+/* Clock lab firefly orb final lock: night presence uses the pressed navigation amber glow, not insect wings. */
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-presence-glyph.is-firefly{
   opacity:0.86!important;
   filter:drop-shadow(0 0 10px rgba(255,190,104,0.30)) drop-shadow(0 0 22px rgba(255,155,58,0.20))!important;
@@ -15275,7 +15442,7 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .o
   transform-box:fill-box!important;
   transform-origin:center!important;
 }
-/* Clock lab presence hover final lock: fireflies explain Bubba Hug without covering clock arcs. */
+/* Clock lab presence hover final lock: fireflies explain shared awake presence without covering clock arcs. */
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-tip.is-presence{
   grid-template-columns:13px minmax(0,1fr)!important;
   align-items:center!important;
@@ -15795,6 +15962,126 @@ body.dark-mode .ob-app-root .ob-care-guide-grid > div{
   padding:0 14px 14px!important;
 }
 
+/* Growth insight premium pass: one calm curve read before the charts. */
+.ob-app-root .ob-growth-premium-read{
+  border-color:rgba(105,151,112,0.28)!important;
+  background:
+    linear-gradient(150deg,rgba(244,255,247,0.82),rgba(255,255,255,0.56) 48%,rgba(232,246,255,0.52)),
+    var(--card-bg-solid)!important;
+}
+body.dark-mode .ob-app-root .ob-growth-premium-read{
+  border-color:rgba(133,207,153,0.28)!important;
+  background:
+    linear-gradient(150deg,rgba(34,59,49,0.86),rgba(17,25,43,0.72) 52%,rgba(28,43,72,0.74)),
+    var(--card-bg-solid)!important;
+}
+.ob-app-root .ob-growth-hero-top{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) minmax(118px,0.5fr)!important;
+  gap:12px!important;
+  align-items:start!important;
+  margin-bottom:12px!important;
+}
+.ob-app-root .ob-growth-hero-copy{
+  margin:0!important;
+  color:var(--text-mid)!important;
+  font-size:12.5px!important;
+  line-height:1.48!important;
+  font-weight:650!important;
+  letter-spacing:0!important;
+}
+.ob-app-root .ob-growth-status-pill{
+  justify-self:end!important;
+  min-width:112px!important;
+  padding:10px 11px!important;
+  border-radius:16px!important;
+  background:rgba(255,255,255,0.48)!important;
+  border:1px solid rgba(255,255,255,0.66)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.78)!important;
+}
+body.dark-mode .ob-app-root .ob-growth-status-pill{
+  background:rgba(255,255,255,0.075)!important;
+  border-color:rgba(255,255,255,0.12)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.10)!important;
+}
+.ob-app-root .ob-growth-status-pill span,
+.ob-app-root .ob-growth-status-pill small{
+  display:block!important;
+  text-align:right!important;
+  letter-spacing:0!important;
+}
+.ob-app-root .ob-growth-status-pill span{
+  color:var(--text-deep)!important;
+  font-size:12px!important;
+  line-height:1.18!important;
+  font-weight:950!important;
+}
+.ob-app-root .ob-growth-status-pill small{
+  margin-top:4px!important;
+  color:var(--text-lt)!important;
+  font-size:10.5px!important;
+  line-height:1.2!important;
+  font-weight:800!important;
+}
+.ob-app-root .ob-growth-premium-metrics{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  gap:8px!important;
+  margin-bottom:10px!important;
+}
+.ob-app-root .ob-growth-metric-card{
+  min-width:0!important;
+  padding:10px 9px!important;
+  border-radius:14px!important;
+  background:rgba(255,255,255,0.46)!important;
+  border:1px solid rgba(255,255,255,0.68)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.78)!important;
+}
+body.dark-mode .ob-app-root .ob-growth-metric-card{
+  background:rgba(255,255,255,0.065)!important;
+  border-color:rgba(255,255,255,0.12)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.10)!important;
+}
+.ob-app-root .ob-growth-metric-card span,
+.ob-app-root .ob-growth-metric-card b,
+.ob-app-root .ob-growth-metric-card small{
+  display:block!important;
+  min-width:0!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+  letter-spacing:0!important;
+}
+.ob-app-root .ob-growth-metric-card span{
+  color:var(--text-lt)!important;
+  font-size:10px!important;
+  line-height:1.1!important;
+  font-weight:900!important;
+  text-transform:uppercase!important;
+}
+.ob-app-root .ob-growth-metric-card b{
+  margin-top:5px!important;
+  color:var(--text-deep)!important;
+  font-size:17px!important;
+  line-height:1.08!important;
+  font-weight:950!important;
+}
+.ob-app-root .ob-growth-metric-card small{
+  margin-top:4px!important;
+  color:#5f9267!important;
+  font-size:10.5px!important;
+  line-height:1.1!important;
+  font-weight:900!important;
+}
+body.dark-mode .ob-app-root .ob-growth-metric-card small{
+  color:#A9E2B8!important;
+}
+.ob-app-root .ob-growth-log-card,
+.ob-app-root .ob-growth-proof-drawer{
+  border-color:rgba(105,151,112,0.18)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.55),0 10px 26px rgba(74,110,86,0.07)!important;
+}
+
 /* Care insight typography pass: keep data drawers readable, not decorative. */
 .ob-app-root .ob-care-insight-title{
   font-family:var(--ob-font-body,'DM Sans',-apple-system,'SF Pro Display',system-ui,sans-serif)!important;
@@ -15840,6 +16127,26 @@ body.dark-mode .ob-app-root .ob-weaning-plan-change-btn{
 @media (max-width:390px){
   .ob-app-root .ob-care-section-guide{
     padding:14px!important;
+  }
+  .ob-app-root .ob-growth-hero-top{
+    grid-template-columns:1fr!important;
+  }
+  .ob-app-root .ob-growth-status-pill{
+    justify-self:stretch!important;
+  }
+  .ob-app-root .ob-growth-status-pill span,
+  .ob-app-root .ob-growth-status-pill small{
+    text-align:left!important;
+  }
+  .ob-app-root .ob-growth-premium-metrics{
+    grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    gap:6px!important;
+  }
+  .ob-app-root .ob-growth-metric-card{
+    padding:9px 7px!important;
+  }
+  .ob-app-root .ob-growth-metric-card b{
+    font-size:15px!important;
   }
   .ob-app-root .ob-care-section-guide h3{
     font-size:17px!important;
@@ -16047,10 +16354,1390 @@ body.dark-mode .ob-app-root .ob-care-date-picker{
 /* Clock event ticks — used when moments overlap so they're all visible */
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-tick{
   stroke-linecap:round!important;
-  filter:drop-shadow(0 0 4px var(--ob-clock-event-glow,rgba(152,176,224,0.22)))!important;
-  opacity:0.90!important;
+  vector-effect:non-scaling-stroke!important;
+  filter:drop-shadow(0 0 5px var(--ob-clock-event-glow,rgba(152,176,224,0.28)))!important;
+  opacity:0.96!important;
 }
 body[data-clock-home-lab="1"] .ob-app-root .ob-clock-event-tick.is-now{
   opacity:1!important;
   filter:drop-shadow(0 0 6px var(--ob-clock-event-glow,rgba(152,176,224,0.35)))!important;
+}
+
+/* Absolute final native tab dock clamp.
+   Physical end guard: theme passes above may adjust colour, but must not add
+   safe-area padding inside the fixed dock or it grows over the content. */
+.ob-app-root div[role="navigation"][aria-label="Main navigation"],
+body.light-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"],
+body:not(.dark-mode) .ob-app-root div[role="navigation"][aria-label="Main navigation"],
+body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]{
+  left:max(12px, env(safe-area-inset-left,0px))!important;
+  right:max(12px, env(safe-area-inset-right,0px))!important;
+  bottom:max(6px, env(safe-area-inset-bottom,0px))!important;
+  width:auto!important;
+  max-width:min(480px, calc(var(--ob-vw,100vw) - 24px))!important;
+  height:64px!important;
+  min-height:64px!important;
+  max-height:64px!important;
+  padding:5px 7px!important;
+  gap:4px!important;
+  align-items:center!important;
+  justify-content:space-evenly!important;
+  overflow:visible!important;
+  border-radius:24px!important;
+  box-sizing:border-box!important;
+  transform:translateZ(0)!important;
+}
+.ob-app-root div[role="navigation"][aria-label="Main navigation"] button.ob-main-tab-btn,
+body[data-screen-compact] .ob-app-root div[role="navigation"][aria-label="Main navigation"] button.ob-main-tab-btn,
+body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"] button.ob-main-tab-btn{
+  flex:1 1 0!important;
+  min-width:0!important;
+  max-width:96px!important;
+  width:auto!important;
+  height:52px!important;
+  min-height:52px!important;
+  max-height:52px!important;
+  padding:4px 3px 3px!important;
+  gap:1px!important;
+  border-radius:22px!important;
+  overflow:visible!important;
+}
+.ob-app-root .ob-main-content{
+  padding-bottom:calc(104px + env(safe-area-inset-bottom,0px))!important;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ANDROID PERFORMANCE — backdrop-filter fallback + animation control
+   Android WebView's backdrop-filter is 3-5x slower than Safari.
+   These rules detect Android and swap blur for solid backgrounds.
+   ═══════════════════════════════════════════════════════════ */
+
+body.android .glass-card,
+body.md .glass-card {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,0.88), rgba(255,255,255,0.72) 42%, rgba(255,255,255,0.82)),
+    var(--card-bg) !important;
+}
+
+body.android.dark-mode .glass-card,
+body.md.dark-mode .glass-card {
+  background:
+    linear-gradient(145deg, rgba(30,28,38,0.92), rgba(22,20,30,0.88)),
+    var(--card-bg) !important;
+}
+
+body.android .glass-entry,
+body.md .glass-entry {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+body.android div[role="navigation"][aria-label="Main navigation"],
+body.md div[role="navigation"][aria-label="Main navigation"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background:
+    linear-gradient(145deg, rgba(255,255,255,0.94), rgba(255,255,255,0.88)),
+    var(--nav-bg) !important;
+}
+
+body.android.dark-mode div[role="navigation"][aria-label="Main navigation"],
+body.md.dark-mode div[role="navigation"][aria-label="Main navigation"] {
+  background:
+    linear-gradient(145deg, rgba(18,16,28,0.96), rgba(12,10,22,0.94)),
+    var(--nav-bg) !important;
+}
+
+/* Slow down / kill continuous animations on Android */
+body.android .ob-mascot,
+body.md .ob-mascot {
+  animation-duration: 7.2s !important;
+}
+
+body.android .ob-mascot-shine,
+body.md .ob-mascot-shine {
+  animation: none !important;
+}
+
+body.android .prio-glow,
+body.md .prio-glow {
+  animation: none !important;
+  border-color: var(--ter) !important;
+  box-shadow: 0 0 8px rgba(192,112,136,0.15) !important;
+}
+
+body.android.dark-mode .prio-glow,
+body.md.dark-mode .prio-glow {
+  border-color: rgba(255,190,90,0.4) !important;
+  box-shadow: 0 0 8px rgba(255,190,90,0.12) !important;
+}
+
+body.android .ob-bubbamoji-animate,
+body.md .ob-bubbamoji-animate {
+  animation: none !important;
+}
+
+body.android .ob-mascot-zzz,
+body.android .ob-mascot-confetti,
+body.md .ob-mascot-zzz,
+body.md .ob-mascot-confetti {
+  animation: none !important;
+  display: none !important;
+}
+
+/* Clock lab firefly glass field: lets many anonymous night parents read as
+   ambient light behind the controls instead of crowding the clock rim. */
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-lab{
+  position:relative!important;
+  isolation:isolate!important;
+  overflow:visible!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-firefly-field{
+  position:absolute!important;
+  inset:0 -14px -96px -14px!important;
+  z-index:0!important;
+  pointer-events:none!important;
+  overflow:hidden!important;
+  border-radius:34px!important;
+  mix-blend-mode:screen!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-kindness-note,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-rhythm-card,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-night-actions,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-timer-controls,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-context-actions,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-log-strip,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-day-context,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-tabs,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-panel{
+  position:relative!important;
+  z-index:1!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-ambient-firefly{
+  position:absolute!important;
+  left:calc(var(--ob-firefly-x) * 1%)!important;
+  top:calc(var(--ob-firefly-y) * 1%)!important;
+  width:var(--ob-firefly-size)!important;
+  height:var(--ob-firefly-size)!important;
+  transform:translate(-50%,-50%)!important;
+  opacity:0.76!important;
+  animation:obClockAmbientFireflyFloat 8.8s ease-in-out infinite!important;
+  animation-delay:var(--ob-firefly-delay)!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-ambient-firefly::before{
+  content:""!important;
+  position:absolute!important;
+  inset:-12px!important;
+  border-radius:50%!important;
+  background:radial-gradient(circle,rgba(255,236,174,0.62) 0%,rgba(255,190,104,0.28) 34%,rgba(110,178,255,0.10) 58%,transparent 76%)!important;
+  filter:blur(1px)!important;
+  animation:obClockAmbientFireflyTwinkle var(--ob-firefly-twinkle) ease-in-out infinite!important;
+  animation-delay:var(--ob-firefly-delay)!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-ambient-firefly i{
+  position:absolute!important;
+  inset:31%!important;
+  border-radius:50%!important;
+  background:#FFF1B8!important;
+  box-shadow:
+    0 0 7px rgba(255,236,174,0.94),
+    0 0 15px rgba(255,190,104,0.58)!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-ambient-firefly b{
+  position:absolute!important;
+  left:50%!important;
+  top:18%!important;
+  width:128%!important;
+  height:44%!important;
+  transform:translateX(-50%) rotate(-8deg)!important;
+  border-radius:999px!important;
+  background:
+    radial-gradient(ellipse at 26% 50%,rgba(236,248,255,0.46),transparent 58%),
+    radial-gradient(ellipse at 74% 50%,rgba(236,248,255,0.38),transparent 58%)!important;
+  opacity:0.42!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-ambient-firefly.is-bright{
+  opacity:0.94!important;
+}
+@keyframes obClockAmbientFireflyFloat{
+  0%,100%{ transform:translate(-50%,-50%) translate3d(0,0,0) scale(0.92); }
+  42%{ transform:translate(-50%,-50%) translate3d(var(--ob-firefly-drift),-10px,0) scale(1.06); }
+  68%{ transform:translate(-50%,-50%) translate3d(calc(var(--ob-firefly-drift) * -0.55),6px,0) scale(0.98); }
+}
+@keyframes obClockAmbientFireflyTwinkle{
+  0%,100%{ opacity:0.28; transform:scale(0.72); }
+  46%{ opacity:0.92; transform:scale(1.1); }
+  72%{ opacity:0.48; transform:scale(0.88); }
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-log-strip,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-tabs,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-panel,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-day-mode-summary,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-day-mode-switcher,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-night-actions button,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-timer-controls button{
+  background:
+    linear-gradient(180deg,rgba(31,51,79,0.58),rgba(7,13,29,0.50)),
+    radial-gradient(ellipse 96% 130% at 50% 0%,rgba(255,233,196,0.10),transparent 64%)!important;
+  border-color:rgba(255,221,179,0.34)!important;
+  -webkit-backdrop-filter:blur(19px) saturate(1.85)!important;
+  backdrop-filter:blur(19px) saturate(1.85)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,245,226,0.18),
+    inset 0 -1px 0 rgba(94,42,56,0.16),
+    0 16px 36px rgba(0,0,0,0.26),
+    0 0 28px rgba(255,190,104,0.08)!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-log-btn{
+  position:relative!important;
+  overflow:hidden!important;
+  background:
+    radial-gradient(circle at 50% 0%,color-mix(in srgb,var(--ob-clock-accent) 20%,transparent),transparent 64%),
+    linear-gradient(180deg,rgba(30,54,83,0.52),rgba(7,14,30,0.44))!important;
+  border-color:color-mix(in srgb,var(--ob-clock-accent) 48%,rgba(255,236,200,0.18))!important;
+  -webkit-backdrop-filter:blur(15px) saturate(1.9)!important;
+  backdrop-filter:blur(15px) saturate(1.9)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,247,230,0.18),
+    inset 0 0 0 1px rgba(255,255,255,0.035),
+    0 8px 20px rgba(0,0,0,0.20),
+    0 0 20px color-mix(in srgb,var(--ob-clock-accent) 18%,transparent)!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-log-btn::before{
+  content:""!important;
+  position:absolute!important;
+  inset:0!important;
+  border-radius:inherit!important;
+  pointer-events:none!important;
+  background:
+    linear-gradient(130deg,rgba(255,255,255,0.24),transparent 31%),
+    radial-gradient(ellipse 90% 60% at 50% 110%,rgba(255,190,104,0.12),transparent 70%)!important;
+  opacity:0.82!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-log-btn > *{
+  position:relative!important;
+  z-index:1!important;
+}
+body.android[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-log-strip,
+body.android[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-tabs,
+body.android[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-panel,
+body.android[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-day-mode-summary,
+body.android[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-day-mode-switcher,
+body.android[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-night-actions button,
+body.android[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-timer-controls button,
+body.android[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-log-btn,
+body.md[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-log-strip,
+body.md[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-tabs,
+body.md[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-panel,
+body.md[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-day-mode-summary,
+body.md[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-day-mode-switcher,
+body.md[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-night-actions button,
+body.md[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-timer-controls button,
+body.md[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-log-btn{
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  background:
+    linear-gradient(180deg,rgba(25,43,66,0.88),rgba(7,13,29,0.82)),
+    radial-gradient(ellipse 90% 120% at 50% 0%,rgba(255,233,196,0.09),transparent 64%)!important;
+}
+@media (prefers-reduced-motion:reduce){
+  body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-ambient-firefly,
+  body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-ambient-firefly::before{
+    animation:none!important;
+  }
+}
+
+/* Clock lab full-backdrop glass pass: fireflies live behind the whole Track
+   surface, while clock marks and text stay crisp above the glass. */
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-lab{
+  position:relative!important;
+  isolation:isolate!important;
+  overflow:visible!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-firefly-field{
+  inset:-8px -14px -174px -14px!important;
+  z-index:0!important;
+  opacity:0.92!important;
+  filter:none!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-kindness-note,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-rhythm-card,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-night-actions,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-timer-controls,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-context-actions,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-log-strip,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-day-context,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-tabs,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-panel{
+  position:relative!important;
+  z-index:1!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-rhythm-card{
+  background:linear-gradient(180deg,rgba(7,10,23,0.24),rgba(7,10,23,0.10))!important;
+  box-shadow:none!important;
+  overflow:visible!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-rhythm-card::before{
+  opacity:0.08!important;
+  filter:none!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-kindness-card,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-log-strip,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-tabs,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-panel,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-row,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-log-btn,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-night-actions button,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-timer-controls button,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-context-action,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-prediction-chip{
+  background:
+    linear-gradient(180deg,rgba(20,37,61,0.48),rgba(5,10,23,0.34)),
+    radial-gradient(ellipse 90% 120% at 50% 0%,rgba(255,238,207,0.08),transparent 66%)!important;
+  border-color:rgba(255,221,179,0.34)!important;
+  -webkit-backdrop-filter:blur(10px) saturate(1.38)!important;
+  backdrop-filter:blur(10px) saturate(1.38)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,247,230,0.18),
+    0 12px 26px rgba(0,0,0,0.22),
+    0 0 22px rgba(255,190,104,0.07)!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-svg text,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-num,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-center-title,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-center-sub{
+  filter:none!important;
+  text-rendering:geometricPrecision!important;
+  -webkit-font-smoothing:antialiased!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-presence-glyph.is-behind-glass{
+  opacity:0.48!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-presence-glyph.is-behind-glass .ob-clock-presence-firefly{
+  filter:blur(0.22px) drop-shadow(0 0 8px rgba(255,205,118,0.52)) drop-shadow(0 0 16px rgba(112,239,255,0.10))!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-ambient-firefly{
+  opacity:0.62!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-ambient-firefly.is-bright{
+  opacity:0.86!important;
+}
+
+/* Clock lab full-control firefly glass lock: the same online-parent firefly
+   field runs behind prediction chips, log drawers, action buttons and nav. */
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-firefly-field{
+  position:fixed!important;
+  top:0!important;
+  right:0!important;
+  bottom:0!important;
+  left:0!important;
+  pointer-events:none!important;
+  overflow:visible!important;
+  border-radius:0!important;
+  z-index:0!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-ambient-firefly{
+  opacity:0.72!important;
+  mix-blend-mode:screen!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-ambient-firefly.is-bright{
+  opacity:0.96!important;
+}
+
+/* Clock lab visible online count lock: iPhone keeps the live parent count
+   readable by making behind-glass fireflies as visible as the rim ones. */
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-presence-glyph.is-behind-glass{
+  opacity:0.68!important;
+  filter:drop-shadow(0 0 9px rgba(255,190,104,0.38)) drop-shadow(0 0 19px rgba(112,239,255,0.14))!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-presence-glyph.is-behind-glass .ob-clock-presence-glow{
+  fill:rgba(255,190,104,0.42)!important;
+  stroke:rgba(255,232,190,0.42)!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-presence-glyph.is-behind-glass .ob-clock-presence-lantern{
+  fill:#FFD18A!important;
+  opacity:1!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-kindness-card,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-log-strip,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-tabs,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-panel,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-row,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-night-actions button,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-timer-controls button,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-context-action,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-prediction-chip,
+body.android[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-log-strip,
+body.android[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-tabs,
+body.android[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-panel,
+body.android[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-day-mode-summary,
+body.android[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-day-mode-switcher,
+body.android[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-night-actions button,
+body.android[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-timer-controls button,
+body.md[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-log-strip,
+body.md[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-tabs,
+body.md[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-panel,
+body.md[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-day-mode-summary,
+body.md[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-day-mode-switcher,
+body.md[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-night-actions button,
+body.md[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-timer-controls button{
+  background:
+    linear-gradient(180deg,rgba(18,35,61,0.32),rgba(4,8,18,0.18)),
+    radial-gradient(ellipse 90% 120% at 50% 0%,rgba(255,238,207,0.10),transparent 68%)!important;
+  border-color:rgba(255,221,179,0.35)!important;
+  -webkit-backdrop-filter:blur(9px) saturate(1.42)!important;
+  backdrop-filter:blur(9px) saturate(1.42)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,247,230,0.18),
+    inset 0 -1px 0 rgba(112,204,255,0.035),
+    0 12px 24px rgba(0,0,0,0.18)!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-log-btn,
+body.android[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-log-btn,
+body.md[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-log-btn{
+  background:
+    radial-gradient(circle at 50% 0%,color-mix(in srgb,var(--ob-clock-accent) 15%,transparent),transparent 66%),
+    linear-gradient(180deg,rgba(22,42,70,0.30),rgba(4,9,20,0.14))!important;
+  border-color:color-mix(in srgb,var(--ob-clock-accent) 44%,rgba(255,236,200,0.20))!important;
+  -webkit-backdrop-filter:blur(8px) saturate(1.48)!important;
+  backdrop-filter:blur(8px) saturate(1.48)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,247,230,0.18),
+    inset 0 0 0 1px rgba(255,255,255,0.035),
+    0 8px 18px rgba(0,0,0,0.18),
+    0 0 18px color-mix(in srgb,var(--ob-clock-accent) 14%,transparent)!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-log-btn::before{
+  background:
+    linear-gradient(130deg,rgba(255,255,255,0.20),transparent 34%),
+    radial-gradient(ellipse 88% 58% at 50% 110%,rgba(255,190,104,0.08),transparent 72%)!important;
+  opacity:0.58!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-log-btn .ob-clock-log-icon{
+  background:
+    radial-gradient(circle at 48% 38%,rgba(72,102,134,0.36),rgba(13,28,52,0.22) 70%)!important;
+  border-color:rgba(255,221,179,0.24)!important;
+  -webkit-backdrop-filter:blur(6px) saturate(1.36)!important;
+  backdrop-filter:blur(6px) saturate(1.36)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.10),
+    0 0 0 1px rgba(16,25,38,0.20),
+    0 7px 12px rgba(0,0,0,0.16)!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root div[role="navigation"][aria-label="Main navigation"]{
+  background:
+    linear-gradient(180deg,rgba(20,37,61,0.32),rgba(4,8,18,0.22))!important;
+  border-color:rgba(255,221,179,0.30)!important;
+  -webkit-backdrop-filter:blur(10px) saturate(1.45)!important;
+  backdrop-filter:blur(10px) saturate(1.45)!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,247,230,0.16),
+    0 -12px 26px rgba(0,0,0,0.20)!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root button.ob-main-tab-btn{
+  background:
+    linear-gradient(180deg,rgba(25,48,78,0.30),rgba(5,10,23,0.18))!important;
+  border:1px solid rgba(255,221,179,0.27)!important;
+  -webkit-backdrop-filter:blur(8px) saturate(1.42)!important;
+  backdrop-filter:blur(8px) saturate(1.42)!important;
+  box-shadow:inset 0 1px 0 rgba(255,247,230,0.12),0 8px 16px rgba(0,0,0,0.14)!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root button.ob-main-tab-btn[aria-current="page"]{
+  background:
+    radial-gradient(circle at 50% 0%,rgba(255,190,104,0.24),transparent 68%),
+    linear-gradient(180deg,rgba(55,54,72,0.38),rgba(26,25,43,0.24))!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,247,230,0.18),
+    0 0 22px rgba(255,190,104,0.14),
+    0 10px 20px rgba(0,0,0,0.18)!important;
+}
+
+/* Final readability lock.
+   This sits last on purpose: many older glass passes use inline-style matching
+   and late button rules, so text colour must be normalised after all surfaces
+   have settled. */
+:root,
+body.light-mode,
+body:not(.dark-mode){
+  --ob-readable-text:#3f3338;
+  --ob-readable-sub:#554a52;
+  --ob-readable-muted:#675b63;
+  --ob-readable-button:#433842;
+  --ob-readable-field:#3f3338;
+}
+body.dark-mode{
+  --ob-readable-text:#f8fbff;
+  --ob-readable-sub:#e3ebf5;
+  --ob-readable-muted:#cbd6e3;
+  --ob-readable-button:#f8fbff;
+  --ob-readable-field:#f8fbff;
+}
+
+.ob-app-root{
+  color:var(--ob-readable-text)!important;
+}
+.ob-app-root :where(p,label,small,time,em){
+  color:var(--ob-readable-muted)!important;
+}
+.ob-app-root :where(h1,h2,h3,h4,b,strong),
+.ob-app-root .ob-brand-title,
+.ob-app-root .ob-clock-panel-title,
+.ob-app-root .ob-clock-center-title{
+  color:var(--ob-readable-text)!important;
+}
+
+.ob-app-root input,
+.ob-app-root select,
+.ob-app-root textarea{
+  color:var(--ob-readable-field)!important;
+}
+.ob-app-root input::placeholder,
+.ob-app-root textarea::placeholder{
+  color:var(--ob-readable-muted)!important;
+  opacity:1!important;
+}
+
+.ob-app-root button:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]),
+.ob-app-root [role="button"]:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]){
+  color:var(--ob-readable-button)!important;
+}
+.ob-app-root button:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]) :where(span,b,strong,em,time,small,div):not(.ob-clock-log-icon):not(.ob-main-tab-icon):not(.ob-unicode-icon),
+.ob-app-root [role="button"]:not(.ob-icon-dismiss):not([style*="color: white"]):not([style*="color:white"]) :where(span,b,strong,em,time,small,div):not(.ob-clock-log-icon):not(.ob-main-tab-icon):not(.ob-unicode-icon){
+  color:inherit!important;
+}
+.ob-app-root button[style*="linear-gradient"],
+.ob-app-root button[style*="linear-gradient"] :where(span,b,strong,em,time,small,div):not(.ob-unicode-icon){
+  color:#fff!important;
+}
+
+.ob-app-root .ob-main-tab-label,
+.ob-app-root .ob-day-mode-label,
+.ob-app-root .ob-premium-copy,
+.ob-app-root .ob-premium-kicker,
+.ob-app-root .ob-care-group-sub,
+.ob-app-root .ob-care-fast-copy,
+.ob-app-root .ob-care-tool-sub{
+  color:var(--ob-readable-muted)!important;
+  opacity:1!important;
+}
+.ob-app-root button.ob-main-tab-btn[aria-current="page"] .ob-main-tab-label,
+.ob-app-root button.ob-main-tab-btn[aria-current="page"] .ob-main-tab-icon,
+.ob-app-root button.ob-day-mode-btn.is-active .ob-day-mode-label{
+  color:var(--ob-readable-text)!important;
+  opacity:1!important;
+}
+
+.ob-app-root .ob-clock-kindness-card,
+.ob-app-root .ob-clock-log-strip,
+.ob-app-root .ob-clock-tabs,
+.ob-app-root .ob-clock-panel,
+.ob-app-root .ob-clock-row,
+.ob-app-root .ob-clock-prediction-chip,
+.ob-app-root .ob-clock-day-mode-summary,
+.ob-app-root .ob-soft-sleep-card,
+.ob-app-root .ob-care-tool-tile,
+.ob-app-root .ob-care-fast-path{
+  color:var(--ob-readable-text)!important;
+}
+.ob-app-root .ob-clock-kindness-card p,
+.ob-app-root .ob-clock-log-strip :where(span,em),
+.ob-app-root .ob-clock-row :where(time,em),
+.ob-app-root .ob-clock-total-grid span,
+.ob-app-root .ob-clock-prediction-chip :where(span,em),
+.ob-app-root .ob-clock-day-mode-summary :where(em,span),
+.ob-app-root .ob-soft-sleep-sub,
+.ob-app-root .ob-care-tool-tile :where(span,em,small),
+.ob-app-root .ob-care-fast-path :where(span,em,small){
+  color:var(--ob-readable-sub)!important;
+  opacity:1!important;
+}
+body.dark-mode .ob-app-root .ob-clock-kindness-card p,
+body.dark-mode .ob-app-root .ob-clock-log-strip :where(span,em),
+body.dark-mode .ob-app-root .ob-clock-row :where(time,em),
+body.dark-mode .ob-app-root .ob-clock-total-grid span,
+body.dark-mode .ob-app-root .ob-clock-prediction-chip :where(span,em),
+body.dark-mode .ob-app-root .ob-clock-day-mode-summary :where(em,span),
+body.dark-mode .ob-app-root .ob-soft-sleep-sub,
+body.dark-mode .ob-app-root .ob-care-tool-tile :where(span,em,small),
+body.dark-mode .ob-app-root .ob-care-fast-path :where(span,em,small){
+  color:var(--ob-readable-muted)!important;
+}
+
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-center-title,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-center-sub,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-svg text,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-num{
+  color:#f7f3ff!important;
+  fill:#f7f3ff!important;
+  opacity:1!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-center-sub{
+  color:#e3dcf4!important;
+  fill:#e3dcf4!important;
+}
+
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-center-title .is-name,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-center-title .is-state{
+  color:#f7f3ff!important;
+  fill:#f7f3ff!important;
+  opacity:1!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-center-title .is-name,
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-center-title .is-state{
+  color:#30384d!important;
+  fill:#30384d!important;
+  opacity:1!important;
+}
+
+/* Android WebView clock render stability final lock.
+   Later glass/firefly passes deliberately look richer on iOS and desktop, but
+   Android WebView can flicker when fixed full-screen layers, backdrop-filter,
+   blend modes and animated SVG filters overlap. This final pass keeps the same
+   clock layout with static, concrete surfaces and explicit readable text. */
+html[data-ob-platform="android"] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field{
+  position:absolute!important;
+  inset:0 -8px -100px -8px!important;
+  overflow:hidden!important;
+  border-radius:30px!important;
+  mix-blend-mode:normal!important;
+  opacity:0.42!important;
+  filter:none!important;
+  transform:none!important;
+  will-change:auto!important;
+  contain:paint!important;
+}
+html[data-ob-platform="android"] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-ambient-firefly,
+html[data-ob-platform="android"] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-ambient-firefly::before,
+html[data-ob-platform="android"] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-presence-firefly,
+html[data-ob-platform="android"] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-active-timer-orbit,
+html[data-ob-platform="android"] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-active-timer-dot,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-ambient-firefly,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-ambient-firefly::before,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-presence-firefly,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-active-timer-orbit,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-active-timer-dot{
+  animation:none!important;
+  filter:none!important;
+  mix-blend-mode:normal!important;
+  will-change:auto!important;
+}
+html[data-ob-platform="android"] body[data-clock-home-lab="1"] .ob-app-root :where(.ob-clock-kindness-card,.ob-clock-rhythm-card,.ob-clock-log-strip,.ob-clock-tabs,.ob-clock-panel,.ob-clock-row,.ob-clock-day-mode-summary,.ob-clock-day-mode-switcher,.ob-clock-night-actions button,.ob-clock-timer-controls button,.ob-clock-context-action,.ob-clock-prediction-chip,.ob-clock-log-btn,.ob-clock-log-icon,button.ob-main-tab-btn,div[role="navigation"][aria-label="Main navigation"]),
+body.android[data-clock-home-lab="1"] .ob-app-root :where(.ob-clock-kindness-card,.ob-clock-rhythm-card,.ob-clock-log-strip,.ob-clock-tabs,.ob-clock-panel,.ob-clock-row,.ob-clock-day-mode-summary,.ob-clock-day-mode-switcher,.ob-clock-night-actions button,.ob-clock-timer-controls button,.ob-clock-context-action,.ob-clock-prediction-chip,.ob-clock-log-btn,.ob-clock-log-icon,button.ob-main-tab-btn,div[role="navigation"][aria-label="Main navigation"]){
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  filter:none!important;
+  will-change:auto!important;
+}
+html[data-ob-platform="android"] body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root :where(.ob-clock-kindness-card,.ob-clock-rhythm-card,.ob-clock-log-strip,.ob-clock-tabs,.ob-clock-panel,.ob-clock-row,.ob-clock-day-mode-summary,.ob-clock-day-mode-switcher,.ob-clock-night-actions button,.ob-clock-timer-controls button,.ob-clock-context-action,.ob-clock-prediction-chip,.ob-clock-log-btn,button.ob-main-tab-btn),
+body.android[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root :where(.ob-clock-kindness-card,.ob-clock-rhythm-card,.ob-clock-log-strip,.ob-clock-tabs,.ob-clock-panel,.ob-clock-row,.ob-clock-day-mode-summary,.ob-clock-day-mode-switcher,.ob-clock-night-actions button,.ob-clock-timer-controls button,.ob-clock-context-action,.ob-clock-prediction-chip,.ob-clock-log-btn,button.ob-main-tab-btn){
+  background:linear-gradient(180deg,rgba(24,43,70,0.94),rgba(7,13,29,0.92))!important;
+  border-color:rgba(255,221,179,0.42)!important;
+  box-shadow:inset 0 1px 0 rgba(255,247,230,0.16),0 8px 18px rgba(0,0,0,0.20)!important;
+}
+html[data-ob-platform="android"] body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root :where(.ob-clock-kindness-card,.ob-clock-rhythm-card,.ob-clock-log-strip,.ob-clock-tabs,.ob-clock-panel,.ob-clock-row,.ob-clock-day-mode-summary,.ob-clock-day-mode-switcher,.ob-clock-night-actions button,.ob-clock-timer-controls button,.ob-clock-context-action,.ob-clock-prediction-chip,.ob-clock-log-btn,button.ob-main-tab-btn),
+body.android[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root :where(.ob-clock-kindness-card,.ob-clock-rhythm-card,.ob-clock-log-strip,.ob-clock-tabs,.ob-clock-panel,.ob-clock-row,.ob-clock-day-mode-summary,.ob-clock-day-mode-switcher,.ob-clock-night-actions button,.ob-clock-timer-controls button,.ob-clock-context-action,.ob-clock-prediction-chip,.ob-clock-log-btn,button.ob-main-tab-btn){
+  background:linear-gradient(180deg,rgba(250,254,255,0.98),rgba(227,243,249,0.94))!important;
+  border-color:rgba(120,184,214,0.46)!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.78),0 8px 18px rgba(67,92,119,0.08)!important;
+}
+html[data-ob-platform="android"] body[data-clock-home-lab="1"] .ob-app-root :where(.ob-clock-log-btn,.ob-clock-night-actions button,.ob-clock-timer-controls button,.ob-clock-context-action,button.ob-main-tab-btn),
+html[data-ob-platform="android"] body[data-clock-home-lab="1"] .ob-app-root :where(.ob-clock-log-label,.ob-clock-log-badge,.ob-main-tab-label,.ob-main-tab-icon,.ob-clock-night-actions span,.ob-clock-timer-controls span),
+body.android[data-clock-home-lab="1"] .ob-app-root :where(.ob-clock-log-btn,.ob-clock-night-actions button,.ob-clock-timer-controls button,.ob-clock-context-action,button.ob-main-tab-btn),
+body.android[data-clock-home-lab="1"] .ob-app-root :where(.ob-clock-log-label,.ob-clock-log-badge,.ob-main-tab-label,.ob-main-tab-icon,.ob-clock-night-actions span,.ob-clock-timer-controls span){
+  color:#f8fbff!important;
+  -webkit-text-fill-color:currentColor!important;
+  opacity:1!important;
+  text-shadow:none!important;
+}
+html[data-ob-platform="android"] body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root :where(.ob-clock-log-btn,.ob-clock-night-actions button,.ob-clock-timer-controls button,.ob-clock-context-action,button.ob-main-tab-btn),
+html[data-ob-platform="android"] body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root :where(.ob-clock-log-label,.ob-clock-log-badge,.ob-main-tab-label,.ob-main-tab-icon,.ob-clock-night-actions span,.ob-clock-timer-controls span),
+body.android[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root :where(.ob-clock-log-btn,.ob-clock-night-actions button,.ob-clock-timer-controls button,.ob-clock-context-action,button.ob-main-tab-btn),
+body.android[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root :where(.ob-clock-log-label,.ob-clock-log-badge,.ob-main-tab-label,.ob-main-tab-icon,.ob-clock-night-actions span,.ob-clock-timer-controls span){
+  color:#403640!important;
+  -webkit-text-fill-color:currentColor!important;
+}
+html[data-ob-platform="android"] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-svg *,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-svg *{
+  filter:none!important;
+}
+
+/* Android clock WebView hardening.
+   The clock screen intentionally keeps richer motion on iOS/desktop, but
+   Android WebView repaints SVG filters, glass layers and emoji buttons on each
+   timer tick. Keep Android static and use concrete control geometry. */
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-svg,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-svg,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-svg{
+  filter:none!important;
+  will-change:auto!important;
+  backface-visibility:hidden!important;
+  contain:layout style!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-svg *,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-svg *,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-svg *{
+  animation:none!important;
+  transition:none!important;
+  filter:none!important;
+  will-change:auto!important;
+  mix-blend-mode:normal!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root :where(.ob-clock-active-timer-orbit,.ob-clock-active-timer-dot,.ob-clock-event-arc.is-now,.ob-clock-prediction-arc,.ob-clock-presence-glyph,.ob-clock-presence-firefly,.ob-clock-presence-lantern,.ob-clock-ambient-firefly,.ob-clock-ambient-firefly::before,.ob-clock-next-pill.is-now,.ob-clock-tabs button.has-new-guidance,.ob-clock-tab-ping),
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root :where(.ob-clock-active-timer-orbit,.ob-clock-active-timer-dot,.ob-clock-event-arc.is-now,.ob-clock-prediction-arc,.ob-clock-presence-glyph,.ob-clock-presence-firefly,.ob-clock-presence-lantern,.ob-clock-ambient-firefly,.ob-clock-ambient-firefly::before,.ob-clock-next-pill.is-now,.ob-clock-tabs button.has-new-guidance,.ob-clock-tab-ping),
+body.android[data-clock-home-lab="1"] .ob-app-root :where(.ob-clock-active-timer-orbit,.ob-clock-active-timer-dot,.ob-clock-event-arc.is-now,.ob-clock-prediction-arc,.ob-clock-presence-glyph,.ob-clock-presence-firefly,.ob-clock-presence-lantern,.ob-clock-ambient-firefly,.ob-clock-ambient-firefly::before,.ob-clock-next-pill.is-now,.ob-clock-tabs button.has-new-guidance,.ob-clock-tab-ping){
+  animation:none!important;
+  transition:none!important;
+  filter:none!important;
+  will-change:auto!important;
+  mix-blend-mode:normal!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root :where(.ob-clock-log-strip,.ob-clock-tabs,.ob-clock-panel,.ob-clock-day-mode-summary,.ob-clock-day-mode-switcher,.ob-clock-night-actions button,.ob-clock-timer-controls button,.ob-clock-context-action,.ob-clock-log-more),
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root :where(.ob-clock-log-strip,.ob-clock-tabs,.ob-clock-panel,.ob-clock-day-mode-summary,.ob-clock-day-mode-switcher,.ob-clock-night-actions button,.ob-clock-timer-controls button,.ob-clock-context-action,.ob-clock-log-more),
+body.android[data-clock-home-lab="1"] .ob-app-root :where(.ob-clock-log-strip,.ob-clock-tabs,.ob-clock-panel,.ob-clock-day-mode-summary,.ob-clock-day-mode-switcher,.ob-clock-night-actions button,.ob-clock-timer-controls button,.ob-clock-context-action,.ob-clock-log-more){
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  filter:none!important;
+  animation:none!important;
+  transition:none!important;
+  transform:none!important;
+  will-change:auto!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-breast-side-toggle button::after,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-breast-side-toggle button::after,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-breast-side-toggle button::after{
+  opacity:0!important;
+  background:radial-gradient(ellipse 76% 74% at 50% 48%,rgba(92,226,255,0.34),rgba(171,133,255,0.18) 48%,rgba(171,133,255,0.06) 64%,transparent 78%)!important;
+  filter:none!important;
+  transform:none!important;
+  transition:none!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-breast-side-toggle button.is-running::after,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-breast-side-toggle button.is-running::after,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-breast-side-toggle button.is-running::after{
+  opacity:1!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-breast-side-toggle button.is-running,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-breast-side-toggle button.is-running,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-breast-side-toggle button.is-running{
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.34),0 5px 16px rgba(192,112,136,0.12),0 0 0 2px rgba(92,226,255,0.16),0 0 24px rgba(92,226,255,0.22),0 0 36px rgba(171,133,255,0.16),0 12px 24px rgba(185,130,69,0.26)!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-actions,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions{
+  display:grid!important;
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  gap:4px!important;
+  justify-content:stretch!important;
+  align-items:stretch!important;
+  overflow:visible!important;
+  padding:8px 4px 5px!important;
+  scroll-snap-type:none!important;
+  scrollbar-width:none!important;
+  contain:layout style!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions.is-expanded.is-compact-logs,
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions.is-expanded.is-compact-logs[data-compact-detail="1"],
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-actions.is-expanded.is-compact-logs,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-actions.is-expanded.is-compact-logs[data-compact-detail="1"],
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions.is-expanded.is-compact-logs,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions.is-expanded.is-compact-logs[data-compact-detail="1"]{
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  gap:8px!important;
+  padding:8px 6px 6px!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn{
+  appearance:none!important;
+  -webkit-appearance:none!important;
+  position:relative!important;
+  display:flex!important;
+  flex:initial!important;
+  flex-direction:column!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:auto!important;
+  min-width:0!important;
+  max-width:none!important;
+  min-height:74px!important;
+  padding:6px 2px 5px!important;
+  gap:3px!important;
+  overflow:hidden!important;
+  border:1px solid rgba(255,221,179,0.34)!important;
+  border-radius:15px!important;
+  transform:none!important;
+  transition:none!important;
+  animation:none!important;
+  filter:none!important;
+  text-align:center!important;
+  touch-action:manipulation!important;
+  box-shadow:inset 0 1px 0 rgba(255,247,230,0.14),0 6px 12px rgba(0,0,0,0.14)!important;
+  contain:layout paint style!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-log-btn,
+body[data-ob-android-webview][data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-log-btn,
+body.android[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root .ob-clock-log-btn{
+  background:linear-gradient(180deg,rgba(24,43,70,0.96),rgba(7,13,29,0.94))!important;
+  border-color:rgba(255,221,179,0.38)!important;
+  color:#f8fbff!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-log-btn,
+body[data-ob-android-webview][data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-log-btn,
+body.android[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-log-btn{
+  background:linear-gradient(180deg,rgba(250,254,255,0.98),rgba(227,243,249,0.96))!important;
+  border-color:rgba(120,184,214,0.48)!important;
+  color:#403640!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,0.80),0 6px 12px rgba(67,92,119,0.08)!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-icon,
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-icon.is-emoji,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-icon,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-icon.is-emoji,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-icon,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-icon.is-emoji{
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  width:31px!important;
+  height:31px!important;
+  min-width:31px!important;
+  min-height:31px!important;
+  flex:0 0 31px!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  filter:none!important;
+  text-shadow:none!important;
+  line-height:1!important;
+  font-size:23px!important;
+  font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-icon.is-emoji,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-icon.is-emoji,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-icon.is-emoji{
+  color:initial!important;
+  -webkit-text-fill-color:initial!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-icon svg,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-icon svg,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-icon svg{
+  width:24px!important;
+  height:24px!important;
+  display:block!important;
+  color:currentColor!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-label,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-label,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-label{
+  display:-webkit-box!important;
+  -webkit-box-orient:vertical!important;
+  -webkit-line-clamp:2!important;
+  width:100%!important;
+  max-width:100%!important;
+  min-height:2.1em!important;
+  overflow:hidden!important;
+  white-space:normal!important;
+  word-break:normal!important;
+  overflow-wrap:normal!important;
+  text-overflow:clip!important;
+  color:currentColor!important;
+  -webkit-text-fill-color:currentColor!important;
+  opacity:1!important;
+  font-size:9.6px!important;
+  line-height:1.05!important;
+  font-weight:850!important;
+  letter-spacing:0!important;
+  text-align:center!important;
+  text-shadow:none!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn > i,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn > i,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn > i{
+  display:none!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-badge,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-badge,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-badge{
+  position:absolute!important;
+  top:3px!important;
+  right:3px!important;
+  max-width:calc(100% - 6px)!important;
+  padding:2px 4px!important;
+  border-radius:999px!important;
+  font-size:8.2px!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  filter:none!important;
+  text-shadow:none!important;
+}
+@media (max-width:380px){
+  html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions,
+  body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-actions,
+  body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions{
+    gap:3px!important;
+    padding-inline:3px!important;
+  }
+  html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn,
+  body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn,
+  body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn{
+    min-height:69px!important;
+    border-radius:13px!important;
+    padding:5px 1px!important;
+  }
+  html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-icon,
+  html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-icon.is-emoji,
+  body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-icon,
+  body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-icon.is-emoji,
+  body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-icon,
+  body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-icon.is-emoji{
+    width:28px!important;
+    height:28px!important;
+    min-width:28px!important;
+    min-height:28px!important;
+    flex-basis:28px!important;
+    font-size:20px!important;
+  }
+  html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-label,
+  body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-label,
+  body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn .ob-clock-log-label{
+    font-size:8.8px!important;
+  }
+}
+
+@keyframes obAndroidFireflyFloat{
+  0%,100%{
+    opacity:0.54;
+    transform:translate3d(-50%,-50%,0) translate3d(0,0,0) scale(0.86);
+  }
+  38%{
+    opacity:0.96;
+    transform:translate3d(-50%,-50%,0) translate3d(var(--ob-firefly-drift),-16px,0) scale(1.08);
+  }
+  68%{
+    opacity:0.70;
+    transform:translate3d(-50%,-50%,0) translate3d(calc(var(--ob-firefly-drift) * -0.7),7px,0) scale(0.94);
+  }
+}
+@keyframes obAndroidFireflyGlow{
+  0%,100%{opacity:0.36;transform:scale(0.72);}
+  45%{opacity:0.92;transform:scale(1.16);}
+  72%{opacity:0.54;transform:scale(0.9);}
+}
+@keyframes obAndroidClockSparkleFloat{
+  0%,100%{
+    opacity:0.66;
+    transform:translate3d(-50%,-50%,0) translate3d(0,0,0) scale(0.86);
+  }
+  42%{
+    opacity:1;
+    transform:translate3d(-50%,-50%,0) translate3d(var(--ob-firefly-drift),-9px,0) scale(1.1);
+  }
+  70%{
+    opacity:0.74;
+    transform:translate3d(-50%,-50%,0) translate3d(calc(var(--ob-firefly-drift) * -0.52),5px,0) scale(0.94);
+  }
+}
+@keyframes obAndroidClockSparklePulse{
+  0%,100%{opacity:0.34;transform:scale(0.72);}
+  46%{opacity:0.9;transform:scale(1.18);}
+  78%{opacity:0.52;transform:scale(0.9);}
+}
+
+/* Android workaround: keep the firefly feature animated, but move the motion to
+   compositor-friendly HTML layers instead of animated SVG filters. */
+html[data-ob-android-webview],
+html[data-ob-android-webview] *,
+body[data-ob-android-webview],
+body[data-ob-android-webview] *,
+body.android,
+body.android *{
+  scroll-behavior:auto!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-stage,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-stage,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-stage{
+  position:relative!important;
+  overflow:visible!important;
+  isolation:isolate!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-stage .ob-clock-svg,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-stage .ob-clock-svg,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-stage .ob-clock-svg{
+  position:relative!important;
+  z-index:1!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-canvas,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-canvas,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-canvas{
+  position:absolute!important;
+  left:50%!important;
+  top:0!important;
+  width:min(108%,404px)!important;
+  height:auto!important;
+  aspect-ratio:1/1!important;
+  transform:translateX(-50%)!important;
+  z-index:2!important;
+  pointer-events:none!important;
+  display:block!important;
+  opacity:0.92!important;
+  filter:none!important;
+  mix-blend-mode:normal!important;
+  contain:strict!important;
+  will-change:auto!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-fireflies,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-fireflies,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-fireflies{
+  position:absolute!important;
+  left:50%!important;
+  top:0!important;
+  width:min(100%,420px)!important;
+  max-width:420px!important;
+  aspect-ratio:1/1!important;
+  transform:translateX(-50%)!important;
+  z-index:2!important;
+  pointer-events:none!important;
+  overflow:visible!important;
+  contain:layout paint style!important;
+  filter:none!important;
+  mix-blend-mode:normal!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-firefly,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-firefly,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-firefly{
+  position:absolute!important;
+  left:calc(var(--ob-firefly-x) * 1%)!important;
+  top:calc(var(--ob-firefly-y) * 1%)!important;
+  width:var(--ob-firefly-size)!important;
+  height:var(--ob-firefly-size)!important;
+  border:0!important;
+  border-radius:999px!important;
+  padding:0!important;
+  opacity:0.78!important;
+  background:radial-gradient(circle,rgba(255,248,207,1) 0 20%,rgba(255,196,106,0.72) 43%,rgba(71,188,255,0.24) 63%,transparent 78%)!important;
+  box-shadow:0 0 9px rgba(255,196,106,0.56),0 0 20px rgba(71,188,255,0.18)!important;
+  filter:none!important;
+  mix-blend-mode:normal!important;
+  animation:obAndroidClockSparkleFloat 6.9s ease-in-out infinite!important;
+  animation-delay:var(--ob-firefly-delay)!important;
+  transform:translate3d(-50%,-50%,0)!important;
+  transform-origin:center!important;
+  will-change:transform,opacity!important;
+  pointer-events:auto!important;
+  touch-action:manipulation!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-firefly::before,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-firefly::before,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-firefly::before{
+  content:""!important;
+  position:absolute!important;
+  inset:-8px!important;
+  border-radius:999px!important;
+  background:radial-gradient(circle,rgba(255,236,174,0.58),rgba(255,190,104,0.23) 44%,rgba(73,180,255,0.12) 64%,transparent 78%)!important;
+  filter:none!important;
+  animation:obAndroidClockSparklePulse var(--ob-firefly-twinkle) ease-in-out infinite!important;
+  animation-delay:var(--ob-firefly-delay)!important;
+  will-change:transform,opacity!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-firefly i,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-firefly i,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-firefly i{
+  position:absolute!important;
+  inset:31%!important;
+  border-radius:999px!important;
+  background:#fff3b6!important;
+  box-shadow:0 0 7px rgba(255,236,174,0.84)!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-firefly.is-bright,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-firefly.is-bright,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-firefly.is-bright{
+  opacity:0.98!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-firefly.is-pulsing,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-firefly.is-pulsing,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-firefly.is-pulsing{
+  box-shadow:0 0 0 8px rgba(255,196,106,0.16),0 0 13px rgba(255,196,106,0.74),0 0 25px rgba(71,188,255,0.24)!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-firefly:focus-visible,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-firefly:focus-visible,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-firefly:focus-visible{
+  outline:2px solid rgba(255,236,174,0.86)!important;
+  outline-offset:5px!important;
+}
+html[data-ob-android-webview] body[data-ob-android-scrolling="1"] .ob-app-root :where(.ob-clock-android-ring-firefly,.ob-clock-android-ring-firefly::before,.ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly,.ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly::before),
+body[data-ob-android-webview][data-ob-android-scrolling="1"] .ob-app-root :where(.ob-clock-android-ring-firefly,.ob-clock-android-ring-firefly::before,.ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly,.ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly::before),
+body.android[data-ob-android-scrolling="1"] .ob-app-root :where(.ob-clock-android-ring-firefly,.ob-clock-android-ring-firefly::before,.ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly,.ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly::before){
+  animation-play-state:paused!important;
+  will-change:auto!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field.is-android-field,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field.is-android-field,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field.is-android-field{
+  position:absolute!important;
+  inset:-10px -10px -118px -10px!important;
+  z-index:2!important;
+  pointer-events:none!important;
+  overflow:hidden!important;
+  border-radius:30px!important;
+  opacity:0.82!important;
+  filter:none!important;
+  mix-blend-mode:normal!important;
+  contain:layout paint style!important;
+  isolation:isolate!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly{
+  position:absolute!important;
+  left:calc(var(--ob-firefly-x) * 1%)!important;
+  top:calc(var(--ob-firefly-y) * 1%)!important;
+  width:calc(var(--ob-firefly-size) * 1.35)!important;
+  height:calc(var(--ob-firefly-size) * 1.35)!important;
+  border-radius:999px!important;
+  opacity:0.72!important;
+  background:radial-gradient(circle,rgba(255,246,204,0.98) 0 18%,rgba(255,190,104,0.62) 38%,rgba(73,180,255,0.24) 60%,transparent 76%)!important;
+  box-shadow:0 0 8px rgba(255,190,104,0.42),0 0 18px rgba(73,180,255,0.16)!important;
+  filter:none!important;
+  mix-blend-mode:normal!important;
+  animation:obAndroidFireflyFloat 7.6s ease-in-out infinite!important;
+  animation-delay:var(--ob-firefly-delay)!important;
+  transform:translate3d(-50%,-50%,0)!important;
+  transform-origin:center!important;
+  will-change:transform,opacity!important;
+  pointer-events:auto!important;
+  touch-action:manipulation!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly.is-bright,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly.is-bright,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly.is-bright{
+  opacity:0.94!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly::before,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly::before,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly::before{
+  content:""!important;
+  position:absolute!important;
+  inset:-7px!important;
+  border-radius:999px!important;
+  background:radial-gradient(circle,rgba(255,232,166,0.52),rgba(255,190,104,0.20) 44%,rgba(73,180,255,0.12) 64%,transparent 78%)!important;
+  filter:none!important;
+  animation:obAndroidFireflyGlow var(--ob-firefly-twinkle) ease-in-out infinite!important;
+  animation-delay:var(--ob-firefly-delay)!important;
+  will-change:transform,opacity!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly i,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly i,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly i{
+  position:absolute!important;
+  inset:31%!important;
+  border-radius:999px!important;
+  background:#fff3b6!important;
+  box-shadow:0 0 6px rgba(255,236,174,0.74)!important;
+}
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly b,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly b,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly b{
+  display:none!important;
+}
+@media (prefers-reduced-motion:reduce){
+  html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-firefly,
+  html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-firefly::before,
+  body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-firefly,
+  body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-firefly::before,
+  body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-firefly,
+  body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-android-ring-firefly::before,
+  html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly,
+  html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly::before,
+  body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly,
+  body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly::before,
+  body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly,
+  body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-firefly-field.is-android-field .ob-clock-ambient-firefly::before{
+    animation:none!important;
+  }
+}
+
+/* Clock lab quick-log fit final lock: the collapsed one-tap row should use
+   the full card width instead of leaving a dead gap after Pump. */
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded),
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded),
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded),
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded){
+  display:grid!important;
+  grid-template-columns:repeat(5,minmax(0,1fr))!important;
+  gap:8px!important;
+  width:100%!important;
+  overflow:visible!important;
+  padding:10px 6px 9px!important;
+  justify-content:stretch!important;
+  align-items:stretch!important;
+  scroll-snap-type:none!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn,
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn{
+  flex:initial!important;
+  width:auto!important;
+  min-width:0!important;
+  max-width:none!important;
+  min-height:112px!important;
+  border-radius:22px!important;
+  padding:18px 7px 9px!important;
+  gap:6px!important;
+  justify-content:flex-start!important;
+  overflow:visible!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-icon,
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-icon.is-emoji,
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-icon,
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-icon.is-emoji,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-icon,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-icon.is-emoji,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-icon,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-icon.is-emoji{
+  width:46px!important;
+  height:46px!important;
+  min-width:46px!important;
+  min-height:46px!important;
+  flex:0 0 46px!important;
+  font-size:30px!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-label,
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-label,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-label,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-label{
+  font-size:12.2px!important;
+  line-height:1.06!important;
+  min-height:2.15em!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-badge,
+html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-badge,
+body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-badge,
+body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-badge{
+  top:6px!important;
+  left:50%!important;
+  right:auto!important;
+  transform:translateX(-50%)!important;
+  max-width:calc(100% - 10px)!important;
+  padding:3px 8px!important;
+  border:1px solid rgba(255,237,179,0.92)!important;
+  background:linear-gradient(180deg,#FFF6C9,#FFD77A)!important;
+  color:#392715!important;
+  -webkit-text-fill-color:#392715!important;
+  font-size:10.8px!important;
+  line-height:1!important;
+  font-weight:950!important;
+  letter-spacing:0!important;
+  text-shadow:none!important;
+  box-shadow:0 5px 12px rgba(0,0,0,0.28),inset 0 1px 0 rgba(255,255,255,0.72)!important;
+  z-index:4!important;
+}
+@media (max-width:430px){
+  body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded),
+  html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded),
+  body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded),
+  body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded){
+    gap:6px!important;
+    padding-inline:5px!important;
+  }
+  body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn,
+  html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn,
+  body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn,
+  body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn{
+    min-height:104px!important;
+    padding:17px 4px 8px!important;
+    border-radius:18px!important;
+  }
+  body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-icon,
+  body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-icon.is-emoji,
+  html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-icon,
+  html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-icon.is-emoji,
+  body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-icon,
+  body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-icon.is-emoji,
+  body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-icon,
+  body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-icon.is-emoji{
+    width:38px!important;
+    height:38px!important;
+    min-width:38px!important;
+    min-height:38px!important;
+    flex-basis:38px!important;
+    font-size:26px!important;
+  }
+  body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-label,
+  html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-label,
+  body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-label,
+  body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-label{
+    font-size:10.4px!important;
+  }
+  body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-badge,
+  html[data-ob-android-webview] body[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-badge,
+  body[data-ob-android-webview][data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-badge,
+  body.android[data-clock-home-lab="1"] .ob-app-root .ob-clock-actions:not(.is-expanded) .ob-clock-log-btn .ob-clock-log-badge{
+    padding:3px 6px!important;
+    font-size:9.4px!important;
+  }
+}
+
+/* Android native inset and keyboard clearance final guard.
+   Android WebView can have real native system-bar padding while CSS safe-area
+   env() remains zero, so mirror native insets into CSS vars and keep fixed
+   app chrome and focused sign-in fields above the system bars and keyboard. */
+html[data-ob-platform="android"] .ob-app-root div[role="navigation"][aria-label="Main navigation"],
+html[data-ob-android-webview] .ob-app-root div[role="navigation"][aria-label="Main navigation"],
+body.android .ob-app-root div[role="navigation"][aria-label="Main navigation"],
+body[data-ob-android-webview] .ob-app-root div[role="navigation"][aria-label="Main navigation"]{
+  bottom:max(7px, var(--ob-native-bottom-inset,0px), env(safe-area-inset-bottom,0px))!important;
+}
+html[data-ob-platform="android"] .ob-app-root .ob-main-content,
+html[data-ob-android-webview] .ob-app-root .ob-main-content,
+body.android .ob-app-root .ob-main-content,
+body[data-ob-android-webview] .ob-app-root .ob-main-content{
+  padding-bottom:calc(112px + var(--ob-native-bottom-inset,0px) + env(safe-area-inset-bottom,0px))!important;
+  scroll-padding-bottom:calc(112px + var(--ob-native-bottom-inset,0px) + env(safe-area-inset-bottom,0px))!important;
+}
+body[data-kb-open="1"] .ob-auth-screen{
+  padding-bottom:calc(42px + var(--ob-keyboard-bottom,0px) + env(safe-area-inset-bottom,0px))!important;
+  scroll-padding-bottom:calc(150px + var(--ob-keyboard-bottom,0px))!important;
+}
+body[data-kb-open="1"] .ob-auth-screen input:focus{
+  scroll-margin-bottom:calc(150px + var(--ob-keyboard-bottom,0px))!important;
+}
+
+/* Modal sheet final chrome guard.
+   This sits at the physical end of the stylesheet so no later nav skin can
+   re-display the fixed dock over a bottom sheet. */
+html body[data-ob-sheet-open="1"] .ob-app-root div[role="navigation"][aria-label="Main navigation"]{
+  display:none!important;
+  pointer-events:none!important;
+}
+
+/* Clock lab first-paint guard.
+   The clock home sets body[data-clock-home-lab] after React mounts, so any
+   card chrome on the clock wrapper can flash for a frame. Keep the wrapper
+   itself visually empty from the base stylesheet; the clock SVG and controls
+   still render normally. */
+.ob-app-root .ob-clock-lab .ob-clock-rhythm-card{
+  margin:0!important;
+  padding:0 0 10px!important;
+  border:0!important;
+  background:transparent!important;
+  background-image:none!important;
+  box-shadow:none!important;
+  -webkit-backdrop-filter:none!important;
+  backdrop-filter:none!important;
+  overflow:visible!important;
+}
+.ob-app-root .ob-clock-lab .ob-clock-rhythm-card::before,
+.ob-app-root .ob-clock-lab .ob-clock-rhythm-card::after,
+.ob-app-root .ob-clock-lab .ob-clock-stage::before,
+.ob-app-root .ob-clock-lab .ob-clock-stage::after{
+  content:none!important;
+  display:none!important;
 }

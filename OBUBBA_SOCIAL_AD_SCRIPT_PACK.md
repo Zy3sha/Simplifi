@@ -521,7 +521,7 @@ Shot list:
 1. Parent shows phone folder: sleep app, notes, photos, food list, reminders.
 2. Caption: "Before"
 3. Cut to OBubba home/timeline.
-4. Rapid cuts: feeds, sleep, nappies, weaning, growth, memory book, carers.
+4. Rapid cuts: feeds, sleep, nappies, weaning, growth, milestone notes, carers.
 5. Caption: "After"
 6. End frame.
 

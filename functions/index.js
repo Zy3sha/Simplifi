@@ -216,6 +216,175 @@ function accountBackupMatches(data, backupCode) {
   );
 }
 
+function accountPinMatches(data, pin, username) {
+  if (!data) return false;
+  const cleanPin = String(pin || "");
+  if (!/^\d{4}$/.test(cleanPin)) return false;
+  const storedPinHash = String(data.pinHash || "");
+  return storedPinHash === accountPinHash(cleanPin, username) || storedPinHash === legacyHashPin(cleanPin);
+}
+
+const PROVIDER_IDS = new Set(["apple.com", "google.com"]);
+const BACKUP_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const BACKUP_CODE_LEN = 10;
+
+function cleanProviderId(value) {
+  const id = String(value || "").trim().toLowerCase();
+  return PROVIDER_IDS.has(id) ? id : "";
+}
+
+function providerDocId(providerId) {
+  return cleanProviderId(providerId);
+}
+
+function safeDisplayName(value, fallback) {
+  return String(value || fallback || "").trim().slice(0, 40) || String(fallback || "parent").slice(0, 40);
+}
+
+function providerUsernameSeed(ctx, requested) {
+  const explicit = normaliseUsername(requested);
+  if (usernameId(explicit)) return explicit;
+  const name = normaliseUsername(ctx.displayName || "");
+  if (usernameId(name)) return name;
+  const emailPrefix = normaliseUsername(String(ctx.email || "").split("@")[0] || "");
+  if (usernameId(emailPrefix)) return emailPrefix;
+  return "parent";
+}
+
+async function uniqueUsernameFromSeed(seed) {
+  const base = (normaliseUsername(seed) || "parent").slice(0, 24) || "parent";
+  const first = usernameId(base) ? base : "parent";
+  for (let attempt = 0; attempt < 18; attempt++) {
+    const suffix = attempt === 0 ? "" : "_" + crypto.randomBytes(2).toString("hex");
+    const candidate = (first + suffix).slice(0, 32);
+    if (!usernameId(candidate)) continue;
+    const snap = await db.collection("usernames").doc(candidate).get();
+    const data = snap.exists ? snap.data() || {} : {};
+    if (!snap.exists || data.deleted) return candidate;
+  }
+  return "parent_" + crypto.randomBytes(4).toString("hex");
+}
+
+function makeServerBackupCode() {
+  let code = "BK";
+  const bytes = crypto.randomBytes(BACKUP_CODE_LEN);
+  for (let i = 0; i < BACKUP_CODE_LEN; i++) {
+    code += BACKUP_CODE_CHARS[bytes[i] % BACKUP_CODE_CHARS.length];
+  }
+  return code;
+}
+
+async function generateUniqueServerBackupCode() {
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const code = makeServerBackupCode();
+    const snap = await db.collection("families").doc(code).get();
+    if (!snap.exists) return code;
+  }
+  return makeServerBackupCode();
+}
+
+async function verifiedProviderContext(request) {
+  if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required");
+  const requested = cleanProviderId(request.data && request.data.providerId);
+  const firebaseToken = (request.auth.token && request.auth.token.firebase) || {};
+  const tokenProvider = cleanProviderId(firebaseToken.sign_in_provider);
+  const identities = firebaseToken.identities && typeof firebaseToken.identities === "object" ? firebaseToken.identities : {};
+  const identityProvider = Object.keys(identities).map(cleanProviderId).find(Boolean) || "";
+  let actualProvider = requested && (requested === tokenProvider || identities[requested]) ? requested : (tokenProvider || identityProvider);
+
+  let user = null;
+  if (!actualProvider || !PROVIDER_IDS.has(actualProvider) || (requested && actualProvider !== requested)) {
+    user = await adminAuth.getUser(request.auth.uid).catch(() => null);
+    const providerMatch = (user && Array.isArray(user.providerData) ? user.providerData : [])
+      .find(info => PROVIDER_IDS.has(info.providerId) && (!requested || info.providerId === requested));
+    if (providerMatch) actualProvider = providerMatch.providerId;
+  }
+  if (!actualProvider || !PROVIDER_IDS.has(actualProvider)) {
+    throw new HttpsError("permission-denied", "Sign in with Apple or Google first");
+  }
+  if (requested && actualProvider !== requested) {
+    throw new HttpsError("permission-denied", "Provider does not match this sign-in");
+  }
+  if (!user) user = await adminAuth.getUser(request.auth.uid).catch(() => null);
+  const providerInfo = (user && Array.isArray(user.providerData) ? user.providerData : [])
+    .find(info => info.providerId === actualProvider) || {};
+  return {
+    uid: request.auth.uid,
+    providerId: actualProvider,
+    email: String(providerInfo.email || (user && user.email) || request.auth.token.email || "").trim().toLowerCase(),
+    displayName: safeDisplayName(providerInfo.displayName || (user && user.displayName) || request.auth.token.name, actualProvider === "apple.com" ? "Apple parent" : "Google parent"),
+  };
+}
+
+function providerProofPatch(data, username, proofData) {
+  const pin = String((proofData && proofData.pin) || "");
+  const backupCode = String((proofData && proofData.backupCode) || "").trim().toUpperCase();
+  const proof = String((proofData && proofData.proof) || "").trim();
+  const storedPinHash = String(data && data.pinHash || "");
+  if (/^\d{4}$/.test(pin)) {
+    const strong = accountPinHash(pin, username);
+    const legacy = legacyHashPin(pin);
+    if (storedPinHash === strong || storedPinHash === legacy) {
+      const patch = {};
+      if (storedPinHash === legacy) {
+        patch.pinHash = strong;
+        patch.pinHashVersion = "pbkdf2-v2";
+        patch.pinHashUpdatedAtClient = new Date().toISOString();
+      }
+      return { ok: true, patch };
+    }
+  }
+  if (accountBackupMatches(data, backupCode) || accountBackupMatches(data, proof)) return { ok: true, patch: {} };
+  if (proof) {
+    const legacyRecovery = legacyHashPin(proof.toLowerCase());
+    const strongRecovery = recoveryWordHash(proof, username);
+    if (data && data.recoveryHash && (data.recoveryHash === strongRecovery || data.recoveryHash === legacyRecovery)) {
+      const patch = {};
+      if (data.recoveryHash === legacyRecovery) {
+        patch.recoveryHash = strongRecovery;
+        patch.recoveryHashVersion = "pbkdf2-v2";
+        patch.recoveryHashUpdatedAtClient = new Date().toISOString();
+      }
+      return { ok: true, patch };
+    }
+  }
+  return { ok: false, patch: {} };
+}
+
+async function attachProviderLink(ctx, username, accountData, extraPatch) {
+  const now = new Date();
+  const linkRef = db.collection("auth_provider_links").doc(ctx.uid);
+  const usernameRef = db.collection("usernames").doc(username);
+  const providerRef = usernameRef.collection("provider_links").doc(providerDocId(ctx.providerId));
+  await db.runTransaction(async (tx) => {
+    const [linkSnap, providerSnap] = await Promise.all([tx.get(linkRef), tx.get(providerRef)]);
+    const linkedUsername = linkSnap.exists ? normaliseUsername((linkSnap.data() || {}).username) : "";
+    if (linkedUsername && linkedUsername !== username) {
+      throw new HttpsError("already-exists", "This Apple or Google sign-in is already connected to another OBubba account");
+    }
+    const linkedUid = providerSnap.exists ? String((providerSnap.data() || {}).uid || "") : "";
+    if (linkedUid && linkedUid !== ctx.uid) {
+      throw new HttpsError("already-exists", "This OBubba account is already connected to another sign-in for that provider");
+    }
+    tx.set(usernameRef, {
+      ...(extraPatch || {}),
+      uid: ctx.uid,
+      authorizedUids: { [ctx.uid]: true },
+      updatedAt: now,
+    }, { merge: true });
+    tx.set(linkRef, { username, providerId: ctx.providerId, linkedAt: now, updatedAt: now }, { merge: true });
+    tx.set(providerRef, { uid: ctx.uid, providerId: ctx.providerId, linkedAt: now, updatedAt: now }, { merge: true });
+    const backupCode = String((accountData && (accountData.backupCode || accountData.familyCode)) || "").trim().toUpperCase();
+    if (backupCodeId(backupCode)) {
+      tx.set(db.collection("uid_to_backup").doc(ctx.uid), {
+        backupCode,
+        childSyncCodes: parseChildSyncCodes(accountData.childSyncCodes),
+        updatedAt: now,
+      }, { merge: true });
+    }
+  });
+}
+
 exports.usernameStatus = onCall(async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required");
   const username = normaliseUsername(request.data && request.data.username);
@@ -338,11 +507,12 @@ exports.repairAccountSignIn = onCall(async (request) => {
   const snap = await ref.get();
   const data = snap.exists ? (snap.data() || {}) : null;
   if (data && data.deleted) return { ok: false, error: "This username was deleted. choose a new username" };
-  if (data && !userOwnsAccountData(data, uid) && !accountBackupMatches(data, backupCode)) {
+  const backupMatches = accountBackupMatches(data, backupCode);
+  const pinMatchesExisting = accountPinMatches(data, pin, username);
+  if (data && !userOwnsAccountData(data, uid) && !backupMatches && !pinMatchesExisting) {
     return { ok: false, error: "Backup code does not match this username" };
   }
 
-  const backupMatches = accountBackupMatches(data, backupCode);
   const childSyncCodes = {
     ...parseChildSyncCodes(data && data.childSyncCodes),
     ...requestedChildSyncCodes,
@@ -434,6 +604,144 @@ exports.recoveryEmailLookup = onCall(async (request) => {
     return { ok: true, username };
   }
   return { ok: false };
+});
+
+exports.providerAccountStatus = onCall(async (request) => {
+  const ctx = await verifiedProviderContext(request);
+  const linkSnap = await db.collection("auth_provider_links").doc(ctx.uid).get();
+  if (linkSnap.exists) {
+    const username = normaliseUsername((linkSnap.data() || {}).username);
+    if (usernameId(username)) {
+      const ref = db.collection("usernames").doc(username);
+      const snap = await ref.get();
+      const data = snap.exists ? snap.data() || {} : {};
+      if (snap.exists && !data.deleted) {
+        await authoriseUsernameForUid(ref, ctx.uid);
+        return { ok: true, status: "linked", providerId: ctx.providerId, username, account: publicAccountPayload(username, data) };
+      }
+    }
+  }
+
+  const emailLookupId = String((request.data && request.data.emailLookupId) || "");
+  if (recoveryEmailId(emailLookupId)) {
+    const lookup = await db.collection("recovery_emails").doc(emailLookupId).get();
+    if (lookup.exists) {
+      const username = normaliseUsername((lookup.data() || {}).username);
+      if (usernameId(username)) {
+        const userSnap = await db.collection("usernames").doc(username).get();
+        const data = userSnap.exists ? userSnap.data() || {} : {};
+        if (userSnap.exists && !data.deleted && (!data.recoveryEmailLookupId || data.recoveryEmailLookupId === emailLookupId)) {
+          return {
+            ok: true,
+            status: "recovery_match_needs_proof",
+            providerId: ctx.providerId,
+            username,
+            displayName: data.displayName || username,
+          };
+        }
+      }
+    }
+  }
+
+  const suggestedUsername = await uniqueUsernameFromSeed(providerUsernameSeed(ctx, request.data && request.data.requestedUsername));
+  return { ok: true, status: "new_account", providerId: ctx.providerId, suggestedUsername };
+});
+
+exports.linkProviderAccount = onCall(async (request) => {
+  const ctx = await verifiedProviderContext(request);
+  const username = normaliseUsername(request.data && request.data.username);
+  if (!usernameId(username)) throw new HttpsError("invalid-argument", "Invalid username");
+
+  const ref = db.collection("usernames").doc(username);
+  const snap = await ref.get();
+  if (!snap.exists) return { ok: false, error: "Username not found" };
+  const data = snap.data() || {};
+  if (data.deleted) return { ok: false, error: "Username not found" };
+
+  const proof = providerProofPatch(data, username, request.data || {});
+  if (!proof.ok) return { ok: false, error: "That PIN, backup code, or recovery word did not match" };
+
+  await attachProviderLink(ctx, username, data, proof.patch);
+  const nextSnap = await ref.get();
+  return {
+    ok: true,
+    status: "linked",
+    providerId: ctx.providerId,
+    username,
+    account: publicAccountPayload(username, nextSnap.exists ? nextSnap.data() || {} : data),
+  };
+});
+
+exports.createProviderAccount = onCall(async (request) => {
+  const ctx = await verifiedProviderContext(request);
+  const existingLink = await db.collection("auth_provider_links").doc(ctx.uid).get();
+  if (existingLink.exists) {
+    const username = normaliseUsername((existingLink.data() || {}).username);
+    if (usernameId(username)) {
+      const ref = db.collection("usernames").doc(username);
+      const snap = await ref.get();
+      const data = snap.exists ? snap.data() || {} : {};
+      if (snap.exists && !data.deleted) {
+        await authoriseUsernameForUid(ref, ctx.uid);
+        return { ok: true, status: "linked", providerId: ctx.providerId, username, account: publicAccountPayload(username, data) };
+      }
+    }
+  }
+
+  const requestedBackup = String((request.data && request.data.backupCode) || "").trim().toUpperCase();
+  const backupCode = backupCodeId(requestedBackup) ? requestedBackup : await generateUniqueServerBackupCode();
+  const requestedChildSyncCodes = parseChildSyncCodes(request.data && request.data.childSyncCodes);
+  const now = new Date();
+  const trialStart = String((request.data && (request.data.trialStartedAtClient || request.data.trialFirstInstallAtClient)) || "").slice(0, 40);
+  const trialFirstInstall = String((request.data && request.data.trialFirstInstallAtClient) || trialStart || "").slice(0, 40);
+  const trialDeviceKey = String((request.data && request.data.trialDeviceKey) || "").trim().toLowerCase().slice(0, 80);
+  const displayNameSeed = safeDisplayName(request.data && request.data.displayName, ctx.displayName);
+  let username = await uniqueUsernameFromSeed(providerUsernameSeed(ctx, request.data && request.data.requestedUsername));
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const ref = db.collection("usernames").doc(username);
+    try {
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        const data = snap.exists ? snap.data() || {} : {};
+        if (snap.exists && !data.deleted) throw new HttpsError("already-exists", "Username already exists");
+        const accountPatch = {
+          uid: ctx.uid,
+          authorizedUids: { [ctx.uid]: true },
+          backupCode,
+          familyCode: null,
+          childSyncCodes: requestedChildSyncCodes,
+          createdAt: now,
+          createdAtClient: String((request.data && request.data.createdAtClient) || now.toISOString()).slice(0, 40),
+          displayName: safeDisplayName(displayNameSeed, username),
+          trialStartedAtClient: trialStart || now.toISOString(),
+          trialFirstInstallAtClient: trialFirstInstall || trialStart || now.toISOString(),
+          trialDeviceKey: trialDeviceId(trialDeviceKey) ? trialDeviceKey : "",
+          trialUsed: !!(request.data && request.data.trialUsed),
+          trialEndedAtClient: String((request.data && request.data.trialEndedAtClient) || "").slice(0, 40),
+          trialUpdatedAtClient: now.toISOString(),
+          deleted: false,
+          updatedAt: now,
+        };
+        tx.set(ref, accountPatch, { merge: true });
+        tx.set(db.collection("auth_provider_links").doc(ctx.uid), { username, providerId: ctx.providerId, linkedAt: now, updatedAt: now }, { merge: true });
+        tx.set(ref.collection("provider_links").doc(providerDocId(ctx.providerId)), { uid: ctx.uid, providerId: ctx.providerId, linkedAt: now, updatedAt: now }, { merge: true });
+        tx.set(db.collection("uid_to_backup").doc(ctx.uid), { backupCode, childSyncCodes: requestedChildSyncCodes, updatedAt: now }, { merge: true });
+      });
+      const createdSnap = await ref.get();
+      return {
+        ok: true,
+        status: "created",
+        providerId: ctx.providerId,
+        username,
+        account: publicAccountPayload(username, createdSnap.exists ? createdSnap.data() || {} : {}),
+      };
+    } catch (err) {
+      if (!(err instanceof HttpsError) || err.code !== "already-exists") throw err;
+      username = await uniqueUsernameFromSeed(providerUsernameSeed(ctx, `${username}_${attempt + 1}`));
+    }
+  }
+  throw new HttpsError("aborted", "Could not create a unique username. try again");
 });
 
 exports.claimTrial = onCall(async (request) => {
@@ -841,7 +1149,7 @@ exports.feedReminder = onSchedule("every 30 minutes", async () => {
 });
 
 // ── No feed all day: alert if it's past 10am and zero feeds logged today ──
-exports.noFeedAlert = onSchedule("every 4 hours", async () => {
+exports.noFeedAlert = onSchedule("every 1 hours", async () => {
   // No server-wide time gate — the scheduled function runs every hour UTC,
   // and we compute each user's local hour inside the loop below using their
   // stored tzOffsetMin. Without this, a UTC-scheduled 10am-8pm gate meant
@@ -880,7 +1188,7 @@ exports.noFeedAlert = onSchedule("every 4 hours", async () => {
 
 // ── Morning wake reminder: feed logged but no wake ──────────────
 // If a feed is logged today but no morning wake, nudge the parent
-exports.noWakeAlert = onSchedule("every 4 hours", async () => {
+exports.noWakeAlert = onSchedule("every 1 hours", async () => {
   // Per-user local-time gate: see feedReminder/noFeedAlert comments.
 
   await forEachFcmToken(async (doc, uid) => {
@@ -988,7 +1296,7 @@ exports.onNewUser = onDocumentCreated("fcm_tokens/{uid}", async (event) => {
 });
 
 // ── Process scheduled pushes ────────────────────────────────────
-exports.processScheduledPushes = onSchedule("every 15 minutes", async () => {
+exports.processScheduledPushes = onSchedule("every 5 minutes", async () => {
   const now = new Date();
   const pending = await db
     .collection("scheduled_pushes")
@@ -1013,7 +1321,7 @@ exports.processScheduledPushes = onSchedule("every 15 minutes", async () => {
 });
 
 // ── Weekly digest: Monday morning summary ───────────────────────
-exports.weeklyDigest = onSchedule("every day 08:00", async () => {
+exports.weeklyDigest = onSchedule("every 1 hours", async () => {
   await forEachFcmToken(async (doc, uid) => {
     try {
       const actDoc = await db.collection("user_activity").doc(uid).get();
@@ -1042,7 +1350,7 @@ exports.weeklyDigest = onSchedule("every day 08:00", async () => {
 });
 
 // ── Monthly birthday: celebrate baby turning X months ────────────
-exports.monthlyBirthday = onSchedule("every day 09:00", async () => {
+exports.monthlyBirthday = onSchedule("every 1 hours", async () => {
   await forEachFcmToken(async (doc, uid) => {
     try {
       const actDoc = await db.collection("user_activity").doc(uid).get();
@@ -1081,7 +1389,7 @@ exports.monthlyBirthday = onSchedule("every day 09:00", async () => {
 });
 
 // ── New development phase: notify when baby enters a wonder week/phase ──
-exports.developmentPhase = onSchedule("every day 08:30", async () => {
+exports.developmentPhase = onSchedule("every 1 hours", async () => {
   // Wonder Weeks leap starts (in weeks from due date)
   const leapWeeks = [5, 8, 12, 19, 26, 37, 46, 55, 64, 75];
   const leapNames = [
@@ -1126,7 +1434,7 @@ exports.developmentPhase = onSchedule("every day 08:30", async () => {
 });
 
 // ── New milestones unlocked: notify when milestones enter baby's window ──
-exports.milestonesUnlocked = onSchedule("every day 09:30", async () => {
+exports.milestonesUnlocked = onSchedule("every 1 hours", async () => {
   await forEachFcmToken(async (doc, uid) => {
     try {
       const actDoc = await db.collection("user_activity").doc(uid).get();
@@ -1163,7 +1471,7 @@ exports.milestonesUnlocked = onSchedule("every day 09:30", async () => {
 });
 
 // ── Re-engagement: gentle nudge if inactive for 3+ days ─────────
-exports.reEngagement = onSchedule("every day 10:00", async () => {
+exports.reEngagement = onSchedule("every 1 hours", async () => {
   const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
 
   await forEachFcmToken(async (doc, uid) => {
@@ -1217,36 +1525,19 @@ exports.cleanupPushLog = onSchedule("every day 03:00", async () => {
     .get();
 
   const batch = db.batch();
-  old.docs.forEach(doc => batch.delete(doc.ref));
-  const hugCutoffMs = Date.now();
-	  const expiredHugs = await db.collection("bubba_hugs")
-	    .where("expiresAtMs", "<", hugCutoffMs)
-	    .limit(200)
-	    .get();
-	  expiredHugs.docs.forEach(doc => batch.delete(doc.ref));
-	  const expiredPresence = await db.collection("bubba_presence")
-	    .where("expiresAtMs", "<", hugCutoffMs)
-	    .limit(200)
-	    .get();
-	  expiredPresence.docs.forEach(doc => batch.delete(doc.ref));
-	  if (old.docs.length > 0 || expiredHugs.docs.length > 0 || expiredPresence.docs.length > 0) await batch.commit();
-	});
+	  old.docs.forEach(doc => batch.delete(doc.ref));
+  if (old.docs.length > 0) await batch.commit();
+		});
 
-// ── Cleanup: purge expired anonymous Bubba Hugs and clock presence ─────────────────
-// cleanupBubbaHugs: reduced to daily. Hugs disabled, only presence docs need cleanup.
-exports.cleanupBubbaHugs = onSchedule("every day 04:00", async () => {
+// ── Cleanup: purge expired anonymous clock presence ─────────────────
+exports.cleanupClockPresence = onSchedule("every day 04:00", async () => {
   const cutoffMs = Date.now();
   const oldPresence = await db.collection("bubba_presence")
-    .where("expiresAtMs", "<", cutoffMs)
-    .limit(200)
-    .get();
-  const oldHugs = await db.collection("bubba_hugs")
     .where("expiresAtMs", "<", cutoffMs)
     .limit(200)
     .get();
 
   const batch = db.batch();
   oldPresence.docs.forEach(doc => batch.delete(doc.ref));
-  oldHugs.docs.forEach(doc => batch.delete(doc.ref));
-  if (oldPresence.docs.length > 0 || oldHugs.docs.length > 0) await batch.commit();
+  if (oldPresence.docs.length > 0) await batch.commit();
 });

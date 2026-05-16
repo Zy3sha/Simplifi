@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="widget_text_primary">#5B4F5F</color>
-    <color name="widget_text_secondary">#8B7D86</color>
-    <color name="widget_text_timer">#5B4F5F</color>
-    <color name="widget_text_label_feed">#C07088</color>
-    <color name="widget_text_label_nappy">#6FA898</color>
-    <color name="widget_text_label_nap">#8B7EC8</color>
-    <color name="widget_text_since">#9D8B92</color>
+    <color name="widget_text_primary">#4D4352</color>
+    <color name="widget_text_secondary">#62565F</color>
+    <color name="widget_text_timer">#4D4352</color>
+    <color name="widget_text_label_feed">#9E4260</color>
+    <color name="widget_text_label_nappy">#3F806F</color>
+    <color name="widget_text_label_nap">#5E5394</color>
+    <color name="widget_text_since">#675A62</color>
 </resources>

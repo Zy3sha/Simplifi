@@ -68,7 +68,7 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
                 // Dark theme needs white text
                 if (isDarkTheme) {
                     int white = 0xFFFFFFFF;
-                    int secondary = 0xFFD0C8D0;
+                    int secondary = 0xFFF1EAF2;
                     // All text must be white/light on dark background
                     v.setTextColor(R.id.tv_widget_kicker, secondary);
                     v.setTextColor(R.id.tv_baby_name, white);
@@ -77,7 +77,7 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
                     v.setTextColor(R.id.tv_timer_label, secondary);
                     v.setTextColor(R.id.timer_chrono, white);
                     v.setTextColor(R.id.tv_prediction, secondary);
-                    v.setTextColor(R.id.tv_since, 0x90FFFFFF);
+                    v.setTextColor(R.id.tv_since, 0xE8FFFFFF);
                     v.setTextColor(R.id.tv_feed_label, white);
                     v.setTextColor(R.id.tv_nappy_label, white);
                     v.setTextColor(R.id.tv_ns_label, white);
@@ -88,9 +88,9 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
                     v.setInt(R.id.btn_nap_stop, "setBackgroundResource", R.drawable.widget_btn_glass_dark);
                     // Breast row (if visible)
                     v.setTextColor(R.id.tv_bl_icon, white);
-                    v.setTextColor(R.id.tv_bl_label, secondary);
+                    v.setTextColor(R.id.tv_bl_label, 0xFFFFFFFF);
                     v.setTextColor(R.id.tv_br_icon, white);
-                    v.setTextColor(R.id.tv_br_label, secondary);
+                    v.setTextColor(R.id.tv_br_label, 0xFFFFFFFF);
                 }
             } catch (Exception e) { /* ignore theme errors */ }
 
@@ -252,8 +252,8 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
                     v.setViewVisibility(R.id.iv_ns_icon, View.VISIBLE);
                     v.setTextViewText(R.id.tv_ns_icon, "\u263E");
                     v.setTextViewText(R.id.tv_ns_label, "Nap");
-                    v.setTextColor(R.id.tv_ns_icon, isDarkTheme ? 0xFFFFFFFF : 0xFF8B7EC8);
-                    v.setTextColor(R.id.tv_ns_label, isDarkTheme ? 0xFFFFFFFF : 0xFF5B4F5F);
+                    v.setTextColor(R.id.tv_ns_icon, isDarkTheme ? 0xFFFFFFFF : 0xFF5E5394);
+                    v.setTextColor(R.id.tv_ns_label, isDarkTheme ? 0xFFFFFFFF : 0xFF4D4352);
                     v.setInt(R.id.btn_nap_stop, "setBackgroundResource", R.drawable.widget_btn_nap);
                     v.setOnClickPendingIntent(R.id.btn_nap_stop, makeIntent(context, "toggle_nap", 4));
                 }
@@ -281,8 +281,8 @@ public class OBubbaSummaryWidget extends AppWidgetProvider {
         v.setViewVisibility(R.id.iv_ns_icon, View.VISIBLE);
         v.setTextViewText(R.id.tv_ns_icon, "\u263E");
         v.setTextViewText(R.id.tv_ns_label, "Nap");
-        v.setTextColor(R.id.tv_ns_icon, isDarkTheme ? 0xFFFFFFFF : 0xFF8B7EC8);
-        v.setTextColor(R.id.tv_ns_label, isDarkTheme ? 0xFFFFFFFF : 0xFF5B4F5F);
+        v.setTextColor(R.id.tv_ns_icon, isDarkTheme ? 0xFFFFFFFF : 0xFF5E5394);
+        v.setTextColor(R.id.tv_ns_label, isDarkTheme ? 0xFFFFFFFF : 0xFF4D4352);
         v.setInt(R.id.btn_nap_stop, "setBackgroundResource", R.drawable.widget_btn_nap);
         v.setOnClickPendingIntent(R.id.btn_nap_stop, makeIntent(ctx, "toggle_nap", 4));
     }

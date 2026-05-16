@@ -53,6 +53,12 @@ public class TimerServicePlugin extends Plugin {
         return target;
     }
 
+    private boolean hasSavedRunningTimer() {
+        return getContext()
+                .getSharedPreferences(TimerService.PREFS_NAME, Context.MODE_PRIVATE)
+                .getBoolean("running", false);
+    }
+
     @PluginMethod
     public void startTimer(PluginCall call) {
         try {
@@ -170,6 +176,14 @@ public class TimerServicePlugin extends Plugin {
     @PluginMethod
     public void updateTimer(PluginCall call) {
         try {
+            JSObject ret = new JSObject();
+            if (!hasSavedRunningTimer()) {
+                ret.put("updated", false);
+                ret.put("reason", "no_running_timer");
+                call.resolve(ret);
+                return;
+            }
+
             String side = safeSide(call.getString("side", null));
             String babyName = safeText(call.getString("babyName", null), "", 40);
 
@@ -182,14 +196,17 @@ public class TimerServicePlugin extends Plugin {
                 intent.putExtra(TimerService.EXTRA_BABY_NAME, babyName);
             }
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                getContext().startForegroundService(intent);
-            } else {
-                getContext().startService(intent);
-            }
+            // Updates are only valid once a foreground timer exists. Starting a
+            // fresh foreground service for a side switch can crash on newer
+            // Android versions if the OS treats it as a background start.
+            getContext().startService(intent);
 
-            JSObject ret = new JSObject();
             ret.put("updated", true);
+            call.resolve(ret);
+        } catch (IllegalStateException e) {
+            JSObject ret = new JSObject();
+            ret.put("updated", false);
+            ret.put("reason", "service_unavailable");
             call.resolve(ret);
         } catch (Exception e) {
             call.reject("Failed to update timer service: " + e.getMessage(), e);

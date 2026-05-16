@@ -9,6 +9,7 @@ const { spawn } = require("child_process");
 const root = path.resolve(__dirname, "..");
 const widths = [320, 340, 360, 375, 390, 414];
 let failures = 0;
+let activeCleanup = () => {};
 
 function assert(name, condition, detail) {
   if (!condition) {
@@ -31,7 +32,7 @@ function freePort() {
   });
 }
 
-async function waitForUrl(url, timeoutMs = 15000) {
+async function waitForUrl(url, timeoutMs = 45000, context = {}) {
   const start = Date.now();
   let lastError = null;
   while (Date.now() - start < timeoutMs) {
@@ -44,7 +45,16 @@ async function waitForUrl(url, timeoutMs = 15000) {
     }
     await new Promise(resolve => setTimeout(resolve, 250));
   }
-  throw lastError || new Error("Timed out waiting for " + url);
+  const details = [];
+  if (context.name) details.push(context.name);
+  details.push(url);
+  if (context.process && context.process.exitCode !== null) details.push("process exited " + context.process.exitCode);
+  if (context.stderr && context.stderr.trim()) details.push("stderr: " + context.stderr.trim().slice(-1200));
+  if (context.stdout && context.stdout.trim()) details.push("stdout: " + context.stdout.trim().slice(-1200));
+  const message = "Timed out waiting for " + details.join(" :: ");
+  const err = new Error(message);
+  if (lastError) err.cause = lastError;
+  throw err;
 }
 
 function findChrome() {
@@ -116,8 +126,34 @@ class CdpClient {
     });
   }
   close() {
+    for (const { reject, timer } of this.pending.values()) {
+      clearTimeout(timer);
+      try { reject(new Error("CDP connection closed")); } catch {}
+    }
+    this.pending.clear();
+    for (const waiters of this.eventWaiters.values()) {
+      waiters.forEach(({ reject, timer }) => {
+        clearTimeout(timer);
+        try { reject(new Error("CDP connection closed")); } catch {}
+      });
+    }
+    this.eventWaiters.clear();
     try { this.ws.close(); } catch {}
   }
+}
+
+async function evaluateWithRetry(cdp, label, params, attempts = 2) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await cdp.send("Runtime.evaluate", params, 30000);
+    } catch (err) {
+      lastError = err;
+      if (!/timed out|Target closed|WebSocket/i.test(String(err && err.message || err)) || attempt === attempts) break;
+      await new Promise(resolve => setTimeout(resolve, 900 * attempt));
+    }
+  }
+  throw new Error(label + " failed after " + attempts + " attempt(s): " + (lastError && lastError.message || lastError));
 }
 
 async function main() {
@@ -134,6 +170,10 @@ async function main() {
     stdio: ["ignore", "pipe", "pipe"],
     env: { ...process.env, BROWSER: "none" },
   });
+  let serverStdout = "";
+  let serverStderr = "";
+  server.stdout.on("data", chunk => { serverStdout = (serverStdout + String(chunk)).slice(-4000); });
+  server.stderr.on("data", chunk => { serverStderr = (serverStderr + String(chunk)).slice(-4000); });
   const chromeProc = spawn(chrome, [
     "--headless=new",
     "--disable-gpu",
@@ -146,32 +186,61 @@ async function main() {
     "--window-size=390,844",
     "about:blank",
   ], { stdio: ["ignore", "pipe", "pipe"] });
+  let chromeStdout = "";
+  let chromeStderr = "";
+  chromeProc.stdout.on("data", chunk => { chromeStdout = (chromeStdout + String(chunk)).slice(-4000); });
+  chromeProc.stderr.on("data", chunk => { chromeStderr = (chromeStderr + String(chunk)).slice(-4000); });
 
   const cleanup = () => {
+    activeCleanup = () => {};
+    try { if (typeof cdp !== "undefined" && cdp) cdp.close(); } catch {}
     try { server.kill("SIGTERM"); } catch {}
     try { chromeProc.kill("SIGTERM"); } catch {}
     try { fs.rmSync(profileDir, { recursive: true, force: true }); } catch {}
   };
+  activeCleanup = cleanup;
   process.on("exit", cleanup);
   process.on("SIGINT", () => { cleanup(); process.exit(130); });
+  process.on("SIGTERM", () => { cleanup(); process.exit(143); });
 
-  await waitForUrl(appUrl);
-  await waitForUrl("http://127.0.0.1:" + debugPort + "/json/version");
+  await waitForUrl(appUrl, 45000, {
+    name: "vite preview server",
+    process: server,
+    stdout: serverStdout,
+    stderr: serverStderr,
+  });
+  await waitForUrl("http://127.0.0.1:" + debugPort + "/json/version", 45000, {
+    name: "headless Chrome debug endpoint",
+    process: chromeProc,
+    stdout: chromeStdout,
+    stderr: chromeStderr,
+  });
 
   const newTarget = await fetch("http://127.0.0.1:" + debugPort + "/json/new?" + encodeURIComponent(appUrl), { method: "PUT" }).then(r => r.json());
-  const cdp = new CdpClient(newTarget.webSocketDebuggerUrl);
+  var cdp = new CdpClient(newTarget.webSocketDebuggerUrl);
   await cdp.connect();
   await cdp.send("Page.enable");
   await cdp.send("Runtime.enable");
   await cdp.send("Page.addScriptToEvaluateOnNewDocument", {
     source: `
       try {
+        const pad = n => String(n).padStart(2, "0");
+        const now = new Date();
+        const day = now.getFullYear() + "-" + pad(now.getMonth() + 1) + "-" + pad(now.getDate());
+        const sampleDays = {};
+        sampleDays[day] = [
+          { id: "audit-wake", type: "wake", time: "07:00", night: false, modifiedAt: Date.now() - 50000 },
+          { id: "audit-feed", type: "feed", feedType: "milk", time: "08:15", amount: 120, night: false, modifiedAt: Date.now() - 40000 },
+          { id: "audit-nap", type: "nap", start: "09:45", end: "10:25", duration: 40, night: false, modifiedAt: Date.now() - 30000 },
+          { id: "audit-poop", type: "poop", time: "10:45", poopType: "wet", night: false, modifiedAt: Date.now() - 20000 }
+        ];
         localStorage.setItem("tut_v2","1");
         localStorage.setItem("day_tut_v1","1");
+        localStorage.setItem("day_tut_v2","1");
         localStorage.setItem("ob_no_judge_v1","1");
         localStorage.setItem("ob_dark_mode","0");
-        localStorage.setItem("ob_children_v1", JSON.stringify({ active: "audit", items: { audit: { name: "Oliver", dob: "2025-10-20", sex: "boy" } } }));
-        localStorage.setItem("children_v1", JSON.stringify({ audit: { id: "audit", name: "Oliver", dob: "2025-10-20", sex: "boy", days: {} } }));
+        localStorage.setItem("ob_children_v1", JSON.stringify({ active: "audit", items: { audit: { name: "Oliver", dob: "2025-10-20", sex: "boy", days: sampleDays } } }));
+        localStorage.setItem("children_v1", JSON.stringify({ audit: { id: "audit", name: "Oliver", dob: "2025-10-20", sex: "boy", days: sampleDays } }));
         localStorage.setItem("active_child","audit");
         localStorage.setItem("onboarded_v2","1");
       } catch {}
@@ -239,7 +308,7 @@ async function main() {
           offenders,
         };
       })()`;
-    const result = await cdp.send("Runtime.evaluate", {
+    const result = await evaluateWithRetry(cdp, "viewport " + width + " initial metrics", {
       returnByValue: true,
       expression: metricsExpression,
     });
@@ -249,7 +318,7 @@ async function main() {
     assert("viewport " + width + " stays horizontally anchored on load", value.scrollX === 0 && value.docScrollLeft === 0 && value.bodyScrollLeft === 0, JSON.stringify(value));
     assert("viewport " + width + " has no visible offscreen UI", !value.offenders || value.offenders.length === 0, JSON.stringify(value.offenders));
 
-    const quickFeed = await cdp.send("Runtime.evaluate", {
+    const quickFeed = await evaluateWithRetry(cdp, "viewport " + width + " quick feed click", {
       returnByValue: true,
       expression: `(() => {
 	        const buttons = Array.from(document.querySelectorAll(".ob-clock-log-btn, button"));
@@ -263,15 +332,74 @@ async function main() {
     });
     if (quickFeed && quickFeed.result && quickFeed.result.value) {
       await new Promise(resolve => setTimeout(resolve, 450));
-      const afterFeed = await cdp.send("Runtime.evaluate", {
+      const afterFeed = await evaluateWithRetry(cdp, "viewport " + width + " post-feed metrics", {
         returnByValue: true,
         expression: metricsExpression,
       });
       const afterValue = afterFeed && afterFeed.result && afterFeed.result.value ? afterFeed.result.value : {};
       assert("viewport " + width + " stays horizontally anchored after quick feed", afterValue.scrollX === 0 && afterValue.docScrollLeft === 0 && afterValue.bodyScrollLeft === 0, JSON.stringify(afterValue));
       assert("viewport " + width + " keeps logged-feed UI inside the visible screen", afterValue.docScrollWidth <= afterValue.visible + 1 && afterValue.bodyScrollWidth <= afterValue.visible + 1 && (!afterValue.offenders || afterValue.offenders.length === 0), JSON.stringify(afterValue));
+      await evaluateWithRetry(cdp, "viewport " + width + " dismiss post-feed prompt", {
+        returnByValue: true,
+        expression: `(() => {
+          const buttons = Array.from(document.querySelectorAll("button"));
+          const noThanks = buttons.find(btn => String(btn.textContent || "").trim() === "No thanks");
+          if (noThanks) { noThanks.click(); return "dismissed"; }
+          const close = buttons.find(btn => /^(×|✕|Cancel)$/.test(String(btn.textContent || "").trim()) || /close/i.test(String(btn.getAttribute("aria-label") || "")));
+          if (close) { close.click(); return "closed"; }
+          return "none";
+        })()`,
+      });
+      await new Promise(resolve => setTimeout(resolve, 250));
     } else {
       assert("viewport " + width + " can find Feed clock-log button for post-log overflow check", false);
+    }
+
+    const openedLogs = await evaluateWithRetry(cdp, "viewport " + width + " open Logs tab", {
+      returnByValue: true,
+      expression: `(() => {
+        const buttons = Array.from(document.querySelectorAll("button,[role=button]"));
+        const logs = buttons.find(btn => String(btn.textContent || "").trim() === "Logs");
+        if (!logs) return false;
+        if (String(logs.className || "").includes("is-active")) return true;
+        logs.click();
+        return true;
+      })()`,
+    });
+    assert("viewport " + width + " can open Logs for edit-window overflow check", !!(openedLogs && openedLogs.result && openedLogs.result.value));
+    await new Promise(resolve => setTimeout(resolve, 350));
+    const openedEditSheet = await evaluateWithRetry(cdp, "viewport " + width + " open first log edit sheet", {
+      returnByValue: true,
+      expression: `(() => {
+        const rows = Array.from(document.querySelectorAll(".ob-clock-row, [data-testid='clock-log-tip-edit']"));
+        const row = rows.find(el => /Feed|Nap|Wake|Nappy|Bottle|Milk/i.test(String(el.textContent || ""))) || rows[0];
+        if (!row) return {ok:false, rows:Array.from(document.querySelectorAll("button")).slice(0,20).map(b=>String(b.textContent||"").trim()).filter(Boolean)};
+        row.click();
+        return {ok:true, text:String(row.textContent || "").replace(/\\s+/g, " ").trim().slice(0,80)};
+      })()`,
+    });
+    const editValue = openedEditSheet && openedEditSheet.result && openedEditSheet.result.value;
+    assert("viewport " + width + " can open a logged-item edit window", !!(editValue && editValue.ok), JSON.stringify(editValue));
+    if (editValue && editValue.ok) {
+      await new Promise(resolve => setTimeout(resolve, 450));
+      const editMetrics = await evaluateWithRetry(cdp, "viewport " + width + " edit sheet metrics", {
+        returnByValue: true,
+        expression: metricsExpression,
+      });
+      const editMetricValue = editMetrics && editMetrics.result && editMetrics.result.value ? editMetrics.result.value : {};
+      assert("viewport " + width + " stays horizontally anchored with edit window open", editMetricValue.scrollX === 0 && editMetricValue.docScrollLeft === 0 && editMetricValue.bodyScrollLeft === 0, JSON.stringify(editMetricValue));
+      assert("viewport " + width + " keeps edit window inside the visible screen", editMetricValue.docScrollWidth <= editMetricValue.visible + 1 && editMetricValue.bodyScrollWidth <= editMetricValue.visible + 1 && (!editMetricValue.offenders || editMetricValue.offenders.length === 0), JSON.stringify(editMetricValue));
+      await evaluateWithRetry(cdp, "viewport " + width + " close edit sheet", {
+        returnByValue: true,
+        expression: `(() => {
+          const overlay = document.querySelector(".ob-sheet-overlay");
+          if (overlay) { overlay.click(); return true; }
+          const close = Array.from(document.querySelectorAll("button")).find(b => /^(×|✕|Cancel)$/.test(String(b.textContent || "").trim()) || /close/i.test(String(b.getAttribute("aria-label") || "")));
+          if (close) { close.click(); return true; }
+          return false;
+        })()`,
+      });
+      await new Promise(resolve => setTimeout(resolve, 250));
     }
   }
 
@@ -282,6 +410,7 @@ async function main() {
 }
 
 main().catch(err => {
+  try { activeCleanup(); } catch {}
   console.error(err && err.stack || err);
   process.exit(1);
 });

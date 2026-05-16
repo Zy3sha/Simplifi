@@ -17,12 +17,12 @@ assert("Bedtime rescue guard prioritises an active bed timer over stale nap pred
 assert("Bedtime rescue guard uses the bed target window, not any distant bedtime", app.includes('if (nextEventType === "bed" && typeof td.nextEvent.targetMs === "number")') && app.includes("minsToBed <= 20 && minsToBed > -120"));
 assert("Nap rescue tap redirects to bedtime rescue during bedtime window", /if \(isBedtimeRescueWindow\(\)\) \{\s*openBedtimeResistanceOptions\(\);\s*return;\s*\}/s.test(app));
 assert("Overdue fallback nap pill is hidden during bedtime rescue window", app.includes("!_td.napsComplete && !_td.napBedConflict && !isBedtimeRescueWindow() && !napRefusedChoice"));
-assert("Hero nap-not-happening secondary is hidden during bedtime rescue window", app.includes("if (!isBedtimeRescueWindow()) {\n            // Add \"Nap not happening?\" pill"));
+assert("Clock Track nap-not-happening action is hidden during bedtime rescue window", app.includes("const clockBedtimeResistanceReady = !!(clockLabIsToday && !clockBedtimeLogged && !clockBedOnThisDay && isBedtimeRescueWindow());") && app.includes("!clockBedtimeResistanceReady && !napRefusedChoice") && app.includes('key:"nap-refused"'));
 assert("Hero lower nap-not-happening button is hidden during bedtime rescue window", app.includes('!isBedtimeRescueWindow() && (_showAsNap || ((isNapNow || isOverdue) && !isBed))'));
 assert("Main nap-not-happening card is hidden during bedtime rescue window", app.includes("!(tickDataRef.current||{}).napBedConflict && !isBedtimeRescueWindow() && (forceNapRefusedCard || napRefusedChoice==null)"));
 assert("Nap-not-happening sheet cannot render during bedtime rescue window", app.includes("showNapRefusedSheet && !isBedtimeRescueWindow()"));
 assert("Bedtime-not-happening chip waits for bedtime window", app.includes("isBed && !_showAsNap && !bedTimerDay && isBedtimeRescueWindow()"));
-assert("Hero bedtime-not-happening helper waits for bedtime window", app.includes("const _showBedtimeHelp = isBedtimeRescueWindow();") && app.includes("{_showBedtimeHelp && ("));
+assert("Clock Track bedtime-not-happening helper waits for bedtime window", app.includes("if (clockBedtimeResistanceReady) {") && app.includes('key:"bed-resistance"') && app.includes('title:"Bedtime not happening?"'));
 assert("Parent-facing bedtime rescue wording is clear", app.includes("Bedtime not happening?"));
 assert("Old bedtime rescue wording is removed from UI", !app.includes("Bedtime not settling?"));
 

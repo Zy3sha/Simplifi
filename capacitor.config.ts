@@ -1,3 +1,5 @@
+/// <reference types="@capacitor-firebase/authentication" />
+
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
@@ -44,9 +46,9 @@ const config: CapacitorConfig = {
 
     // ── Keyboard ──
     Keyboard: {
-      resize: 'none',
-      resizeOnFullScreen: false,
-      scroll: false,
+      resize: 'body',
+      resizeOnFullScreen: true,
+      scroll: true,
     },
 
     // ── Status Bar ──
@@ -104,6 +106,12 @@ const config: CapacitorConfig = {
 
     // ── Badge ──
     Badge: {},
+
+    // ── Native Firebase Auth ──
+    FirebaseAuthentication: {
+      skipNativeAuth: false,
+      providers: ['apple.com', 'google.com'],
+    },
   },
 
   // ── iOS-specific ──

@@ -12,6 +12,7 @@ function findMorningWake(entries) {
   let bestMins = Infinity;
   for (const e of entries) {
     if (!e || e.type !== "wake" || !e.time) continue;
+    if (e.night || (e.nightLocked && e.night !== false)) continue;
     const h = parseInt(String(e.time).split(":")[0], 10);
     const m = timeVal(e);
     if (h >= 5 && h < 13 && m < bestMins) {
@@ -42,6 +43,12 @@ function boundaryVisibleDay({ mode, days, bedTimerDay, actualToday }) {
   const openBedDay = bedTimerDay || (findBedtime(days[prevDay] || []) ? prevDay : null);
   if (openBedDay && openBedDay < actualToday && findBedtime(days[openBedDay] || [])) return openBedDay;
   return actualToday;
+}
+
+function shouldSnapSelectedDayOnResume({ selectedDay, lastVisibleDay, actualToday }) {
+  if (!selectedDay || !lastVisibleDay || !actualToday) return false;
+  if (lastVisibleDay >= actualToday) return false;
+  return selectedDay <= lastVisibleDay;
 }
 
 function routeNightEntry({ mode, bedTimerDay, today }) {
@@ -149,6 +156,18 @@ assertEqual(
 );
 
 assertEqual(
+  "resume snap leaves deliberate past-day viewing alone during the same calendar day",
+  shouldSnapSelectedDayOnResume({ selectedDay: "2026-04-27", lastVisibleDay: "2026-04-28", actualToday: "2026-04-28" }),
+  false
+);
+
+assertEqual(
+  "resume snap only corrects stale app sessions after the calendar day changes",
+  shouldSnapSelectedDayOnResume({ selectedDay: "2026-04-27", lastVisibleDay: "2026-04-27", actualToday: "2026-04-28" }),
+  true
+);
+
+assertEqual(
   "wake mode night entries route to bedtime day",
   routeNightEntry({ mode: "wake", bedTimerDay: "2026-04-27", today: "2026-04-28" }),
   "2026-04-27"
@@ -165,6 +184,12 @@ assertEqual(
   "wake mode moves to today once morning wake is logged",
   boundaryVisibleDay({ mode: "wake", days, bedTimerDay: "2026-04-27", actualToday: "2026-04-28" }),
   "2026-04-28"
+);
+
+assertEqual(
+  "locked early-morning night wake does not become morning wake",
+  !!findMorningWake([{ type: "wake", time: "05:29", night: true, nightLocked: true }]),
+  false
 );
 
 const wakeModeDays = {

@@ -1,0 +1,28 @@
+asset_type,asset_text_or_path,character_count,campaign,angle,notes
+headline,Understand baby rhythm,22,android_google_gb_app_installs_2026_05,rhythm,30 char max
+headline,Track feeds and sleep,21,android_google_gb_app_installs_2026_05,tracker,30 char max
+headline,Baby tracker for 3am,21,android_google_gb_app_installs_2026_05,3am,30 char max
+headline,One calm baby app,17,android_google_gb_app_installs_2026_05,all_in_one,30 char max
+headline,Feeds naps nappies,19,android_google_gb_app_installs_2026_05,tracker,30 char max
+headline,Mum logs Dad sees,17,android_google_gb_app_installs_2026_05,sync,30 char max
+headline,Shared baby brain,17,android_google_gb_app_installs_2026_05,sync,30 char max
+headline,Less guessing tonight,21,android_google_gb_app_installs_2026_05,night,30 char max
+headline,Learn baby's rhythm,19,android_google_gb_app_installs_2026_05,rhythm,30 char max
+headline,Newborn tracking calm,21,android_google_gb_app_installs_2026_05,newborn,30 char max
+description,Track feeds naps nappies sleep and night wakes in one calm place.,65,android_google_gb_app_installs_2026_05,tracker,90 char max
+description,OBubba learns your baby rhythm from real logs not generic charts.,66,android_google_gb_app_installs_2026_05,rhythm,90 char max
+description,Built by a tired parent to make baby care easier at 3am.,60,android_google_gb_app_installs_2026_05,founder,90 char max
+description,Share one baby timeline across iPhone and Android.,51,android_google_gb_app_installs_2026_05,sync,90 char max
+description,Start with one log and see calmer patterns over time.,53,android_google_gb_app_installs_2026_05,activation,90 char max
+description,For newborns night wakes feeds naps weaning and family handovers.,66,android_google_gb_app_installs_2026_05,all_in_one,90 char max
+description,Keep parents and carers in sync without messages and memory tests.,66,android_google_gb_app_installs_2026_05,sync,90 char max
+description,Free to start. Premium adds deeper guidance and calmer planning.,65,android_google_gb_app_installs_2026_05,premium,90 char max
+image,/Users/zyesha/Desktop/obubba-clock-lab/marketing/obubba-launch-ads/renders/static/ad-pack/obubba-sleep-proof-landscape-1200x628.png,,android_google_gb_app_installs_2026_05,sleep,Verified 1200x628
+image,/Users/zyesha/Desktop/obubba-clock-lab/marketing/obubba-launch-ads/renders/static/ad-pack/obubba-sleep-proof-square-1080x1080.png,,android_google_gb_app_installs_2026_05,sleep,Verified 1080x1080
+image,/Users/zyesha/Desktop/obubba-clock-lab/marketing/obubba-launch-ads/renders/static/ad-pack/obubba-sleep-proof-story-1080x1920.png,,android_google_gb_app_installs_2026_05,sleep,Verified 1080x1920
+image,/Users/zyesha/Desktop/obubba-clock-lab/marketing/obubba-launch-ads/renders/static/ad-pack/obubba-sleep-understand-feed-1080x1350.png,,android_google_gb_app_installs_2026_05,sleep,Verified 1080x1350
+video,/Users/zyesha/Desktop/obubba-clock-lab/marketing/obubba-launch-ads/renders/obubba-rhythm-ad-01-learns-your-baby.mp4,,android_google_gb_app_installs_2026_05,rhythm,Verified 1080x1920 18s
+video,/Users/zyesha/Desktop/obubba-clock-lab/marketing/obubba-launch-ads/renders/obubba-rhythm-ad-02-partner-sync.mp4,,android_google_gb_app_installs_2026_05,sync,Verified 1080x1920 18s
+video,/Users/zyesha/Desktop/obubba-clock-lab/marketing/obubba-launch-ads/renders/obubba-rhythm-ad-03-night-rhythm.mp4,,android_google_gb_app_installs_2026_05,night,Verified 1080x1920 18s
+video,/Users/zyesha/Desktop/obubba-clock-lab/marketing/obubba-launch-ads/renders/obubba-hard-ad-01-crying-next-step.mp4,,android_google_gb_app_installs_2026_05,next_step,Verified 1080x1920 18s
+video,/Users/zyesha/Desktop/obubba-clock-lab/marketing/obubba-launch-ads/renders/obubba-ui-ad-01-all-in-one.mp4,,android_google_gb_app_installs_2026_05,all_in_one,Verified 1080x1920 18s

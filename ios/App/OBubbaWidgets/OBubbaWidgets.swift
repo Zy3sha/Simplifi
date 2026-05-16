@@ -247,15 +247,15 @@ struct OBubbaShortcuts: AppShortcutsProvider {
 // ══════════════════════════════════════════════════════════════════
 
 // Adaptive colours — light/dark mode
-private let brandRose    = Color(hex: "#C07088")
-private let brandDeep    = Color(light: "#5B4F5F", dark: "#E8DDE0")
+private let brandRose    = Color(light: "#9E4260", dark: "#FFC0D0")
+private let brandDeep    = Color(light: "#4D4352", dark: "#FFF5FA")
 private let brandWarm    = Color(light: "#F0DDD6", dark: "#3A2E35")
 private let brandBg      = Color(light: "#FBF5F3", dark: "#1C1820")
 private let brandCream   = Color(light: "#FAF0EB", dark: "#252028")
-private let brandMint    = Color(hex: "#6FA898")
-private let brandPurple  = Color(hex: "#8B7EC8")
-private let brandSky     = Color(hex: "#7AABC4")
-private let brandGold    = Color(hex: "#D4A855")
+private let brandMint    = Color(light: "#3F806F", dark: "#A8E5D5")
+private let brandPurple  = Color(light: "#5E5394", dark: "#D8D1FF")
+private let brandSky     = Color(light: "#4F7E96", dark: "#B8E8FF")
+private let brandGold    = Color(light: "#85631D", dark: "#FFE0A0")
 private let appNightFaceTop = Color(hex: "#122741")
 private let appNightFaceBottom = Color(hex: "#081527")
 private let appNightFaceSoftTop = Color(hex: "#162D46")
@@ -1042,7 +1042,7 @@ struct SmallMetric: View {
                 .minimumScaleFactor(0.66)
             Text(label)
                 .font(.system(size: 7.8, weight: .heavy, design: .rounded))
-                .foregroundColor(brandDeep.opacity(isDark ? 0.85 : 0.55))
+                .foregroundColor(brandDeep.opacity(isDark ? 0.90 : 0.76))
                 .lineLimit(1)
         }
         .frame(maxWidth: .infinity)
@@ -1110,7 +1110,7 @@ struct MediumStatusPanel: View {
                     if let detail, !detail.isEmpty {
                         Text(detail)
                             .font(.system(size: 8.2, weight: .semibold, design: .rounded))
-                            .foregroundColor((isDark ? appNightWarmText : brandDeep).opacity(isDark ? 0.70 : 0.44))
+                            .foregroundColor((isDark ? appNightWarmText : brandDeep).opacity(isDark ? 0.84 : 0.74))
                             .lineLimit(1)
                             .minimumScaleFactor(0.72)
                     }
@@ -1218,10 +1218,10 @@ struct OBubbaSmallWidgetView: View {
     private var d: WidgetData { entry.data }
 
     @Environment(\.colorScheme) private var colorScheme
-    private let brandDeep = Color(light: "#5B4F5F", dark: "#E8DDE0")
-    private let brandMint = Color(red: 0.48, green: 0.65, blue: 0.55)
-    private let brandRose = Color(red: 0.79, green: 0.44, blue: 0.36)
-    private let brandPurple = Color(red: 0.55, green: 0.48, blue: 0.66)
+    private let brandDeep = Color(light: "#4D4352", dark: "#FFF5FA")
+    private let brandMint = Color(light: "#3F806F", dark: "#A8E5D5")
+    private let brandRose = Color(light: "#9E4260", dark: "#FFC0D0")
+    private let brandPurple = Color(light: "#5E5394", dark: "#D8D1FF")
     private var bgGrad: LinearGradient {
         colorScheme == .dark
             ? LinearGradient(colors: [Color(hex: "#1C1820"), Color(hex: "#252028")], startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -1255,7 +1255,7 @@ struct OBubbaSmallWidgetView: View {
                 VStack(alignment: .leading, spacing: 1) {
                     Text("OBUBBA")
                         .font(.system(size: 8.5, weight: .heavy, design: .rounded))
-                        .foregroundColor(brandDeep.opacity(0.65))
+                        .foregroundColor(brandDeep.opacity(isNightTheme ? 0.88 : 0.78))
                     Text(d.babyName)
                         .font(.system(size: 17, weight: .heavy, design: .rounded))
                         .foregroundColor(brandDeep)
@@ -1265,7 +1265,7 @@ struct OBubbaSmallWidgetView: View {
                 Spacer(minLength: 4)
                 Text("Today")
                     .font(.system(size: 9, weight: .heavy, design: .rounded))
-                    .foregroundColor(brandDeep.opacity(0.72))
+                    .foregroundColor(brandDeep.opacity(isNightTheme ? 0.92 : 0.84))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
                     .background(Capsule().fill(isNightTheme ? Color(hex: "#1A2942").opacity(0.82) : Color.white.opacity(0.46)))
@@ -1296,7 +1296,7 @@ struct OBubbaSmallWidgetView: View {
                         .layoutPriority(10)
                     Text(label.lowercased().contains("feed") ? "tap to stop when done" : "since \(Self.formatBedtime(startDate))")
                         .font(.system(size: 9, weight: .semibold, design: .rounded))
-                        .foregroundColor(brandDeep.opacity(0.68))
+                        .foregroundColor(brandDeep.opacity(isNightTheme ? 0.88 : 0.78))
                         .lineLimit(1)
                         .minimumScaleFactor(0.78)
                 }
@@ -1337,7 +1337,7 @@ struct OBubbaSmallWidgetView: View {
                         .layoutPriority(10)
                     Text(widgetPredictionTimeHint(d.nextPrediction).map { "around \($0)" } ?? "next rhythm cue")
                         .font(.system(size: 9, weight: .semibold, design: .rounded))
-                        .foregroundColor(brandDeep.opacity(0.70))
+                        .foregroundColor(brandDeep.opacity(isNightTheme ? 0.88 : 0.80))
                         .lineLimit(1)
                         .minimumScaleFactor(0.78)
                 }
@@ -1362,7 +1362,7 @@ struct OBubbaSmallWidgetView: View {
 
                 Text("quietly keeping track")
                     .font(.system(size: 9.5, weight: .semibold, design: .rounded))
-                    .foregroundColor(brandDeep.opacity(0.75))
+                    .foregroundColor(brandDeep.opacity(isNightTheme ? 0.90 : 0.82))
                     .lineLimit(1)
                     .minimumScaleFactor(0.76)
             }
@@ -1456,14 +1456,14 @@ struct OBubbaMediumWidgetView: View {
                             .foregroundColor(brandPurple)
                         Text(pred)
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(brandDeep.opacity(0.80))
+                            .foregroundColor((isNightTheme ? appNightWarmText : brandDeep).opacity(isNightTheme ? 0.92 : 0.86))
                     }
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .background(Color.white.opacity(0.48))
+                    .background(isNightTheme ? appNightFaceSoftTop.opacity(0.92) : Color.white.opacity(0.62))
                     .overlay(
                         Capsule()
-                            .stroke(brandPurple.opacity(0.18), lineWidth: 0.8)
+                            .stroke((isNightTheme ? appNightRimCream : brandPurple).opacity(isNightTheme ? 0.34 : 0.26), lineWidth: 0.8)
                     )
                     .clipShape(Capsule())
                     .frame(maxWidth: .infinity, alignment: .trailing)

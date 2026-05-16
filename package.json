@@ -1,6 +1,6 @@
 {
   "name": "obubba",
-  "version": "2.7.5",
+  "version": "2.7.8",
   "description": "OBubba — Smart Baby Tracker with full native iOS & Android support",
   "private": true,
   "scripts": {
@@ -21,10 +21,11 @@
     "test:sleep-transition": "node test/sleep-transition-intelligence-audit.js",
     "test:sleep-interpreter": "node test/sleep-interpreter-layer-audit.js",
     "test:user-sim": "node test/user-simulation-audit.js",
+    "test:parent-journey": "node test/parent-journey-regression-audit.js",
     "test:day-boundary": "node test/day-boundary-audit.js",
     "test:imported-data": "node test/imported-data-safety-audit.js",
     "test:time-helpers": "node test/time-helper-audit.js",
-    "test:bubba-hug": "node test/bubba-hug-audit.js",
+    "test:clock-presence": "node test/clock-presence-audit.js",
     "test:firestore-rules": "node test/firestore-rules-audit.js",
     "test:sync-v2": "node test/sync-v2-audit.js",
     "test:ui-polish": "node test/ui-polish-audit.js",
@@ -56,7 +57,7 @@
     "test:outbound-actions": "node test/outbound-action-safety-audit.js",
     "test:text-shapes": "node test/text-shape-audit.js",
     "test:i18n": "node test/i18n-audit.js",
-    "test": "npm run test:sleep && npm run test:sleep-transition && npm run test:sleep-interpreter && npm run test:user-sim && npm run test:day-boundary && npm run test:imported-data && npm run test:time-helpers && npm run test:bubba-hug && npm run test:firestore-rules && npm run test:sync-v2 && npm run test:ui-polish && npm run test:viewport-overflow && npm run test:app-safe-time && npm run test:account-security && npm run test:onboarding-account && npm run test:session-cleanup && npm run test:native-bridge && npm run test:native-actions && npm run test:native-time && npm run test:store-readiness && npm run test:premium-entitlement && npm run test:build-artifacts && npm run test:export-html && npm run test:external-links && npm run test:phone-links && npm run test:carer-portal && npm run test:functions && npm run test:logging-privacy && npm run test:analytics && npm run test:deps && npm run test:json-parse && npm run test:sleep-rescue && npm run test:runtime-safety && npm run test:app-images && npm run test:local-storage-shapes && npm run test:share-payloads && npm run test:outbound-actions && npm run test:text-shapes && npm run test:i18n"
+    "test": "npm run test:sleep && npm run test:sleep-transition && npm run test:sleep-interpreter && npm run test:user-sim && npm run test:parent-journey && npm run test:day-boundary && npm run test:imported-data && npm run test:time-helpers && npm run test:clock-presence && npm run test:firestore-rules && npm run test:sync-v2 && npm run test:ui-polish && npm run test:viewport-overflow && npm run test:app-safe-time && npm run test:account-security && npm run test:onboarding-account && npm run test:session-cleanup && npm run test:native-bridge && npm run test:native-actions && npm run test:native-time && npm run test:store-readiness && npm run test:premium-entitlement && npm run test:build-artifacts && npm run test:export-html && npm run test:external-links && npm run test:phone-links && npm run test:carer-portal && npm run test:functions && npm run test:logging-privacy && npm run test:analytics && npm run test:deps && npm run test:json-parse && npm run test:sleep-rescue && npm run test:runtime-safety && npm run test:app-images && npm run test:local-storage-shapes && npm run test:share-payloads && npm run test:outbound-actions && npm run test:text-shapes && npm run test:i18n"
   },
   "dependencies": {
     "@babel/plugin-transform-react-jsx": "^7.28.6",
@@ -64,6 +65,7 @@
     "@capacitor-community/firebase-analytics": "^6.0.0",
     "@capacitor-community/speech-recognition": "^6.0.0",
     "@capacitor-community/sqlite": "6.0.2",
+    "@capacitor-firebase/authentication": "^6.3.1",
     "@capacitor/app": "^6.0.0",
     "@capacitor/browser": "^6.0.0",
     "@capacitor/camera": "^6.0.0",

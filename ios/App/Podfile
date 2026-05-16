@@ -15,6 +15,7 @@ def capacitor_pods
   pod 'CapacitorCommunityFirebaseAnalytics', :path => '../../node_modules/@capacitor-community/firebase-analytics'
   pod 'CapacitorCommunitySpeechRecognition', :path => '../../node_modules/@capacitor-community/speech-recognition'
   pod 'CapacitorCommunitySqlite', :path => '../../node_modules/@capacitor-community/sqlite'
+  pod 'CapacitorFirebaseAuthentication', :path => '../../node_modules/@capacitor-firebase/authentication'
   pod 'CapacitorApp', :path => '../../node_modules/@capacitor/app'
   pod 'CapacitorBrowser', :path => '../../node_modules/@capacitor/browser'
   pod 'CapacitorCamera', :path => '../../node_modules/@capacitor/camera'
@@ -41,4 +42,28 @@ end
 
 post_install do |installer|
   assertDeploymentTarget(installer)
+  Dir.glob(File.join(__dir__, 'Pods', 'Target Support Files', 'Pods-App', 'Pods-App-frameworks.sh')).each do |script|
+    next unless File.exist?(script)
+    contents = File.read(script)
+    marker = '# OBubba: strip extended attributes before CocoaPods codesign'
+    strip_extended_attrs = <<~'SH'
+      # OBubba: strip extended attributes before CocoaPods codesign
+      framework_to_sign="${destination}/$(basename "$1")"
+      if [ -d "${framework_to_sign}" ]; then
+        /bin/chmod -R u+w "${framework_to_sign}" 2>/dev/null || true
+        /usr/bin/xattr -cr "${framework_to_sign}" || true
+        for attr in com.apple.FinderInfo com.apple.ResourceFork com.apple.quarantine com.apple.fileprovider.fpfs#P com.apple.provenance; do
+          /usr/bin/xattr -d "${attr}" "${framework_to_sign}" 2>/dev/null || true
+          /usr/bin/find "${framework_to_sign}" -depth -exec /usr/bin/xattr -d "${attr}" {} \; 2>/dev/null || true
+        done
+      fi
+
+    SH
+    if contents.include?(marker)
+      contents.sub!(/# OBubba: strip extended attributes before CocoaPods codesign\n.*?\n(?=  # Resign the code if required by the build settings to avoid unstable apps)/m, strip_extended_attrs)
+    else
+      contents.sub!('  # Resign the code if required by the build settings to avoid unstable apps', strip_extended_attrs + '  # Resign the code if required by the build settings to avoid unstable apps')
+    end
+    File.write(script, contents)
+  end
 end

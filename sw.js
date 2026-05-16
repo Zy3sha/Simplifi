@@ -2,7 +2,7 @@
 // OBubba Service Worker — Offline-first with smart caching
 // ══════════════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'obubba-v1778322935';
+const CACHE_NAME = 'obubba-v1778930653';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -105,7 +105,25 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// ── Fetch: network-first for API, cache-first for assets ────────
+function networkFirst(event, cacheKey) {
+  event.respondWith(
+    fetch(event.request, { cache: 'no-store' })
+      .then((response) => {
+        if (response.ok) {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(cacheKey || event.request, clone));
+        }
+        return response;
+      })
+      .catch(() => caches.match(cacheKey || event.request).then((cached) => {
+        if (cached) return cached;
+        if (event.request.destination === 'document') return caches.match('/index.html');
+        return new Response('Offline', { status: 503 });
+      }))
+  );
+}
+
+// ── Fetch: network-first for app shell/API, cache-first for stable assets ────────
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
@@ -117,6 +135,23 @@ self.addEventListener('fetch', (event) => {
       url.hostname.includes('firebase') ||
       url.hostname.includes('identitytoolkit')) {
     return;
+  }
+
+  if (url.origin === self.location.origin) {
+    if (url.pathname === '/__clear-preview-cache.html') return;
+
+    if (event.request.mode === 'navigate') {
+      networkFirst(event, '/index.html');
+      return;
+    }
+
+    if (url.pathname === '/app.js' ||
+        url.pathname === '/loader.js' ||
+        url.pathname === '/index.html' ||
+        url.pathname === '/sw.js') {
+      networkFirst(event);
+      return;
+    }
   }
 
   // Google Fonts: cache-first (they rarely change)

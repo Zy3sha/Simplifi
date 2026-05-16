@@ -55,11 +55,11 @@ It's everything you need in one calm, simple place — feeds, naps, nappies, sle
 - Developmental phases (Wonder Weeks-style) timeline
 - Teething tracker with visual tooth chart
 
-**MEMORY BOOK**
-- Digital scrapbook with polaroid-style photos
-- Add captions, stickers, and notes
-- Shareable album links for grandparents & family
-- Beautiful journal-style page layout
+**MILESTONES & NOTES**
+- Developmental milestone tracking
+- Optional photos and notes on milestones
+- Gentle context for what is typical at each age
+- Health visitor report export for appointments
 
 **APPOINTMENTS & REMINDERS**
 - Appointment booking with travel time calculation
@@ -98,7 +98,7 @@ Terms of Use (EULA): https://obubba.com/terms
 baby,tracker,sleep,nap,feed,breastfeeding,weaning,growth,nappy,diary,schedule,prediction,newborn
 
 ## What's New (for updates)
-- Memory Book: Beautiful scrapbook with stickers, captions, and shareable family albums
+- Milestones & notes: gentler development tracking without deadline pressure
 - Sleep Consultant Insights: Detects false starts, split nights, and overtiredness patterns
 - 77 weaning recipes with allergen tracking
 - Live Activity on Lock Screen with stop/start buttons
@@ -137,7 +137,7 @@ Prices in other countries are set by Apple and Google using their local pricing 
 **Data Types Collected:**
 - Health & Fitness: Baby feeding, sleep, nappy data (stored locally + optional cloud backup)
 - Location: When In Use only (travel time calculation, never stored)
-- Photos: Memory Book photos (stored locally + optional sharing)
+- Photos: Profile, log, and milestone photos (stored locally + optional sharing)
 - Identifiers: User ID (Firebase Auth)
 
 ---
@@ -147,7 +147,7 @@ Prices in other countries are set by Apple and Google using their local pricing 
 1. Hero card with predictions: "Know when baby needs sleep"
 2. Today's Plan timeline: "Your whole day, mapped out"
 3. Sleep Story insights: "Like having a sleep consultant"
-4. Memory Book scrapbook: "Capture every precious moment"
+4. Growth and milestones: "Firsts without pressure"
 5. Widget + Live Activity: "Track from your Lock Screen"
 6. Weaning recipes: "77 recipes, BLW + puree methods"
 7. Growth chart: "WHO growth standards at a glance"
@@ -159,4 +159,4 @@ Prices in other countries are set by Apple and Google using their local pricing 
 4+ (no objectionable content)
 
 ## Copyright
-2026 OBubba
+2026 OLife Labs Limited

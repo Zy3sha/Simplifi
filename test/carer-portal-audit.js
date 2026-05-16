@@ -36,12 +36,26 @@ for (const file of careFiles) {
   assert(`${file} shows a friendly offline/auth failure`, html.includes("Can't connect") && html.includes("Please check your internet and try again"));
   assert(`${file} shows a friendly expired care-link failure`, html.includes("Care link expired") && html.includes("share a fresh link from OBubba") && script.includes("if (!_resolvedToken)"));
   assert(`${file} protects ended carer sessions before loading data`, html.includes("CHECK SESSION LOCK BEFORE RENDERING") && html.includes("return; // Don't load or render anything"));
+  assert(`${file} locks replaced Bubba Care links to the newest shared token`,
+    script.includes("const careSessionToken = rawCode.startsWith(\"CT\") ? rawCode : \"\";") &&
+    script.includes("function _sessionBlocksCurrentLink(data)") &&
+    script.includes("data.activeToken !== careSessionToken") &&
+    script.includes("Number(_tokenData.revokedAtMs)") &&
+    script.includes("!_tokenRevokedAtMs"));
   assert(`${file} does not keep a live listener on the billing-heavy family document`,
     script.includes("scheduleFamilyContextRefresh();") &&
     !script.includes("renderApp();\n    subscribeFamilyContext();"));
   assert(`${file} writes feed type expected by rules`, script.includes('logEntry({type:"feed", feedType:"bottle"'));
   assert(`${file} writes active nap state expected by rules`, script.includes('logEntry({type:"nap", start:s||nowTime(), end:s||nowTime(), _active:true'));
   assert(`${file} writes nap-end events expected by parent app`, script.includes('logEntry({type:"nap-end", end:_endT'));
+  assert(`${file} lets nursery paste day notes into structured parent logs`,
+    html.includes("Paste Nursery Notes") &&
+    html.includes('data-action="nursery-notes"') &&
+    script.includes("function parseNurseryDayNotes(text)") &&
+    script.includes("function renderNurseryNotesPreview(result)") &&
+    script.includes("async function logEntries(entries)") &&
+    script.includes('loggedBy: entry.loggedBy || "nursery"') &&
+    script.includes("Nursery notes sent to parents"));
   assert(`${file} keeps Bubba Care on the bedtime day in wake-boundary mode`,
     script.includes("function resolveCareDayKey(child)") &&
     script.includes('familyContext.dayBoundary === "midnight"') &&
@@ -98,6 +112,62 @@ assert("parent app sends grandma-friendly text as a care portal preference",
   app.includes("Makes the Bubba Care guide easier to read with bigger text and buttons. The app stays the same.") &&
   app.includes('class="${_largeCareGuide?"large-care-text":""}"') &&
   app.includes("{false ? (()=>{"));
+assert("parent app rotates Bubba Care share sessions for fresh links and QR codes",
+  app.includes("function revokeCarerTokenMapping(tokenData)") &&
+  app.includes("async function startCarerSessionForToken(tokenData)") &&
+  app.includes("activeToken: tokenData.token") &&
+  app.includes("tokenData.previousToken") &&
+  (app.match(/ensureSyncedCarerToken\(\{rotate:true\}\)/g) || []).length >= 3 &&
+  app.includes("revokedAtMs: Date.now()"));
+assert("parent app opens a real Bubba Care preview with a live synced link",
+  app.includes("async function previewCareCard()") &&
+  app.includes("await ensureSyncedCarerToken({rotate:false, startSession:true});") &&
+  app.includes("Preview Care Guide") &&
+  app.includes("openCareCardPreview(finalHtml, name)") &&
+  app.includes('const previewCareUrl = (() => {') &&
+  app.includes('text: name + "\'s care guide from OBubba" + (previewCareUrl ? "\\n\\n" + previewCareUrl : "")'));
+assert("parent app Bubba Care preview and link buttons work in touch webviews",
+  app.includes("async function sendCareLink()") &&
+  app.includes("function runCarerActionOnce(key, action)") &&
+  app.includes('const[carePortalReadyUrl,setCarePortalReadyUrl]=useState("");') &&
+  app.includes('Open live Bubba Care preview') &&
+  app.includes('await ensureSyncedCarerToken({rotate:false, startSession:true});') &&
+  app.includes('onPointerUp={e=>{e.preventDefault();e.stopPropagation();haptic();runCarerActionOnce("preview", previewCareCard);}}') &&
+  app.includes('onTouchEnd={e=>{e.preventDefault();e.stopPropagation();haptic();runCarerActionOnce("preview", previewCareCard);}}') &&
+  app.includes('onPointerUp={e=>{e.preventDefault();e.stopPropagation();haptic();runCarerActionOnce("send-link", sendCareLink);}}') &&
+  app.includes('onTouchEnd={e=>{e.preventDefault();e.stopPropagation();haptic();runCarerActionOnce("send-link", sendCareLink);}}') &&
+  app.includes('const controller = typeof AbortController !== "undefined" ? new AbortController() : null;') &&
+  app.includes('setTimeout(() => controller.abort(), 4000)'));
+assert("parent app waits for auth and has REST fallbacks before creating Bubba Care links",
+  app.includes("Bubba Care token SDK write failed, trying REST") &&
+  app.includes("Bubba Care session SDK write failed, trying REST") &&
+  app.includes('fsSet("carer_logs/" + tokenData.backupCode + "/_meta", "session", payload, false)') &&
+  app.includes("function carerWriteWithTimeout(promise, label, ms = 6000)") &&
+  app.includes('carerWriteWithTimeout(syncCarerPortalInfoNow(), "Bubba Care info sync", 2500)') &&
+  app.includes('A changed activeToken is enough for already-open older portals to') &&
+  app.includes("if (_opts.rotate || _opts.startSession)") &&
+  app.includes("if(v instanceof Date) return {timestampValue: v.toISOString()};"));
+assert("parent app replaces small Bubba Care control docs when opening links",
+  app.includes('fsSet("carer_tokens", tokenData.token, payload, false)') &&
+  app.includes('fsSet("carer_tokens", _carerTokenForCloud, {backupCode: code, expiresAtMs:_carerTokenExpiresAtMs, createdAtClient:new Date().toISOString(), updatedAt: serverTimestamp()}, false)') &&
+  app.includes("setDoc(sessionRef, openedPayload)") &&
+  !app.includes("setDoc(sessionRef, openedPayload, {merge:true})"));
+assert("parent app keeps Bubba Care token expiry safely inside Firestore's rule window",
+  app.includes("const CARE_TOKEN_EXPIRY_RULE_GRACE_MS = 5 * 60 * 1000;") &&
+  app.includes("function safeCarerTokenExpiryMs(value)") &&
+  app.includes("const max = now + CARE_TOKEN_TTL_MS - CARE_TOKEN_EXPIRY_RULE_GRACE_MS;") &&
+  app.includes("expiresAtMs: safeCarerTokenExpiryMs()") &&
+  app.includes("expiresAtMs:safeCarerTokenExpiryMs(tokenData.expiresAtMs)") &&
+  app.includes("expiresAtMs: safeCarerTokenExpiryMs(tokenData.expiresAtMs)"));
+assert("parent app labels and imports nursery-originated Bubba Care logs",
+  app.includes('const _carerSourceLabel = _e.loggedBy === "nursery" ? "nursery" : "carer";') &&
+  app.includes('loggedBy:_carerSourceLabel') &&
+  app.includes('if(_e.type==="note") { _newEntry.text=_carerNoteText; }') &&
+  app.includes('const sourceLabel = entry.loggedBy === "nursery" ? "nursery" : "carer";') &&
+  app.includes('e.loggedBy==="nursery"') &&
+  app.includes(">NURSERY<") &&
+  app.includes('note:"📝"') &&
+  app.includes('note:"Note"'));
 
 assert("root and hosted carer portals are identical", read("care.html") === read("hosting-care/care.html"));
 assert("hosted carer portal entrypoints are identical", read("hosting-care/care.html") === read("hosting-care/index.html"));

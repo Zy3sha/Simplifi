@@ -42,9 +42,9 @@
 			"showSpinner": false
 		},
 		"Keyboard": {
-			"resize": "none",
-			"resizeOnFullScreen": false,
-			"scroll": false
+			"resize": "body",
+			"resizeOnFullScreen": true,
+			"scroll": true
 		},
 		"StatusBar": {
 			"overlaysWebView": true,
@@ -87,13 +87,21 @@
 			"presentationStyle": "popover"
 		},
 		"Network": {},
-		"Badge": {}
+		"Badge": {},
+		"FirebaseAuthentication": {
+			"skipNativeAuth": false,
+			"providers": [
+				"apple.com",
+				"google.com"
+			]
+		}
 	},
 	"packageClassList": [
 		"SignInWithApple",
 		"FirebaseAnalytics",
 		"SpeechRecognition",
 		"CapacitorSQLitePlugin",
+		"FirebaseAuthenticationPlugin",
 		"AppPlugin",
 		"CAPBrowserPlugin",
 		"CAPCameraPlugin",

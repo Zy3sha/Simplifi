@@ -84,7 +84,7 @@ Currently carers get a static PDF. This needs to become a live, real-time tool.
 
 - [ ] **Auto-merge carer entries** — Accept by default with a "review" badge. Parent can edit/reject after, but data flows in immediately. Current manual approval is too much friction.
 - [ ] **Carer notes with context** — Carer can add notes ("settled easily", "fought nap", "seemed hungry early") that feed into the parent's insights
-- [ ] **Photo sharing from carer** — Carer snaps a photo during the day, it appears in parent's memory book with carer attribution
+- [ ] **Photo sharing from carer** — Carer snaps a photo during the day, it appears in the parent's daily care notes with carer attribution
 - [ ] **Quick-log presets for carers** — Big buttons: "Fed bottle", "Nap started", "Nap ended", "Nappy change". Minimal UI, minimal training needed.
 - [ ] **Offline carer logging** — Carer logs offline, syncs when back online. Essential for nurseries/homes with poor wifi.
 

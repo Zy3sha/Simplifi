@@ -39,6 +39,10 @@ cp -f loader.js public/loader.js
 cp -f native-plugins.js public/native-plugins.js
 cp -f firebase.js public/firebase.js
 cp -f care.html public/care.html
+cp -f __clear-preview-cache.html public/__clear-preview-cache.html
+mkdir -p hosting-care
+cp -f care.html hosting-care/care.html
+cp -f care.html hosting-care/index.html
 
 echo "Copying vendored runtime..."
 mkdir -p public/vendor dist/vendor
@@ -46,6 +50,17 @@ cp -f node_modules/react/umd/react.production.min.js public/vendor/react.product
 cp -f node_modules/react-dom/umd/react-dom.production.min.js public/vendor/react-dom.production.min.js
 cp -f public/vendor/react.production.min.js dist/vendor/react.production.min.js
 cp -f public/vendor/react-dom.production.min.js dist/vendor/react-dom.production.min.js
+for runtime in \
+  public/vendor/react.production.min.js \
+  public/vendor/react-dom.production.min.js \
+  dist/vendor/react.production.min.js \
+  dist/vendor/react-dom.production.min.js
+do
+  if [ ! -s "$runtime" ]; then
+    echo "Vendored runtime missing or empty: $runtime" >&2
+    exit 1
+  fi
+done
 
 echo "Copying to dist/..."
 cp -f public/index.html dist/index.html
@@ -61,6 +76,7 @@ cp -f loader.js dist/loader.js
 cp -f native-plugins.js dist/native-plugins.js
 cp -f firebase.js dist/firebase.js
 cp -f care.html dist/care.html
+cp -f __clear-preview-cache.html dist/__clear-preview-cache.html
 # Ensure font is in dist so cap copy includes it
 cp -f public/Parisienne-Regular.ttf dist/Parisienne-Regular.ttf 2>/dev/null || true
 

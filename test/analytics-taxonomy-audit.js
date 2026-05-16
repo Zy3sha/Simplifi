@@ -8,6 +8,9 @@ const appSource = fs.readFileSync(path.join(root, "app.jsx"), "utf8");
 const androidStore = fs.readFileSync(path.join(root, "android/app/src/main/java/com/obubba/app/plugins/StorePlugin.java"), "utf8");
 const iosStore = fs.readFileSync(path.join(root, "ios/App/App/Plugins/StorePlugin.swift"), "utf8");
 const iosObubbaStore = fs.readFileSync(path.join(root, "ios/App/App/OBubba/Plugins/StorePlugin.swift"), "utf8");
+const androidManifest = fs.readFileSync(path.join(root, "android/app/src/main/AndroidManifest.xml"), "utf8");
+const iosInfo = fs.readFileSync(path.join(root, "ios/App/App/Info.plist"), "utf8");
+const iosObubbaInfo = fs.readFileSync(path.join(root, "ios/App/OBubba/Info.plist"), "utf8");
 
 function assert(name, condition) {
   if (!condition) throw new Error(name);
@@ -23,6 +26,7 @@ function directTrackEvent(name) {
   "normaliseAnalyticsEventParams",
   "analyticsScreenName",
   "analyticsProductParams",
+  "trackScreenView",
   "trackLogCreated"
 ].forEach(name => assert("analytics helper exists: " + name, appSource.includes(name)));
 
@@ -61,8 +65,10 @@ function directTrackEvent(name) {
 ].forEach(eventName => assert("no direct legacy analytics event: " + eventName, !directTrackEvent(eventName)));
 
 assert("screen view uses canonical screen names", appSource.includes("analyticsScreenName(tab, daySubScreen, todayPanel)") && !appSource.includes("{ screen_name: tab"));
+assert("native screen reports use explicit OBubba screen names", appSource.includes("_fa.setScreenName({ screenName: safeScreenName, nameOverride: \"OBubbaApp\" })") && appSource.includes("trackScreenView(analyticsScreenName(tab, daySubScreen, todayPanel))"));
 assert("first-log marker remains backwards compatible", appSource.includes("ob_first_log_tracked_v1") && appSource.includes("ob_first_entry_tracked"));
-assert("purchase success also logs a standard purchase event when priced", appSource.includes("shouldLogStandardPurchaseEvent") && appSource.includes('name: "purchase"'));
+assert("native automatic screen reporting is disabled so Firebase screen names stay useful", androidManifest.includes("google_analytics_automatic_screen_reporting_enabled") && iosInfo.includes("FirebaseAutomaticScreenReportingEnabled") && iosObubbaInfo.includes("FirebaseAutomaticScreenReportingEnabled"));
+assert("purchase success also logs a standard purchase event when priced", appSource.includes("shouldLogStandardPurchaseEvent") && appSource.includes('name: "purchase"') && appSource.includes("items: [{"));
 assert("analytics blocks obvious personal-data params", appSource.includes("ANALYTICS_BLOCKED_PARAM_KEYS") && appSource.includes("child_name") && appSource.includes("invite_code"));
 assert("native store products expose currency codes", androidStore.includes("currencyCode") && iosStore.includes("currencyCode") && iosObubbaStore.includes("currencyCode"));
 

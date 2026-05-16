@@ -34,7 +34,7 @@ assert("care card escapes appointment text", care.includes("htmlEscape(a.title)"
 assert("care card escapes emergency contacts", care.includes("htmlEscape(c.name)") && care.includes("htmlEscape(c.phone)") && care.includes("htmlEscape(c.relation)"));
 assert("care card escapes guidance labels", care.includes("sleepSourceHtml") && care.includes("safeSleepSourceHtml") && care.includes("nonEmergencyLabelHtml"));
 assert("care card renders safe sleep temperature values, not literal code text", care.includes("Room temperature ${tempRangeHtml}") && !care.includes('"+cToDisplay(16)+"'));
-assert("QR fetch decodes escaped ampersands", app.includes('fetch(qrImg[1].replace(/&amp;/g, "&"))'));
+assert("QR fetch decodes escaped ampersands", app.includes('qrImg[1].replace(/&amp;/g, "&")') && app.includes("AbortController"));
 assert("care card export avoids inline image handlers", !care.includes("onerror=") && !care.includes("onload="));
 
 assert("daily print report escapes title and baby name", print.includes("htmlEscape(_reportName)") && print.includes("htmlEscape(fmtLong(selDay))"));

@@ -72,6 +72,14 @@
   .opt-btn .emoji { font-size: 24px; }
   .save-btn { width: 100%; padding: 18px; border-radius: 99px; border: none; background: linear-gradient(135deg,#C07088,#a85a44); color: white; font-size: 17px; font-weight: 700; cursor: pointer; font-family: inherit; box-shadow: 0 4px 14px rgba(192,112,136,0.25); }
   .cancel-btn { width: 100%; padding: 12px; border-radius: 99px; border: none; background: transparent; color: #A89A90; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; margin-top: 8px; }
+  .notes-textarea { width: 100%; min-height: 150px; max-height: 32vh; padding: 14px; border-radius: 16px; border: 1.5px solid #E8DED3; background: #FFFDFA; color: #4A3B35; font-size: 16px; line-height: 1.55; resize: vertical; outline: none; font-family: inherit; margin: 8px 0 12px; }
+  .parse-btn { width: 100%; padding: 15px; border-radius: 16px; border: 1.5px solid #C07088; background: rgba(192,112,136,0.06); color: #C07088; font-size: 16px; font-weight: 800; cursor: pointer; font-family: inherit; margin-bottom: 10px; }
+  .parsed-preview { max-height: 240px; overflow-y: auto; margin: 8px 0 12px; border-radius: 14px; }
+  .parsed-row { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 12px; background: #FBF5F0; border: 1px solid #E8DED3; margin-bottom: 6px; font-size: 13px; color: #4A3B35; }
+  .parsed-row .body { flex: 1; min-width: 0; }
+  .parsed-row .title { font-weight: 800; margin-bottom: 2px; }
+  .parsed-row .detail { color: #7A5C52; line-height: 1.45; overflow-wrap: anywhere; }
+  .parse-warning { padding: 8px 10px; border-radius: 10px; background: rgba(212,168,85,0.10); color: #8A6A28; font-size: 12px; line-height: 1.45; margin-top: 6px; }
   .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); background: #4A3B35; color: #FAF6F0; padding: 12px 18px; border-radius: 99px; font-size: 14px; font-weight: 600; z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,0.2); opacity: 0; transition: opacity 0.2s; }
   .toast.show { opacity: 1; }
   .error-screen { padding: 40px 24px; text-align: center; }
@@ -168,6 +176,9 @@
     .sheet-inner { background: #1C1820; }
     .sheet-handle { background: #3A2E35; }
     .opt-btn { background: #2A2430; border-color: #3A2E35; color: #E8DDE0; }
+    .notes-textarea { background: #2A2430; border-color: #3A2E35; color: #E8DDE0; }
+    .parsed-row { background: #2A2430; border-color: #3A2E35; color: #E8DDE0; }
+    .parsed-row .detail { color: #C8B8C0; }
     .save-btn { background: linear-gradient(135deg,#C07088,#a85a44); }
     .amt-btn { background: #2A2430; border-color: #3A2E35; color: #E8DDE0; }
     .call-btn { background: rgba(155,184,168,0.08); border-color: rgba(155,184,168,0.3); color: #E8DDE0; }
@@ -203,6 +214,7 @@ const childId = (params.get("child") || "").trim();
 
 // resolvedCode will be set to the actual backup code (BK...) after CT token lookup
 let code = rawCode;
+const careSessionToken = rawCode.startsWith("CT") ? rawCode : "";
 
 const $app = document.getElementById("app");
 
@@ -222,8 +234,11 @@ if (!rawCode || rawCode.length < 4) {
       let _resolvedToken = false;
       try {
         const _tokenDoc = await getDoc(doc(db, "carer_tokens", rawCode));
-        if (_tokenDoc.exists() && _tokenDoc.data().backupCode) {
-          code = _tokenDoc.data().backupCode;
+        const _tokenData = _tokenDoc.exists() ? (_tokenDoc.data() || {}) : {};
+        const _tokenExpiresAtMs = Number(_tokenData.expiresAtMs) || 0;
+        const _tokenRevokedAtMs = Number(_tokenData.revokedAtMs) || 0;
+        if (_tokenDoc.exists() && _tokenData.backupCode && !_tokenRevokedAtMs && (!_tokenExpiresAtMs || _tokenExpiresAtMs > Date.now())) {
+          code = _tokenData.backupCode;
           _resolvedToken = true;
         }
       } catch(e) { console.warn("CT token lookup failed", e); }
@@ -253,14 +268,19 @@ if (!rawCode || rawCode.length < 4) {
       if (_familyUnsub) { _familyUnsub(); _familyUnsub = null; }
       if (_familyRefreshTimer) { clearInterval(_familyRefreshTimer); _familyRefreshTimer = null; }
     }
+    function _sessionBlocksCurrentLink(data) {
+      if (!data) return false;
+      if (data.ended) return true;
+      return !!(careSessionToken && data.activeToken && data.activeToken !== careSessionToken);
+    }
     // Check session doc BEFORE loading any data
     try {
       var _sessionSnap = await getDoc(doc(db, "carer_logs", code, "_meta", "session"));
-      if (_sessionSnap.exists() && _sessionSnap.data().ended) {
+      if (_sessionSnap.exists() && _sessionBlocksCurrentLink(_sessionSnap.data() || {})) {
         _lockPortal();
         // Still listen for reopen
         onSnapshot(doc(db, "carer_logs", code, "_meta", "session"), (snap) => {
-          if (!snap.exists() && _sessionLocked) { _sessionLocked = false; location.reload(); }
+          if ((!snap.exists() || !_sessionBlocksCurrentLink(snap.data() || {})) && _sessionLocked) { _sessionLocked = false; location.reload(); }
         });
         return; // Don't load or render anything
       }
@@ -274,9 +294,9 @@ if (!rawCode || rawCode.length < 4) {
     // Live listener for real-time lock while portal is open
     try {
       onSnapshot(doc(db, "carer_logs", code, "_meta", "session"), (snap) => {
-        if (snap.exists() && snap.data().ended) {
+        if (snap.exists() && _sessionBlocksCurrentLink(snap.data() || {})) {
           _lockPortal();
-        } else if (!snap.exists() && _sessionLocked) {
+        } else if ((!snap.exists() || !_sessionBlocksCurrentLink(snap.data() || {})) && _sessionLocked) {
           _sessionLocked = false;
           location.reload();
         }
@@ -623,6 +643,230 @@ function showToast(msg) {
   setTimeout(() => { t.classList.remove("show"); setTimeout(() => t.remove(), 300); }, 2200);
 }
 
+function careMinsToClock(total) {
+  let mins = Number(total);
+  if (!Number.isFinite(mins)) return nowTime();
+  mins = ((Math.round(mins) % 1440) + 1440) % 1440;
+  return String(Math.floor(mins / 60)).padStart(2, "0") + ":" + String(mins % 60).padStart(2, "0");
+}
+
+function safeCareText(value, max = 500) {
+  return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+function validNurseryDateKey(year, month, day) {
+  const y = Number(year), m = Number(month), d = Number(day);
+  if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d)) return "";
+  if (y < 2020 || y > new Date().getFullYear() + 1 || m < 1 || m > 12 || d < 1 || d > 31) return "";
+  const dt = new Date(y, m - 1, d);
+  if (dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) return "";
+  return String(y).padStart(4, "0") + "-" + String(m).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+}
+
+function parseNurseryDateFromLine(line) {
+  const raw = String(line || "");
+  let m = raw.match(/\b(20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})\b/);
+  if (m) return validNurseryDateKey(m[1], m[2], m[3]);
+  m = raw.match(/\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})\b/);
+  if (!m) return "";
+  const year = String(m[3]).length === 2 ? "20" + m[3] : m[3];
+  return validNurseryDateKey(year, m[2], m[1]);
+}
+
+function parseNurseryNoteTimeToken(value, previousMinutes = null) {
+  let raw = String(value || "").trim().toLowerCase();
+  if (!raw) return null;
+  raw = raw.replace(/(\d{1,2})\.(\d{2})/g, "$1:$2").replace(/(\d+)(st|nd|rd|th)\b/g, "$1");
+  const m = raw.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/i);
+  if (!m) return null;
+  let h = Number(m[1]);
+  const min = Number(m[2] || 0);
+  const suffix = m[3] ? m[3].toLowerCase() : "";
+  if (!Number.isFinite(h) || !Number.isFinite(min) || min < 0 || min > 59) return null;
+  if (suffix) {
+    if (h < 1 || h > 12) return null;
+    if (suffix === "pm" && h < 12) h += 12;
+    if (suffix === "am" && h === 12) h = 0;
+  } else if (h > 23) {
+    return null;
+  }
+  let total = h * 60 + min;
+  if (!suffix && previousMinutes !== null && total <= previousMinutes) {
+    const crossedMidnight = previousMinutes >= 18 * 60 && total < 8 * 60;
+    if (!crossedMidnight) {
+      while (total <= previousMinutes && total < 24 * 60) total += 12 * 60;
+    }
+  }
+  return careMinsToClock(total);
+}
+
+function firstNurseryTimeInLine(line, previousMinutes = null) {
+  const raw = String(line || "").replace(/(\d{1,2})\.(\d{2})/g, "$1:$2");
+  let m = raw.match(/\b(\d{1,2}:\d{2}\s*(?:am|pm)?|\d{1,2}\s*(?:am|pm))\b/i);
+  if (m) return parseNurseryNoteTimeToken(m[1], previousMinutes);
+  m = raw.match(/^\s*(\d{1,2})(?=\s+(?:feed|fed|bottle|milk|nap|sleep|slept|wake|woke|nappy|diaper|wet|dirty)\b)/i);
+  if (m) return parseNurseryNoteTimeToken(m[1], previousMinutes);
+  return null;
+}
+
+function parseNurseryTimeRange(line, previousMinutes = null) {
+  const raw = String(line || "").replace(/(\d{1,2})\.(\d{2})/g, "$1:$2");
+  const m = raw.match(/\b(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s*(?:-|–|—|\bto\b)\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\b/i);
+  if (!m) return null;
+  let startRaw = m[1].trim();
+  const endRaw = m[2].trim();
+  const startHasSuffix = /\b(am|pm)\b/i.test(startRaw);
+  const endSuffixMatch = endRaw.match(/\b(am|pm)\b/i);
+  if (!startHasSuffix && endSuffixMatch) {
+    const startHour = Number((startRaw.match(/^(\d{1,2})/) || [])[1]);
+    const endHour = Number((endRaw.match(/^(\d{1,2})/) || [])[1]);
+    if (Number.isFinite(startHour) && Number.isFinite(endHour) && startHour <= endHour) {
+      startRaw += endSuffixMatch[1].toLowerCase();
+    }
+  }
+  const start = parseNurseryNoteTimeToken(startRaw, previousMinutes);
+  const end = parseNurseryNoteTimeToken(endRaw, start ? clockMins(start) : previousMinutes);
+  return start && end ? { start, end } : null;
+}
+
+function parseNurseryAmountMl(line) {
+  const m = String(line || "").match(/\b(\d{1,3})\s*(?:ml|mils|millilitres?)\b/i);
+  if (!m) return 0;
+  const amount = Number(m[1]);
+  return Number.isFinite(amount) && amount >= 0 && amount <= 500 ? Math.round(amount) : 0;
+}
+
+function nurseryPoopType(line) {
+  const l = String(line || "").toLowerCase();
+  const wet = /\b(wet|wee|urine)\b/.test(l);
+  const dirty = /\b(dirty|soiled|poo|poop|bowel|stool)\b/.test(l);
+  if (wet && dirty) return "wet + dirty";
+  if (dirty) return "dirty";
+  return "wet";
+}
+
+function parseNurseryDayNotes(text) {
+  const rawText = String(text || "").replace(/\r/g, "\n").replace(/\s+[•·]\s+/g, "\n");
+  const lines = rawText.split(/\n+/).map(l => l.trim()).filter(Boolean).slice(0, 80);
+  const entries = [];
+  const warnings = [];
+  const noteLines = [];
+  let detectedDate = "";
+  let lastMinutes = null;
+
+  function withDate(entry) {
+    if (detectedDate && !entry.date) entry.date = detectedDate;
+    entries.push(entry);
+    const nextMins = clockMins(entry.end || entry.time || entry.start || "");
+    if (nextMins !== null) lastMinutes = nextMins;
+  }
+
+  lines.forEach(rawLine => {
+    const dateInLine = parseNurseryDateFromLine(rawLine);
+    if (dateInLine) detectedDate = dateInLine;
+    let raw = rawLine
+      .replace(/\bdate\s*:\s*/i, "")
+      .replace(/\b(20\d{2})[-/.](\d{1,2})[-/.](\d{1,2})\b/, "")
+      .replace(/\b(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})\b/, "")
+      .trim();
+    if (!raw || /^(day|date|notes?|summary|nursery|handover)\s*:?\s*$/i.test(raw)) return;
+    if (/^(feeds?|food|meals?|sleep|naps?|nappies|diapers|activities)\s*:?\s*$/i.test(raw)) return;
+
+    const lower = raw.toLowerCase();
+    const noNappy = /\bno\s+(?:dirty|wet|nappy|nappies|diaper|poo|poop)\b/.test(lower);
+    const range = parseNurseryTimeRange(raw, lastMinutes);
+    const explicitTime = firstNurseryTimeInLine(raw, lastMinutes);
+    const amount = parseNurseryAmountMl(raw);
+    const shorthand = raw.match(/\b(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\D{0,24}(\d{2,3})\s*(?:ml|mils)?\b/i);
+    const shorthandTime = shorthand ? parseNurseryNoteTimeToken(shorthand[1], lastMinutes) : null;
+    const time = explicitTime || shorthandTime;
+    const note = safeCareText(raw, 500);
+
+    if (/\b(nap|slept|sleep)\b/.test(lower) && range && !/\bbedtime|bed time|down for bed\b/.test(lower)) {
+      withDate({ type:"nap", time:range.start, start:range.start, end:range.end, night:false, note:"Nursery note: " + note });
+      return;
+    }
+
+    if (/\b(bedtime|bed time|down for bed|asleep for night)\b/.test(lower) && time) {
+      withDate({ type:"sleep", time, night:false, note:"Nursery note: " + note });
+      return;
+    }
+
+    if (/\b(woke|wake|awake|got up)\b/.test(lower) && time) {
+      withDate({ type:"wake", time, night:false, note:"Nursery note: " + note });
+      return;
+    }
+
+    if (!noNappy && /\b(nappy|nappies|diaper|wet|dirty|soiled|poo|poop|bowel|stool)\b/.test(lower) && time) {
+      withDate({ type:"poop", time, poopType:nurseryPoopType(raw), night:false, note:"Nursery note: " + note });
+      return;
+    }
+
+    const milkLine = /\b(feed|fed|bottle|milk|formula|ebm|expressed)\b/.test(lower) || amount > 0;
+    const foodLine = /\b(breakfast|lunch|dinner|tea|snack|food|meal|ate|porridge|puree|solids?)\b/.test(lower);
+    if ((milkLine || foodLine) && time) {
+      const feedType = milkLine ? "bottle" : "solids";
+      withDate({ type:"feed", time, amount:milkLine ? amount : 0, feedType, night:false, note:"Nursery note: " + note });
+      return;
+    }
+
+    if (time) {
+      withDate({ type:"note", time, night:false, note:"Nursery note: " + note });
+      return;
+    }
+
+    if (/\b(nap|sleep|feed|bottle|nappy|diaper|wake|woke)\b/.test(lower)) {
+      warnings.push("Skipped because no clear time: " + raw);
+    }
+    noteLines.push(raw);
+  });
+
+  if (noteLines.length) {
+    const noteTime = lastMinutes !== null ? careMinsToClock(lastMinutes) : nowTime();
+    withDate({ type:"note", time:noteTime, night:false, note:safeCareText("Nursery notes: " + noteLines.join(" · "), 500) });
+  }
+
+  return {
+    entries: entries.slice(0, 30),
+    warnings,
+    detectedDate
+  };
+}
+
+function nurseryEntrySummary(entry) {
+  const type = String(entry && entry.type || "");
+  const icon = type === "feed" ? "🍼" : type === "nap" ? "😴" : type === "poop" ? "💩" : type === "wake" ? "☀️" : type === "sleep" ? "🌙" : "📝";
+  const label = type === "feed" ? (entry.feedType === "solids" ? "Food" : "Feed")
+    : type === "nap" ? "Nap"
+    : type === "poop" ? "Nappy"
+    : type === "wake" ? "Wake"
+    : type === "sleep" ? "Bedtime"
+    : "Note";
+  const detail = type === "nap"
+    ? `${fmt12(entry.start)} – ${fmt12(entry.end)}`
+    : `${fmt12(entry.time || entry.start || "")}${entry.amount ? " · " + entry.amount + "ml" : ""}${entry.poopType ? " · " + entry.poopType : ""}`;
+  return { icon, label, detail };
+}
+
+function renderNurseryNotesPreview(result) {
+  if (!result || !result.entries || !result.entries.length) {
+    return `<div class="parse-warning">No timed logs found yet. Include times like 9:15, 11:30-12:20, or 2pm.</div>`;
+  }
+  const rows = result.entries.map(entry => {
+    const s = nurseryEntrySummary(entry);
+    return `<div class="parsed-row">
+      <div style="font-size:20px">${s.icon}</div>
+      <div class="body">
+        <div class="title">${escapeHtml(s.label)} <span style="font-weight:600;color:#A89A90">${escapeHtml(s.detail)}</span></div>
+        <div class="detail">${escapeHtml(entry.note || "")}</div>
+      </div>
+    </div>`;
+  }).join("");
+  const warnings = (result.warnings || []).slice(0, 4).map(w => `<div class="parse-warning">${escapeHtml(w)}</div>`).join("");
+  const date = result.detectedDate ? `<div style="font-size:12px;color:#6A8A7A;font-weight:700;margin-bottom:8px">Date detected: ${escapeHtml(result.detectedDate)}</div>` : "";
+  return `${date}<div style="font-size:12px;color:#A89A90;font-weight:800;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px">Ready to send ${result.entries.length} log${result.entries.length === 1 ? "" : "s"}</div><div class="parsed-preview">${rows}</div>${warnings}`;
+}
+
 async function logEntry(entry) {
   // Read time from time picker if present
   const _timePicker = document.getElementById("carer-time-input");
@@ -653,6 +897,34 @@ async function logEntry(entry) {
   }
 }
 
+async function logEntries(entries) {
+  try {
+    if (!Array.isArray(entries) || entries.length === 0) { showToast("No logs to save yet"); return; }
+    if (!code || code.length < 4) { showToast("Invalid care link. ask the parent for a new one"); return; }
+    const colRef = collection(db, "carer_logs", code, "entries");
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i] || {};
+      const _doc = {
+        ...entry,
+        time: entry.time || entry.start || nowTime(),
+        loggedAt: new Date(Date.now() + i).toISOString(),
+        loggedBy: entry.loggedBy || "nursery"
+      };
+      if (!_doc.date) _doc.date = entry.night ? (familyContext._careDayKey || todayStrLocal()) : todayStrLocal();
+      if (_doc.note) _doc.note = safeCareText(_doc.note, 500);
+      Object.keys(_doc).forEach(k => { if (_doc[k] === undefined || _doc[k] === "") delete _doc[k]; });
+      await addDoc(colRef, _doc);
+    }
+    showToast("✓ Nursery notes sent to parents");
+    closeSheet();
+  } catch (e) {
+    console.error("Nursery notes save failed", e);
+    if (e.code === "permission-denied") showToast("Access expired. ask the parent for a new care link");
+    else if (!navigator.onLine) showToast("No internet. check your connection and try again");
+    else showToast("Couldn't save notes. check connection and try again");
+  }
+}
+
 function closeSheet() {
   if(sheet) { sheet.remove(); sheet = null; }
 }
@@ -670,7 +942,49 @@ function openSheet(type) {
     <input type="time" id="carer-time-input" value="${nowTime()}" style="font-size:16px;padding:8px 12px;border-radius:10px;border:1.5px solid #f0e8e0;background:#FFFCF9;color:#5B4F5F;text-align:center;font-family:inherit;outline:none;min-width:120px"/>
   </div>`;
 
-  if (type === "feed") {
+  if (type === "nursery-notes") {
+    inner = `
+      <div class="sheet-inner">
+        <div class="sheet-handle"></div>
+        <div class="sheet-title">📋 Paste Nursery Notes</div>
+        <div style="font-size:13px;color:#7A5C52;line-height:1.55;text-align:center;margin-bottom:10px">
+          Paste the handover/day notes. OBubba will turn timed feeds, naps, nappies and notes into parent logs for ${escapeHtml(familyContext.babyName || "baby")}.
+        </div>
+        <textarea class="notes-textarea" id="nursery-notes-text" placeholder="Example:
+9:00 Bottle 150ml
+10:15 wet nappy
+11:20-12:05 nap
+12:30 lunch - ate most of pasta
+2:10 dirty nappy
+Very happy after garden play"></textarea>
+        <button class="parse-btn" id="parse-nursery-notes">Preview parsed logs</button>
+        <div id="nursery-notes-preview"></div>
+        <button class="save-btn" id="save-nursery-notes" style="opacity:.45" disabled>Send logs to parents ✓</button>
+        <button class="cancel-btn" id="cancel">Cancel</button>
+      </div>`;
+    sheet.innerHTML = inner;
+    document.body.appendChild(sheet);
+    const input = sheet.querySelector("#nursery-notes-text");
+    const preview = sheet.querySelector("#nursery-notes-preview");
+    const save = sheet.querySelector("#save-nursery-notes");
+    let parsedResult = null;
+    const runPreview = () => {
+      parsedResult = parseNurseryDayNotes(input.value);
+      preview.innerHTML = renderNurseryNotesPreview(parsedResult);
+      const ok = !!(parsedResult.entries && parsedResult.entries.length);
+      save.disabled = !ok;
+      save.style.opacity = ok ? "1" : ".45";
+      save.textContent = ok ? `Send ${parsedResult.entries.length} log${parsedResult.entries.length === 1 ? "" : "s"} to parents ✓` : "Send logs to parents ✓";
+    };
+    sheet.querySelector("#parse-nursery-notes").onclick = runPreview;
+    input.oninput = () => { if (parsedResult) runPreview(); };
+    save.onclick = () => {
+      if (!parsedResult) runPreview();
+      if (!parsedResult || !parsedResult.entries || !parsedResult.entries.length) return;
+      logEntries(parsedResult.entries);
+    };
+    sheet.querySelector("#cancel").onclick = closeSheet;
+  } else if (type === "feed") {
     let ml = 120;
     inner = `
       <div class="sheet-inner">
@@ -1219,7 +1533,13 @@ function _renderHtml() {
           const _isBed = _predLabel.toLowerCase().includes("bed");
           const _isNap2 = _predLabel.toLowerCase().includes("nap");
           const _icon = _isBed ? "🌙" : _isNap2 ? "😴" : "⏰";
-          _events.push(_icon + " " + (_isBed ? "Bedtime" : _predLabel) + " ~" + _pred.nextPrediction);
+          const _predText = String(_pred.nextPrediction || "").trim();
+          const _predTextLower = _predText.toLowerCase();
+          const _predLabelLower = _predLabel.toLowerCase();
+          const _predDisplay = _isBed
+            ? ("Bedtime ~" + _predText.replace(/^bedtime\s*~?\s*/i, ""))
+            : (_predTextLower.startsWith(_predLabelLower) ? _predText : (_predLabel + " ~" + _predText));
+          _events.push(_icon + " " + _predDisplay);
           // Feed: only show if before bedtime
           if (_isBed && _feedOverdue) {
             _events.push("🍼 Offer feed before bed");
@@ -1311,6 +1631,10 @@ function _renderHtml() {
         <button class="action-btn" data-action="nappy">
           <span class="icon">💩</span>
           <span class="label">Nappy</span>
+        </button>
+        <button class="action-btn" data-action="nursery-notes">
+          <span class="icon">📋</span>
+          <span class="label">Day Notes</span>
         </button>
         ${_isNightSleep ? `
         <button class="action-btn wake-night" data-action="morning-wake">
@@ -1589,8 +1913,8 @@ function updateRecentList() {
     list.innerHTML = `<div style="font-size:13px;color:#A89A90;text-align:center;padding:8px">Nothing logged yet</div>`;
     return;
   }
-  const icons = { feed: "🍼", poop: "💩", nap: "😴", wake: "☀️" };
-  const labels = { feed: "Feed", poop: "Nappy", nap: "Nap", wake: "Wake" };
+  const icons = { feed: "🍼", poop: "💩", nap: "😴", wake: "☀️", sleep: "🌙", note: "📝" };
+  const labels = { feed: "Feed", poop: "Nappy", nap: "Nap", wake: "Wake", sleep: "Bedtime", note: "Note" };
   list.innerHTML = recentEntries.map(e => {
     const t = e.time || (e.loggedAt || "").slice(11,16);
     const type = String(e.type || "");
@@ -1600,6 +1924,8 @@ function updateRecentList() {
       ? ` · ${amount}ml`
       : type === "poop" && e.poopType
         ? ` · ${escapeHtml(e.poopType)}`
+        : type === "note" && e.note
+          ? ` · ${escapeHtml(String(e.note).replace(/^Nursery note[s]?:\s*/i, "").slice(0, 48))}`
         : "";
     return `<div class="entry">
       <span class="emoji">${icons[type]||"📝"}</span>

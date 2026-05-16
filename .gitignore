@@ -39,3 +39,7 @@ backups/
 # Local duplicate files created by Finder/Xcode copy operations
 android/app/src/main/res/xml/config [0-9]*.xml
 ios/App/App/config [0-9]*.xml
+
+# Local release archives and Codex run state
+store-release/
+.codex-run-logs/

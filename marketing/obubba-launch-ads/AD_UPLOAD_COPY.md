@@ -2,28 +2,28 @@
 
 Use these with the exported MP4s in `renders/`.
 
-## Ad 1 - All-In-One Comparison
+## Ad 1 - Bubba Care + Parent Room
 
 Video:
-`renders/obubba-ad-01-all-in-one.mp4`
+`renders/obubba-rhythm-ad-01-learns-your-baby.mp4`
 
 Primary text:
-Feeds, sleep, nappies, weaning, growth, memories, and care handovers in one calm baby app. OBubba is free to start on iPhone and Android.
+Bubba Care helps tired parents understand feeds, naps, sleep and night wakes, while Parent Room gives softer support when the day feels heavy.
 
 Headline:
-One calm baby app
+Bubba Care support
 
 Description:
-Track baby's day without juggling notes, messages, and separate apps.
+Bubba Care and Parent Room support for calmer baby tracking.
 
 CTA:
 Install Now
 
 Best audience:
-Broad UK parents with newborn to weaning-age babies.
+UK parents with newborn to weaning-age babies who want calmer guidance, not another spreadsheet.
 
 Optimization:
-Start with app installs or first open. Move toward `child_added` and `first_log_created` once event volume is visible.
+Start with app installs or first open. Judge quality by `first_log_created`, `three_logs_created`, `care_opened`, and Parent Room engagement.
 
 ## Ad 2 - iOS + Android Partner Sync
 
@@ -34,10 +34,10 @@ Primary text:
 Mum has iPhone. Dad has Android. OBubba keeps both parents on the same baby timeline.
 
 Headline:
-Sync across iOS + Android
+Partner sync for baby
 
 Description:
-One baby. Two phones. One shared place for feeds, naps, and nappies.
+Track feeds, sleep and care with your partner in one calm place.
 
 CTA:
 Install Now
@@ -48,25 +48,41 @@ Couples, co-parents, and households where more than one person logs care.
 Optimization:
 Start with app installs or first open. Watch `partner_invite_tapped` after installs start.
 
-## Ad 3 - 3am Night Logging
+## Ad 3 - Fireflies + 3am Support
 
 Video:
-`renders/obubba-ad-03-3am-night-logging.mp4`
+`renders/obubba-rhythm-ad-03-night-rhythm.mp4`
 
 Primary text:
-At 3am, nobody wants to calculate the last feed. OBubba helps tired parents log night feeds, wakes, and nappies quickly.
+At 3am, the fireflies remind you other parents are awake too. OBubba helps night feeds, wakes and baby rhythm feel less lonely.
 
 Headline:
-No more 3am guessing
+Less lonely nights
 
 Description:
-Night logging for tired parents.
+Fireflies, baby rhythm and softer support for tired parents.
 
 CTA:
 Install Now
 
 Best audience:
-New parents and parents with babies under 6 months.
+New parents, night-feeding parents, and parents feeling isolated in the early months.
 
 Optimization:
-Start with app installs or first open. Judge quality by `first_log_created`, `three_logs_created`, and day-2 retention.
+Start with app installs or first open. Judge quality by `first_log_created`, `three_logs_created`, Parent Room engagement, and day-2 retention.
+
+## Google App Campaign Text Assets
+
+Headlines:
+- Bubba Care support
+- Partner sync for baby
+- Parent Room support
+- Fireflies at 3am
+- Less lonely nights
+
+Descriptions:
+- Bubba Care, partner sync and Parent Room support for calmer baby tracking.
+- Fireflies show other parents are awake too, so 3am feels less lonely.
+- Track feeds, sleep and care with your partner in one calm place.
+- Parent Room supports tired parents with softer mental health check-ins.
+- Bubba Care explains patterns in naps, feeds and night wakes.

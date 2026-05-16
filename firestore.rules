@@ -14,6 +14,10 @@ service cloud.firestore {
       return username.matches('^[a-z0-9_-]{3,32}$');
     }
 
+    function authProviderId(providerId) {
+      return providerId.matches('^(apple\\.com|google\\.com)$');
+    }
+
     function childSyncCodeId(code) {
       return code.matches('^[A-Z0-9]{6,8}$');
     }
@@ -62,7 +66,7 @@ service cloud.firestore {
     function validFamilyWrite() {
       return request.resource.data.keys().hasOnly([
         'children', 'carerInfo', 'sharedData', 'childSyncCodes',
-        'deletedEntryIds', 'deletedDays', 'prediction', 'todayMeds',
+        'deletedEntryIds', 'deletedDays', 'deletedGrowthMeasurements', 'prediction', 'todayMeds',
         'updatedAt', 'updatedBy', 'writeToken', 'carerToken',
         'deleted', 'entries'
       ])
@@ -73,6 +77,7 @@ service cloud.firestore {
       && (!('childSyncCodes' in request.resource.data) || request.resource.data.childSyncCodes is string)
       && (!('deletedEntryIds' in request.resource.data) || request.resource.data.deletedEntryIds is string)
       && (!('deletedDays' in request.resource.data) || request.resource.data.deletedDays is string)
+      && (!('deletedGrowthMeasurements' in request.resource.data) || request.resource.data.deletedGrowthMeasurements is string)
       && (!('prediction' in request.resource.data) || request.resource.data.prediction is string)
       && (!('todayMeds' in request.resource.data) || request.resource.data.todayMeds is string)
       && (!('updatedBy' in request.resource.data) || request.resource.data.updatedBy is string)
@@ -199,7 +204,8 @@ service cloud.firestore {
         'childId', 'childName', 'ownerUid', 'ownerUsername', 'child',
         'isActive', 'replacedBy', 'updatedAt', 'updatedBy',
         'writeToken', 'participants', 'participantUids',
-        'deletedEntryIds', 'deletedDays'
+        'deletedEntryIds', 'deletedDays', 'deletedGrowthMeasurements',
+        'activeTimer'
       ])
       && request.resource.data.keys().hasAny(['child', 'isActive', 'participants'])
       && (!('childId' in request.resource.data) || request.resource.data.childId is string)
@@ -214,7 +220,21 @@ service cloud.firestore {
       && (!('participants' in request.resource.data) || (request.resource.data.participants is list && request.resource.data.participants.size() <= 25))
       && (!('participantUids' in request.resource.data) || (request.resource.data.participantUids is list && request.resource.data.participantUids.size() <= 25))
       && (!('deletedEntryIds' in request.resource.data) || request.resource.data.deletedEntryIds is string)
-      && (!('deletedDays' in request.resource.data) || request.resource.data.deletedDays is string);
+      && (!('deletedDays' in request.resource.data) || request.resource.data.deletedDays is string)
+      && (!('deletedGrowthMeasurements' in request.resource.data) || request.resource.data.deletedGrowthMeasurements is string)
+      && (!('activeTimer' in request.resource.data) || request.resource.data.activeTimer == null || validActiveTimerPayload(request.resource.data.activeTimer));
+    }
+
+    function validActiveTimerPayload(timer) {
+      return timer is map
+        && timer.keys().hasOnly(['type', 'startTime', 'startMs', 'entryId', 'dayKey', 'updatedAt', 'deviceId'])
+        && timer.type in ['nap', 'bed', 'breast']
+        && timer.startTime is string
+        && timer.startMs is number
+        && (!('entryId' in timer) || timer.entryId is string)
+        && (!('dayKey' in timer) || timer.dayKey is string)
+        && timer.updatedAt is number
+        && (!('deviceId' in timer) || timer.deviceId is string);
     }
 
     function validSyncV2FamilyRootWrite() {
@@ -316,7 +336,7 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'childId', 'childName', 'child', 'isActive', 'replacedBy',
           'updatedAt', 'updatedBy', 'writeToken', 'participants', 'participantUids',
-          'deletedEntryIds', 'deletedDays'
+          'deletedEntryIds', 'deletedDays', 'deletedGrowthMeasurements', 'activeTimer'
         ])
         && childSyncUpdatedBySelf();
     }
@@ -330,7 +350,7 @@ service cloud.firestore {
         && request.resource.data.participantUids == resource.data.participantUids
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'child', 'childName', 'updatedAt', 'updatedBy', 'writeToken',
-          'deletedEntryIds', 'deletedDays'
+          'deletedEntryIds', 'deletedDays', 'deletedGrowthMeasurements', 'activeTimer'
         ])
         && childSyncUpdatedBySelf();
     }
@@ -388,13 +408,17 @@ service cloud.firestore {
 
     function validCarerTokenWrite() {
       return request.resource.data.keys().hasOnly([
-        'backupCode', 'updatedAt', 'expiresAtMs', 'createdAtClient'
+        'backupCode', 'updatedAt', 'expiresAtMs', 'createdAtClient', 'revokedAtMs'
       ])
       && request.resource.data.backupCode is string
       && backupCodeId(request.resource.data.backupCode)
       && request.resource.data.expiresAtMs is int
       && request.resource.data.expiresAtMs > request.time.toMillis()
       && request.resource.data.expiresAtMs <= request.time.toMillis() + 30 * 24 * 60 * 60 * 1000
+      && (!('revokedAtMs' in request.resource.data) || (
+        request.resource.data.revokedAtMs is int
+        && request.resource.data.revokedAtMs <= request.time.toMillis() + 2 * 60 * 1000
+      ))
       && (!('createdAtClient' in request.resource.data) || request.resource.data.createdAtClient is string);
     }
 
@@ -407,7 +431,7 @@ service cloud.firestore {
         '_active', '_activeNightWake', '_merged', '_mergedAt', '_rejected'
       ])
       && request.resource.data.keys().hasAny(['type', '_merged', '_rejected'])
-      && (!('type' in request.resource.data) || request.resource.data.type in ['feed', 'poop', 'nappy', 'nap', 'nap-end', 'sleep', 'wake'])
+      && (!('type' in request.resource.data) || request.resource.data.type in ['feed', 'poop', 'nappy', 'nap', 'nap-end', 'sleep', 'wake', 'note'])
       && (!('time' in request.resource.data) || (request.resource.data.time is string && clockText(request.resource.data.time)))
       && (!('start' in request.resource.data) || (request.resource.data.start is string && clockText(request.resource.data.start)))
       && (!('end' in request.resource.data) || (request.resource.data.end is string && clockText(request.resource.data.end)))
@@ -508,7 +532,8 @@ service cloud.firestore {
         && (
           (strongCarerTokenId(token)
             && resource.data.expiresAtMs is int
-            && resource.data.expiresAtMs > request.time.toMillis())
+            && resource.data.expiresAtMs > request.time.toMillis()
+            && !('revokedAtMs' in resource.data))
           || legacyCarerTokenId(token)
         );
       allow list: if false;
@@ -551,6 +576,20 @@ service cloud.firestore {
 	        && validUsernameWrite();
 	      allow delete: if false;
 	    }
+
+    match /usernames/{username}/provider_links/{providerId} {
+      allow get: if usernameId(username) && authProviderId(providerId) && usernameDocOwner(username);
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+
+    // Provider links are server-owned. A signed-in Apple/Google Firebase UID
+    // may read only its own link pointer; all writes happen in Cloud Functions.
+    match /auth_provider_links/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
 
     // ── Complimentary Premium Entitlements ──
     // App clients can read a known username grant, but only trusted admin/IAM
@@ -681,11 +720,11 @@ service cloud.firestore {
     }
 
     // ── Bubba Presence ──
-    // Anonymous clock presence for worldwide "awake with you" stars/flowers.
+    // Anonymous clock presence for worldwide "awake with you" fireflies.
     // No names, location, baby data, profile, text, or contact details.
     match /bubba_presence/{presenceId} {
       allow get: if signedIn();
-      allow list: if signedIn() && request.query.limit <= 40;
+      allow list: if signedIn() && request.query.limit <= 60;
       allow create, update: if signedIn()
         && presenceId == request.auth.uid
         && request.resource.data.keys().hasAll([
@@ -707,54 +746,8 @@ service cloud.firestore {
         && request.resource.data.lastSeenMs >= request.time.toMillis() - 2 * 60 * 1000
         && request.resource.data.lastSeenMs <= request.time.toMillis() + 2 * 60 * 1000
         && request.resource.data.expiresAtMs > request.resource.data.lastSeenMs
-        && request.resource.data.expiresAtMs <= request.resource.data.lastSeenMs + 30 * 60 * 1000;
+        && request.resource.data.expiresAtMs <= request.resource.data.lastSeenMs + 5 * 60 * 1000;
       allow delete: if signedIn() && presenceId == request.auth.uid;
-    }
-
-    // ── Bubba Hugs ──
-    // Anonymous, preset-only support pings. No names, location, text, baby data,
-    // usernames, or contact details should ever be stored here.
-    match /bubba_hugs/{hugId} {
-      allow get: if signedIn();
-      allow list: if signedIn() && request.query.limit <= 25;
-      allow create: if signedIn()
-        && request.resource.data.keys().hasAll([
-          'fromId', 'context', 'messageKey', 'createdAtMs',
-          'createdAtClient', 'expiresAtMs', 'app'
-        ])
-	        && request.resource.data.keys().hasOnly([
-	          'fromId', 'context', 'messageKey', 'createdAtMs',
-	          'createdAtClient', 'expiresAtMs', 'app',
-	          'minuteBucket', 'presenceWindowMin', 'source', 'localMode'
-	        ])
-	        && request.resource.data.fromId == request.auth.uid
-	        && request.resource.data.context in ['parent_room', 'night_wake', 'bedtime', 'nap_refused', 'rough_day', 'general', 'clock_home', 'clock_presence']
-	        && request.resource.data.messageKey in ['not_alone', 'keep_going', 'one_breath', 'tiny_step']
-	        && request.resource.data.createdAtMs is int
-	        && request.resource.data.createdAtClient is string
-	        && request.resource.data.expiresAtMs is int
-        && request.resource.data.createdAtMs >= request.time.toMillis() - 2 * 60 * 1000
-	        && request.resource.data.createdAtMs <= request.time.toMillis() + 2 * 60 * 1000
-	        && request.resource.data.expiresAtMs > request.resource.data.createdAtMs
-	        && request.resource.data.expiresAtMs <= request.resource.data.createdAtMs + 10 * 60 * 1000
-	        && request.resource.data.app == 'obubba'
-	        && (!('minuteBucket' in request.resource.data) || (request.resource.data.minuteBucket is int && request.resource.data.minuteBucket >= 0))
-	        && (!('presenceWindowMin' in request.resource.data) || (request.resource.data.presenceWindowMin is int && request.resource.data.presenceWindowMin >= 1 && request.resource.data.presenceWindowMin <= 30))
-	        && (!('source' in request.resource.data) || request.resource.data.source in ['clock_presence'])
-	        && (!('localMode' in request.resource.data) || request.resource.data.localMode in ['day', 'night']);
-      allow update: if signedIn()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'claimedBy', 'claimedAtMs', 'claimedAtClient'
-        ])
-        && resource.data.fromId != request.auth.uid
-        && (!('claimedBy' in resource.data) || resource.data.claimedBy == request.resource.data.claimedBy)
-        && request.resource.data.claimedBy == request.auth.uid
-        && request.resource.data.claimedAtMs is int
-        && resource.data.expiresAtMs >= request.time.toMillis()
-        && request.resource.data.claimedAtMs >= request.time.toMillis() - 2 * 60 * 1000
-        && request.resource.data.claimedAtMs <= request.time.toMillis() + 2 * 60 * 1000
-        && request.resource.data.claimedAtClient is string;
-      allow delete: if false;
     }
 
     // ── Carer Logs ──
@@ -780,10 +773,14 @@ service cloud.firestore {
         allow create, update: if signedIn()
           && backupCodeId(code)
           && docId == 'session'
-          && request.resource.data.keys().hasOnly(['ended', 'endedAt', 'endedBy'])
+          && request.resource.data.keys().hasOnly(['ended', 'endedAt', 'endedBy', 'activeToken', 'startedAt', 'startedBy', 'updatedAt'])
 	          && (!('ended' in request.resource.data) || request.resource.data.ended is bool)
 	          && (!('endedAt' in request.resource.data) || request.resource.data.endedAt is timestamp)
-	          && (!('endedBy' in request.resource.data) || boundedString(request.resource.data.endedBy, 80));
+	          && (!('endedBy' in request.resource.data) || boundedString(request.resource.data.endedBy, 80))
+	          && (!('activeToken' in request.resource.data) || strongCarerTokenId(request.resource.data.activeToken))
+	          && (!('startedAt' in request.resource.data) || request.resource.data.startedAt is timestamp)
+	          && (!('startedBy' in request.resource.data) || boundedString(request.resource.data.startedBy, 80))
+	          && (!('updatedAt' in request.resource.data) || request.resource.data.updatedAt is timestamp);
         allow delete: if signedIn() && backupCodeId(code) && docId == 'session';
       }
     }

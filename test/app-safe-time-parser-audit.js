@@ -50,10 +50,11 @@ assert("persisted nap timer cleanup does not construct dates from raw time strin
 assert("cluster-feed detection uses shared parser", app.includes("const t1 = clockMins(_sortedToday[i-2].time || \"00:00\");"));
 assert("health red-flag timestamps use shared parser", app.includes("const _ms = clockDateMs(dk, m.time || \"00:00\", NaN);"));
 assert("three-drive sleep model uses shared nap-end parser", app.includes("const napEndMins = naps.map(n => clockMins(n.end)).filter(m => m !== null);"));
-assert("personal bedtime baseline parsing uses shared parser", app.includes("const _avgBedMins = clockMins(_pb.personalAvgBed);"));
-assert("last-feed wall clock gap validates feed time fallbacks", app.includes("const _feedClock = (e) => e && (e.time || e.start);") && app.includes("const entryMins = clockMins(_feedClock(e));") && app.includes("const _isFeed = (e) => clockMins(_feedClock(e)) !== null"));
-assert("last-feed wall clock repairs stale OBubba day quick logs", app.includes("const _stampMs = safeTimestampMs(e._ts || e.modifiedAt || e.loggedAt || e.createdAt, NaN);") && app.includes("if (_stampDay > e._dk && _stampDay <= _calToday && _clockDelta <= 90) wallDay = _stampDay;"));
+assert("personal bedtime baseline parsing uses shared parser", app.includes("const loggedBedtimeData = _bedRecentDays") && app.includes("const _bedMins = e ? clockMins(e.time) : null;") && app.includes("let avgBedMins = null;"));
+assert("last-feed wall clock gap validates feed time fallbacks", app.includes("const _rightNowFeedClock = (e) => e && (e.time || e.start);") && app.includes("const _rightNowFeedMins = (e) => clockMins(_rightNowFeedClock(e));") && app.includes("const _allFeedsForGap = _today.filter(e => _rightNowFeedMins(e) !== null"));
+assert("last-feed wall clock repairs stale OBubba day quick logs", app.includes("const _stampMs = safeTimestampMs(e._ts || e.modifiedAt || e.loggedAt || e.createdAt, NaN);") && app.includes("if (_stampDay > _dk && _stampDay <= _calNow && _clockDelta <= 90) _wallDay = _stampDay;") && app.includes("if (_feedStampDay > fdk && _feedStampDay <= _calNow && _feedClockDelta <= 90) fWallDay = _feedStampDay;"));
 assert("quick-log explicit night routing ignores stale bedTimerDay", app.includes("selDay !== _btdEffective") && !app.includes("selDay !== bedTimerDay) {"));
+assert("quick-log active bed timer day validates the real bedtime start", app.includes("function activeBedTimerDayForQuickLog()") && app.includes("const bedStartMs = clockDateMs(raw, bedStart, NaN);") && app.includes("if (ageH < -2 || ageH > 24) return null;") && app.includes("closedByNextMorning ? null : raw"));
 assert("quick-log evening night feeds do not route to yesterday's stale bedtime", app.includes("if (_isEarlyAM && _prevHasBed) _targetDay = _prevD;") && app.includes("10pm feed does not look like it happened 22+ hours ago"));
 assert("engine temperature context uses shared date parser", app.includes("const _ms = clockDateMs(dk, m.time || \"00:00\", NaN);"));
 assert("sleep-pattern night timing uses shared parsers", app.includes("const h = clockHour(e.time || \"00:00\");") && app.includes("const mins = clockMins(t);"));
@@ -99,9 +100,9 @@ assert("import repair validates inferred wake and bedtime clocks", app.includes(
 assert("import repair sorts candidate wakes through the shared clock parser", app.includes("function entryClockSortMins(entry, fallback = 1440)") && app.includes("}).sort((a, b) => entryClockSortMins(a) - entryClockSortMins(b));") && !app.includes('(a.time || a.start || "").localeCompare(b.time || b.start || "")'));
 assert("witching-hour predictor validates feed clocks", app.includes("const h = clockHour(feeds[j].time || \"\");"));
 assert("quickstart generated feed time uses safe wake hour", app.includes("const _amFeedH = (clockHour(_obWakeTime) ?? 7) + 1;"));
-assert("nursery-mode suppression validates saved hours", app.includes("const _nStart = clockHour(_nurseryMode.start) ?? 9;") && app.includes("const _nEnd = clockHour(_nurseryMode.end) ?? 17;"));
+assert("nursery-mode suppression validates saved hours", app.includes("const _nStart = clockHour(_nurseryMode.start) ?? 9;") && app.includes("const _nEnd = clockHour(_nurseryMode.end) ?? 17;") && app.includes("if (!_nurserySuppressedNow && _feedGap >= 150)"));
 assert("hydration 24h window validates nappy times", app.includes("const t = clockDateMs(e._dk, e.time, NaN);") && !app.includes('new Date(e._dk + "T"'));
-assert("prediction accuracy ignores malformed actual times", app.includes("const predictedMins = clockMins(predictedStart);") && app.includes("const actualMins = clockMins(actualStart);"));
+assert("prediction accuracy ignores malformed actual times", app.includes("function predictionClockMins(value)") && app.includes("const predictedMins = predictionClockMins(predictedStart);") && app.includes("const actualMins = predictionClockMins(actualStart);"));
 assert("day summary nap sorting uses shared parser", app.includes("return clockMinsOr(a.start, 0) - clockMinsOr(b.start, 0);"));
 assert("gentle wake guidance validates bedtime prediction", app.includes("var bedMins = clockMins(bedPred.time);"));
 assert("milk totals next-day wake detection validates hour", app.includes("const h=clockHour(e.time||\"\"); return h!==null&&h>=5&&h<13;"));

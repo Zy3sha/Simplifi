@@ -1,0 +1,29 @@
+campaign,ad_group,country_or_region,match_type,keyword,bid_posture,custom_product_page,creative_asset_note,quality_event,launch_budget_note
+ios_asa_gb_brand_2026_05,brand_exact,GB,exact,obubba,high,default,Use default screenshots,trial_started,Owner approval before spend
+ios_asa_gb_brand_2026_05,brand_exact,GB,exact,o bubba,high,default,Use default screenshots,trial_started,Owner approval before spend
+ios_asa_gb_brand_2026_05,brand_exact,GB,exact,obuba,high,default,Use default screenshots,trial_started,Owner approval before spend
+ios_asa_gb_brand_2026_05,brand_exact,GB,exact,obubba baby tracker,high,default,Use default screenshots,trial_started,Owner approval before spend
+ios_asa_gb_baby_tracker_2026_05,baby_tracker_exact,GB,exact,baby tracker,medium,all_in_one_tracker,Lead with one calm place screenshot,first_log_created,Owner approval before spend
+ios_asa_gb_baby_tracker_2026_05,baby_tracker_exact,GB,exact,baby tracker app,medium,all_in_one_tracker,Lead with one calm place screenshot,first_log_created,Owner approval before spend
+ios_asa_gb_baby_tracker_2026_05,baby_tracker_exact,GB,exact,newborn tracker,medium,newborn_3am,Lead with 3am/night screenshot,first_log_created,Owner approval before spend
+ios_asa_gb_baby_tracker_2026_05,baby_tracker_exact,GB,exact,baby log app,medium,all_in_one_tracker,Lead with one calm place screenshot,first_log_created,Owner approval before spend
+ios_asa_gb_baby_tracker_2026_05,baby_tracker_exact,GB,exact,baby routine app,medium,rhythm_clock,Lead with clock/rhythm screenshot,three_logs_created,Owner approval before spend
+ios_asa_gb_baby_tracker_2026_05,baby_tracker_broad,GB,broad,baby care app,low,all_in_one_tracker,Use as discovery only,first_log_created,Owner approval before spend
+ios_asa_gb_sleep_rhythm_2026_05,sleep_exact,GB,exact,baby sleep tracker,medium,rhythm_clock,Lead with clock/rhythm screenshot,trial_started,Owner approval before spend
+ios_asa_gb_sleep_rhythm_2026_05,sleep_exact,GB,exact,baby sleep app,medium,rhythm_clock,Lead with sleep advice screenshot,trial_started,Owner approval before spend
+ios_asa_gb_sleep_rhythm_2026_05,sleep_exact,GB,exact,baby nap tracker,medium,rhythm_clock,Lead with know what baby needs next,first_log_created,Owner approval before spend
+ios_asa_gb_sleep_rhythm_2026_05,sleep_exact,GB,exact,baby wake windows,medium,rhythm_clock,Lead with rhythm/plan screenshot,three_logs_created,Owner approval before spend
+ios_asa_gb_sleep_rhythm_2026_05,sleep_exact,GB,exact,baby bedtime app,medium,rhythm_clock,Lead with night/clock screenshot,trial_started,Owner approval before spend
+ios_asa_gb_sleep_rhythm_2026_05,sleep_exact,GB,exact,night wake tracker,medium,newborn_3am,Lead with less alone at 3am,first_log_created,Owner approval before spend
+ios_asa_gb_breastfeeding_2026_05,breastfeeding_exact,GB,exact,breastfeeding tracker,medium,breastfeeding_support,Lead with feeding support screenshot,first_log_created,Owner approval before spend
+ios_asa_gb_breastfeeding_2026_05,breastfeeding_exact,GB,exact,breastfeeding timer,medium,breastfeeding_support,Lead with feeding support screenshot,first_log_created,Owner approval before spend
+ios_asa_gb_breastfeeding_2026_05,breastfeeding_exact,GB,exact,nursing tracker,medium,breastfeeding_support,Lead with feeding support screenshot,first_log_created,Owner approval before spend
+ios_asa_gb_family_sync_2026_05,family_sync_exact,GB,exact,shared baby tracker,medium,family_sync,Lead with Bubba Care/village screenshot,partner_invite_tapped,Owner approval before spend
+ios_asa_gb_family_sync_2026_05,family_sync_exact,GB,exact,baby tracker for parents,medium,family_sync,Lead with Bubba Care/village screenshot,partner_invite_tapped,Owner approval before spend
+ios_asa_gb_family_sync_2026_05,family_sync_exact,GB,exact,baby app for couples,medium,family_sync,Lead with family handover copy,partner_invite_tapped,Owner approval before spend
+ios_asa_gb_competitor_discovery_2026_05,competitor_exact,GB,exact,huckleberry baby tracker,low,rhythm_clock,Do not use trademark in creative,first_log_created,Owner approval before spend
+ios_asa_gb_competitor_discovery_2026_05,competitor_exact,GB,exact,huckleberry sleep app,low,rhythm_clock,Do not use trademark in creative,trial_started,Owner approval before spend
+ios_asa_gb_competitor_discovery_2026_05,competitor_exact,GB,exact,nara baby tracker,low,all_in_one_tracker,Do not use trademark in creative,first_log_created,Owner approval before spend
+ios_asa_gb_competitor_discovery_2026_05,competitor_exact,GB,exact,glow baby tracker,low,all_in_one_tracker,Do not use trademark in creative,first_log_created,Owner approval before spend
+ios_asa_us_sleep_rhythm_2026_05,sleep_exact,US,exact,baby sleep tracker,medium,rhythm_clock,Mirror GB only after GB quality clears,trial_started,Owner approval before spend
+ios_asa_au_sleep_rhythm_2026_05,sleep_exact,AU,exact,baby sleep tracker,medium,rhythm_clock,Mirror GB only after GB quality clears,trial_started,Owner approval before spend

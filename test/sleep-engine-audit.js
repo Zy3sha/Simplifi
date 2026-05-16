@@ -899,9 +899,75 @@ try {
 	if (!appSource.includes('localStorage.getItem("ob_day_tag_" + rd.dayKey)')) {
 	  _sweepFail("splitNightDiscomfort", "split-night discomfort detection must stay wired to resolved day keys", {});
 	}
-} catch (err) {
-  _sweepFail("tomorrowFlexSchedule", "failed to read app.jsx for source guard", { message: err.message });
-}
+	const _fnBody = (name, nextName) => {
+	  const s = appSource.indexOf(name);
+	  if (s < 0) return "";
+	  const e = nextName ? appSource.indexOf(nextName, s + name.length) : -1;
+	  return e > s ? appSource.slice(s, e) : appSource.slice(s);
+	};
+	const _rawNapFilter = /filter\(\s*(?:e|n|x|s)\s*=>\s*(?:\w+\s*&&\s*)?(?:e|n|x|s)\.type\s*={2,3}\s*"nap"|filter\(isValidCompletedNap\)/;
+	[
+	  ["predictNextNap", _fnBody("function predictNextNap()", "function bedtimePrediction()")],
+	  ["bedtimePrediction", _fnBody("function bedtimePrediction()", "function sleepAdvice()")],
+	  ["sleepBudgetDashboard", _fnBody("function sleepBudgetDashboard()", "function threeDriveSleepModel()")],
+	  ["advancedSleepPatterns", _fnBody("function advancedSleepPatterns()", "function advancedSleepPatternItems(result)")],
+	  ["detectSleepPatterns", _fnBody("function detectSleepPatterns()", "function getPriorityAction()")],
+	  ["sleepStabilityScore", _fnBody("function sleepStabilityScore()", "function morningWakeAnchor()")],
+	  ["tomorrowFlexSchedule", _fnBody("function tomorrowFlexSchedule()", "// ═══ NAP STRUCTURE ENGINE")],
+	  ["computePersonalBaselines", _fnBody("function computePersonalBaselines()", "// ═══ POSITIONAL RHYTHM ENGINE")],
+	  ["getDailyRecalibration", _fnBody("function getDailyRecalibration()", "function detectPhaseTransition()")],
+	  ["detectPhaseTransition", _fnBody("function detectPhaseTransition()", "React.useEffect(()=>")],
+	  ["generateSleepStory", _fnBody("function generateSleepStory()", "function smartReassurance()")],
+	  ["getCryingAnalysis", _fnBody("function getCryingAnalysis()", "// 3. WIND/GAS")]
+	].forEach(([name, src]) => {
+	  if (!src) _sweepFail("reliableNapAnalytics", "could not locate " + name + " body", {});
+	  else if (_rawNapFilter.test(src)) _sweepFail("reliableNapAnalytics", name + " must use getReliableCompletedDayNaps, not raw nap filters", {});
+	});
+	if (!appSource.includes("function sleepConsultantNapTarget(ageWeeks)") || !appSource.includes('target.countLabel = "2-3"') || !appSource.includes("weeks >= 28 && weeks <= 31")) {
+	  _sweepFail("sleepConsultantNapTargets", "sleep consultant plan must support 2-3 nap transition targets around 7 months", {});
+	}
+	if (!appSource.includes("const napTarget = sleepConsultantNapTarget(ageWeeks);")) {
+	  _sweepFail("sleepConsultantNapTargets", "runSleepConsultation must use shared sleepConsultantNapTarget", {});
+	}
+	if (!appSource.includes("avgLastWW<ww.min || avgLastWW>ww.max+20")) {
+	  _sweepFail("falseStartRootCause", "false-start review must score both short and long last wake windows", {});
+	}
+	if (!appSource.includes('let _cause = "unclear"') || !appSource.includes("gap > 0 && gap <= 120") || appSource.includes("This usually means undertiredness")) {
+	  _sweepFail("sleepIssueLabels", "false starts and split nights must be labelled as symptoms unless the data supports a cause", {});
+	}
+	if (!appSource.includes("nightWeaningSafetyOk") || appSource.includes("Night weaning ready") || appSource.includes("reduce by 20ml every 3 nights")) {
+	  _sweepFail("nightWeaningSafety", "night-weaning guidance must stay gated by daytime intake and wet-nappy safety checks", {});
+	}
+		if (!appSource.includes('mode === "bubba_rhythm"') || !appSource.includes('activeFalseStartPlan.mode !== "schedule"') || !appSource.includes("setScheduleOverride(current => current && current.source === FALSE_START_PLAN_SOURCE ? null : current)")) {
+		  _sweepFail("falseStartPlanMode", "switching back to Bubba rhythm must clear the 7-night schedule override and stop schedule-mode predictions", {});
+		}
+		if (!appSource.includes("function napOutcomePredictionScore(nap, ageWeeksParam)") || !appSource.includes("wakeMood") || !appSource.includes("settleTime") || !appSource.includes("qualityScore")) {
+		  _sweepFail("napOutcomePrediction", "nap review answers must become a scored prediction signal, not just a note on the nap", {});
+		}
+		if (!appSource.includes("function getLatestNapOutcomeWakeWindowAdjustment(nap, ageWeeksParam, targetKind)") || !appSource.includes('getLatestNapOutcomeWakeWindowAdjustment(lastNap, ageWeeks, "nap")') || !appSource.includes('getLatestNapOutcomeWakeWindowAdjustment(lastNap, _predAgeW, "bed")')) {
+		  _sweepFail("napOutcomePrediction", "latest nap review must nudge both next-nap and bedtime predictions", {});
+		}
+		if (!appSource.includes("outcomeScore") || !appSource.includes("happyRate") || !appSource.includes("roughRate") || !appSource.includes("outcomeBestWW") || !appSource.includes("best nap outcomes")) {
+		  _sweepFail("napOutcomePrediction", "personal rhythm learning must weight wake windows by actual nap outcomes, including wake mood", {});
+		}
+		if (!appSource.includes("filterBaselineTrainingDays") || !appSource.includes("baselineTrainingExclusionReason") || !appSource.includes('tag === "travel"') || !appSource.includes('tag === "daycare" || tag === "nursery"') || !appSource.includes("baselineDayHasFever")) {
+		  _sweepFail("baselineTrainingExclusions", "personal baseline training must exclude illness, travel and nursery/daycare days", {});
+		}
+		if (!appSource.includes("function getNapPredictionCalibration(napNumber)") || !appSource.includes("signedDiffMins") || !appSource.includes("napNumber") || !appSource.includes("calibrated Nap")) {
+		  _sweepFail("napPredictionCalibration", "actual-vs-predicted calibration must be tracked and applied per nap number", {});
+		}
+		if (!appSource.includes("putDownTime") || !appSource.includes("fellAsleepTime") || !appSource.includes("asleepTime") || !appSource.includes("How long to fall asleep?")) {
+		  _sweepFail("napSettlingFields", "nap logs must keep separate put-down and fell-asleep times from settling answers", {});
+		}
+		if (!appSource.includes("buildPredictionConfidenceMeta") || !appSource.includes("confidenceLabel") || !appSource.includes("outlier nap data ignored") || !appSource.includes("missing wake anchor")) {
+		  _sweepFail("predictionConfidenceLabels", "nap and bedtime predictions must carry confidence labels based on missing/outlier data", {});
+		}
+		if (!appSource.includes("sleepPredictionNapOutcomeScore") || !appSource.includes("fsPoorNapOutcomeDays") || !appSource.includes("fsPoorNapOutcomeNights")) {
+		  _sweepFail("falseStartOutcomeWiring", "false-start consultant models must read nap-review outcome scores", {});
+		}
+	} catch (err) {
+	  _sweepFail("tomorrowFlexSchedule", "failed to read app.jsx for source guard", { message: err.message });
+	}
 
 // ─── Audit 1: raw helper outputs across every age in weeks ──────────────
 for (let aw = 0; aw <= 156; aw++) { // 0 → 3 years
