@@ -11,6 +11,7 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
         CAPPluginMethod(name: "start", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "update", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "stop", returnType: CAPPluginReturnPromise),
+        CAPPluginMethod(name: "getCurrentTimer", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "isAvailable", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "startPrediction", returnType: CAPPluginReturnPromise),
         CAPPluginMethod(name: "updatePrediction", returnType: CAPPluginReturnPromise),
@@ -173,6 +174,33 @@ public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
                 await activity.end(nil, dismissalPolicy: .immediate)
             }
             call.resolve()
+        }
+    }
+
+    @objc func getCurrentTimer(_ call: CAPPluginCall) {
+        guard #available(iOS 16.1, *) else {
+            call.resolve(["active": false])
+            return
+        }
+
+        Task {
+            guard let activity = Activity<OBubbaTimerAttributes>.activities.first else {
+                call.resolve(["active": false])
+                return
+            }
+
+            let state = activity.content.state
+            let startMs = state.startTime.timeIntervalSince1970 * 1000
+            let elapsed = min(max(Int(Date().timeIntervalSince(state.startTime)), 0), 16 * 3600)
+            call.resolve([
+                "active": true,
+                "type": activity.attributes.timerType,
+                "babyName": activity.attributes.babyName,
+                "startTimeMs": startMs,
+                "elapsed": elapsed,
+                "side": state.side ?? "",
+                "nextNap": state.nextNap ?? ""
+            ])
         }
     }
 
