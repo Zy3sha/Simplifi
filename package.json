@@ -43,6 +43,7 @@
     "test:build-artifacts": "node test/build-artifacts-audit.js",
     "test:export-html": "node test/export-html-safety-audit.js",
     "test:external-links": "node test/external-link-audit.js",
+    "test:download-landing": "node test/download-landing-audit.js",
     "test:phone-links": "node test/phone-link-safety-audit.js",
     "test:carer-portal": "node test/carer-portal-audit.js",
     "test:functions": "node test/functions-audit.js",
@@ -58,7 +59,7 @@
     "test:outbound-actions": "node test/outbound-action-safety-audit.js",
     "test:text-shapes": "node test/text-shape-audit.js",
     "test:i18n": "node test/i18n-audit.js",
-    "test": "npm run test:sleep && npm run test:sleep-transition && npm run test:sleep-interpreter && npm run test:user-sim && npm run test:parent-journey && npm run test:real-parent-chaos && npm run test:day-boundary && npm run test:imported-data && npm run test:time-helpers && npm run test:clock-presence && npm run test:firestore-rules && npm run test:sync-v2 && npm run test:ui-polish && npm run test:viewport-overflow && npm run test:app-safe-time && npm run test:account-security && npm run test:onboarding-account && npm run test:session-cleanup && npm run test:native-bridge && npm run test:native-actions && npm run test:native-time && npm run test:store-readiness && npm run test:premium-entitlement && npm run test:build-artifacts && npm run test:export-html && npm run test:external-links && npm run test:phone-links && npm run test:carer-portal && npm run test:functions && npm run test:logging-privacy && npm run test:analytics && npm run test:deps && npm run test:json-parse && npm run test:sleep-rescue && npm run test:runtime-safety && npm run test:app-images && npm run test:local-storage-shapes && npm run test:share-payloads && npm run test:outbound-actions && npm run test:text-shapes && npm run test:i18n"
+    "test": "npm run test:sleep && npm run test:sleep-transition && npm run test:sleep-interpreter && npm run test:user-sim && npm run test:parent-journey && npm run test:real-parent-chaos && npm run test:day-boundary && npm run test:imported-data && npm run test:time-helpers && npm run test:clock-presence && npm run test:firestore-rules && npm run test:sync-v2 && npm run test:ui-polish && npm run test:viewport-overflow && npm run test:app-safe-time && npm run test:account-security && npm run test:onboarding-account && npm run test:session-cleanup && npm run test:native-bridge && npm run test:native-actions && npm run test:native-time && npm run test:store-readiness && npm run test:premium-entitlement && npm run test:build-artifacts && npm run test:export-html && npm run test:external-links && npm run test:download-landing && npm run test:phone-links && npm run test:carer-portal && npm run test:functions && npm run test:logging-privacy && npm run test:analytics && npm run test:deps && npm run test:json-parse && npm run test:sleep-rescue && npm run test:runtime-safety && npm run test:app-images && npm run test:local-storage-shapes && npm run test:share-payloads && npm run test:outbound-actions && npm run test:text-shapes && npm run test:i18n"
   },
   "dependencies": {
     "@babel/plugin-transform-react-jsx": "^7.28.6",
