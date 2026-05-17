@@ -564,6 +564,19 @@ function runBreastfeedingWakeModeJourney() {
 
   startBedTimer(state, "2026-05-10", "19:42");
   assert("wake-to-wake stays on bedtime day after midnight before morning wake", visibleDay(state, "2026-05-11") === "2026-05-10");
+  state.today = "2026-05-11";
+  state.selectedDay = "2026-05-10";
+  const catchupFeed = quickAddLog(state, "feed", { type: "feed", time: "14:15", feedType: "milk", amount: 120, night: false }, "2026-05-11");
+  const catchupNappy = quickAddLog(state, "poop", { type: "poop", time: "15:05", poopType: "wet", night: false }, "2026-05-11");
+  assert(
+    "daytime catch-up logs stay visible on the selected bedtime day while bed timer is open",
+    entries(state, "2026-05-10").includes(catchupFeed) &&
+      entries(state, "2026-05-10").includes(catchupNappy) &&
+      !catchupFeed.night &&
+      !catchupNappy.night &&
+      !entries(state, "2026-05-11").includes(catchupFeed),
+    JSON.stringify({ bedDay: entries(state, "2026-05-10"), today: entries(state, "2026-05-11") })
+  );
   const choice = startNightBreastTimerFromBed(state, { time: "02:12", feedType: "breast", side: nextBreastSide(state) }, "2026-05-11");
   assert("breastfeeding one-tap during bed timer pauses bedtime and starts a night feed timer", choice.timerStarted && state.bedPaused && state.breast.active && state.breast.side === "R");
   editBreastTimer(state, { left: "6", right: "9", side: "R", start: "02:12", nowMs: clockDateMs("2026-05-11", "02:28"), dayKey: "2026-05-11" });
@@ -678,6 +691,7 @@ function runSourceWiringChecks() {
   assert("live breastfeeding timer edit accepts start time and L/R duration", appSource.includes("function saveBreastTimerEdit()") && appSource.includes("safeBreastMinutesInput") && appSource.includes('localStorage.setItem("breast_startMs",String(timerStartMs))') && appSource.includes("Left (L) minutes") && appSource.includes("Right (R) minutes"));
   assert("live breast timer resume keeps duration authoritative through side switches", appSource.includes("function resumeBreastTimer(side)") && appSource.includes("Date.now() - totalSec * 1000") && appSource.includes("const sideKey = resumeBreastTimer(side);"));
   assert("live bedtime feed choice explains night wake versus morning wake", appSource.includes("function openBedtimeFeedChoice(data)") && appSource.includes("function logBedtimeFeedChoice(kind)") && appSource.includes("Night wake feed or morning wake?") && appSource.includes("Night wake</strong> means baby isn't ready to wake up for the day.") && appSource.includes("Morning wake</strong> means baby is ready to start the day."));
+  assert("live daytime catch-up logging stays on selected historical days during open bedtime", appSource.includes("function shouldKeepDaytimeCatchUpOnSelectedDay") && appSource.includes('quickAddLog("feed", data);') && appSource.includes('!shouldKeepDaytimeCatchUpOnSelectedDay("feed",_feedData,bedtimeFeedChoiceBedDay())') && appSource.includes("startBreastTimer(sideKey, {ignoreBedTimer:true, dayKey:selDay});") && appSource.includes('"breast_start_day"') && !appSource.includes("_targetDayOverride:todayStr()"));
   assert("live night feed routing respects wake and midnight day modes", appSource.includes('const dayKey = _isNightTimerFeedForAll ? (dayBoundary === "wake" ? _bedDayForAll : todayStr()) : selDay;') && appSource.includes('if (dayBoundary === "wake" && _isNightEntry && _btdEffective)') && appSource.includes('} else if (_isExplicitNight && dayBoundary === "midnight")'));
   assert("live Clock blocks start bedtime while the next event is a nap", appSource.includes("const clockNextEventIsNap = !!(") && appSource.includes('nextEvent && nextEvent.type === "nap"') && appSource.includes("!clockNapOnThisDay && !clockNextEventIsNap"));
   assert("live Clock does not let stale nap state override active bedtime", appSource.includes('function clearNapTimerState(reason = "timer_clear", opts = {})') && appSource.includes('clearNapTimerState("bedtime_timer_wins", {preserveMode:true, keepNativeTimer:true});') && appSource.includes('const clockNapSuppressedByBedtime = !!(clockBedOnThisDay && !bedPaused);') && appSource.includes('type: _bedActive ? "bed" : _breastActive ? "breast" : "nap"'));

@@ -10123,7 +10123,11 @@ const _maxW = _isLargeTablet ? 840 : _isTablet ? 760 : 520;
 // ── Responsive scaling system ──
 // Detects viewport width and provides scale-aware values for fonts, padding, spacing.
 // iPhone 15 (390px) = baseline 1.0. Samsung A series (360px) = 0.92. Pro Max (430px) = 1.1.
-const _vw = typeof window!=="undefined" ? window.innerWidth : 390;
+const _vw = typeof window!=="undefined" ? Math.max(1, Math.min(
+  window.innerWidth || 390,
+  (window.visualViewport && window.visualViewport.width) || window.innerWidth || 390,
+  (document.documentElement && document.documentElement.clientWidth) || window.innerWidth || 390
+)) : 390;
 const _sf = Math.max(0.82, Math.min(1.15, _vw / 390)); // scale factor
 // Responsive helpers — use instead of hardcoded px for key UI elements
 const _rs = (base) => Math.round(base * _sf); // responsive size
@@ -10136,13 +10140,16 @@ function readResponsiveViewport(){
   try {
     if(window.__obUpdateViewportVars) return window.__obUpdateViewportVars();
     if(window.__obReadViewportMetrics) return window.__obReadViewportMetrics();
-  } catch {}
-  var vv=window.visualViewport;
-  var w=Math.max(320,Math.round((vv&&vv.width)||window.innerWidth||390));
-  var h=Math.max(480,Math.round((vv&&vv.height)||window.innerHeight||844));
-  var tablet=w>=768, largeTablet=w>=1024;
-  return {w,h,compact:w<370,short:h<700,tablet,largeTablet,scale:Math.max(0.84,Math.min(1.16,w/390)),modalPad:w<370?10:(w<410?12:16),panelRadius:w<370?20:24,maxW:largeTablet?840:(tablet?760:520)};
-}
+	  } catch {}
+	  var vv=window.visualViewport;
+	  var layoutW=Math.floor(document.documentElement&&document.documentElement.clientWidth||window.innerWidth||390);
+	  var visualW=Math.floor((vv&&vv.width)||window.innerWidth||layoutW||390);
+	  var innerW=Math.floor(window.innerWidth||visualW||layoutW||390);
+	  var w=Math.max(1,Math.min(layoutW||390,visualW||390,innerW||390));
+	  var h=Math.max(480,Math.round((vv&&vv.height)||window.innerHeight||844));
+	  var tablet=w>=768, largeTablet=w>=1024;
+	  return {w,h,compact:w<370,short:h<700,tablet,largeTablet,scale:Math.max(0.78,Math.min(1.16,w/390)),modalPad:w<340?8:(w<370?10:(w<410?12:16)),panelRadius:w<370?20:24,maxW:largeTablet?840:(tablet?760:520)};
+	}
 function useResponsiveViewport(){
   const[vp,setVp]=React.useState(readResponsiveViewport);
   React.useEffect(()=>{
@@ -28003,9 +28010,10 @@ function App(){
       }
     });
 
-    // Project remaining naps
-    const napsRemaining = adjustedExpected - napsDone;
-    let projectedLastNapEnd = cursor;
+	    // Project remaining naps
+	    const napsRemaining = adjustedExpected - napsDone;
+	    let projectedLastNapEnd = cursor;
+	    let projectedNapMinsForBed = todayNaps.reduce((s,n) => s + minDiff(n.start,n.end), 0);
 
     // Build per-position personal wake windows (same approach as predictNextNap)
     const _bedPredRecentDays = filterBaselineTrainingDays(getResolvedRecentDays(days, selDay, 14), {meds});
@@ -28062,11 +28070,13 @@ function App(){
 	        const _projectedOutcomeShift = getLatestNapOutcomeWakeWindowAdjustment(prevNap, _bedPredW, "nap");
 	        if (_projectedOutcomeShift && _projectedOutcomeShift.shiftMin) rawWW += _projectedOutcomeShift.shiftMin;
 	      }
-      const thisWW = clampWakeWindow(rawWW, _bedPredW);
-      const napStart = projectedLastNapEnd + thisWW;
-      const napEnd = napStart + avgNapDur;
-      projectedLastNapEnd = napEnd;
-    }
+	      const thisWW = clampWakeWindow(rawWW, _bedPredW);
+	      const napStart = projectedLastNapEnd + thisWW;
+	      const napDur = plannedNapDurationForPlan(_bedPredW, napIdx, adjustedExpected, avgNapDur, projectedNapMinsForBed);
+	      const napEnd = napStart + napDur;
+	      projectedLastNapEnd = napEnd;
+	      projectedNapMinsForBed += napDur;
+	    }
 
     // Calculate bedtime from projected last nap end
     // Last WW before bed uses the age-appropriate max (longest of the day)
@@ -30452,13 +30462,53 @@ function App(){
     // OBubba plans the day from a 5:00am-9:30am morning-wake range.
     return Math.max(5*60, Math.min(9*60+30, mins));
   }
-  function clampNapDuration(dur, ageWeeks) {
-    // 15 min minimum (micro naps count), age-dependent max
-    const maxDur = ageWeeks < 13 ? 120 : ageWeeks < 26 ? 90 : ageWeeks < 52 ? 120 : 150;
-    return Math.max(15, Math.min(maxDur, dur));
-  }
+	  function clampNapDuration(dur, ageWeeks) {
+	    // 15 min minimum (micro naps count), age-dependent max
+	    const maxDur = ageWeeks < 13 ? 120 : ageWeeks < 26 ? 90 : ageWeeks < 52 ? 120 : 150;
+	    return Math.max(15, Math.min(maxDur, dur));
+	  }
+	  function roundNapDurationForPlan(mins) {
+	    const n = Number(mins);
+	    if (!Number.isFinite(n)) return 30;
+	    return Math.max(15, Math.round(n / 5) * 5);
+	  }
+	  function plannedNapDurationForPlan(ageWeeks, napIdx, expectedTotal, avgNapDur, projectedNapMins) {
+	    const profile = getAgeNapProfile(ageWeeks) || {};
+	    const slots = Math.max(1, Math.round(expectedTotal || profile.expectedNaps || 1));
+	    const pos = Math.max(0, Math.round(napIdx || 0));
+	    const safeAvg = clampNapDuration(avgNapDur || Math.round(((profile.idealNapDurMin || 30) + (profile.idealNapDurMax || 90)) / 2), ageWeeks);
+	    const targetTotal = Math.round(((profile.idealTotalMin || safeAvg * slots) + (profile.idealTotalMax || safeAvg * slots)) / 2);
+	    const remainingSlots = Math.max(1, slots - pos);
+	    const remainingSleep = Math.max(0, targetTotal - Math.max(0, Math.round(projectedNapMins || 0)));
+	    const budgetDur = remainingSleep > 0 ? remainingSleep / remainingSlots : safeAvg;
+	    const isOnly = slots <= 1;
+	    const isFirst = pos === 0;
+	    const isLast = pos >= slots - 1;
+	    const bias = isOnly ? 1 : isFirst ? 1.12 : isLast ? 0.72 : (pos === 1 && slots >= 3 ? 0.95 : 0.86);
+	    let dur = roundNapDurationForPlan((safeAvg * 0.38) + (budgetDur * bias * 0.62));
+	    if (isFirst && slots >= 3) dur = Math.max(dur, Math.min(clampNapDuration(safeAvg + 10, ageWeeks), profile.idealNapDurMax || safeAvg + 10));
+	    if (isLast && slots >= 2) dur = Math.min(dur, ageWeeks < 13 ? 60 : 75);
+	    return clampNapDuration(dur, ageWeeks);
+	  }
+	  function plannedNapFitDurations(primaryDur, avgNapDur, ageWeeks) {
+	    const safePrimary = clampNapDuration(primaryDur || avgNapDur || 30, ageWeeks);
+	    const safeAvg = clampNapDuration(avgNapDur || safePrimary, ageWeeks);
+	    return [...new Set([safePrimary, Math.round(safePrimary * 0.75), Math.round(safeAvg * 0.7), 35, 25, 20, 15]
+	      .map(d => clampNapDuration(roundNapDurationForPlan(d), ageWeeks))
+	      .filter(d => d >= 15))];
+	  }
+	  function plannedNapDurationLabel(dur, avgNapDur, napIdx, expectedTotal, ctxReasons) {
+	    const bits = [];
+	    const safeAvg = Math.max(15, Math.round(avgNapDur || dur || 30));
+	    if ((expectedTotal || 0) > 1 && napIdx === 0 && dur >= safeAvg + 5) bits.push("longer first nap");
+	    else if ((expectedTotal || 0) > 1 && napIdx >= expectedTotal - 1) bits.push("shorter final nap");
+	    else if (dur < safeAvg - 5) bits.push("shorter late-day nap");
+	    else bits.push("balanced nap");
+	    if (ctxReasons && ctxReasons.length) bits.push("adjusted for " + ctxReasons.join(", "));
+	    return "~" + hm(dur) + " " + bits.join(" · ");
+	  }
 
-  function clampWakeWindow(wwMins, ageWeeks) {
+	  function clampWakeWindow(wwMins, ageWeeks) {
     // Strict to the *active* guidance band. On short-nap recovery / illness /
     // teething days the band is intentionally shorter, so don't clamp back up
     // to the generic age minimum and contradict the hero card.
@@ -36625,28 +36675,43 @@ function App(){
 		          if (closedBySameDayMorning) return null;
 		          return closedByNextMorning ? null : raw;
 	        }
-        function bedtimeFeedChoiceBedDay(){
-          return activeBedTimerDayForQuickLog() || safeDateKey((()=>{
-            try { return bedTimerDay || localStorage.getItem("bed_timer_day") || ""; }
-            catch { return bedTimerDay || ""; }
-          })());
-        }
-        function morningWakeDayForBedTimer(wakeTime, bedDayArg){
-          const bedDay = safeDateKey(bedDayArg) || bedtimeFeedChoiceBedDay() || selDay || todayStr();
-          const bedEntry = findBedtime(days[bedDay] || []);
-          const bedMins = bedEntry ? clockMins(bedEntry.time || bedEntry.start || "") : null;
+	        function bedtimeFeedChoiceBedDay(){
+	          return activeBedTimerDayForQuickLog() || safeDateKey((()=>{
+	            try { return bedTimerDay || localStorage.getItem("bed_timer_day") || ""; }
+	            catch { return bedTimerDay || ""; }
+	          })());
+	        }
+	        function shouldKeepDaytimeCatchUpOnSelectedDay(type, data, bedDayArg){
+	          const bedDay = safeDateKey(bedDayArg || activeBedTimerDayForQuickLog() || "");
+	          const todayKey = todayStr();
+	          const selectedDay = safeDateKey(selDay || "");
+	          if (dayBoundary !== "wake" || !bedDay || !todayKey || !selectedDay || selectedDay >= todayKey) return false;
+	          if (data && (data.night || data.nightLocked || data.dreamFeed)) return false;
+	          if (!(type === "feed" || type === "poop" || type === "nap")) return false;
+	          const mins = clockMins((data && (data.time || data.start)) || "");
+	          const hour = mins !== null ? Math.floor(mins / 60) : new Date().getHours();
+	          return hour >= 6 && hour < 20;
+	        }
+	        function morningWakeDayForBedTimer(wakeTime, bedDayArg){
+	          const bedDay = safeDateKey(bedDayArg) || bedtimeFeedChoiceBedDay() || selDay || todayStr();
+	          const bedEntry = findBedtime(days[bedDay] || []);
+	          const bedMins = bedEntry ? clockMins(bedEntry.time || bedEntry.start || "") : null;
           const wakeMins = clockMins(wakeTime || "");
           if (bedDay && bedMins !== null && wakeMins !== null && wakeMins < bedMins) return nextDayStr(bedDay);
           const todayKey = todayStr();
           if (bedDay && bedDay < todayKey && wakeMins !== null && wakeMins >= 5 * 60) return nextDayStr(bedDay);
           return todayKey || bedDay;
-        }
-        function openBedtimeFeedChoice(data){
-          const bedDay = bedtimeFeedChoiceBedDay();
-          if (!bedDay || bedPaused) {
-            (logForAll?quickAddLogForAll:quickAddLog)("feed", data);
-            return;
-          }
+	        }
+	        function openBedtimeFeedChoice(data){
+	          const bedDay = bedtimeFeedChoiceBedDay();
+	          if (shouldKeepDaytimeCatchUpOnSelectedDay("feed", data, bedDay)) {
+	            quickAddLog("feed", data);
+	            return;
+	          }
+	          if (!bedDay || bedPaused) {
+	            (logForAll?quickAddLogForAll:quickAddLog)("feed", data);
+	            return;
+	          }
           const time = data && clockMins(data.time || "") !== null ? data.time : nowTime();
           setBedtimeFeedChoice({bedDay,time,data:{...data,time}});
         }
@@ -36720,8 +36785,8 @@ function App(){
 	          } : data;
 	          const ids = Object.keys(children);
 	          const dayKey = _isNightTimerFeedForAll ? (dayBoundary === "wake" ? _bedDayForAll : todayStr()) : selDay;
-          // Single setState call to avoid race condition where forEach overwrites previous updates
-          setChildren(prev => {
+	          // Single setState call to avoid race condition where forEach overwrites previous updates
+	          setChildren(prev => {
             const updated = { ...prev };
             ids.forEach(cid => {
               if (!updated[cid]) return;
@@ -36735,10 +36800,10 @@ function App(){
               };
             });
             return updated;
-          });
-          haptic(15);
-          showToast("✅ Logged for all " + ids.length + " children", 1800, 1);
-        }
+	          });
+	          haptic(15);
+	          showToast("✅ Logged for all " + ids.length + " children", 1800, 1);
+	        }
 
         function quickAddLog(type, data, _retries){
     _retries = _retries || 0;
@@ -36861,9 +36926,9 @@ function App(){
     // (midnight mode). Without this, scrolling to last week then getting a night
     // wake puts the entry on a day from last week.
     let _targetDay;
-    if (dayBoundary === "wake" && _isNightEntry && _btdEffective) {
-      // Wake mode: night entries always go with the bedtime
-      _targetDay = _btdEffective;
+	    if (dayBoundary === "wake" && _isNightEntry && _btdEffective) {
+	      // Wake mode: night entries always go with the bedtime
+	      _targetDay = _btdEffective;
     } else if (dayBoundary === "wake" && _isNightEntry && !_btdEffective) {
       // Wake mode but bedTimerDay cleared — find bedtime day from data.
       // Only let yesterday's bedtime claim early-AM entries. In the evening,
@@ -36885,11 +36950,11 @@ function App(){
     } else if (_isExplicitNight && selDay !== _todayCalendar && selDay !== _btdEffective) {
       // Any other mode viewing a historical day — route to today
       _targetDay = _todayCalendar;
-    } else if (_targetDayOverride) {
-      _targetDay = _targetDayOverride;
-    } else {
-      _targetDay = selDay;
-    }
+	    } else if (_targetDayOverride) {
+	      _targetDay = _targetDayOverride;
+	    } else {
+	      _targetDay = selDay;
+	    }
     // ── Forgotten wake check: if logging a daytime entry on today without a morning wake ──
     // Anchor the prompted morning wake to the first just-logged daytime item.
     // Otherwise, tapping "Start of New Day" a minute later can make that feed/nappy
@@ -36982,10 +37047,10 @@ function App(){
       // Computed night flag wins after spreading data, so nightLocked cannot be
       // lost if a caller forgets to also pass night:true.
       if (_isImplicitNight && type === "poop") _entryOut.night = true;
-      const u=[..._dayArr, _entryOut];
-      return{...d,[_targetDay]:u};
-    });
-	    // Track for shake-to-undo and the visible Undo toast.
+	      const u=[..._dayArr, _entryOut];
+	      return{...d,[_targetDay]:u};
+	    });
+		    // Track for shake-to-undo and the visible Undo toast.
 	    const _undoAction = {type, entryId, day:_targetDay, timestamp:Date.now()};
 	    setLastAction(_undoAction);
 	    clearTimeout(undoTimeoutRef.current);
@@ -39801,11 +39866,13 @@ function App(){
       showToast("Couldn't update feed timer. try again", 1800, 1);
     }
   }
-		  function startBreastTimer(side, opts = {}){
-		    const sideKey = normaliseBreastSideKey(side) || "L";
-		    const forceNew = !!(opts && opts.forceNew);
-		    let feedStartedAtLabel = breastStartTime || (()=>{try{return localStorage.getItem("breast_startTime") || "";}catch{return "";}})() || nowTime();
-		    const bedRunningNow = !!((bedTimerDay || (()=>{try{return localStorage.getItem("bed_timer_day");}catch{return null;}})()) && !(bedPaused || (()=>{try{return localStorage.getItem("bed_paused")==="1";}catch{return false;}})()));
+			  function startBreastTimer(side, opts = {}){
+			    const sideKey = normaliseBreastSideKey(side) || "L";
+			    const forceNew = !!(opts && opts.forceNew);
+			    const ignoreBedTimer = !!(opts && opts.ignoreBedTimer);
+			    const startDayKey = safeDateKey(opts && opts.dayKey) || selDay || todayStr();
+			    let feedStartedAtLabel = breastStartTime || (()=>{try{return localStorage.getItem("breast_startTime") || "";}catch{return "";}})() || nowTime();
+			    const bedRunningNow = !ignoreBedTimer && !!((bedTimerDay || (()=>{try{return localStorage.getItem("bed_timer_day");}catch{return null;}})()) && !(bedPaused || (()=>{try{return localStorage.getItem("bed_paused")==="1";}catch{return false;}})()));
 		    if (bedRunningNow) {
 		      const pendingFromPause = pauseBedTimer();
 		      if (pendingFromPause && pendingFromPause.id) {
@@ -39819,11 +39886,11 @@ function App(){
 		      try { trackEvent("timer_started", { type: "breast", side: sideKey }); } catch {}
 	      const t=nowTime();
 	      feedStartedAtLabel = t;
-	      setBreastStartTime(t);
-	      setBreastSec({L:0,R:0});
-	      try{localStorage.setItem("breast_startTime",t);localStorage.setItem("breast_startMs",String(Date.now()));localStorage.setItem("breast_sec",JSON.stringify({L:0,R:0}));}catch{}
-	      // Hint removed — edit option is visible on the timer itself
-    } else {
+		      setBreastStartTime(t);
+		      setBreastSec({L:0,R:0});
+		      try{localStorage.setItem("breast_startTime",t);localStorage.setItem("breast_startMs",String(Date.now()));localStorage.setItem("breast_sec",JSON.stringify({L:0,R:0}));localStorage.setItem("breast_start_day",startDayKey);}catch{}
+		      // Hint removed — edit option is visible on the timer itself
+	    } else {
       const nextSec = currentBreastTimerSeconds(breastSec, {active:breastActive, side:breastSide});
       const totalSec = breastTimerTotalSeconds(nextSec);
       const timerStartMs = Date.now() - totalSec * 1000;
@@ -39959,12 +40026,13 @@ function App(){
     // If bed timer is paused (night wake in progress), this is a night feed:
     // route to bedTimerDay, mark night, and remove the pending placeholder wake entry
     // Check both state AND localStorage — bedTimerDay state may be stale
-    const _bedPausedForBreastSave = bedPausedRef.current || bedPaused || (()=>{try{return localStorage.getItem("bed_paused")==="1";}catch{return false;}})();
-    const _nightMode = _bedPausedForBreastSave && !!(bedTimerDay || (()=>{try{return localStorage.getItem("bed_timer_day");}catch{return null;}})());
-    const entry={id:uid(),type:"feed",feedType:"breast",time:feedStartTime||nowTime(),amount:0,breastL:lMins,breastR:rMins,night:_nightMode,nightLocked:_nightMode,note:_nightMode?"Night breast feed":"",modifiedAt:Date.now()};
+	    const _bedPausedForBreastSave = bedPausedRef.current || bedPaused || (()=>{try{return localStorage.getItem("bed_paused")==="1";}catch{return false;}})();
+	    const _nightMode = _bedPausedForBreastSave && !!(bedTimerDay || (()=>{try{return localStorage.getItem("bed_timer_day");}catch{return null;}})());
+	    const entry={id:uid(),type:"feed",feedType:"breast",time:feedStartTime||nowTime(),amount:0,breastL:lMins,breastR:rMins,night:_nightMode,nightLocked:_nightMode,note:_nightMode?"Night breast feed":"",modifiedAt:Date.now()};
+	    const _breastStartDay = safeDateKey((()=>{try{return localStorage.getItem("breast_start_day") || "";}catch{return "";}})()) || selDay;
 
-    setBreastSide(null);setBreastSec({L:0,R:0});setBreastActive(false);setBreastStartTime(null);
-    try{["breast_side","breast_sec","breast_active","breast_startTime","breast_startMs"].forEach(k=>localStorage.removeItem(k));}catch{}
+	    setBreastSide(null);setBreastSec({L:0,R:0});setBreastActive(false);setBreastStartTime(null);
+	    try{["breast_side","breast_sec","breast_active","breast_startTime","breast_startMs","breast_start_day"].forEach(k=>localStorage.removeItem(k));}catch{}
 	    clearTimerNotification(); // Android: clear lock screen notification
 	    // Stop Live Activity when feed saved
 	    if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
@@ -39977,14 +40045,14 @@ function App(){
 		        toast: "🤱 Night feed logged. sleep timer restarted"
 		      });
 		      try { localStorage.removeItem("bed_paused_by_breast"); } catch {}
-		    } else {
-		      setDays(d=>{
-		        const existing = (d[selDay]||[]).filter(e => e.id !== entry.id);
-		        const updated=[...existing, entry];
-	        const _pd=prevDayStr(selDay);
-	        return{...d,[selDay]:autoClassifyNight(updated,d[_pd]||null)};
-	      });
-	    }
+			    } else {
+			      setDays(d=>{
+			        const existing = (d[_breastStartDay]||[]).filter(e => e.id !== entry.id);
+			        const updated=[...existing, entry];
+		        const _pd=prevDayStr(_breastStartDay);
+		        return{...d,[_breastStartDay]:autoClassifyNight(updated,d[_pd]||null)};
+		      });
+		    }
 		    const _restoredAfterFeed = !_nightMode && restoreNapAfterBreastTimer("saved");
 		    trackLogCreated("breast_feed");
 		    haptic("medium")
@@ -40000,7 +40068,7 @@ function App(){
 	  }
 	  function cancelBreastTimer(){
 	    setBreastSide(null);setBreastSec({L:0,R:0});setBreastActive(false);setBreastStartTime(null);
-	    try{["breast_side","breast_sec","breast_active","breast_startTime","breast_startMs"].forEach(k=>localStorage.removeItem(k));}catch{}
+		    try{["breast_side","breast_sec","breast_active","breast_startTime","breast_startMs","breast_start_day"].forEach(k=>localStorage.removeItem(k));}catch{}
 	    if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
 	    try { clearTimerNotification(); _androidTimerStop(); } catch {}
 	    restoreTimerAfterBreastTimer("cancelled");
@@ -47813,7 +47881,7 @@ function App(){
 	            if (!_personalFinalWWCap) return clampBedtime(mins, w);
 	            return Math.max(17 * 60, Math.min(clampBedtime(mins, w), mins));
 	          };
-	          const _safeAvgNapDur = clampNapDuration(avgNapDur || napProfile.idealNapDurMin, w);
+		          const _safeAvgNapDur = clampNapDuration(avgNapDur || napProfile.idealNapDurMin, w);
 	          const _wouldBridgePushAboveSleepRange = (tryDur) => {
 	            if (tryDur > 25 || !wake) return false;
 	            const _wakeMinsForBudget = timeVal(wake);
@@ -47833,18 +47901,20 @@ function App(){
 	            } else {
 	              napStart = cursor + clampWakeWindow(progressiveWW(w, napIdx, expectedTotal), w);
 	            }
-	            const isLast = napIdx === expectedTotal - 1;
-	            const minBedWW = w < 30 ? 60 : 90;
-	            let napDur = _safeAvgNapDur;
-	            const _ctxR = _contextualWWRange && _contextualWWRange.ctx && _contextualWWRange.ctx.active && _contextualWWRange.ctx.reasons && _contextualWWRange.ctx.reasons.length ? _contextualWWRange.ctx.reasons : [];
-	            let napLabel = "~" + hm(_safeAvgNapDur) + " based on recent avg" + (_ctxR.length ? " · adjusted for " + _ctxR.join(", ") : "");
-	            let isBridge = false;
-	            if (napStart + minBedWW > _napFitCeiling) break;
-	            if (isLast) {
-	              const durations = [_safeAvgNapDur, Math.round(_safeAvgNapDur * 0.7), 25, 20, 15];
-	              let fits = false;
-	              for (const tryDur of durations) {
-	                if (napStart + tryDur + minBedWW <= _napFitCeiling) {
+		            const isLast = napIdx === expectedTotal - 1;
+		            const minBedWW = w < 30 ? 60 : 90;
+		            const _ctxR = _contextualWWRange && _contextualWWRange.ctx && _contextualWWRange.ctx.active && _contextualWWRange.ctx.reasons && _contextualWWRange.ctx.reasons.length ? _contextualWWRange.ctx.reasons : [];
+		            const _safePlannedNapDur = plannedNapDurationForPlan(w, napIdx, expectedTotal, _safeAvgNapDur, projectedNapMins);
+		            let napDur = _safePlannedNapDur;
+		            let napLabel = plannedNapDurationLabel(napDur, _safeAvgNapDur, napIdx, expectedTotal, _ctxR);
+		            let isBridge = false;
+		            const _mustFitMinDur = isLast ? 15 : Math.min(30, _safePlannedNapDur);
+		            if (napStart + _mustFitMinDur + minBedWW > _napFitCeiling) break;
+		            if (isLast) {
+		              const durations = plannedNapFitDurations(_safePlannedNapDur, _safeAvgNapDur, w);
+		              let fits = false;
+		              for (const tryDur of durations) {
+		                if (napStart + tryDur + minBedWW <= _napFitCeiling) {
 	                  if (_wouldBridgePushAboveSleepRange(tryDur)) continue;
 	                  napDur = tryDur;
 	                  fits = true;
@@ -47856,11 +47926,11 @@ function App(){
 	                  }
 	                  break;
 	                }
-	              }
-	              if (!fits) break;
-	            } else if (napStart + _safeAvgNapDur + minBedWW > _napFitCeiling) {
-	              break;
-	            }
+		              }
+		              if (!fits) break;
+		            } else if (napStart + _safePlannedNapDur + minBedWW > _napFitCeiling) {
+		              break;
+		            }
 	            const napEnd = napStart + napDur;
 	            _pushUnique({
 	              icon:isBridge ? "🌉" : "⏱️",
@@ -48230,16 +48300,25 @@ function App(){
 		        const resumedSide = resumeBreastTimer(clockActiveBreastSide);
 		        showToast("🤱 Breastfeed timer resumed (" + resumedSide + ")", 1400, 1);
 		        return;
-		      }
-		      const sideKey = normaliseBreastSideKey(clockNextBreastSide) || "L";
-		      const bedPausedNow = !!(bedPaused || bedPausedRef.current || (()=>{try{return localStorage.getItem("bed_paused")==="1";}catch{return false;}})());
-		      if (clockBedOnThisDay && !bedPausedNow) { startNightBreastTimerFromBed(sideKey); return; }
-		      if (bedPausedNow && bedtimeFeedChoiceBedDay()) { startBreastTimer(sideKey); showToast("🤱 Night feed timer started",1600,1); return; }
-		      startBreastTimer(sideKey);
-		      showToast("🤱 Breastfeed timer started (" + sideKey + ")", 1400, 1);
+			      }
+			      const sideKey = normaliseBreastSideKey(clockNextBreastSide) || "L";
+			      const bedPausedNow = !!(bedPaused || bedPausedRef.current || (()=>{try{return localStorage.getItem("bed_paused")==="1";}catch{return false;}})());
+			      if (clockBedOnThisDay && !bedPausedNow) {
+			        const _dayBreastData = {type:"feed",time:nowTime(),feedType:"breast",side:sideKey,night:false};
+			        if (shouldKeepDaytimeCatchUpOnSelectedDay("feed", _dayBreastData, bedtimeFeedChoiceBedDay())) {
+			          startBreastTimer(sideKey, {ignoreBedTimer:true, dayKey:selDay});
+			          showToast("🤱 Day feed timer started",1400,1);
+			          return;
+			        }
+			        startNightBreastTimerFromBed(sideKey);
+			        return;
+			      }
+			      if (bedPausedNow && bedtimeFeedChoiceBedDay()) { startBreastTimer(sideKey); showToast("🤱 Night feed timer started",1600,1); return; }
+			      startBreastTimer(sideKey);
+			      showToast("🤱 Breastfeed timer started (" + sideKey + ")", 1400, 1);
 		    };
 	    const clockLabCoreActions = [
-	      labAction("feed","feed","Feed",()=>{if(breastActive)cancelBreastTimer();const _feedData={type:"feed",time:nowTime(),feedType:"milk",amount:0,night:false,note:""};if(clockBedOnThisDay&&!bedPaused){openBedtimeFeedChoice(_feedData);return;}(logForAll?quickAddLogForAll:quickAddLog)("feed",_feedData);},()=>openLogPanel("feed"),eventMeta.feed.color,{displayIcon:"🍼"}),
+		      labAction("feed","feed","Feed",()=>{if(breastActive)cancelBreastTimer();const _feedData={type:"feed",time:nowTime(),feedType:"milk",amount:0,night:false,note:""};if(clockBedOnThisDay&&!bedPaused&&!shouldKeepDaytimeCatchUpOnSelectedDay("feed",_feedData,bedtimeFeedChoiceBedDay())){openBedtimeFeedChoice(_feedData);return;}(logForAll?quickAddLogForAll:quickAddLog)("feed",_feedData);},()=>openLogPanel("feed"),eventMeta.feed.color,{displayIcon:"🍼"}),
 	      labAction("breast","breast","Breastfeed",clockQuickBreastLog,()=>{openBreastTimerEdit(clockActiveBreastSide);},eventMeta.feed.color,{displayIcon:"🤱",displayLabel:"Breast",isActive:clockFeedOnThisDay,badge:clockBreastSideBadge,ariaLabel:clockFeedOnThisDay?"Breastfeed timer":"Breastfeed"}),
 	      labAction("nappy","nappy","Nappy",()=>(logForAll?quickAddLogForAll:quickAddLog)("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""}),()=>openLogPanel("nappy"),eventMeta.poop.color,{displayIcon:"💧💩"}),
 	      labAction("sleep-toggle",clockQuickSleepNeedsWake?"sun":"nap",clockQuickSleepLabel,clockQuickSleepAction,clockQuickSleepLongAction,clockQuickSleepNeedsWake?eventMeta.wake.color:(clockNapSweetSpot?.color || eventMeta.nap.color),{displayIcon:clockQuickSleepIcon,isActive:clockQuickSleepNeedsWake || (clockBedOnThisDay && bedPaused),badge:!clockQuickSleepNeedsWake && clockNapSweetSpot ? clockNapSweetSpot.badge : "",sweetSpot:!clockQuickSleepNeedsWake ? clockNapSweetSpot : null}),
@@ -50905,7 +50984,7 @@ function App(){
               </div>
             ) : (
               _hasBreast && (
-	                <button onClick={()=>{haptic();var _ns=lastBreastSide==="L"?"R":"L";var _bp=bedPaused||bedPausedRef.current||(()=>{try{return localStorage.getItem("bed_paused")==="1";}catch{return false;}})();if(activeBedTimerDayForQuickLog()&&!_bp){startNightBreastTimerFromBed(_ns);return;}startBreastTimer(_ns);}} style={{background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 14px",fontSize:13,color:C.ter,cursor:_cP,fontWeight:700,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
+		                <button onClick={()=>{haptic();var _ns=lastBreastSide==="L"?"R":"L";var _bp=bedPaused||bedPausedRef.current||(()=>{try{return localStorage.getItem("bed_paused")==="1";}catch{return false;}})();var _btd=activeBedTimerDayForQuickLog();var _data={type:"feed",time:nowTime(),feedType:"breast",side:_ns,night:false};if(_btd&&!_bp){if(shouldKeepDaytimeCatchUpOnSelectedDay("feed",_data,_btd)){startBreastTimer(_ns,{ignoreBedTimer:true,dayKey:selDay});return;}startNightBreastTimerFromBed(_ns);return;}startBreastTimer(_ns);}} style={{background:"var(--card-bg)",border:"1px solid var(--card-border)",borderRadius:99,padding:"5px 14px",fontSize:13,color:C.ter,cursor:_cP,fontWeight:700,display:"flex",flexDirection:"column",alignItems:"center",gap:2}}>
                   <span style={{display:"flex",alignItems:"center",gap:6}}><BubbaIcon name="breast" size={17}/>Start Feed</span>
                   {lastBreastSide && <span style={{fontSize:10,fontWeight:400,color:C.lt,display:"flex",alignItems:"center",gap:4}}>{"Next: "}{lastBreastSide==="L" ? "Right" : "Left"}<BubbaIcon name={lastBreastSide==="L" ? "arrowRight" : "arrowLeft"} size={12}/></span>}
                 </button>
@@ -55076,24 +55155,27 @@ function App(){
                       napStart = cursor + clampWakeWindow(progressiveWW(w, napIdx, expectedTotal), w);
                     }
 
-                    // Determine nap duration. try full, then shorter, then bridge
-                    const isLast = napIdx === expectedTotal - 1;
-                    const minBedWW = w < 30 ? 60 : 90;
-                    let napDur = _safeAvgNapDur;
-                    let napLabel = `~${hm(_safeAvgNapDur)} based on recent avg`;
-                    let isBridge = false;
+	                    // Determine nap duration. try full, then shorter, then bridge
+	                    const isLast = napIdx === expectedTotal - 1;
+	                    const minBedWW = w < 30 ? 60 : 90;
+	                    const _ctxR = _contextualWWRange && _contextualWWRange.ctx && _contextualWWRange.ctx.active && _contextualWWRange.ctx.reasons && _contextualWWRange.ctx.reasons.length ? _contextualWWRange.ctx.reasons : [];
+	                    const _safePlannedNapDur = plannedNapDurationForPlan(w, napIdx, expectedTotal, _safeAvgNapDur, projectedNapMins);
+	                    let napDur = _safePlannedNapDur;
+	                    let napLabel = plannedNapDurationLabel(napDur, _safeAvgNapDur, napIdx, expectedTotal, _ctxR);
+	                    let isBridge = false;
 
-                    // Sanity check: if napStart is already past the bedtime cap
-                    // minus minBedWW, we can't fit this nap at all. Drop it.
-                    if (napStart + minBedWW > _napFitCeiling) break;
+	                    // Sanity check: if napStart is already past the bedtime cap
+	                    // minus minBedWW, we can't fit this nap at all. Drop it.
+	                    const _mustFitMinDur = isLast ? 15 : Math.min(30, _safePlannedNapDur);
+	                    if (napStart + _mustFitMinDur + minBedWW > _napFitCeiling) break;
 
                     // For last nap: try full duration, then shorter, then bridge (15-25min max)
-                    // Research: bridge naps should be 15-20min. any longer and baby enters
-                    // deep sleep, making bedtime harder (TCB, Huckleberry, Little Ones).
-                    // Fit check uses today's target bedtime, NOT the age ceiling.
-                    if (isLast) {
-                      const durations = [_safeAvgNapDur, Math.round(_safeAvgNapDur * 0.7), 25, 20, 15];
-                      let fits = false;
+	                    // Research: bridge naps should be 15-20min. any longer and baby enters
+	                    // deep sleep, making bedtime harder (TCB, Huckleberry, Little Ones).
+	                    // Fit check uses today's target bedtime, NOT the age ceiling.
+	                    if (isLast) {
+	                      const durations = plannedNapFitDurations(_safePlannedNapDur, _safeAvgNapDur, w);
+	                      let fits = false;
                       for (const tryDur of durations) {
                         if (napStart + tryDur + minBedWW <= _napFitCeiling) {
                           if (_wouldBridgePushAboveSleepRange(tryDur)) continue;
@@ -55116,8 +55198,8 @@ function App(){
                       // that would naturally degrade to 2 naps as the day runs
                       // out (7mo, 12mo). The loop stops naturally when there's
                       // no more room.
-                      if (napStart + _safeAvgNapDur + minBedWW > _napFitCeiling) break;
-                    }
+	                      if (napStart + _safePlannedNapDur + minBedWW > _napFitCeiling) break;
+	                    }
 
                     const napEnd = napStart + napDur;
                     items.push({
