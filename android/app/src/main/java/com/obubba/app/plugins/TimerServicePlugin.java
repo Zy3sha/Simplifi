@@ -114,33 +114,6 @@ public class TimerServicePlugin extends Plugin {
     }
 
     @PluginMethod
-    public void getCurrentTimer(PluginCall call) {
-        try {
-            JSObject ret = new JSObject();
-            android.content.SharedPreferences prefs = getContext()
-                    .getSharedPreferences(TimerService.PREFS_NAME, Context.MODE_PRIVATE);
-            boolean running = prefs.getBoolean("running", false);
-            long startTimeMs = prefs.getLong("startTimeMs", 0L);
-            long now = System.currentTimeMillis();
-            if (!running || startTimeMs <= 0L || now - startTimeMs < -60000L || now - startTimeMs > MAX_TIMER_AGE_MS) {
-                ret.put("active", false);
-                call.resolve(ret);
-                return;
-            }
-            ret.put("active", true);
-            ret.put("type", safeTimerType(prefs.getString("timerType", "feed")));
-            ret.put("babyName", safeText(prefs.getString("babyName", "Baby"), "Baby", 40));
-            ret.put("startTimeMs", startTimeMs);
-            ret.put("elapsed", Math.max(0L, Math.min(MAX_TIMER_AGE_MS / 1000L, (now - startTimeMs) / 1000L)));
-            String side = safeSide(prefs.getString("side", null));
-            if (side != null) ret.put("side", side);
-            call.resolve(ret);
-        } catch (Exception e) {
-            call.reject("Failed to read timer service state: " + e.getMessage(), e);
-        }
-    }
-
-    @PluginMethod
     public void startPrediction(PluginCall call) {
         try {
             long targetTime = safePredictionTarget(call.getLong("targetTime", 0L));

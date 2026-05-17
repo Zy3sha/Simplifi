@@ -16645,10 +16645,6 @@ function App(){
   // Auto-detect forgotten nap timer: prompt after 2x average nap duration or 3h
   React.useEffect(()=>{
     if(!napOn || napPaused || !napSec || _forgotTimerRef.current) return;
-    try {
-      const snoozeUntil = Number(localStorage.getItem("ob_forgot_nap_snooze_until") || 0);
-      if (Number.isFinite(snoozeUntil) && Date.now() < snoozeUntil) return;
-    } catch {}
     const _recentNaps = getReliableCompletedDayNaps(days[todayStr()]||[], TRACK_RELIABLE_NAP_MAX_MINS);
     let _threshold = 10800;
     if(_recentNaps.length >= 2) {
@@ -16657,7 +16653,7 @@ function App(){
     }
     if(napSec >= _threshold) { _forgotTimerRef.current = true; setShowForgotTimer(true); }
   },[napOn, napSec, napPaused]);
-  React.useEffect(()=>{ if(!napOn) { _forgotTimerRef.current = false; try { localStorage.removeItem("ob_forgot_nap_snooze_until"); } catch {} } },[napOn]);
+  React.useEffect(()=>{ if(!napOn) _forgotTimerRef.current = false; },[napOn]);
 
   const[breastSide,setBreastSide]=useState(()=>{try{return normaliseBreastSideKey(localStorage.getItem("breast_side"));}catch{return null;}});
   const[breastSec,setBreastSec]=useState(()=>{try{return safeBreastSeconds(localStorage.getItem("breast_sec"));}catch{return {L:0,R:0};}});
@@ -24346,7 +24342,6 @@ function App(){
   // the timer is running — the 30s tick updates end!=start, but _active stays true).
 	  useEffect(()=>{
 	    if(napOn) return; // timer already running
-    let nativeRestoreCancelled = false;
     // Don't resurrect if nap was just stopped via widget/Siri (flag set before React state updates)
     try {
       const _stopTs = localStorage.getItem("ob_nap_stopped_at");
@@ -24384,12 +24379,12 @@ function App(){
 		    try {
 		      const _wdRaw = localStorage.getItem("ob_widget_data_v1") || localStorage.getItem("_lastWidgetData") || "";
 		      const _wd = _wdRaw ? safeJsonObject(_wdRaw) : null;
-		      if (!_wd || _wd.activeTimer !== "nap") throw new Error("no widget nap timer");
+		      if (!_wd || _wd.activeTimer !== "nap") return;
 		      const _wdStartMs = safeTimestampMs(_wd.timerStartMs, 0);
 		      const _wdStart = safeClockText(_wd.timerStartTime || "", "");
-		      if (!_wdStartMs || !_wdStart || clockMins(_wdStart) === null) throw new Error("invalid widget nap timer");
+		      if (!_wdStartMs || !_wdStart || clockMins(_wdStart) === null) return;
 		      const _ageMs = Date.now() - _wdStartMs;
-		      if (_ageMs < -5 * 60 * 1000 || _ageMs > OB_NAP_TIMER_RESTORE_MAX_MS) throw new Error("stale widget nap timer");
+		      if (_ageMs < -5 * 60 * 1000 || _ageMs > OB_NAP_TIMER_RESTORE_MAX_MS) return;
 		      const _wdDay = safeDateKey(localDateStr(new Date(_wdStartMs))) || todayK;
 		      const _elapsed = Math.max(0, Math.min(OB_NAP_TIMER_RESTORE_MAX_SEC, Math.floor(_ageMs / 1000)));
 		      const _candidateDays = Array.from(new Set([_wdDay, todayK, yesterdayStr(), selDay].filter(Boolean)));
@@ -24442,80 +24437,8 @@ function App(){
 		      } catch {}
 		      try { showToast("😴 Nap timer restored",2000,1); } catch {}
 		      try { console.log("[OBubba] recovered nap timer from widget cache", {start:_wdStart, day:_wdDay, elapsed:_elapsed}); } catch {}
-		      return;
 		    } catch {}
-		    const restoreFromNativeTimer = async () => {
-		      try {
-		        if (nativeRestoreCancelled || napOn) return;
-		        const plugins = window.Capacitor?.Plugins || {};
-		        let nativeState = null;
-		        if (plugins.OBLiveActivity?.getCurrentTimer) {
-		          try { nativeState = await plugins.OBLiveActivity.getCurrentTimer(); } catch {}
-		        }
-		        if ((!nativeState || !nativeState.active) && plugins.OBTimerService?.getCurrentTimer) {
-		          try { nativeState = await plugins.OBTimerService.getCurrentTimer(); } catch {}
-		        }
-		        if (nativeRestoreCancelled || !nativeState || !nativeState.active) return;
-		        const nativeType = String(nativeState.type || "").toLowerCase();
-		        if (nativeType !== "nap" && nativeType !== "sleep") return;
-		        if ((bedTimerDay || (()=>{try{return localStorage.getItem("bed_timer_day");}catch{return ""}})()) && nativeType === "sleep") return;
-		        const startMs = safeTimestampMs(nativeState.startTimeMs || nativeState.startMs || nativeState.startTime, 0)
-		          || (Date.now() - Math.max(0, Number(nativeState.elapsed || 0) || 0) * 1000);
-		        if (!startMs || Date.now() - startMs < -5 * 60 * 1000 || Date.now() - startMs > OB_NAP_TIMER_RESTORE_MAX_MS) return;
-		        const startDate = new Date(startMs);
-		        const nativeStart = mtp24h(startDate.getHours() * 60 + startDate.getMinutes());
-		        const nativeDay = safeDateKey(localDateStr(startDate)) || todayK;
-		        const candidateDays = Array.from(new Set([nativeDay, todayK, yesterdayStr(), selDay].filter(Boolean)));
-		        const matchesBedtime = candidateDays.some(dk => {
-		          const bed = findBedtime(days[dk] || []);
-		          return !!(bed && safeClockText(bed.time || bed.start || "", "") === nativeStart);
-		        });
-		        if (nativeType === "sleep" && matchesBedtime) return;
-		        let matchDay = null;
-		        let match = null;
-		        candidateDays.some(dk => {
-		          const found = (days[dk] || []).find(e => {
-		            if (!e || e.type !== "nap" || e.night || e._skipped || hasCompletedNapSpan(e)) return false;
-		            const eStartMs = safeTimestampMs(e.startMs, 0) || (e.start ? clockDateMs(dk, e.start, 0) : 0);
-		            const sameMs = eStartMs && Math.abs(eStartMs - startMs) <= 3 * 60 * 1000;
-		            const sameStart = safeClockText(e.start || "", "") === nativeStart;
-		            return sameMs || sameStart || e._active === true;
-		          });
-		          if (found) { matchDay = dk; match = found; return true; }
-		          return false;
-		        });
-		        const targetDay = matchDay || nativeDay;
-		        const entryId = (match && match.id) || uid();
-		        const elapsed = Math.max(0, Math.min(OB_NAP_TIMER_RESTORE_MAX_SEC, Math.floor((Date.now() - startMs) / 1000)));
-		        setDays(d => {
-		          const prevArr = Array.isArray(d[targetDay]) ? d[targetDay] : [];
-		          const hasMatch = !!(match && match.id && prevArr.some(e => e && e.id === match.id));
-		          const nextArr = hasMatch
-		            ? prevArr.map(e => e && e.id === match.id ? {...e,start:e.start || nativeStart,asleepTime:e.asleepTime || e.fellAsleepTime || nativeStart,fellAsleepTime:e.fellAsleepTime || e.asleepTime || nativeStart,putDownTime:e.putDownTime || e.putDownAt || nativeStart,putDownAt:e.putDownAt || e.putDownTime || nativeStart,startMs,end:e.start || nativeStart,duration:0,night:false,_active:true,modifiedAt:Date.now()} : e)
-		            : [...prevArr,{id:entryId,type:"nap",start:nativeStart,asleepTime:nativeStart,fellAsleepTime:nativeStart,putDownTime:nativeStart,putDownAt:nativeStart,startMs,end:nativeStart,duration:0,night:false,note:"timer reconnected",_active:true,modifiedAt:Date.now()}];
-		          const pd = prevDayStr(targetDay);
-		          return {...d,[targetDay]:autoClassifyNight(nextArr,d[pd]||null)};
-		        });
-		        setNapOn(true); setNapStartT(nativeStart); setNapStartMs(startMs); setNapSec(elapsed); setNapEntryId(entryId); setTimerMode("activeSleep");
-		        try {
-		          localStorage.setItem("nap_on","1");
-		          localStorage.setItem("nap_startT",nativeStart);
-		          localStorage.setItem("nap_startMs",String(startMs));
-		          localStorage.setItem("nap_sec",String(elapsed));
-		          localStorage.setItem("nap_entry_id",entryId);
-		          localStorage.setItem("nap_start_day",targetDay);
-		          localStorage.setItem("timer_mode_v1","activeSleep");
-		          localStorage.removeItem("ob_nap_stopped_at");
-		        } catch {}
-		        timerProtectedUntilRef.current = Date.now() + 10000;
-		        try { window.Capacitor?.Plugins?.OBWidgetBridge?.reloadAll?.().catch(()=>{}); } catch {}
-		        try { showToast("😴 Nap timer reconnected",2000,1); } catch {}
-		        try { console.log("[OBubba] reconnected nap timer from native state", {start:nativeStart, day:targetDay, elapsed}); } catch {}
-		      } catch {}
-		    };
-		    restoreFromNativeTimer();
-		    return () => { nativeRestoreCancelled = true; };
-		  },[days, napOn, bedTimerDay, babyName, selDay]);
+		  },[days, napOn]);
 
   // Live partner timer sync: once a synced active nap has been recovered, keep
   // its mutable fields aligned too. The child-sync listener updates the log
@@ -27332,18 +27255,10 @@ function App(){
           wakeWindowMax = Math.max(wakeWindowMin + 10, wakeWindowMax - 15);
           sourceLabel += " (shortened. below-target nap)";
 	        } else if (lastDur > idealMax + 15) {
-	          // Long naps repay acute sleep pressure. A 2.5-3h nap should not
-	          // produce another full-nap prompt only 90min later unless a parent
-	          // has logged strong tired cues/illness. Keep chronic sleep debt for
-	          // bedtime nudges, but let the next awake stretch breathe.
-	          const excess = Math.max(0, lastDur - idealMax);
-	          const longNapReset = lastDur >= 150;
-	          const extension = longNapReset
-	            ? Math.min(45, Math.max(25, Math.round(excess * 0.35)))
-	            : Math.min(25, Math.max(15, Math.round(excess * 0.25)));
-	          wakeWindowMin = Math.min(ctxWW.clampMax || ctxWW.max, wakeWindowMin + extension);
-	          wakeWindowMax = Math.min(ctxWW.clampMax || ctxWW.max, Math.max(wakeWindowMin + 10, wakeWindowMax + extension));
-	          sourceLabel += " (extended " + extension + "min. long nap reset sleep pressure)";
+	          // Long nap. more adenosine cleared, extend next WW by 10-15min
+		          wakeWindowMin = Math.min(ctxWW.max, wakeWindowMin + 15);
+		          wakeWindowMax = Math.min(ctxWW.max, wakeWindowMax + 15);
+	          sourceLabel += " (extended. long nap, more sleep pressure cleared)";
 	        }
 		        const _outcomeShift = getLatestNapOutcomeWakeWindowAdjustment(lastNap, ageWeeks, "nap");
 		        if (_outcomeShift && _outcomeShift.shiftMin) {
@@ -40283,53 +40198,26 @@ function App(){
   // saves). Logs a "timer_cancelled" event so we can tune the "why cancelled?"
   // prompts later.
 	  function cancelNap() {
-	    const _ls = (key, fallback = "") => { try { return localStorage.getItem(key) || fallback; } catch { return fallback; } };
-	    const _storedNapOn = (()=>{const v=_ls("nap_on",""); return v==="1" || v==="true";})();
-	    const _cancelEntryId = napEntryId || _ls("nap_entry_id","");
-	    const _cancelStartT = napStartT || _ls("nap_startT","");
-	    const _cancelStartMs = (()=>{const n=Number(napStartMs || _ls("nap_startMs","0")); return Number.isFinite(n) ? n : 0;})();
-	    const _cancelSec = Math.max(0, Number(napSec)||0, Number(_ls("nap_sec","0"))||0);
-	    const _napStillActive = !!(napOn || _storedNapOn || _cancelEntryId || _cancelStartT);
-	    if (!_napStillActive) return;
+	    if (!napOn) return;
     clearRecentStoppedNap();
     setNapSettlingDismissedId("");
 	    clearTimerNotification();
-	    try { trackEvent("timer_cancelled", { type: "nap", sec: _cancelSec }); } catch {}
-    const _napDay = safeDateKey(_ls("nap_start_day","")) || selDay || todayStr();
+	    try { trackEvent("timer_cancelled", { type: "nap", sec: napSec }); } catch {}
+    const _napDay = localStorage.getItem("nap_start_day") || selDay;
     // Remove the in-progress nap entry entirely — don't save anything.
-    if (_cancelEntryId || _cancelStartT) {
+    if (napEntryId) {
       setDays(d => {
-        const candidateDays = Array.from(new Set([_napDay, selDay, todayStr(), prevDayStr(_napDay), prevDayStr(selDay || todayStr())].filter(Boolean)));
-        let removed = false;
-        const next = {...d};
-        candidateDays.forEach(dayKey => {
-          if (removed) return;
-          const existing = next[dayKey] || [];
-          const updated = existing.filter(e => {
-            if (!e || e.type !== "nap") return true;
-            if (_cancelEntryId && e.id === _cancelEntryId) return false;
-            if (_cancelStartT && e.start === _cancelStartT && isActiveNapStub(e)) return false;
-            if (_cancelStartMs && e.startMs && Number(e.startMs) === _cancelStartMs && isActiveNapStub(e)) return false;
-            return true;
-          });
-          if (updated.length !== existing.length) {
-            const pd = prevDayStr(dayKey);
-            next[dayKey] = autoClassifyNight(updated, next[pd] || null);
-            removed = true;
-          }
-        });
-        return removed ? next : d;
+        const updated = (d[_napDay] || []).filter(e => e.id !== napEntryId);
+        return { ...d, [_napDay]: updated };
       });
       // Stamp the tombstone so partner sync doesn't resurrect it.
-      if (_cancelEntryId) { try { deletedEntryIdsRef.current.add(_cancelEntryId); _capAndPersistDeletedIds(); } catch {} }
+      try { deletedEntryIdsRef.current.add(napEntryId); _capAndPersistDeletedIds(); } catch {}
     }
     setNapOn(false); setNapPaused(false);
     setNapStartT(null); setNapStartMs(null); setNapSec(0); setNapEntryId(null);
     setTimerMode("prediction");
     _laStop();
-	    try { ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day","nap_source","nap_paused_by_breast","nap_paused_by_breast_was_paused"].forEach(k=>localStorage.removeItem(k)); localStorage.setItem("timer_mode_v1","prediction"); localStorage.setItem("ob_nap_stopped_at", String(Date.now())); } catch {}
-	    try { forceWidgetTimerPaused("Timer cancelled"); } catch {}
-	    forcePushNapStopToCloud("nap_cancelled");
+	    try { ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day","nap_paused_by_breast","nap_paused_by_breast_was_paused"].forEach(k=>localStorage.removeItem(k)); } catch {}
     showToast("↩️ Nap attempt discarded — no entry saved", 2000, 1);
   }
 
@@ -46299,7 +46187,7 @@ function App(){
 	          return "Nap" + (activeSec >= 60 ? " · " + fmtSec(activeSec) : " · just started");
 	        }
 	        const duration = clockNapDurationLab(entry);
-		        if (clockNapNeedsTimerCheckLab(entry)) return clockNapHasImplausibleSpanLab(entry) ? "Nap · time needs review" : "Nap · finish timer";
+		        if (clockNapNeedsTimerCheckLab(entry)) return clockNapHasImplausibleSpanLab(entry) ? "Nap · time needs review" : "Nap · timer incomplete";
 	        return "Nap" + (duration ? " · " + hm(duration) : "");
       }
       if (entry.type === "sleep") {
@@ -46522,7 +46410,7 @@ function App(){
 		          return clockLogJoinLab(activeSec >= 60 ? fmtSec(activeSec) : "just started", location);
 		        }
 		        const duration = clockNapDurationLab(entry);
-			        if (clockNapNeedsTimerCheckLab(entry)) return clockLogJoinLab(clockNapHasImplausibleSpanLab(entry) ? "End time needs review" : "Needs an end time", !clockNapHasImplausibleSpanLab(entry) && duration ? "saved as " + hm(duration) : "", location);
+			        if (clockNapNeedsTimerCheckLab(entry)) return clockLogJoinLab(clockNapHasImplausibleSpanLab(entry) ? "End time needs review" : "Timer incomplete", !clockNapHasImplausibleSpanLab(entry) && duration ? "saved as " + hm(duration) : "", location);
 		        return clockLogJoinLab(duration ? hm(duration) : "", location) || "nap";
 		      }
 		      if (entry.type === "sleep") {
@@ -47165,7 +47053,7 @@ function App(){
 	      if (!clockCurrentWakeWindow || !clockLabIsToday || activeTimer) return null;
 	      try { return getOptimalWakeWindow(); } catch { return null; }
 	    })();
-	    const clockNapTimingWindow = (() => {
+	    const clockNapSweetSpot = (() => {
 	      if (!clockLabIsToday || activeTimer || clockBedtimeLogged || !clockCurrentWakeWindow || !clockExpectedWakeWindow) return null;
 	      const hasNapAhead = !!(
 	        (nextEvent && nextEvent.type === "nap") ||
@@ -47179,8 +47067,8 @@ function App(){
 	      if (awake < 5) return null;
 	      const personalMin = Number(clockPersonalWakeWindow?.optimalMin);
 	      const personalMax = Number(clockPersonalWakeWindow?.optimalMax);
-	      let windowStart = Number.isFinite(personalMin) ? Math.max(20, personalMin - 5) : clockExpectedWakeWindow.min;
-	      let windowEnd = Number.isFinite(personalMax) ? Math.max(windowStart + 10, personalMax + 10) : clockExpectedWakeWindow.max;
+	      let sweetStart = Number.isFinite(personalMin) ? Math.max(20, personalMin - 5) : clockExpectedWakeWindow.min;
+	      let sweetEnd = Number.isFinite(personalMax) ? Math.max(sweetStart + 10, personalMax + 10) : clockExpectedWakeWindow.max;
 	      let sourceLabel = Number.isFinite(personalMin) ? "learned from good naps" : "age-aware window";
 	      const napTargetRaw = nextEvent && nextEvent.type === "nap" && nextMins !== null
 	        ? nextMins
@@ -47196,30 +47084,30 @@ function App(){
 	        while (target > awakeStart + 720) target -= 1440;
 	        const targetAwake = Math.round(target - awakeStart);
 	        if (targetAwake >= 20 && targetAwake <= Math.max(480, clockExpectedWakeWindow.max + 90)) {
-	          windowStart = Math.max(20, targetAwake - 15);
-	          windowEnd = Math.max(windowStart + 10, targetAwake + 12);
+	          sweetStart = Math.max(20, targetAwake - 15);
+	          sweetEnd = Math.max(sweetStart + 10, targetAwake + 12);
 	          sourceLabel = Number.isFinite(personalMin) ? "prediction plus learned rhythm" : "OBubba prediction";
 	        }
 	      }
-	      const warningEnd = windowEnd + 25;
+	      const warningEnd = sweetEnd + 25;
 	      const clampPct = (n) => Math.max(0, Math.min(100, Math.round(n)));
 	      let state = "early";
 	      let label = "Not yet";
-	      let detail = "green in " + hm(Math.max(1, windowStart - awake));
+	      let detail = "green in " + hm(Math.max(1, sweetStart - awake));
 	      let badge = "later";
 	      let color = "#9BA7B6";
 	      let glow = "rgba(155,167,182,0.36)";
-	      if (awake >= windowStart && awake <= windowEnd) {
+	      if (awake >= sweetStart && awake <= sweetEnd) {
 	        state = "ready";
-	        label = "Nap window";
+	        label = "Sweet spot";
 	        detail = "offer nap if cues fit";
-	        badge = "nap window";
+	        badge = "sweet spot";
 	        color = "#3FD889";
 	        glow = "rgba(63,216,137,0.52)";
-	      } else if (awake > windowEnd && awake <= warningEnd) {
+	      } else if (awake > sweetEnd && awake <= warningEnd) {
 	        state = "warning";
 	        label = "Watch cues";
-	        detail = hm(awake - windowEnd) + " past nap window";
+	        detail = hm(awake - sweetEnd) + " past sweet spot";
 	        badge = "watch cues";
 	        color = "#F2B84B";
 	        glow = "rgba(242,184,75,0.50)";
@@ -47240,31 +47128,31 @@ function App(){
 	        glow,
 	        awake,
 	        awakeText:hm(awake) + " awake",
-	        windowText:hm(Math.round(windowStart)) + "-" + hm(Math.round(windowEnd)),
+	        windowText:hm(Math.round(sweetStart)) + "-" + hm(Math.round(sweetEnd)),
 	        sourceLabel,
-	        progress:clampPct((awake / Math.max(warningEnd, windowEnd + 1)) * 100),
+	        progress:clampPct((awake / Math.max(warningEnd, sweetEnd + 1)) * 100),
 	        canStart:state === "ready" || state === "warning" || state === "overtired"
 	      };
 	    })();
-	    const showClockNapWindowTip = (item = clockNapTimingWindow) => {
+	    const showClockSweetSpotTip = (item = clockNapSweetSpot) => {
 	      if (!item) return;
 	      setClockLabTip({
-	        kind:"nap-window",
+	        kind:"sweet-spot",
 	        label:item.label,
 	        detail:item.awakeText + " · window " + item.windowText + " · " + item.sourceLabel + ". " + item.detail + ". Baby cues first.",
 	        color:item.color,
-	        id:"nap-window-" + item.state + "-" + Math.round(item.awake || 0)
+	        id:"nap-sweet-spot-" + item.state + "-" + Math.round(item.awake || 0)
 	      });
 	    };
-	    const hideClockNapWindowTip = () => {
-	      setClockLabTip(current => current && current.kind === "nap-window" ? null : current);
+	    const hideClockSweetSpotTip = () => {
+	      setClockLabTip(current => current && current.kind === "sweet-spot" ? null : current);
 	    };
-	    const clockNapWindowChipTap = (ev) => {
+	    const clockSweetSpotChipTap = (ev) => {
 	      try{ev && ev.stopPropagation && ev.stopPropagation();}catch{}
-	      if (!clockNapTimingWindow) return;
+	      if (!clockNapSweetSpot) return;
 	      haptic();
-	      if (clockNapTimingWindow.canStart) { startNap(); return; }
-	      showClockNapWindowTip(clockNapTimingWindow);
+	      if (clockNapSweetSpot.canStart) { startNap(); return; }
+	      showClockSweetSpotTip(clockNapSweetSpot);
 	    };
 	    const clockLabels = [
 	      {mins:0,top:"12",bottom:"am"},
@@ -48452,11 +48340,11 @@ function App(){
 	          <button
 	            key={id}
 	            type="button"
-	          className={"ob-clock-log-btn"+(opts.isActive?" is-active":"")+(opts.napWindow?" is-nap-window":"")}
-	          data-nap-window={opts.napWindow ? opts.napWindow.state : undefined}
-	          aria-label={(opts.ariaLabel || label) + (opts.badge ? ". " + opts.badge : "") + (opts.napWindow ? ". Nap timing: " + opts.napWindow.label + ". " + opts.napWindow.detail : "") + (longAction ? ". Tap to log, hold for details." : ". Tap to open.")}
-	          title={(opts.ariaLabel || label) + (opts.badge ? " - " + opts.badge : "") + (opts.napWindow ? " - " + opts.napWindow.label + ": " + opts.napWindow.detail : "") + (longAction ? " - tap to log, hold for details" : " - tap to open")}
-	          style={{"--ob-clock-accent":accent,"--ob-clock-nap-window":opts.napWindow?.color,"--ob-clock-nap-window-glow":opts.napWindow?.glow,touchAction:longAction?"none":"manipulation",WebkitUserSelect:"none",userSelect:"none",WebkitTouchCallout:"none"}}
+	          className={"ob-clock-log-btn"+(opts.isActive?" is-active":"")+(opts.sweetSpot?" is-sweet-spot":"")}
+	          data-sweet-spot={opts.sweetSpot ? opts.sweetSpot.state : undefined}
+	          aria-label={(opts.ariaLabel || label) + (opts.badge ? ". " + opts.badge : "") + (opts.sweetSpot ? ". Nap timing: " + opts.sweetSpot.label + ". " + opts.sweetSpot.detail : "") + (longAction ? ". Tap to log, hold for details." : ". Tap to open.")}
+	          title={(opts.ariaLabel || label) + (opts.badge ? " - " + opts.badge : "") + (opts.sweetSpot ? " - " + opts.sweetSpot.label + ": " + opts.sweetSpot.detail : "") + (longAction ? " - tap to log, hold for details" : " - tap to open")}
+	          style={{"--ob-clock-accent":accent,"--ob-clock-sweet-spot":opts.sweetSpot?.color,"--ob-clock-sweet-spot-glow":opts.sweetSpot?.glow,touchAction:longAction?"none":"manipulation",WebkitUserSelect:"none",userSelect:"none",WebkitTouchCallout:"none"}}
 	          onPointerDown={(e)=>{
 	            e.stopPropagation();
 	            if(e.pointerType==="touch") return;
@@ -48590,7 +48478,7 @@ function App(){
 		      labAction("feed","feed","Feed",()=>{if(breastActive)cancelBreastTimer();const _feedData={type:"feed",time:nowTime(),feedType:"milk",amount:0,night:false,note:""};if(clockBedOnThisDay&&!bedPaused&&!shouldKeepDaytimeCatchUpOnSelectedDay("feed",_feedData,bedtimeFeedChoiceBedDay())){openBedtimeFeedChoice(_feedData);return;}(logForAll?quickAddLogForAll:quickAddLog)("feed",_feedData);},()=>openLogPanel("feed"),eventMeta.feed.color,{displayIcon:"🍼"}),
 	      labAction("breast","breast","Breastfeed",clockQuickBreastLog,()=>{openBreastTimerEdit(clockActiveBreastSide);},eventMeta.feed.color,{displayIcon:"🤱",displayLabel:"Breast",isActive:clockFeedOnThisDay,badge:clockBreastSideBadge,ariaLabel:clockFeedOnThisDay?"Breastfeed timer":"Breastfeed"}),
 	      labAction("nappy","nappy","Nappy",()=>(logForAll?quickAddLogForAll:quickAddLog)("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""}),()=>openLogPanel("nappy"),eventMeta.poop.color,{displayIcon:"💧💩"}),
-	      labAction("sleep-toggle",clockQuickSleepNeedsWake?"sun":"nap",clockQuickSleepLabel,clockQuickSleepAction,clockQuickSleepLongAction,clockQuickSleepNeedsWake?eventMeta.wake.color:(clockNapTimingWindow?.color || eventMeta.nap.color),{displayIcon:clockQuickSleepIcon,isActive:clockQuickSleepNeedsWake || (clockBedOnThisDay && bedPaused),badge:!clockQuickSleepNeedsWake && clockNapTimingWindow ? clockNapTimingWindow.badge : "",napWindow:!clockQuickSleepNeedsWake ? clockNapTimingWindow : null}),
+	      labAction("sleep-toggle",clockQuickSleepNeedsWake?"sun":"nap",clockQuickSleepLabel,clockQuickSleepAction,clockQuickSleepLongAction,clockQuickSleepNeedsWake?eventMeta.wake.color:(clockNapSweetSpot?.color || eventMeta.nap.color),{displayIcon:clockQuickSleepIcon,isActive:clockQuickSleepNeedsWake || (clockBedOnThisDay && bedPaused),badge:!clockQuickSleepNeedsWake && clockNapSweetSpot ? clockNapSweetSpot.badge : "",sweetSpot:!clockQuickSleepNeedsWake ? clockNapSweetSpot : null}),
 	      labAction("pump","pump","Pump",()=>(logForAll?quickAddLogForAll:quickAddLog)("feed",{type:"feed",time:nowTime(),feedType:"pump",pumpL:0,pumpR:0,amount:0,pumpDuration:0,night:false,note:""}),()=>openLogPanel("pump"),eventMeta.pump.color,{displayIcon:"🫙"})
 	    ];
 	    const clockLabMoreActions = [
@@ -49023,7 +48911,7 @@ function App(){
 	        return current.entry?.id === item.entry.id ? null : current;
 	      });
 	    };
-	    const clockLabTipUsesMeta = (tip) => !!(tip && (tip.kind === "wake-window" || tip.kind === "prediction" || tip.kind === "presence" || tip.kind === "nap-window"));
+	    const clockLabTipUsesMeta = (tip) => !!(tip && (tip.kind === "wake-window" || tip.kind === "prediction" || tip.kind === "presence" || tip.kind === "sweet-spot"));
     const clockLabTipCanEdit = (tip) => !!(tip && tip.entry && !tip.visualOnly && !tip.entry._clockCarrySleep && !clockLabTipUsesMeta(tip));
 	    const clockLabTipDetail = (tip) => {
 	      if (clockLabTipUsesMeta(tip)) return tip.detail || "";
@@ -49375,7 +49263,7 @@ function App(){
 		            {clockWakeWindowItems.map((item, index) => (
 		              <g key={"wake-window-"+index} className="ob-clock-wake-window-group" tabIndex="0" onMouseEnter={()=>showClockWakeWindowTip(item)} onMouseLeave={hideClockWakeWindowTip} onFocus={()=>showClockWakeWindowTip(item)} onBlur={hideClockWakeWindowTip} onClick={(ev)=>{ev.stopPropagation();showClockWakeWindowTip(item);}}>
 		                <path d={arcPath(item.start,item.end,108)} className="ob-clock-wake-window-hit" stroke="rgba(255,255,255,0.001)" strokeWidth="12" pointerEvents="stroke" aria-hidden="true"/>
-		                <path d={arcPath(item.start,item.end,108)} className={"ob-clock-wake-window-arc"+(item.isNow?" is-now":"")+(item.isNow&&clockNapTimingWindow?" is-nap-window is-"+clockNapTimingWindow.state:"")} style={{"--ob-clock-wake-window":item.isNow&&clockNapTimingWindow?clockNapTimingWindow.color:clockWakeWindowMeta.color,"--ob-clock-wake-window-glow":item.isNow&&clockNapTimingWindow?clockNapTimingWindow.glow:clockWakeWindowMeta.glow}} stroke={item.isNow&&clockNapTimingWindow?clockNapTimingWindow.color:clockWakeWindowMeta.color}>
+		                <path d={arcPath(item.start,item.end,108)} className={"ob-clock-wake-window-arc"+(item.isNow?" is-now":"")+(item.isNow&&clockNapSweetSpot?" is-sweet-spot is-"+clockNapSweetSpot.state:"")} style={{"--ob-clock-wake-window":item.isNow&&clockNapSweetSpot?clockNapSweetSpot.color:clockWakeWindowMeta.color,"--ob-clock-wake-window-glow":item.isNow&&clockNapSweetSpot?clockNapSweetSpot.glow:clockWakeWindowMeta.glow}} stroke={item.isNow&&clockNapSweetSpot?clockNapSweetSpot.color:clockWakeWindowMeta.color}>
 		                  <title>{"Wake window · " + clockWakeWindowTipText(item)}</title>
 		                </path>
 		              </g>
@@ -49556,28 +49444,28 @@ function App(){
 			              )}
 			            </div>
 			          )}
-		          {clockNapTimingWindow && !clockLabTip && (
+		          {clockNapSweetSpot && !clockLabTip && (
 	            <button
 	              type="button"
-	              data-testid="clock-nap-window-chip"
-	              className={"ob-clock-nap-window-chip is-"+clockNapTimingWindow.state}
-	              style={{"--ob-clock-nap-window":clockNapTimingWindow.color,"--ob-clock-nap-window-glow":clockNapTimingWindow.glow}}
-	              aria-label={"Nap timing window. " + clockNapTimingWindow.label + ". " + clockNapTimingWindow.awakeText + ". " + clockNapTimingWindow.detail}
-	              onMouseEnter={()=>showClockNapWindowTip(clockNapTimingWindow)}
-	              onMouseLeave={hideClockNapWindowTip}
-	              onFocus={()=>showClockNapWindowTip(clockNapTimingWindow)}
-	              onBlur={hideClockNapWindowTip}
-	              onClick={clockNapWindowChipTap}
+	              data-testid="clock-sweet-spot-chip"
+	              className={"ob-clock-sweet-spot-chip is-"+clockNapSweetSpot.state}
+	              style={{"--ob-clock-sweet-spot":clockNapSweetSpot.color,"--ob-clock-sweet-spot-glow":clockNapSweetSpot.glow}}
+	              aria-label={"Nap sweet spot. " + clockNapSweetSpot.label + ". " + clockNapSweetSpot.awakeText + ". " + clockNapSweetSpot.detail}
+	              onMouseEnter={()=>showClockSweetSpotTip(clockNapSweetSpot)}
+	              onMouseLeave={hideClockSweetSpotTip}
+	              onFocus={()=>showClockSweetSpotTip(clockNapSweetSpot)}
+	              onBlur={hideClockSweetSpotTip}
+	              onClick={clockSweetSpotChipTap}
 	            >
-		              <span className="ob-clock-nap-window-dot" aria-hidden="true"/>
-		              <b>{clockNapTimingWindow.label}</b>
-		              <em>{clockNapTimingWindow.awakeText} · {clockNapTimingWindow.canStart ? "tap to start" : clockNapTimingWindow.detail}</em>
-		              <span className="ob-clock-nap-window-bar" data-testid="clock-nap-window-bar" aria-hidden="true">
-		                <span data-testid="clock-nap-window-fill" style={{width:clockNapTimingWindow.progress+"%"}}/>
+		              <span className="ob-clock-sweet-spot-dot" aria-hidden="true"/>
+		              <b>{clockNapSweetSpot.label}</b>
+		              <em>{clockNapSweetSpot.awakeText} · {clockNapSweetSpot.canStart ? "tap to start" : clockNapSweetSpot.detail}</em>
+		              <span className="ob-clock-sweet-spot-bar" data-testid="clock-sweet-spot-bar" aria-hidden="true">
+		                <span data-testid="clock-sweet-spot-fill" style={{width:clockNapSweetSpot.progress+"%"}}/>
 		              </span>
 		            </button>
 	          )}
-          {predictionItem && !clockLabTip && !clockPredictedNapStartReady && !clockNapTimingWindow && (
+          {predictionItem && !clockLabTip && !clockPredictedNapStartReady && !clockNapSweetSpot && (
 	            <button type="button" className="ob-clock-prediction-chip" style={{"--ob-clock-predict":predictionItem.meta.color}} onClick={clockPredictionChipTap}>
 		              <span/>
 		              <b>{clockPredictedNapStartReady ? "Predicted nap" : predictionItem.label}{!clockPredictedNapStartReady && predictionItem.contextLabel ? <small style={{fontWeight:500,opacity:0.7,fontSize:"0.8em"}}>{predictionItem.contextLabel}</small> : null}</b>
@@ -68113,13 +68001,13 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             <div style={{fontFamily:"Georgia,serif",fontSize:18,fontWeight:700,color:C.deep,marginBottom:6}}>Still napping?</div>
             <div style={{fontSize:13,color:C.mid,lineHeight:1.6,marginBottom:16}}>The nap timer has been running for {hm(Math.round(napSec/60))}. Did {babyName||"baby"} wake up?</div>
             <div style={{display:"flex",flexDirection:"column",gap:8}}>
-              <button onClick={()=>{haptic();try{localStorage.setItem("ob_forgot_nap_snooze_until",String(Date.now()+90*60*1000));}catch{}setShowForgotTimer(false);}} style={{padding:"13px",borderRadius:99,border:`1.5px solid ${C.mint}`,background:C.mint+"10",color:C.mint,fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+              <button onClick={()=>{haptic();setShowForgotTimer(false);}} style={{padding:"13px",borderRadius:99,border:`1.5px solid ${C.mint}`,background:C.mint+"10",color:C.mint,fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
                 😴 Still napping
               </button>
-              <button onClick={()=>{haptic();try{localStorage.removeItem("ob_forgot_nap_snooze_until");}catch{}setShowForgotTimer(false);endNap();}} style={{padding:"13px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
+              <button onClick={()=>{haptic();setShowForgotTimer(false);endNap();}} style={{padding:"13px",borderRadius:99,border:"none",background:C.ter,color:"white",fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI}}>
                 ☀️ Already woke. stop timer
               </button>
-              <button onClick={()=>{try{localStorage.setItem("ob_forgot_nap_snooze_until",String(Date.now()+30*60*1000));}catch{}setShowForgotTimer(false);}} style={{padding:"8px",background:"none",border:"none",color:C.lt,fontSize:12,cursor:_cP}}>Dismiss</button>
+              <button onClick={()=>setShowForgotTimer(false)} style={{padding:"8px",background:"none",border:"none",color:C.lt,fontSize:12,cursor:_cP}}>Dismiss</button>
             </div>
           </div>
         </div>
