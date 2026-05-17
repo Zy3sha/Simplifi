@@ -3046,41 +3046,9 @@ const HAPTICS_DISABLED_KEY = "ob_haptics_disabled_v1";
 function hapticsAreDisabled(){try{return localStorage.getItem(HAPTICS_DISABLED_KEY)==="1";}catch{return false;}}
 const haptic=(ms=10)=>{try{if(hapticsAreDisabled())return;if(window.OBNative){window.OBNative.haptics.impact(typeof ms==="string"?ms.charAt(0).toUpperCase()+ms.slice(1):"Medium");return;}if(window._nativeHaptic){window._nativeHaptic(typeof ms==="string"?ms:"medium");return;}if(navigator.vibrate){navigator.vibrate(typeof ms==="number"?ms:10);}}catch{}};
 // ── Native Feature Integration ──
-function obHasCapacitorNativeRuntime() {
-  try {
-    if (window.OBNative?.isNative?.()) return true;
-    const cap = window.Capacitor;
-    if (cap?.isNativePlatform?.()) return true;
-    const platform = String(cap?.getPlatform?.() || "").toLowerCase();
-    if (platform && platform !== "web") return true;
-    const plugins = cap?.Plugins || {};
-    return !!(plugins.OBLiveActivity || plugins.OBWidgetBridge || plugins.OBTimerService || plugins.LocalNotifications);
-  } catch {
-    return false;
-  }
-}
-const _isNativePlatform = () => obHasCapacitorNativeRuntime();
-// Global native check used by Live Activity, notifications, and widget calls.
-// Capacitor can attach after this file is evaluated, so keep this flag fresh
-// instead of trusting the first boot-time read forever.
-var _isNative = obHasCapacitorNativeRuntime();
-function refreshNativeRuntimeFlag() {
-  try {
-    _isNative = obHasCapacitorNativeRuntime();
-    window._isNative = _isNative;
-  } catch {}
-  return _isNative;
-}
-try {
-  window.refreshNativeRuntimeFlag = refreshNativeRuntimeFlag;
-  ["DOMContentLoaded","readystatechange","pageshow","focus","visibilitychange","resume"].forEach(evt => {
-    try {
-      const target = evt === "resume" ? document : window;
-      target.addEventListener(evt, refreshNativeRuntimeFlag, false);
-    } catch {}
-  });
-  [0, 250, 1000, 3000, 8000].forEach(ms => setTimeout(refreshNativeRuntimeFlag, ms));
-} catch {}
+const _isNativePlatform = () => window.OBNative && window.OBNative.isNative();
+// Global native check used by Live Activity, notifications, and widget calls
+var _isNative = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 // Android WebView rendering: keep platform hooks stable for CSS perf fallbacks.
 function applyNativePlatformClass() {
   try {
@@ -3137,7 +3105,7 @@ function buildChildSyncInviteUrl(code) {
 }
 try { window.OBUBBA_STORE_LINKS = { ios: OBUBBA_APP_STORE_URL, android: OBUBBA_PLAY_STORE_URL, download: OBUBBA_DOWNLOAD_URL }; } catch {}
 // Always stop existing Live Activity before starting a new one (prevents duplicates)
-function _laStop(stopAndroid = true) { refreshNativeRuntimeFlag(); try { const la = window.Capacitor?.Plugins?.OBLiveActivity; if(la){la.stop?.().catch(()=>{});la.stopPrediction?.().catch(()=>{});} } catch{} if(stopAndroid) _androidTimerStop(); }
+function _laStop(stopAndroid = true) { try { const la = window.Capacitor?.Plugins?.OBLiveActivity; if(la){la.stop?.().catch(()=>{});la.stopPrediction?.().catch(()=>{});} } catch{} if(stopAndroid) _androidTimerStop(); }
 function _laStart(opts) {
   _laStop(false);
   return new Promise(resolve => setTimeout(()=>{
@@ -3155,7 +3123,7 @@ function _laStartPred(opts) {
 }
 // Android foreground timer service helpers (persistent notification that survives app kill)
 function _isAndroidRuntime() {
-  try { return !!(refreshNativeRuntimeFlag() && window.Capacitor?.getPlatform?.() === 'android'); }
+  try { return !!(window.Capacitor?.isNativePlatform?.() && window.Capacitor?.getPlatform?.() === 'android'); }
   catch { return false; }
 }
 async function _ensureAndroidNotificationPermission() {
@@ -12047,7 +12015,8 @@ function App(){
               // Set stop timestamp BEFORE clearing keys — orphan recovery checks this to avoid resurrection
               try{localStorage.setItem("ob_nap_stopped_at",String(Date.now()));}catch{}
 	              ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day","nap_start_day","nap_paused_by_breast","nap_paused_by_breast_was_paused"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
-              _laStop();
+              if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
+              _androidTimerStop();
               // Immediately push cleared timer to widget so it stops showing the running timer
               try {
                 var _wdCached = safeJsonObject(localStorage.getItem("ob_widget_data_v1"));
@@ -12088,7 +12057,8 @@ function App(){
 	            setBreastSide(null); setBreastSec({L:0,R:0}); setBreastActive(false); setBreastStartTime(null);
 	            if (_bElapsedSec >= 60) { setLastBreastSide(_bSideKey); try{localStorage.setItem("last_breast_side",_bSideKey);}catch{} }
 		            try{["breast_side","breast_sec","breast_active","breast_startTime","breast_startMs"].forEach(k=>localStorage.removeItem(k));}catch{}
-		            _laStop();
+		            if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
+		            _androidTimerStop();
 		            if (_bNightMode) {
 		              resumeBedTimer("milk", {
 		                amountMl: 0,
@@ -12259,7 +12229,7 @@ function App(){
                 // Clear bed timer + Live Activity on morning wake from widget/Siri
                 setBedTimerDay(null);
                 try{localStorage.removeItem("bed_timer_day");}catch{}
-                _laStop();
+                if(_isNative) _laStop();
                 showToast(entry.source==='widget' ? "☀️ Wake logged via Widget ✓" : "☀️ Morning wake logged via Siri ✓", 3000, 1);
               } else if(entry.type==='feed') {
                 const _amt = _safeSiriAmount(entry.amount, 1000);
@@ -12313,7 +12283,6 @@ function App(){
                     recordNapTimerDrop("siri_or_widget_nap_stop_missing_entry", {source:entry.source || "siri", hasEntryId:!!_eid, hasStartT:!!_startT});
                     ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day","nap_start_day"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
                     setNapOn(false); setNapStartT(null); setNapSec(0); setNapEntryId(null); setNapPaused(false);
-                    _laStop();
                     showToast("😴 Timer stopped (no entry to update)", 2500, 1);
                     return;
                   }
@@ -12334,7 +12303,7 @@ function App(){
 	                  // Clear all timer state in both React and localStorage.
                   setNapOn(false); setNapStartT(null); setNapSec(0); setNapEntryId(null); setNapPaused(false);
                   ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day","nap_start_day"].forEach(k=>{try{localStorage.removeItem(k);}catch{}});
-                  _laStop();
+                  if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
                   try { trackEvent("timer_stopped", { type: "nap", duration_mins: _dur, source: entry.source || "siri" }); } catch {}
                   showToast("😴 Nap stopped via " + (entry.source === "widget" ? "Widget" : "Siri") + " ✓ (" + _dur + "m)", 3000, 1);
                 } catch(e) { console.warn("[OBubba] Siri nap_stop failed:", e); }
@@ -12391,7 +12360,7 @@ function App(){
     // ── Live Activity cleanup on launch ──
     // If no nap/breast timer is running, stop any orphaned Live Activities
     // (handles case where _isNative was broken and stop() never fired)
-    if(refreshNativeRuntimeFlag() || window.Capacitor?.Plugins?.OBLiveActivity){
+    if(_isNative){
       setTimeout(function(){
         try{
 	          var _hasNap = localStorage.getItem("nap_on") === "true" || localStorage.getItem("nap_on") === "1";
@@ -12410,7 +12379,7 @@ function App(){
             // regardless of stale widget caches. Stop only timer LAs; prediction
             // LAs are separate and remain intentional for premium users.
             console.log("[OBubba] No active timer keys. cleaning up orphaned timer Live Activities");
-            window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(function(){});
+            window.Capacitor.Plugins.OBLiveActivity.stop().catch(function(){});
             try {
               var _wdRaw = localStorage.getItem("ob_widget_data_v1") || localStorage.getItem("_lastWidgetData") || "{}";
               var _wd = safeJsonObject(_wdRaw);
@@ -24373,71 +24342,7 @@ function App(){
 	      setNapOn(true); setNapStartT(ongoingNap.start); setNapStartMs(startMs); setNapSec(elapsed);
 	      setNapEntryId(ongoingNap.id); setTimerMode("activeSleep");
 	      try{localStorage.setItem("nap_on","1");localStorage.setItem("nap_startT",ongoingNap.start);localStorage.setItem("nap_startMs",String(startMs));localStorage.setItem("nap_sec",String(elapsed));localStorage.setItem("nap_entry_id",ongoingNap.id);localStorage.setItem("nap_start_day",_napDayKey);localStorage.setItem("timer_mode_v1","activeSleep");}catch{}
-	      timerProtectedUntilRef.current = Date.now() + 10000;
-	      return;
 		    }
-		    try {
-		      const _wdRaw = localStorage.getItem("ob_widget_data_v1") || localStorage.getItem("_lastWidgetData") || "";
-		      const _wd = _wdRaw ? safeJsonObject(_wdRaw) : null;
-		      if (!_wd || _wd.activeTimer !== "nap") return;
-		      const _wdStartMs = safeTimestampMs(_wd.timerStartMs, 0);
-		      const _wdStart = safeClockText(_wd.timerStartTime || "", "");
-		      if (!_wdStartMs || !_wdStart || clockMins(_wdStart) === null) return;
-		      const _ageMs = Date.now() - _wdStartMs;
-		      if (_ageMs < -5 * 60 * 1000 || _ageMs > OB_NAP_TIMER_RESTORE_MAX_MS) return;
-		      const _wdDay = safeDateKey(localDateStr(new Date(_wdStartMs))) || todayK;
-		      const _elapsed = Math.max(0, Math.min(OB_NAP_TIMER_RESTORE_MAX_SEC, Math.floor(_ageMs / 1000)));
-		      const _candidateDays = Array.from(new Set([_wdDay, todayK, yesterdayStr(), selDay].filter(Boolean)));
-		      let _matchDay = null;
-		      let _matchId = "";
-		      _candidateDays.some(dk => {
-		        const list = days[dk] || [];
-		        const found = list.find(e => {
-		          if (!e || e.type !== "nap") return false;
-		          if (e._skipped || e.night) return false;
-		          const eStartMs = safeTimestampMs(e.startMs, 0) || (e.start ? clockDateMs(dk, e.start, 0) : 0);
-		          const sameMs = eStartMs && Math.abs(eStartMs - _wdStartMs) <= 2 * 60 * 1000;
-		          const sameStart = safeClockText(e.start || "", "") === _wdStart;
-		          return e._active === true && (sameMs || sameStart);
-		        });
-		        if (found) { _matchDay = dk; _matchId = found.id || ""; return true; }
-		        return false;
-		      });
-		      const _targetDay = _matchDay || _wdDay;
-		      const _entryId = _matchId || uid();
-		      setDays(d => {
-		        const prevArr = Array.isArray(d[_targetDay]) ? d[_targetDay] : [];
-		        const hasMatchInPrev = !!(_matchId && prevArr.some(e => e && e.id === _matchId));
-		        const nextArr = hasMatchInPrev
-		          ? prevArr.map(e => e && e.id === _matchId ? {...e,start:e.start||_wdStart,asleepTime:e.asleepTime||e.fellAsleepTime||_wdStart,fellAsleepTime:e.fellAsleepTime||e.asleepTime||_wdStart,putDownTime:e.putDownTime||e.putDownAt||_wdStart,putDownAt:e.putDownAt||e.putDownTime||_wdStart,startMs:_wdStartMs,end:e.start||_wdStart,duration:0,night:false,_active:true,modifiedAt:Date.now()} : e)
-		          : [...prevArr,{id:_entryId,type:"nap",start:_wdStart,asleepTime:_wdStart,fellAsleepTime:_wdStart,putDownTime:_wdStart,putDownAt:_wdStart,startMs:_wdStartMs,end:_wdStart,duration:0,night:false,note:"timer restored",_active:true,modifiedAt:Date.now()}];
-		        const pd = prevDayStr(_targetDay);
-		        return {...d,[_targetDay]:autoClassifyNight(nextArr,d[pd]||null)};
-		      });
-		      setNapOn(true); setNapStartT(_wdStart); setNapStartMs(_wdStartMs); setNapSec(_elapsed); setTimerMode("activeSleep");
-		      if (_entryId) setNapEntryId(_entryId);
-		      try {
-		        localStorage.setItem("nap_on","1");
-		        localStorage.setItem("nap_startT",_wdStart);
-		        localStorage.setItem("nap_startMs",String(_wdStartMs));
-		        localStorage.setItem("nap_sec",String(_elapsed));
-		        if (_entryId) localStorage.setItem("nap_entry_id",_entryId);
-		        localStorage.setItem("nap_start_day",_targetDay);
-		        localStorage.setItem("timer_mode_v1","activeSleep");
-		      } catch {}
-		      timerProtectedUntilRef.current = Date.now() + 10000;
-		      try {
-		        refreshNativeRuntimeFlag();
-		        const _la = window.Capacitor?.Plugins?.OBLiveActivity;
-		        if (_la) {
-		          _la.stopPrediction?.().catch(()=>{});
-		          _la.start?.({type:"sleep",babyName:babyName||"Baby",startTime:_wdStartMs,nextNap:"Nap"}).catch(()=>{});
-		        }
-		        window.Capacitor?.Plugins?.OBWidgetBridge?.reloadAll?.().catch(()=>{});
-		      } catch {}
-		      try { showToast("😴 Nap timer restored",2000,1); } catch {}
-		      try { console.log("[OBubba] recovered nap timer from widget cache", {start:_wdStart, day:_wdDay, elapsed:_elapsed}); } catch {}
-		    } catch {}
 		  },[days, napOn]);
 
   // Live partner timer sync: once a synced active nap has been recovered, keep
@@ -24613,7 +24518,7 @@ function App(){
       }
 
       // 1b. Refresh Live Activity prediction label on resume
-      if(napOn && refreshNativeRuntimeFlag()) {
+      if(napOn && _isNative) {
         try {
           // Prefer authoritative napStartMs over HH:MM reconstruction to avoid cross-midnight drift
           const _msAuthLA = napStartMs || parseInt(localStorage.getItem("nap_startMs"));
@@ -24719,7 +24624,7 @@ function App(){
       }catch{}
     }
     // Update Live Activity when nap start time is edited
-    if(napOn && napStartT && refreshNativeRuntimeFlag()){
+    if(napOn && napStartT && _isNative){
       try{
         let _elapsed = null;
         const _msAuthE = napStartMs || parseInt(localStorage.getItem("nap_startMs"));
@@ -25969,7 +25874,7 @@ function App(){
     // _predLARef tracks what's currently showing so we only call start/stop when needed.
     let _predLAState = ""; // tracks current prediction LA state to avoid redundant calls
     function _syncPredictionLA() {
-      if (!refreshNativeRuntimeFlag()) return;
+      if (!_isNative) return;
       try {
         const _la = window._obPlugins?.liveActivity;
         if (!_la) return;
@@ -34934,14 +34839,16 @@ function App(){
       try{["bed_timer_day","bed_paused","bed_paused_sec","bed_pause_start","bed_total_paused_sec"].forEach(k=>localStorage.removeItem(k));}catch{}
       setTimerMode("prediction");
       try { localStorage.setItem("timer_mode_v1","prediction"); } catch{}
-      _laStop();
-      clearTimerNotification();
+      if (_isNative) {
+        window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
+        clearTimerNotification();
+      }
     }
     // Clean up nap timer if the active nap entry is deleted
     if (_deletedEntry && _deletedEntry.type === "nap" && napEntryId === id) {
       setNapOn(false); setNapSec(0); setNapStartT(null); setNapEntryId(null); setNapPaused(false);
       try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day"].forEach(k=>localStorage.removeItem(k));}catch{}
-      _laStop();
+      if (_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
     }
 
     setDays(d=>{
@@ -37331,7 +37238,7 @@ function App(){
       // Stop bed timer + Live Activity when morning wake is logged. ALWAYS clear, not just if state is set
       setBedTimerDay(null); setBedTotalPausedSec(0); setBedPaused(false); setBedPausedAtSec(0); setBedPauseStart(null);
       try{["bed_timer_day","bed_total_paused_sec","bed_paused","bed_paused_sec","bed_pause_start"].forEach(k=>localStorage.removeItem(k));}catch{}
-      _laStop();
+      if(_isNative) { _laStop(); }
       // "No night wakes logged?" prompt. if bedtime existed yesterday but no wakes recorded
       setTimeout(()=>{
         try {
@@ -37635,7 +37542,7 @@ function App(){
     else if(eType==="wake"){
       e={...e,type:"wake",time:formTime,night:form.night==="yes"};
       // Stop bedtime Live Activity when morning wake is saved via edit form
-      if(form.night!=="yes") _laStop();
+      if(form.night!=="yes" && _isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
     }
 	    else if(eType==="sleep"){
 	      const _formMins=clockMins(formTime);
@@ -37645,7 +37552,7 @@ function App(){
 	      }
 	      e={...e,type:"sleep",time:formTime,night:form.night==="yes"};
 	      // Logging bedtime via edit form. stop existing LA then start new one
-	      if(form.night!=="yes" && refreshNativeRuntimeFlag()){
+	      if(form.night!=="yes" && _isNative){
 	        const _la3=window.Capacitor?.Plugins?.OBLiveActivity;
         if(form.wakeTime){
           // Morning wake time provided. stop LA immediately, no new bedtime timer
@@ -37760,7 +37667,7 @@ function App(){
     }
     // Update Live Activity if bedtime entry was edited (so timer reflects new time)
     // If morning wake was also saved, night is over. don't restart LA
-    if(eType==="sleep" && !e.night && editEntry && refreshNativeRuntimeFlag() && !_wakeEntry) {
+    if(eType==="sleep" && !e.night && editEntry && _isNative && !_wakeEntry) {
       const _eMins = clockMins(formTime);
       const _eDate = new Date(); if (_eMins !== null) _eDate.setHours(Math.floor(_eMins/60), _eMins%60, 0, 0);
       _laStart({type:'sleep',babyName:babyName||'Baby',startTime:_eDate.getTime()});
@@ -38133,7 +38040,7 @@ function App(){
       quickAddLog("wake",{type:"wake",time:nowTime(),night:false,note:""});
       setBedTimerDay(null);
       // Always stop Live Activity as safety net
-      _laStop();
+      if(_isNative) _laStop();
       // Show morning wellbeing message
       setTimeout(()=>{
         const _name2=babyName||"baby";
@@ -38189,7 +38096,7 @@ function App(){
       }
     } catch {}
     setBedTimerDay(null);
-    _laStop();
+    if(_isNative) _laStop();
   }
 
   function pauseBedTimer(){
@@ -38270,7 +38177,10 @@ function App(){
     try{localStorage.setItem("bed_wake_entry_id", _wakeEntryId);}catch{}
     // Stop Live Activity during pause so widget+Dynamic Island don't keep counting
     try {
-      window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
+      if (_isNative) {
+        const _la = window.Capacitor?.Plugins?.OBLiveActivity;
+        _la?.stop?.().catch(()=>{});
+      }
       // Clear every external timer surface immediately; the React widget
       // effect also catches up, but this beats native/cloud races on phones.
       forceWidgetTimerPaused("Night wake");
@@ -38450,7 +38360,7 @@ function App(){
     try{localStorage.removeItem("bed_timer_start");localStorage.removeItem("bed_total_paused_sec");localStorage.removeItem("bed_paused");localStorage.removeItem("bed_paused_sec");localStorage.removeItem("bed_pause_start");}catch{}
     // Always stop Live Activity on morning wake. bedtime Live Activity runs without napOn
     // Multiple attempts because iOS ActivityKit can be flaky
-    if(refreshNativeRuntimeFlag() || window.Capacitor?.Plugins?.OBLiveActivity) {
+    if(_isNative) {
       const _la = window.Capacitor?.Plugins?.OBLiveActivity;
       if (_la) {
         _la.stop?.().catch(()=>{});
@@ -38946,7 +38856,7 @@ function App(){
     }
 
     // Schedule local notification for recurring meds
-    if (entry.schedule && entry.schedule !== "none" && entry.name && refreshNativeRuntimeFlag()) {
+    if (entry.schedule && entry.schedule !== "none" && entry.name && _isNative) {
       const timeStr = entry.time || nowTime();
       const schedId = "med_" + entry.id;
       const title = `💊 ${babyName || "Baby"}'s Medicine`;
@@ -39701,7 +39611,7 @@ function App(){
     setLogPanel(null);
     // Start Live Activity for bedtime on iOS (Dynamic Island + Lock Screen)
     // Stop any existing LA first (e.g. last night's bedtime or a nap LA still running)
-    if(refreshNativeRuntimeFlag() || window.Capacitor?.Plugins?.OBLiveActivity) {
+    if(_isNative) {
       console.log("[OBubba] Starting bedtime Live Activity from Bed Now button...");
       const _bedMins = clockMins(bedTime);
       const _bedDate = new Date(); if (_bedMins !== null) _bedDate.setHours(Math.floor(_bedMins/60), _bedMins%60, 0, 0);
@@ -39827,7 +39737,8 @@ function App(){
 	    } catch {}
 	    try {
 	      clearTimerNotification();
-	      _laStop();
+	      if (_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
+	      _androidTimerStop();
 	      forceWidgetTimerPaused("Breastfeed");
 	    } catch {}
 	    return true;
@@ -39962,7 +39873,7 @@ function App(){
       }catch{}
       setShowBreastStartPicker(false);
       setBreastTimerEditMode(false);
-      if(refreshNativeRuntimeFlag()) _laStart({type:'feed',startTime:timerStartMs,babyName:babyName||'Baby',side:nativeSide});
+      if(_isNative) _laStart({type:'feed',startTime:timerStartMs,babyName:babyName||'Baby',side:nativeSide});
       _androidTimerStart({type:'feed',startTime:timerStartMs,babyName:babyName||'Baby',side:nativeSide});
       showToast("🤱 Timer updated. L " + Math.round(nextSec.L/60) + "m · R " + Math.round(nextSec.R/60) + "m", 1800, 1);
     } catch(e) {
@@ -40006,7 +39917,7 @@ function App(){
 	    try{localStorage.setItem("breast_active","1");localStorage.setItem("breast_side",sideKey);}catch{}
 	    showTimerNotification("\u{1F931} Nursing " + (sideKey==="L"?"left":"right") + " side", (babyName||"Baby") + " started feeding at " + fmt12(feedStartedAtLabel));
     // Start Live Activity for feed timer (Dynamic Island)
-    if(refreshNativeRuntimeFlag()) _laStart({type:'feed',startTime:Date.now(),babyName:babyName||'Baby',side:sideKey==='L'?'left':'right'});
+    if(_isNative) _laStart({type:'feed',startTime:Date.now(),babyName:babyName||'Baby',side:sideKey==='L'?'left':'right'});
     // Android: start persistent foreground service
     _androidTimerStart({type:'feed',startTime:Date.now(),babyName:babyName||'Baby',side:sideKey==='L'?'left':'right'});
   }
@@ -40078,7 +39989,7 @@ function App(){
     const sideKey = resumeBreastTimer(side);
     const totalSec = breastTimerTotalSeconds(storedBreastTimerSeconds());
     // Update Live Activity with new side
-    if(refreshNativeRuntimeFlag()) window.Capacitor?.Plugins?.OBLiveActivity?.update({elapsed:totalSec,side:sideKey==='L'?'left':'right'});
+    if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.update({elapsed:totalSec,side:sideKey==='L'?'left':'right'});
     // Android: update foreground service with new side
     _androidTimerUpdate({elapsed:totalSec,side:sideKey==='L'?'left':'right'});
   }
@@ -40139,7 +40050,8 @@ function App(){
 	    try{["breast_side","breast_sec","breast_active","breast_startTime","breast_startMs","breast_start_day"].forEach(k=>localStorage.removeItem(k));}catch{}
 	    clearTimerNotification(); // Android: clear lock screen notification
 	    // Stop Live Activity when feed saved
-	    _laStop();
+	    if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
+	    try { _androidTimerStop(); } catch {}
 		    if (_nightMode) {
 		      resumeBedTimer("milk", {
 		        amountMl: 0,
@@ -40172,7 +40084,8 @@ function App(){
 	  function cancelBreastTimer(){
 	    setBreastSide(null);setBreastSec({L:0,R:0});setBreastActive(false);setBreastStartTime(null);
 		    try{["breast_side","breast_sec","breast_active","breast_startTime","breast_startMs","breast_start_day"].forEach(k=>localStorage.removeItem(k));}catch{}
-	    try { clearTimerNotification(); _laStop(); } catch {}
+	    if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
+	    try { clearTimerNotification(); _androidTimerStop(); } catch {}
 	    restoreTimerAfterBreastTimer("cancelled");
 	  }
   function pauseNap(){
@@ -40216,7 +40129,7 @@ function App(){
     setNapOn(false); setNapPaused(false);
     setNapStartT(null); setNapStartMs(null); setNapSec(0); setNapEntryId(null);
     setTimerMode("prediction");
-    _laStop();
+    if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
 	    try { ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day","nap_paused_by_breast","nap_paused_by_breast_was_paused"].forEach(k=>localStorage.removeItem(k)); } catch {}
     showToast("↩️ Nap attempt discarded — no entry saved", 2000, 1);
   }
@@ -40274,7 +40187,7 @@ function App(){
 	      setNapStartT(null); setNapSec(0); setNapEntryId(null);
 	      setNapOn(false); setNapPaused(false);
 		      try { ["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day","nap_paused_by_breast","nap_paused_by_breast_was_paused"].forEach(k => localStorage.removeItem(k)); } catch {}
-	      _laStop();
+	      if (_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(() => {});
 	      setTimerMode("prediction");
 	      forcePushNapStopToCloud("too_short_nap_removed");
 	      return;
@@ -40348,7 +40261,8 @@ function App(){
     setNapStartT(null);setNapSec(0);setNapEntryId(null);
     setTimerMode("prediction");
     // Stop Live Activity on iOS + Android sticky notification
-    _laStop();
+    if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(()=>{});
+	    _androidTimerStop();
 		    try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day","nap_paused_by_breast","nap_paused_by_breast_was_paused"].forEach(k=>localStorage.removeItem(k));}catch{}
 	    forcePushNapStopToCloud("end_nap_completed");
 	    // Immediately push cleared timer to widget
@@ -45748,7 +45662,6 @@ function App(){
 	    })();
 		    const activeBedTimerDay = (()=>{try{return bedTimerDay || localStorage.getItem("bed_timer_day") || "";}catch{return bedTimerDay || "";}})();
 		    const activeNapDay = (()=>{try{return localStorage.getItem("nap_start_day") || clockLabTodayKey;}catch{return clockLabTodayKey;}})();
-		    const clockNapActiveForTimer = !!(napOn || (()=>{try{const v=localStorage.getItem("nap_on");return v==="1" || v==="true";}catch{return false;}})());
 		    const clockBedOnThisDay = !!(activeBedTimerDay && activeBedTimerDay === dayKey);
 			    const clockBreastActiveForTimer = !!(breastActive || (()=>{try{return localStorage.getItem("breast_active")==="1" || localStorage.getItem("breast_active")==="true";}catch{return false;}})());
 			    const clockBreastStartForTimer = breastStartTime || (()=>{try{return localStorage.getItem("breast_startTime") || "";}catch{return "";}})();
@@ -45757,7 +45670,7 @@ function App(){
 			    const clockFeedOnThisDayRaw = !!(clockBreastActiveForTimer && clockLabIsToday);
 			    const clockFeedTimerCandidateOnThisDay = !!(clockLabIsToday && (clockBreastActiveForTimer || clockBreastStartForTimer || clockBreastHasTrackedSeconds));
 			    const clockBedActivelySleeping = !!(clockBedOnThisDay && !bedPaused);
-		    const clockNapOnThisDayRaw = !!(clockNapActiveForTimer && activeNapDay === dayKey);
+		    const clockNapOnThisDayRaw = !!(napOn && activeNapDay === dayKey);
 		    const clockNapSuppressedByBedtime = !!(clockBedOnThisDay && !bedPaused);
 		    const clockNapSuppressedByForegroundFeed = !!(clockFeedTimerCandidateOnThisDay && !clockBedActivelySleeping);
 			    const clockNapOnThisDay = !!(clockNapOnThisDayRaw && !clockNapSuppressedByBedtime && !clockNapSuppressedByForegroundFeed);
@@ -46006,12 +45919,7 @@ function App(){
 	    };
 	    const clockSleepEndLab = (entry, start) => clockSleepEndInEntriesLab(entry, start, entriesForDay, nextEntriesForDay, dayKey);
 		    const clockActiveNapStubLab = (entry) => clockNapOnThisDay && isActiveNapStub(entry);
-		    const clockEntryMatchesLiveNapLab = (entry) => {
-		      if (!entry) return false;
-		      const lsEntryId = (()=>{try{return localStorage.getItem("nap_entry_id") || "";}catch{return "";}})();
-		      const lsStartT = (()=>{try{return localStorage.getItem("nap_startT") || "";}catch{return "";}})();
-		      return !!(entry.id === napEntryId || entry.start === napStartT || (lsEntryId && entry.id === lsEntryId) || (lsStartT && entry.start === lsStartT));
-		    };
+		    const clockEntryMatchesLiveNapLab = (entry) => !!(entry && (entry.id === napEntryId || entry.start === napStartT));
 		    const isActiveClockNapLab = (entry) => !!(
 		      entry &&
 		      entry.type === "nap" &&
@@ -52087,30 +51995,22 @@ function App(){
 		                        const startDate = new Date(now.getFullYear(),now.getMonth(),now.getDate(),Math.floor(startMins/60),startMins%60,0);
 		                        if(startDate.getTime() > now.getTime()) startDate.setDate(startDate.getDate()-1);
 		                        const startMs = startDate.getTime();
-		                        const timerDay = safeDateKey(localDateStr(startDate)) || selDay || todayStr();
 		                        const elapsed = Math.max(0, Math.floor((now.getTime() - startMs) / 1000));
-		                        const entryId = uid();
 		                        setNapOn(true);
 		                        setNapStartT(t);
 		                        setNapStartMs(startMs);
 		                        setNapSec(elapsed);
 		                        setNapPaused(false);
-		                        setNapEntryId(entryId);
 		                        setTimerMode("activeSleep");
-		                        try{localStorage.setItem("nap_on","1");localStorage.setItem("nap_startT",t);localStorage.setItem("nap_startMs",String(startMs));localStorage.setItem("nap_sec",String(elapsed));localStorage.setItem("nap_entry_id",entryId);localStorage.setItem("nap_start_day",timerDay);localStorage.setItem("timer_mode_v1","activeSleep");localStorage.removeItem("ob_nap_stopped_at");}catch{}
+		                        try{localStorage.setItem("nap_on","1");localStorage.setItem("nap_startT",t);localStorage.setItem("nap_startMs",String(startMs));localStorage.setItem("nap_sec",String(elapsed));localStorage.setItem("nap_start_day",selDay);}catch{}
 		                        // Create in-progress entry
+		                        const entryId = uid();
+		                        setNapEntryId(entryId);
 		                        setDays(d=>{
-		                          const _pd2=prevDayStr(timerDay);
-		                          const updated=[...(d[timerDay]||[]),{id:entryId,type:"nap",start:t,startMs,end:t,duration:0,night:false,note:"",_active:true,modifiedAt:Date.now()}];
-		                          return{...d,[timerDay]:autoClassifyNight(updated,d[_pd2]||null)};
+		                          const _pd2=prevDayStr(selDay);
+		                          const updated=[...(d[selDay]||[]),{id:entryId,type:"nap",start:t,startMs,end:t,duration:0,night:false,note:"",_active:true,modifiedAt:Date.now()}];
+		                          return{...d,[selDay]:autoClassifyNight(updated,d[_pd2]||null)};
 		                        });
-	                        try {
-	                          const _napNum = ((tickDataRef.current||{}).napsDone || 0) + 1;
-	                          _startLA({type:"sleep",babyName:babyName||"Baby",startTime:startMs,nextNap:"Nap "+_napNum});
-	                          showTimerNotification("😴 Nap in progress", (babyName||"Baby") + " started napping at " + fmt12(t));
-	                          _androidTimerStart({type:"nap",startTime:startMs,babyName:babyName||"Baby"});
-	                          window.Capacitor?.Plugins?.OBWidgetBridge?.reloadAll?.().catch(()=>{});
-	                        } catch {}
 	                        setShowNapStartPicker(false);
 	                        showToast("😴 Nap started from " + fmt12(t), 1500, 1);
 	                      }} style={{padding:"11px 18px",borderRadius:12,border:"none",background:"linear-gradient(135deg,#7b68ee,#5040a0)",color:"white",fontSize:14,fontWeight:700,cursor:_cP}}>
@@ -64204,34 +64104,24 @@ function App(){
                 </div>
               </div>
               {editEntry && (
-	                <button onClick={()=>{
+                <button onClick={()=>{
 	                  haptic();
 	                  // Set nap start to the edited start time, start the timer
 	                  const startT = form.start || nowTime();
 	                  const entryId = editEntry.id;
 		                  const startMins = clockMins(startT);
 		                  if(startMins === null) return;
-		                  const timerDay = (()=>{try{return Object.keys(days||{}).find(dk => (days[dk]||[]).some(x => x && x.id === entryId)) || selDay || todayStr();}catch{return selDay || todayStr();}})();
 		                  const now = new Date();
-		                  const baseDate = dateKeyToLocalDate(timerDay, 12) || now;
-		                  const startDate = new Date(baseDate.getFullYear(),baseDate.getMonth(),baseDate.getDate(),Math.floor(startMins/60),startMins%60,0);
+		                  const startDate = new Date(now.getFullYear(),now.getMonth(),now.getDate(),Math.floor(startMins/60),startMins%60,0);
 		                  if(startDate.getTime() > now.getTime()) startDate.setDate(startDate.getDate()-1);
 		                  const startMs = startDate.getTime();
 		                  let elapsedSec=Math.max(0,Math.floor((now.getTime()-startMs)/1000));
 	                  setDays(d=>{
-	                    const entries = (d[timerDay]||[]).map(e=>e.id===entryId?{...e,start:startT,startMs,end:startT,duration:0,_active:true,modifiedAt:Date.now()}:e);
-	                    const _pd=prevDayStr(timerDay);
-	                    return{...d,[timerDay]:autoClassifyNight(entries,d[_pd]||null)};
+	                    const entries = (d[selDay]||[]).map(e=>e.id===entryId?{...e,start:startT,startMs,end:startT,duration:0,_active:true}:e);
+	                    return{...d,[selDay]:entries};
 	                  });
-	                  try{localStorage.setItem("nap_startT",startT);localStorage.setItem("nap_startMs",String(startMs));localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec",String(elapsedSec));localStorage.setItem("nap_entry_id",entryId);localStorage.setItem("nap_start_day",timerDay);localStorage.setItem("timer_mode_v1","activeSleep");localStorage.removeItem("ob_nap_stopped_at");}catch{}
+	                  try{localStorage.setItem("nap_startT",startT);localStorage.setItem("nap_startMs",String(startMs));localStorage.setItem("nap_on","1");localStorage.setItem("nap_sec",String(elapsedSec));localStorage.setItem("nap_entry_id",entryId);localStorage.setItem("nap_start_day",selDay);}catch{}
 	                  setNapStartT(startT);setNapStartMs(startMs);setNapSec(elapsedSec);setNapOn(true);setNapEntryId(entryId);setTimerMode("activeSleep");
-	                  try {
-	                    const _napNum = ((tickDataRef.current||{}).napsDone || 0) + 1;
-	                    _startLA({type:"sleep",babyName:babyName||"Baby",startTime:startMs,nextNap:"Nap "+_napNum});
-	                    showTimerNotification("😴 Nap in progress", (babyName||"Baby") + " started napping at " + fmt12(startT));
-	                    _androidTimerStart({type:"nap",startTime:startMs,babyName:babyName||"Baby"});
-	                    window.Capacitor?.Plugins?.OBWidgetBridge?.reloadAll?.().catch(()=>{});
-	                  } catch {}
                   setModal(null);setEditEntry(null);
                   showToast("⏱ Nap timer started from " + fmt12(startT),2000,1);
                 }} style={{width:"100%",padding:"14px",borderRadius:14,border:"none",background:"linear-gradient(135deg,#50a888,#3a8870)",color:"white",fontSize:15,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:12,boxShadow:"0 4px 12px rgba(80,168,136,0.35)"}}>
