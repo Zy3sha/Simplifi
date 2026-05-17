@@ -98,6 +98,10 @@ done
 echo "Copying to dist/..."
 cp -f public/index.html dist/index.html
 cp -f public/manifest.json dist/manifest.json
+if [ -d public/.well-known ]; then
+  mkdir -p dist/.well-known
+  cp -f public/.well-known/* dist/.well-known/ 2>/dev/null || true
+fi
 cp -f public/icon.png dist/icon.png 2>/dev/null || true
 mkdir -p dist/icons
 cp -f public/icons/*.png dist/icons/ 2>/dev/null || true

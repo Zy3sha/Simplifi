@@ -2020,8 +2020,7 @@ body.dark-mode .ob-app-root .prio-glow{
 
 /* Hero gets the clearest glow because it anchors the screen. Keep it inside
    the glass corners only so it feels premium, not like a halo. */
-.ob-app-root .ob-hero,
-.ob-app-root [data-testid="today-hero"]{
+.ob-app-root .ob-hero{
   position:relative!important;
   overflow:hidden!important;
   background:
@@ -2037,8 +2036,7 @@ body.dark-mode .ob-app-root .prio-glow{
     inset -14px -14px 20px -22px rgba(126,92,255,0.155),
     0 8px 18px rgba(71,54,49,0.080)!important;
 }
-body.dark-mode .ob-app-root .ob-hero,
-body.dark-mode .ob-app-root [data-testid="today-hero"]{
+body.dark-mode .ob-app-root .ob-hero{
   background:
     linear-gradient(135deg,rgba(255,226,178,0.090) 0%,rgba(255,226,178,0.032) 7%,transparent 18%),
     linear-gradient(315deg,rgba(255,145,76,0.098) 0%,rgba(255,145,76,0.034) 8%,transparent 20%),
@@ -2053,7 +2051,7 @@ body.dark-mode .ob-app-root [data-testid="today-hero"]{
     0 10px 22px rgba(0,0,0,0.160)!important;
 }
 
-body.dark-mode .ob-app-root .glass-card:not(.ob-hero):not([data-testid="today-hero"]),
+body.dark-mode .ob-app-root .glass-card:not(.ob-hero),
 body.dark-mode .ob-app-root .glass-entry,
 body.dark-mode .ob-app-root .ob-premium-tile,
 body.dark-mode .ob-app-root .ob-sheet-content,
@@ -2145,8 +2143,7 @@ body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]
     0 0 7px var(--ob-rim-edge),
     0 12px 26px var(--ob-glass-lift)!important;
 }
-.ob-app-root .ob-hero,
-.ob-app-root [data-testid="today-hero"]{
+.ob-app-root .ob-hero{
   border-width:1.55px!important;
   background:
     radial-gradient(150px 108px at 3% 0%,rgba(88,232,255,0.125),transparent 62%) padding-box,
@@ -2161,8 +2158,7 @@ body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]
     0 0 8px rgba(86,224,255,0.28),
     0 14px 28px rgba(71,54,49,0.09)!important;
 }
-body.dark-mode .ob-app-root .ob-hero,
-body.dark-mode .ob-app-root [data-testid="today-hero"]{
+body.dark-mode .ob-app-root .ob-hero{
   background:
     radial-gradient(150px 108px at 3% 0%,rgba(255,218,152,0.110),transparent 62%) padding-box,
     radial-gradient(170px 122px at 100% 100%,rgba(255,132,58,0.102),transparent 66%) padding-box,
@@ -2291,8 +2287,7 @@ body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]
     linear-gradient(180deg,var(--ob-edge-fill-top),var(--ob-edge-fill-bottom)) padding-box,
     linear-gradient(135deg,var(--ob-edge-hot) 0%,var(--ob-edge-mid) 16%,rgba(255,236,205,0.095) 38%,rgba(255,188,108,0.048) 64%,var(--ob-edge-soft) 100%) border-box!important;
 }
-.ob-app-root .ob-hero,
-.ob-app-root [data-testid="today-hero"]{
+.ob-app-root .ob-hero{
   border-width:1.25px!important;
   background:
     linear-gradient(180deg,rgba(255,255,255,0.60),rgba(255,255,255,0.28)) padding-box,
@@ -2303,8 +2298,7 @@ body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"]
     0 0 3px rgba(82,230,255,0.18),
     0 10px 22px rgba(71,54,49,0.080)!important;
 }
-body.dark-mode .ob-app-root .ob-hero,
-body.dark-mode .ob-app-root [data-testid="today-hero"]{
+body.dark-mode .ob-app-root .ob-hero{
   background:
     linear-gradient(180deg,rgba(255,255,255,0.145),rgba(255,255,255,0.052)) padding-box,
     linear-gradient(135deg,rgba(255,214,150,0.50) 0%,rgba(255,170,88,0.26) 18%,rgba(255,236,205,0.10) 39%,rgba(255,188,108,0.048) 64%,rgba(255,125,58,0.19) 100%) border-box!important;
@@ -2367,7 +2361,6 @@ body.dark-mode{
 .ob-app-root .ob-day-mode-switcher,
 .ob-app-root div[role="navigation"][aria-label="Main navigation"],
 .ob-app-root .ob-hero,
-.ob-app-root [data-testid="today-hero"],
 .ob-app-root button.ob-day-mode-btn.is-active,
 .ob-app-root button.ob-main-tab-btn[aria-current="page"],
 .ob-app-root button.glass-card.ob-premium-tile{
@@ -2381,7 +2374,6 @@ body.dark-mode{
     0 7px 14px var(--ob-edge-lift)!important;
 }
 .ob-app-root .ob-hero,
-.ob-app-root [data-testid="today-hero"],
 .ob-app-root button.ob-main-tab-btn[aria-current="page"],
 .ob-app-root button.glass-card.ob-premium-tile{
   background:
@@ -2396,7 +2388,6 @@ body.dark-mode .ob-app-root .ob-sheet-content,
 body.dark-mode .ob-app-root .ob-day-mode-switcher,
 body.dark-mode .ob-app-root div[role="navigation"][aria-label="Main navigation"],
 body.dark-mode .ob-app-root .ob-hero,
-body.dark-mode .ob-app-root [data-testid="today-hero"],
 body.dark-mode .ob-app-root button.ob-day-mode-btn.is-active,
 body.dark-mode .ob-app-root button.ob-main-tab-btn[aria-current="page"],
 body.dark-mode .ob-app-root button.glass-card.ob-premium-tile{
@@ -2405,7 +2396,6 @@ body.dark-mode .ob-app-root button.glass-card.ob-premium-tile{
     linear-gradient(135deg,var(--ob-edge-hot) 0%,var(--ob-edge-mid) 16%,rgba(255,236,205,0.070) 42%,rgba(255,188,108,0.032) 66%,var(--ob-edge-soft) 100%) border-box!important;
 }
 body.dark-mode .ob-app-root .ob-hero,
-body.dark-mode .ob-app-root [data-testid="today-hero"],
 body.dark-mode .ob-app-root button.ob-main-tab-btn[aria-current="page"],
 body.dark-mode .ob-app-root button.glass-card.ob-premium-tile{
   background:
@@ -2519,8 +2509,7 @@ body.dark-mode{
   --ob-hero-inner:rgba(255,239,212,0.145);
   --ob-hero-lift:rgba(0,0,0,0.22);
 }
-.ob-app-root .glass-card.ob-hero,
-.ob-app-root [data-testid="today-hero"]{
+.ob-app-root .glass-card.ob-hero{
   border:1px solid var(--ob-hero-rim-b)!important;
   border-top-color:var(--ob-hero-rim-a)!important;
   border-left-color:var(--ob-hero-rim-a)!important;
@@ -2529,17 +2518,14 @@ body.dark-mode{
     inset 0 1px 0 var(--ob-hero-inner),
     0 8px 18px var(--ob-hero-lift)!important;
 }
-body.dark-mode .ob-app-root .glass-card.ob-hero,
-body.dark-mode .ob-app-root [data-testid="today-hero"]{
+body.dark-mode .ob-app-root .glass-card.ob-hero{
   border-color:var(--ob-hero-rim-b)!important;
   border-top-color:var(--ob-hero-rim-a)!important;
   border-left-color:var(--ob-hero-rim-a)!important;
   background:var(--ob-hero-fill)!important;
 }
 .ob-app-root .glass-card.ob-hero::before,
-.ob-app-root .glass-card.ob-hero::after,
-.ob-app-root [data-testid="today-hero"]::before,
-.ob-app-root [data-testid="today-hero"]::after{
+.ob-app-root .glass-card.ob-hero::after{
   opacity:0!important;
   background:none!important;
   animation:none!important;
@@ -2601,8 +2587,7 @@ body.dark-mode .ob-app-root div[data-entry-id]{
     0 0 7px var(--ob-edge-glint),
     0 12px 24px var(--ob-edge-lift)!important;
 }
-body.dark-mode .ob-app-root .glass-card.ob-hero,
-body.dark-mode .ob-app-root [data-testid="today-hero"]{
+body.dark-mode .ob-app-root .glass-card.ob-hero{
   border:1.25px solid var(--ob-hero-rim-b)!important;
   border-top-color:var(--ob-hero-rim-a)!important;
   border-left-color:var(--ob-hero-rim-a)!important;
@@ -3975,7 +3960,6 @@ body.dark-mode .ob-app-root div[style*="background:var(--card-bg-alt)"][style*="
     0 8px 18px rgba(0,0,0,0.25)!important;
 }
 body.dark-mode .ob-app-root .glass-card.ob-hero,
-body.dark-mode .ob-app-root [data-testid="today-hero"],
 body.dark-mode .ob-app-root .ob-premium-hero{
   background:
     var(--ob-night-opaque-face-strong) padding-box,
@@ -6065,13 +6049,11 @@ body.light-mode .glass-card,
 body.light-mode .glass-entry,
 body.light-mode .ob-premium-tile,
 body.light-mode .ob-day-mode-switcher,
-body.light-mode 
 body.light-mode div[role="navigation"][aria-label="Main navigation"],
 body:not(.dark-mode) .glass-card,
 body:not(.dark-mode) .glass-entry,
 body:not(.dark-mode) .ob-premium-tile,
 body:not(.dark-mode) .ob-day-mode-switcher,
-body:not(.dark-mode) 
 body:not(.dark-mode) div[role="navigation"][aria-label="Main navigation"]{
   border:1.35px solid transparent!important;
   background:
@@ -6094,10 +6076,8 @@ body:not(.dark-mode) .ob-premium-tile::after{
   background:linear-gradient(90deg,transparent,rgba(91,166,199,0.40),rgba(196,116,156,0.22),transparent)!important;
 }
 body.light-mode .ob-app-root .ob-hero,
-body.light-mode .ob-app-root [data-testid="today-hero"],
 body.light-mode .ob-app-root .ob-hero-mini,
 body:not(.dark-mode) .ob-app-root .ob-hero,
-body:not(.dark-mode) .ob-app-root [data-testid="today-hero"],
 body:not(.dark-mode) .ob-app-root .ob-hero-mini{
   border:1.5px solid transparent!important;
   background:

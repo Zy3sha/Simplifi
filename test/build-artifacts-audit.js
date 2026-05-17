@@ -12,6 +12,10 @@ const generatedDirs = [
 const hostedRequiredFiles = [
   "public/care.html",
   "dist/care.html",
+  "public/.well-known/apple-app-site-association",
+  "dist/.well-known/apple-app-site-association",
+  "ios/App/App/public/.well-known/apple-app-site-association",
+  "android/app/src/main/assets/public/.well-known/apple-app-site-association",
   "hosting-care/privacy.html",
   "hosting-care/terms.html",
 ];
@@ -218,6 +222,10 @@ if (missingHostedFiles.length) {
 
 if (!firebaseConfig.includes('"cleanUrls": true')) {
   console.error("Firebase hosting must serve clean legal URLs such as /privacy and /terms.");
+  process.exit(1);
+}
+if (firebaseConfig.includes('"**/.*"')) {
+  console.error("Firebase hosting must not ignore .well-known app-link files.");
   process.exit(1);
 }
 
