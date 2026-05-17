@@ -45833,11 +45833,33 @@ function App(){
     const clockActiveTimerKind = clockNapOnThisDay ? "nap" : clockFeedOnThisDay ? "feed" : clockBedOnThisDay ? (bedPaused ? "night-wake" : "sleep") : "wake";
     const clockActiveTimerMeta = eventMeta[clockActiveTimerKind] || eventMeta.wake;
     const clockTimerOrbitActive = activeTimer && !(clockNapOnThisDay && napPaused) && !(clockBedOnThisDay && bedPaused);
-    const entryStartMins = (entry) => {
-      const raw = entry && (entry.time || entry.start || "");
-      const mins = clockLabMins(raw);
-      return mins === null ? null : mins;
-    };
+	    const entryStartMins = (entry) => {
+	      const raw = entry && (entry.time || entry.start || "");
+	      const mins = clockLabMins(raw);
+	      return mins === null ? null : mins;
+	    };
+	    const clockEntriesForSourceDayLab = (sourceDayKey) => {
+	      const safeSourceDay = safeDateKey(sourceDayKey) || dayKey;
+	      if (safeSourceDay === dayKey) return entriesForDay;
+	      if (safeSourceDay === prevCalDay(dayKey)) return prevEntriesForDay;
+	      if (safeSourceDay === nextCalDay(dayKey)) return nextEntriesForDay;
+	      return (days[safeSourceDay] || []).filter(e => e && e.type && !e._deleted);
+	    };
+	    const clockBedtimeStartMinsForDayLab = (sourceDayKey = dayKey) => {
+	      const safeSourceDay = safeDateKey(sourceDayKey) || dayKey;
+	      if (activeBedTimerDay && activeBedTimerDay === safeSourceDay && activeSleepStart) {
+	        const activeMins = clockLabMins(activeSleepStart);
+	        if (activeMins !== null) return activeMins;
+	      }
+	      const candidates = clockEntriesForSourceDayLab(safeSourceDay)
+	        .filter(isClockLabLoggedBedtime)
+	        .map(entry => ({entry, mins:entryStartMins(entry)}))
+	        .filter(item => item.mins !== null)
+	        .sort((a,b)=>a.mins-b.mins);
+	      if (!candidates.length) return null;
+	      const eveningBedtime = candidates.find(item => item.mins >= 16 * 60);
+	      return (eveningBedtime || candidates[0]).mins;
+	    };
 	    const clockSleepEndInEntriesLab = (entry, start, sameEntries, followingEntries, activeDayKey = dayKey) => {
 	      if (!entry || entry.type !== "sleep") return null;
 	      const rawStart = entry.time || entry.start || activeSleepStart || "";
@@ -45967,7 +45989,16 @@ function App(){
 		      const mins = entryStartMins(entry);
 		      return mins !== null && (mins >= 19 * 60 || mins < 5 * 60);
 		    };
-			    const clockIsNightWakeTimelineEntryLab = (entry) => !!(entry && ((entry.night && (entry.type === "wake" || entry.type === "feed")) || clockIsLegacyNightWakeTimeLab(entry)));
+			    const clockIsNightWakeTimelineRawLab = (entry) => !!(entry && ((entry.night && (entry.type === "wake" || entry.type === "feed")) || clockIsLegacyNightWakeTimeLab(entry)));
+			    const clockEntryFallsBeforeBedtimeStartLab = (entry, sourceDayKey = dayKey) => {
+			      if (!clockIsNightWakeTimelineRawLab(entry)) return false;
+			      const entryStart = entryStartMins(entry);
+			      const bedStart = clockBedtimeStartMinsForDayLab(sourceDayKey);
+			      if (entryStart === null || bedStart === null) return false;
+			      if (bedStart < 12 * 60 || entryStart < 12 * 60) return false;
+			      return entryStart < bedStart;
+			    };
+			    const clockIsNightWakeTimelineEntryLab = (entry, sourceDayKey = dayKey) => !!(clockIsNightWakeTimelineRawLab(entry) && !clockEntryFallsBeforeBedtimeStartLab(entry, sourceDayKey));
 			    const clockIsBedtimerNightWakeFeedLab = (entry) => !!(
 			      entry &&
 			      entry.type === "feed" &&
@@ -45975,12 +46006,12 @@ function App(){
 			      !entry.dreamFeed &&
 				      (entry.source === "bedtimer-night-wake" || entry.source === "bedtimer-night-feed" || /night\s*(wake|feed)|logged via bed timer|bedtimer-night-(wake|feed)/i.test(String(entry.note || "")))
 				    );
-		    const clockNightWakeDurationLab = (entry) => {
-		      if (!clockIsNightWakeTimelineEntryLab(entry)) return 0;
-		      if (entry._pendingSettle) {
-		        const liveStart = entry.time || entry.start || "";
-		        if (liveStart) return Math.max(6, Math.min(180, Math.round(clockLabMinDiff(liveStart, nowTime()))));
-		      }
+			    const clockNightWakeRawDurationLab = (entry) => {
+			      if (!entry) return 0;
+			      if (entry._pendingSettle) {
+			        const liveStart = entry.time || entry.start || "";
+			        if (liveStart) return Math.max(6, Math.min(180, Math.round(clockLabMinDiff(liveStart, nowTime()))));
+			      }
 			      const rawDuration = [
 			        entry.assistedDuration,
 			        entry.settleDuration,
@@ -46014,9 +46045,13 @@ function App(){
 				          return Math.max(1, Math.min(180, Math.round(liveDiff)));
 				        }
 				      }
-				      return 0;
-				    };
-		    const isNightWakeTimedLab = (entry) => !!(entry && clockIsNightWakeTimelineEntryLab(entry) && (entry.type === "wake" || (entry.type === "feed" && !entry.dreamFeed)) && clockNightWakeDurationLab(entry) > 0);
+					      return 0;
+					    };
+			    const clockNightWakeDurationLab = (entry, sourceDayKey = dayKey) => {
+			      if (!clockIsNightWakeTimelineEntryLab(entry, sourceDayKey)) return 0;
+			      return clockNightWakeRawDurationLab(entry);
+			    };
+			    const isNightWakeTimedLab = (entry, sourceDayKey = dayKey) => !!(entry && clockIsNightWakeTimelineEntryLab(entry, sourceDayKey) && (entry.type === "wake" || (entry.type === "feed" && !entry.dreamFeed)) && clockNightWakeDurationLab(entry, sourceDayKey) > 0);
 		    const entryEndMins = (entry, start) => {
 		      if (entry && entry.type === "nap") return clockNapEndLab(entry, start);
 		      if (entry && entry.type === "sleep") {
@@ -46062,7 +46097,7 @@ function App(){
 		      if (activityMeta) return entry._planLogTitle || activityMeta.label || String(entry.type || "Log");
 		      return eventMeta[entry.type]?.label || String(entry.type || "Log");
 		    };
-			    const entryVisualKindLab = (entry) => entry && entry._clockCarrySleep ? "sleep-carry" : clockIsLateLongNapSleepLab(entry) ? "sleep" : entry && clockIsNightWakeTimelineEntryLab(entry) && (entry.type === "wake" || clockIsBedtimerNightWakeFeedLab(entry) || (entry.type === "feed" && isNightWakeTimedLab(entry))) ? "night-wake" : entry && entry.type === "feed" && entry.feedType === "pump" ? "pump" : entry && entry.type === "feed" && entry.feedType === "solids" ? "tummy" : entry?.type;
+				    const entryVisualKindLab = (entry, sourceDayKey = dayKey) => entry && entry._clockCarrySleep ? "sleep-carry" : clockIsLateLongNapSleepLab(entry) ? "sleep" : entry && clockIsNightWakeTimelineEntryLab(entry, sourceDayKey) && (entry.type === "wake" || clockIsBedtimerNightWakeFeedLab(entry) || (entry.type === "feed" && isNightWakeTimedLab(entry, sourceDayKey))) ? "night-wake" : entry && entry.type === "feed" && entry.feedType === "pump" ? "pump" : entry && entry.type === "feed" && entry.feedType === "solids" ? "tummy" : entry?.type;
 	    const clockRangeLab = (start, end) => {
 	      const a = clockLabFmt12(start);
 	      const b = clockLabFmt12(end);
@@ -46073,12 +46108,12 @@ function App(){
 	    };
 		    const entryTimeRangeLab = (entry) => {
 		      if (!entry) return "";
-		      if (isNightWakeTimedLab(entry)) {
-		        const duration = clockNightWakeDurationLab(entry);
-		        const start = entry.time || entry.start || "";
-		        const startMins = entryStartMins(entry);
-		        if (duration && startMins !== null) return clockRangeLab(start, mtp24h((startMins + duration) % 1440));
-		      }
+			      if (isNightWakeTimedLab(entry) || entry._clockBeforeBedtime) {
+			        const duration = entry._clockBeforeBedtime ? clockNightWakeRawDurationLab(entry) : clockNightWakeDurationLab(entry);
+			        const start = entry.time || entry.start || "";
+			        const startMins = entryStartMins(entry);
+			        if (duration && startMins !== null) return clockRangeLab(start, mtp24h((startMins + duration) % 1440));
+			      }
 			      if (entry.type === "nap" && entry.start) {
 			        if (isActiveClockNapLab(entry)) return (clockLabFmt12(entry.start) || "") + "-now";
 			        if (clockNapNeedsTimerCheckLab(entry)) return clockLabFmt12(entry.start);
@@ -46104,7 +46139,7 @@ function App(){
 		    const clockItemTimeRangeLab = (item) => {
 		      if (!item || !item.entry) return "";
 		      if (item.entry.type === "nap" && isActiveClockNapLab(item.entry)) return entryTimeRangeLab(item.entry);
-		      if (isTimedClockEntry(item.entry) && Number.isFinite(item.start) && Number.isFinite(item.end)) {
+		      if (isTimedClockEntry(item.entry, item.sourceDay) && Number.isFinite(item.start) && Number.isFinite(item.end)) {
 		        return clockRangeLab(mtp24h(((item.start % 1440) + 1440) % 1440), mtp24h(((item.end % 1440) + 1440) % 1440));
 		      }
 		      return entryTimeRangeLab(item.entry);
@@ -46115,7 +46150,7 @@ function App(){
 		        const mins = clockItemDurationMinsLab(item);
 		        return "Sleep continued" + (mins ? " · " + hm(mins) : "");
 		      }
-		      if (entryVisualKindLab(item.entry) === "sleep") {
+			      if (entryVisualKindLab(item.entry, item.sourceDay) === "sleep") {
 		        const mins = clockItemDurationMinsLab(item);
 		        return "Bedtime" + (mins ? " · " + hm(mins) : "");
 		      }
@@ -46128,11 +46163,11 @@ function App(){
 		        const mins = clockItemDurationMinsLab(item);
 		        return clockLogJoinLab(original ? "from " + original + " bedtime" : "from previous bedtime", mins ? hm(mins) : "");
 		      }
-		      if (entryVisualKindLab(item.entry) === "sleep") {
+			      if (entryVisualKindLab(item.entry, item.sourceDay) === "sleep") {
 		        const mins = clockItemDurationMinsLab(item);
 		        return mins ? hm(mins) : "sleep";
 		      }
-		      if (item.entry.type === "wake" && clockIsNightWakeTimelineEntryLab(item.entry)) {
+			      if (item.entry.type === "wake" && clockIsNightWakeTimelineEntryLab(item.entry, item.sourceDay)) {
 		        const feeds = clockNightWakeSettlingFeedMapLab.get(String(item.entry.id || item.index)) || [];
 		        if (feeds.length) {
 		          const feedDetail = feeds.map(feed => {
@@ -46140,7 +46175,7 @@ function App(){
 		            const method = feed.feedType === "breast" ? "Breast" : "Milk";
 		            return clockLogJoinLab(method, amount);
 		          }).filter(Boolean).join(" · ");
-		          const duration = clockNightWakeDurationLab(item.entry);
+			          const duration = clockNightWakeDurationLab(item.entry, item.sourceDay);
 		          return clockLogJoinLab(duration ? "Soothed " + hm(duration) : "", feedDetail);
 		        }
 		      }
@@ -46157,13 +46192,12 @@ function App(){
 		      const clean = Number.isInteger(amount) ? String(amount) : amount.toFixed(1).replace(/\.0$/, "");
 		      return clean + "ml";
 		    };
-		    const clockNightWakeMethodLabelLab = (entry) => {
-		      if (!clockIsNightWakeTimelineEntryLab(entry)) return "";
-		      if (entry.selfSettled) return "Self settled";
-		      const assistedType = String(entry.assistedType || entry.feedType || "").replace(/[-_]+/g, " ").trim().toLowerCase();
-		      const assistedNote = clockLogTextLab(entry.assistedNote || "", 24);
-		      const milkAmount = Number(entry.amount || entry.ml || 0);
-		      if (entry.type === "feed" || assistedType === "milk" || assistedType === "bottle" || assistedType === "breast" || milkAmount > 0) return "Milk";
+			    const clockSoothingMethodLabelLab = (entry) => {
+			      if (entry.selfSettled) return "Self settled";
+			      const assistedType = String(entry.assistedType || entry.feedType || "").replace(/[-_]+/g, " ").trim().toLowerCase();
+			      const assistedNote = clockLogTextLab(entry.assistedNote || "", 24);
+			      const milkAmount = Number(entry.amount || entry.ml || 0);
+			      if (entry.type === "feed" || assistedType === "milk" || assistedType === "bottle" || assistedType === "breast" || milkAmount > 0) return "Milk";
 		      if (assistedType === "other") return assistedNote || "Other soothing";
 		      if (assistedType === "dummy" || assistedType === "pacifier") return "Dummy";
 		      if (assistedType === "pat") return "Patting";
@@ -46173,20 +46207,31 @@ function App(){
 		      if (assistedType) return clockLogTextLab(assistedType, 24);
 		      if (entry.assisted) return assistedNote || "Assisted soothing";
 		      const note = String(entry.note || "").toLowerCase();
-		      if (/self\s*[- ]?\s*settled|settled\s+independently/.test(note)) return "Self settled";
-		      if (/milk|feed|bottle|breast/.test(note)) return "Milk";
-		      return "";
-		    };
-		    const clockNightWakeDetailLab = (entry) => {
-		      if (!clockIsNightWakeTimelineEntryLab(entry)) return "";
-		      const duration = clockNightWakeDurationLab(entry);
-		      const method = clockNightWakeMethodLabelLab(entry);
-		      const amount = clockLogAmountLab(entry.amount || entry.ml);
-		      const durationLabel = duration ? (entry.selfSettled ? "Settled in " + hm(duration) : "Soothed " + hm(duration)) : "";
-		      const rawNote = String(entry.note || "").replace(/\s+/g, " ").replace(/^Assisted\s*[–-]\s*[^·]+·?\s*/i, "").replace(/^Duration:\s*\d+m\s*·?\s*/i, "").trim();
-		      const note = rawNote && !/^(self\s*[- ]?\s*settled|imported from|logged via)/i.test(rawNote) ? clockLogTextLab(rawNote, 34) : "";
-		      return clockLogJoinLab(durationLabel, method, amount, note);
-		    };
+			      if (/self\s*[- ]?\s*settled|settled\s+independently/.test(note)) return "Self settled";
+			      if (/milk|feed|bottle|breast/.test(note)) return "Milk";
+			      return "";
+			    };
+			    const clockNightWakeMethodLabelLab = (entry, sourceDayKey = dayKey) => {
+			      if (!clockIsNightWakeTimelineEntryLab(entry, sourceDayKey)) return "";
+			      return clockSoothingMethodLabelLab(entry);
+			    };
+			    const clockNightWakeDetailLab = (entry, sourceDayKey = dayKey) => {
+			      if (!clockIsNightWakeTimelineEntryLab(entry, sourceDayKey)) return "";
+			      const duration = clockNightWakeDurationLab(entry, sourceDayKey);
+			      const method = clockNightWakeMethodLabelLab(entry, sourceDayKey);
+			      const amount = clockLogAmountLab(entry.amount || entry.ml);
+			      const durationLabel = duration ? (entry.selfSettled ? "Settled in " + hm(duration) : "Soothed " + hm(duration)) : "";
+			      const rawNote = String(entry.note || "").replace(/\s+/g, " ").replace(/^Assisted\s*[–-]\s*[^·]+·?\s*/i, "").replace(/^Duration:\s*\d+m\s*·?\s*/i, "").trim();
+			      const note = rawNote && !/^(self\s*[- ]?\s*settled|imported from|logged via)/i.test(rawNote) ? clockLogTextLab(rawNote, 34) : "";
+			      return clockLogJoinLab(durationLabel, method, amount, note);
+			    };
+			    const clockBeforeBedtimeWakeDetailLab = (entry) => {
+			      if (!entry || !entry._clockBeforeBedtime) return "";
+			      const duration = clockNightWakeRawDurationLab(entry);
+			      const method = clockSoothingMethodLabelLab(entry);
+			      const durationLabel = duration ? (entry.selfSettled ? "Settled in " + hm(duration) : "Soothed " + hm(duration)) : "";
+			      return clockLogJoinLab(durationLabel, method, "before bedtime");
+			    };
 		    const clockNapLocationLabelLab = (entry) => {
 		      const raw = String(entry?.napLocation || "").replace(/[-_]+/g, " ").trim();
 		      if (!raw) return "";
@@ -46228,7 +46273,8 @@ function App(){
 		    };
 		    const entryLogDetailLab = (entry) => {
 		      if (!entry) return "";
-		      const nightWakeDetail = clockNightWakeDetailLab(entry);
+			      if (entry._clockBeforeBedtime) return clockBeforeBedtimeWakeDetailLab(entry) || "before bedtime";
+			      const nightWakeDetail = clockNightWakeDetailLab(entry);
 		      if (nightWakeDetail) return nightWakeDetail;
 		      if (entry.type === "feed") {
 		        const nightDuration = isNightWakeTimedLab(entry) ? clockNightWakeDurationLab(entry) : 0;
@@ -46265,15 +46311,16 @@ function App(){
 		        const sleepEnd = start !== null ? clockSleepEndLab(entry, start) : null;
 		        return sleepEnd ? hm(Math.max(0, Math.min(16 * 60, sleepEnd.mins - start))) : "sleep";
 		      }
-		      if (entry.type === "wake") {
-		        const duration = entry.night ? clockNightWakeDurationLab(entry) : 0;
-		        return duration ? hm(duration) : (entry.night ? "night wake" : "morning");
-		      }
+			      if (entry.type === "wake") {
+			        if (entry._clockBeforeBedtime) return clockBeforeBedtimeWakeDetailLab(entry) || "before bedtime";
+			        const duration = entry.night ? clockNightWakeDurationLab(entry) : 0;
+			        return duration ? hm(duration) : (entry.night ? "night wake" : "morning");
+			      }
 		      if (entry.type === "medicine") return clockLogJoinLab(clockLogTextLab(entry.name || entry.medicineName || entry.medName, 24), clockLogTextLab(entry.dose, 18), entry.temp ? String(entry.temp) : "") || "dose";
 		      if (activityMetaForLogType(entry.type)) return clockLogTextLab(entry.note || (entry._planLog ? "completed from plan" : "activity logged"), 34);
 		      return clockLogTextLab(entry.note || eventMeta[entryVisualKindLab(entry)]?.label || "", 34);
 		    };
-		    const isTimedClockEntry = (entry) => entry && ((entry.type === "nap" && !clockNapNeedsTimerCheckLab(entry)) || entry.type === "sleep" || isNightWakeTimedLab(entry));
+		    const isTimedClockEntry = (entry, sourceDayKey = dayKey) => entry && ((entry.type === "nap" && !clockNapNeedsTimerCheckLab(entry)) || entry.type === "sleep" || isNightWakeTimedLab(entry, sourceDayKey));
 	    const polar = (cx, cy, r, angle) => {
       const rad = (angle - 90) * Math.PI / 180;
       return {x:cx + r * Math.cos(rad), y:cy + r * Math.sin(rad)};
@@ -46295,7 +46342,7 @@ function App(){
       const clipBedtimeAtMidnightLab = dayBoundary === "midnight";
       const pushVisualEntry = (entry, sourceDay, opts = {}) => {
         if (!isClockLabRealLog(entry) || !allowedTypes.includes(entry.type)) return;
-        const visualKind = entryVisualKindLab(entry);
+	        const visualKind = entryVisualKindLab(entry, sourceDay);
         const key = [
           sourceDay,
           entry.id || "",
@@ -46389,8 +46436,8 @@ function App(){
         return !!(writeDay && sourceDayKey && writeDay > sourceDayKey);
       };
       const entryShouldRenderBeforeWakeDayStartLab = (entry, sourceDayKey) => {
-        if (!entry || !clockIsNightWakeTimelineEntryLab(entry)) return false;
-        if (isNightWakeTimedLab(entry)) return true;
+	        if (!entry || !clockIsNightWakeTimelineEntryLab(entry, sourceDayKey)) return false;
+	        if (isNightWakeTimedLab(entry, sourceDayKey)) return true;
         const source = String(entry.source || entry.src || "");
         if (source === "manual-night-wake" || source === "bedtimer-night-wake") return true;
         if (entry.nightLocked || entry._activeNightWake) return true;
@@ -46490,15 +46537,15 @@ function App(){
 		    clockEvents.forEach(item => {
 		      item.laneCount = item.logOnly ? 1 : (bucketCounts[item.bucket] || 1);
 		    });
-		    const clockSleepCurveItemsLab = clockEvents.filter(item => ["sleep","sleep-carry"].includes(entryVisualKindLab(item.entry)) && isTimedClockEntry(item.entry));
+			    const clockSleepCurveItemsLab = clockEvents.filter(item => ["sleep","sleep-carry"].includes(entryVisualKindLab(item.entry, item.sourceDay)) && isTimedClockEntry(item.entry, item.sourceDay));
 		    const clockLogNestsInsideSleepCurveLab = (item, sleepItem) => {
 		      if (!item || !sleepItem || item === sleepItem) return false;
-		      const kind = entryVisualKindLab(item.entry);
+			      const kind = entryVisualKindLab(item.entry, item.sourceDay);
 		      if (!kind || kind === "sleep" || kind === "sleep-carry") return false;
 		      const sleepStart = sleepItem.start;
 		      const sleepEnd = Math.max(sleepItem.end, sleepItem.start + 6);
 		      const itemIsAfterBedtime = item.start >= sleepStart;
-		      const itemIsOvernight = !!(item.entry && (item.entry.night || clockIsLegacyNightWakeTimeLab(item.entry) || isNightWakeTimedLab(item.entry)));
+			      const itemIsOvernight = !!(item.entry && (clockIsNightWakeTimelineEntryLab(item.entry, item.sourceDay) || isNightWakeTimedLab(item.entry, item.sourceDay)));
 		      if (!itemIsAfterBedtime && !itemIsOvernight) return false;
 		      const carry = item.start < sleepStart ? 1440 : 0;
 		      const itemStart = item.start + carry;
@@ -46517,7 +46564,8 @@ function App(){
 		      return 0;
 		    };
 			    const clockSettlingFeedIsInsideNightSleepLab = (item) => {
-			      if (!item || !item.entry || item.entry.type !== "feed" || !item.entry.night || item.entry.dreamFeed || item.entry.feedType === "solids" || item.entry.feedType === "pump") return false;
+				      if (!item || !item.entry || item.entry.type !== "feed" || !item.entry.night || item.entry.dreamFeed || item.entry.feedType === "solids" || item.entry.feedType === "pump") return false;
+				      if (clockEntryFallsBeforeBedtimeStartLab(item.entry, item.sourceDay)) return false;
 			      if (clockIsBedtimerNightWakeFeedLab(item.entry)) return false;
 			      const feedMinute = ((Math.round(item.start || 0) % 1440) + 1440) % 1440;
 			      return feedMinute >= 16 * 60 || feedMinute < 6 * 60;
@@ -46526,7 +46574,7 @@ function App(){
 		      if (!clockSettlingFeedIsInsideNightSleepLab(item)) return "";
 		      const feedStart = item.start;
 		      const wake = clockEvents.find(other => {
-		        if (!other || other === item || !other.entry || other.entry.type !== "wake" || !clockIsNightWakeTimelineEntryLab(other.entry)) return false;
+			        if (!other || other === item || !other.entry || other.entry.type !== "wake" || !clockIsNightWakeTimelineEntryLab(other.entry, other.sourceDay)) return false;
 		        const wakeStart = other.start;
 		        const wakeEnd = Math.max(other.end, wakeStart + 1);
 		        return feedStart >= wakeStart - 2 && feedStart <= wakeEnd + 20;
@@ -46535,11 +46583,11 @@ function App(){
 		    };
 		    const clockRenderEvents = [...clockEvents].filter(item => !item.logOnly && !clockTimelineSettlingFeedKeyLab(item)).sort((a,b)=>{
 	      const layer = (item) => {
-	        const kind = entryVisualKindLab(item.entry);
+		        const kind = entryVisualKindLab(item.entry, item.sourceDay);
 	        if (kind === "sleep-carry") return -1;
 	        if (kind === "sleep") return 0;
 	        if (kind === "nap") return 1;
-	        if (isTimedClockEntry(item.entry)) return kind === "night-wake" ? 4 : 2;
+	        if (isTimedClockEntry(item.entry, item.sourceDay)) return kind === "night-wake" ? 4 : 2;
 	        return 3;
 	      };
 	      return layer(a) - layer(b) || a.start - b.start || a.index - b.index;
@@ -46550,9 +46598,9 @@ function App(){
 	    };
 	    const clockCloseMomentWindowLab = 22;
 	    const clockCloseMomentClusterLab = (item) => {
-	      if (!item || !item.entry || isTimedClockEntry(item.entry)) return {closeIndex:0, closeCount:1};
+		      if (!item || !item.entry || isTimedClockEntry(item.entry, item.sourceDay)) return {closeIndex:0, closeCount:1};
 	      const peers = clockRenderEvents
-	        .filter(other => other && other.entry && !isTimedClockEntry(other.entry))
+		        .filter(other => other && other.entry && !isTimedClockEntry(other.entry, other.sourceDay))
 	        .sort((a,b)=>a.start-b.start || a.index-b.index);
 	      const itemIndex = peers.indexOf(item);
 	      if (itemIndex < 0) return {closeIndex:item.lane || 0, closeCount:item.laneCount || 1};
@@ -46563,8 +46611,8 @@ function App(){
 	      return {closeIndex:itemIndex - left, closeCount:Math.max(1, right - left + 1)};
 	    };
 	    const clockDotPointLab = (item) => {
-	      if (!item || !item.entry || isTimedClockEntry(item.entry)) return null;
-	      const visualKind = entryVisualKindLab(item.entry);
+		      if (!item || !item.entry || isTimedClockEntry(item.entry, item.sourceDay)) return null;
+		      const visualKind = entryVisualKindLab(item.entry, item.sourceDay);
 	      const closeCluster = clockCloseMomentClusterLab(item);
 	      const closeIndex = closeCluster.closeIndex || 0;
 	      const closeCount = Math.max(item.laneCount || 1, closeCluster.closeCount || 1);
@@ -46650,7 +46698,7 @@ function App(){
 	          ? Math.max(fallbackDot.closeMoment ? 7.2 : fallbackDot.hitR + 2.4, fallbackDot.closeMoment ? (clockCloseDotTickGeometryLab(fallbackDot, !!fallbackItem.isNow)?.hitStrokeW || 9) / 2 + 1.6 : 11.2)
 	          : Infinity;
 	        clockRenderEvents.forEach(candidate => {
-	          if (!candidate || !candidate.entry || isTimedClockEntry(candidate.entry)) return;
+		        if (!candidate || !candidate.entry || isTimedClockEntry(candidate.entry, candidate.sourceDay)) return;
 	          const dot = clockDotPointLab(candidate);
 	          if (!dot) return;
 	          const distance = clockDistanceToDotVisualLab(local, candidate, dot);
@@ -46677,7 +46725,7 @@ function App(){
 		    const clockLogRowFromEventLab = (item, rowIndex, allowVisibleFallback = false) => {
 		      if (!item || item.visualOnly) return null;
 		      const entry = item.entry;
-		      const logKind = entryVisualKindLab(entry) || entry?.type;
+			      const logKind = entryVisualKindLab(entry, item.sourceDay) || entry?.type;
 		      const allowedLogKind = clockLogAllowedTypes.includes(logKind) || clockLogAllowedTypes.includes(entry?.type);
 		      if ((!isClockLabRealLog(entry) && !allowVisibleFallback) || !allowedLogKind) return null;
 		      const start = Number.isFinite(item.start) ? item.start : entryStartMins(entry);
@@ -46705,7 +46753,7 @@ function App(){
 		      if (!clockSettlingFeedIsInsideNightSleepLab(item)) return "";
 		      const feedStart = clockLogOrderMins(item);
 	      const wake = clockLogRows.find(other => {
-	        if (!other || other === item || !other.entry || other.entry.type !== "wake" || !clockIsNightWakeTimelineEntryLab(other.entry)) return false;
+		        if (!other || other === item || !other.entry || other.entry.type !== "wake" || !clockIsNightWakeTimelineEntryLab(other.entry, other.sourceDay)) return false;
 	        const wakeStart = clockLogOrderMins(other);
 	        const wakeEnd = other.end < clockLogOrderAnchor ? other.end + 1440 : other.end;
 	        return feedStart >= wakeStart - 2 && feedStart <= wakeEnd + 20;
@@ -46726,34 +46774,36 @@ function App(){
 	    const clockVisibleLogRows = clockLogRows.filter(item => !clockNightWakeSettlingFeedKeyLab(item));
 		    const clockLogEntriesLab = clockLogRows.map(item => item.entry);
 			    const recentRows = [...clockVisibleLogRows].slice(-5).reverse();
-		    const clockLogIsActiveBedtimeLab = (entry) => !!(entry && entry.type === "sleep" && clockBedOnThisDay && activeSleepStart && (entry.time === activeSleepStart || entry.start === activeSleepStart || entry.id === activeSleepEntry?.id));
-			    const clockLogDisplayEntryLab = (item) => {
-			      const entry = item && item.entry;
-			      if (clockIsBedtimerNightWakeFeedLab(entry)) return entry;
-			      if (!entry || entry.type !== "feed" || !entry.night || clockSettlingFeedIsInsideNightSleepLab(item)) return entry;
-			      return {...entry, night:false};
-			    };
+			    const clockLogIsActiveBedtimeLab = (entry) => !!(entry && entry.type === "sleep" && clockBedOnThisDay && activeSleepStart && (entry.time === activeSleepStart || entry.start === activeSleepStart || entry.id === activeSleepEntry?.id));
+				    const clockLogDisplayEntryLab = (item) => {
+				      const entry = item && item.entry;
+				      if (clockEntryFallsBeforeBedtimeStartLab(entry, item?.sourceDay)) return {...entry, night:false, nightLocked:false, _clockBeforeBedtime:true};
+				      if (clockIsBedtimerNightWakeFeedLab(entry)) return entry;
+				      if (!entry || entry.type !== "feed" || !entry.night || clockSettlingFeedIsInsideNightSleepLab(item)) return entry;
+				      return {...entry, night:false};
+				    };
 		    const clockLogRowLabelLab = (item) => clockLogIsActiveBedtimeLab(item?.entry) ? "Bedtime started" : entryLogLabelLab(clockLogDisplayEntryLab(item));
 	    const clockLogRowTimeLab = (item) => {
-	      if (!item || !item.entry) return "";
-	      if (clockLogIsActiveBedtimeLab(item.entry)) return clockLabFmt12(item.entry.time || item.entry.start || activeSleepStart);
-	      return entryTimeRangeLab(item.entry);
-	    };
+		      if (!item || !item.entry) return "";
+		      if (clockLogIsActiveBedtimeLab(item.entry)) return clockLabFmt12(item.entry.time || item.entry.start || activeSleepStart);
+		      return entryTimeRangeLab(clockLogDisplayEntryLab(item));
+		    };
 	    const clockLogRowDetailLab = (item) => {
 	      if (!item || !item.entry) return "";
 	      if (clockLogIsActiveBedtimeLab(item.entry)) {
 	        if (bedPaused) return clockLogJoinLab("sleep timer paused", hm(Math.max(1, Math.floor((bedPausedAtSec || clockLabBedElapsedSec) / 60))));
 	        return clockLogJoinLab("sleep timer running", hm(Math.max(1, Math.floor(clockLabBedElapsedSec / 60))));
 	      }
-		      const feeds = clockNightWakeSettlingFeedMapLab.get(String(item.entry.id || item.index)) || [];
-		      const detail = entryLogDetailLab(clockLogDisplayEntryLab(item));
-	      if (item.entry.type !== "wake" || !clockIsNightWakeTimelineEntryLab(item.entry) || !feeds.length) return detail;
+			      const displayEntry = clockLogDisplayEntryLab(item);
+			      const feeds = clockNightWakeSettlingFeedMapLab.get(String(item.entry.id || item.index)) || [];
+			      const detail = entryLogDetailLab(displayEntry);
+		      if (displayEntry._clockBeforeBedtime || item.entry.type !== "wake" || !clockIsNightWakeTimelineEntryLab(item.entry, item.sourceDay) || !feeds.length) return detail;
 	      const feedDetail = feeds.map(feed => {
 	        const amount = clockLogAmountLab(feed.amount || feed.ml);
 	        const method = feed.feedType === "breast" ? "Breast" : "Milk";
 	        return clockLogJoinLab(method, amount);
 	      }).filter(Boolean).join(" · ");
-	      const duration = clockNightWakeDurationLab(item.entry);
+		      const duration = clockNightWakeDurationLab(item.entry, item.sourceDay);
 	      return clockLogJoinLab(duration ? "Soothed " + hm(duration) : "", feedDetail);
 	    };
 			    const clockWakeWindowItems = (() => {
@@ -46813,8 +46863,8 @@ function App(){
 			    const clockTotalMilkMl = clockLogEntriesLab.reduce((sum, entry) => sum + babyMilkAmount(entry), 0);
 		    const clockTotalNappies = clockLogEntriesLab.filter(e => e.type === "poop").length;
 		    const clockTotalNapMins = clockMergedNapEntries.reduce((sum, entry) => sum + Math.max(0, minDiff(entry.start, entry.end)), 0);
-		    const clockTotalNightWakeMins = clockLogRows.filter(item => isNightWakeTimedLab(item.entry)).reduce((sum, item) => sum + Math.max(0, Math.min(180, item.end - item.start)), 0);
-		    const clockTotalNightSleepGrossMins = clockLogRows.filter(item => ["sleep","sleep-carry"].includes(entryVisualKindLab(item.entry))).reduce((sum, item) => sum + Math.max(0, Math.min(16 * 60, item.end - item.start)), 0);
+			    const clockTotalNightWakeMins = clockLogRows.filter(item => isNightWakeTimedLab(item.entry, item.sourceDay)).reduce((sum, item) => sum + Math.max(0, Math.min(180, item.end - item.start)), 0);
+			    const clockTotalNightSleepGrossMins = clockLogRows.filter(item => ["sleep","sleep-carry"].includes(entryVisualKindLab(item.entry, item.sourceDay))).reduce((sum, item) => sum + Math.max(0, Math.min(16 * 60, item.end - item.start)), 0);
 		    const clockTotalNightSleepMins = Math.max(0, clockTotalNightSleepGrossMins - Math.min(clockTotalNightSleepGrossMins, clockTotalNightWakeMins));
 		    const clockTotalAwakeMins = clockWakeWindowItems.reduce((sum, item) => sum + Math.max(0, item.duration || 0), 0);
 		    const clockTotals = [
@@ -47183,7 +47233,7 @@ function App(){
 		          .filter(item => {
 		            const entry = item && item.entry;
 		            if (!entry) return false;
-		            const isNightWakeRow = entry.type === "wake" && clockIsNightWakeTimelineEntryLab(entry);
+			            const isNightWakeRow = entry.type === "wake" && clockIsNightWakeTimelineEntryLab(entry, item.sourceDay);
 		            const isNightFeedRow = entry.type === "feed" && entry.night && clockSettlingFeedIsInsideNightSleepLab(item);
 		            if (!isNightWakeRow && !isNightFeedRow) return false;
 		            const fromBed = nightEntryFromBedMin(entry, bedMins);
@@ -48737,7 +48787,7 @@ function App(){
 	    };
     const showClockLabTipFromPress = (item, ev) => {
       try{ev && ev.preventDefault && ev.preventDefault(); ev && ev.stopPropagation && ev.stopPropagation();}catch{}
-      const pressItem = item && item.entry && !isTimedClockEntry(item.entry) ? clockNearestDotItemFromPressLab(ev, item) : item;
+      const pressItem = item && item.entry && !isTimedClockEntry(item.entry, item.sourceDay) ? clockNearestDotItemFromPressLab(ev, item) : item;
       if (!pressItem || !pressItem.entry) return;
       haptic(12);
       // If this item is already showing and pinned, go straight to edit
@@ -48958,15 +49008,16 @@ function App(){
             </div>
           ))}
         </div>
-	        {clockVisibleLogRows.length ? clockVisibleLogRows.map(item => {
-	          const visualKind = entryVisualKindLab(item.entry) || "log";
-	          const accent = eventMeta[visualKind]?.color || "#C07088";
-	          return (
-	            <button type="button" key={(item.entry.id||item.index)+"clock-row"} className={"ob-clock-row is-"+visualKind} style={{"--ob-clock-row-accent":accent}} onClick={(ev)=>editClockLabLog(item.entry, ev)}>
-	              <span className="ob-clock-row-icon" aria-hidden="true"><span>{entryLogEmojiLab(item.entry)}</span></span>
-	              <b>{clockLogRowLabelLab(item)}</b>
-	              <time>{clockLogRowTimeLab(item)}</time>
-	              <em>{clockLogRowDetailLab(item)}</em>
+		        {clockVisibleLogRows.length ? clockVisibleLogRows.map(item => {
+		          const displayEntry = clockLogDisplayEntryLab(item);
+		          const visualKind = entryVisualKindLab(displayEntry, item.sourceDay) || "log";
+		          const accent = eventMeta[visualKind]?.color || "#C07088";
+		          return (
+		            <button type="button" key={(item.entry.id||item.index)+"clock-row"} className={"ob-clock-row is-"+visualKind} style={{"--ob-clock-row-accent":accent}} onClick={(ev)=>editClockLabLog(item.entry, ev)}>
+		              <span className="ob-clock-row-icon" aria-hidden="true"><span>{entryLogEmojiLab(displayEntry)}</span></span>
+		              <b>{clockLogRowLabelLab(item)}</b>
+		              <time>{clockLogRowTimeLab(item)}</time>
+		              <em>{clockLogRowDetailLab(item)}</em>
 	            </button>
 	          );
 	        }) : <p>No logs yet today. Tap Feed, Nappy, Nap or Wake below.</p>}
@@ -49134,9 +49185,9 @@ function App(){
               return <g key={label.mins}><line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} className="ob-clock-tick"/><text x={pt.x} y={pt.y-2} className="ob-clock-num"><tspan x={pt.x} dy="0" className="is-hour-label">{label.top}</tspan><tspan x={pt.x} dy="8.4" className="is-period-label">{label.bottom}</tspan></text></g>;
             })}
 	            {clockRenderEvents.map(item => {
-	              const visualKind = entryVisualKindLab(item.entry);
-	              const meta = eventMeta[visualKind] || eventMeta.tummy;
-	              const isTimedLog = isTimedClockEntry(item.entry);
+		              const visualKind = entryVisualKindLab(item.entry, item.sourceDay);
+		              const meta = eventMeta[visualKind] || eventMeta.tummy;
+		              const isTimedLog = isTimedClockEntry(item.entry, item.sourceDay);
               if (isTimedLog) {
                 const sleepInset = clockArcSleepInsetLab(item, visualKind);
                 const isCarrySleepArc = visualKind === "sleep-carry";
@@ -49278,7 +49329,7 @@ function App(){
           </svg>
 		          {clockLabTip && (
 			            <div className={"ob-clock-tip"+(clockLabTip.kind==="presence"?" is-presence":"")+(clockLabTipCanEdit(clockLabTip)?" is-editable":"")} role="status" onClick={(ev)=>{ev.stopPropagation();}}>
-			              <span style={{background:clockLabTipUsesMeta(clockLabTip) ? clockLabTip.color : eventMeta[entryVisualKindLab(clockLabTip.entry)]?.color || "#C07088"}}/>
+			              <span style={{background:clockLabTipUsesMeta(clockLabTip) ? clockLabTip.color : eventMeta[entryVisualKindLab(clockLabTip.entry, clockLabTip.sourceDay)]?.color || "#C07088"}}/>
 			              <b>{clockLabTipUsesMeta(clockLabTip) ? clockLabTip.label : clockItemLabelLab(clockLabTip)}</b>
 			              <em>{clockLabTipDetail(clockLabTip)}</em>
 			              {clockLabTipCanEdit(clockLabTip) && (

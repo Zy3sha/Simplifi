@@ -64,6 +64,20 @@ function minDiffSim(start, end) {
   return diff;
 }
 
+function clockEntryFallsBeforeBedtimeStartSim(entry, bedStartMins) {
+  const entryStart = clockMins(entry && (entry.time || entry.start || ""));
+  if (entryStart === null || bedStartMins === null) return false;
+  if (bedStartMins < 12 * 60 || entryStart < 12 * 60) return false;
+  return entryStart < bedStartMins;
+}
+
+function clockIsNightWakeTimelineEntrySim(entry, bedStartMins = null) {
+  const mins = clockMins(entry && (entry.time || entry.start || ""));
+  const legacyNightWake = !!(entry && entry.type === "wake" && !entry.night && mins !== null && (mins >= 19 * 60 || mins < 5 * 60));
+  const rawNightWake = !!(entry && ((entry.night && (entry.type === "wake" || entry.type === "feed")) || legacyNightWake));
+  return rawNightWake && !clockEntryFallsBeforeBedtimeStartSim(entry, bedStartMins);
+}
+
 const TRACK_RELIABLE_NAP_MAX_MINS_SIM = 300;
 function clockNapSpanMinsSim(entry) {
   if (!entry || entry.type !== "nap" || !entry.start || !entry.end || entry.end === entry.start) return 0;
@@ -1116,10 +1130,19 @@ function runSourceWiringSimulations() {
   const snapTimerBlock = snapTimerAt >= 0 && snapTimerEnd > snapTimerAt ? appSource.slice(snapTimerAt, snapTimerEnd) : "";
   assert("stale timer cleanup clears timer state without inventing log end times", snapTimerBlock.includes("do not invent an end time for the saved log") && !snapTimerBlock.includes("duration: Math.round(elapsed / 60)") && !snapTimerBlock.includes("end: _staleEnd") && !snapTimerBlock.includes("end: _staleEnd2"));
   assert("active nap clock labels show now instead of the capped arc end", appSource.includes('if (item.entry.type === "nap" && isActiveClockNapLab(item.entry)) return entryTimeRangeLab(item.entry);'));
-  assert("clock logs do not fold or label daytime feeds as night-wake settling", appSource.includes("const clockSettlingFeedIsInsideNightSleepLab = (item) =>") && appSource.includes("feedMinute >= 16 * 60 || feedMinute < 6 * 60") && !appSource.includes("feedMinute >= 18 * 60 || feedMinute < 6 * 60 || clockIsInsideSleepCurveLab(item)") && appSource.includes("if (!clockSettlingFeedIsInsideNightSleepLab(item)) return \"\";") && appSource.includes("const clockLogDisplayEntryLab = (item) =>") && appSource.includes("return {...entry, night:false};"));
+	  assert("clock logs do not fold or label daytime feeds as night-wake settling", appSource.includes("const clockSettlingFeedIsInsideNightSleepLab = (item) =>") && appSource.includes("feedMinute >= 16 * 60 || feedMinute < 6 * 60") && !appSource.includes("feedMinute >= 18 * 60 || feedMinute < 6 * 60 || clockIsInsideSleepCurveLab(item)") && appSource.includes("if (!clockSettlingFeedIsInsideNightSleepLab(item)) return \"\";") && appSource.includes("const clockLogDisplayEntryLab = (item) =>") && appSource.includes("if (clockEntryFallsBeforeBedtimeStartLab(entry, item?.sourceDay)) return {...entry, night:false, nightLocked:false, _clockBeforeBedtime:true};") && appSource.includes("return {...entry, night:false};"));
+	  {
+	    const bedtimeStart = clockMins("20:15");
+	    const beforeBedWake = { type: "wake", time: "19:37", night: true, assistedDuration: 15, assistedType: "milk" };
+	    const afterBedWake = { type: "wake", time: "22:15", night: true, assistedDuration: 13, assistedType: "milk" };
+	    const overnightWake = { type: "wake", time: "03:32", night: true, assistedDuration: 6, assistedType: "milk" };
+	    assert("same-evening wake before logged bedtime is not treated as a night wake", !clockIsNightWakeTimelineEntrySim(beforeBedWake, bedtimeStart));
+	    assert("post-bedtime and after-midnight wakes remain night wakes", clockIsNightWakeTimelineEntrySim(afterBedWake, bedtimeStart) && clockIsNightWakeTimelineEntrySim(overnightWake, bedtimeStart));
+	    assert("live app guards night-wake classification against same-evening pre-bedtime rows", appSource.includes("const clockEntryFallsBeforeBedtimeStartLab = (entry, sourceDayKey = dayKey) =>") && appSource.includes("if (bedStart < 12 * 60 || entryStart < 12 * 60) return false;") && appSource.includes("return entryStart < bedStart;") && appSource.includes("const clockIsNightWakeTimelineEntryLab = (entry, sourceDayKey = dayKey)") && appSource.includes("isNightWakeTimedLab(item.entry, item.sourceDay)"));
+	  }
   assert("night-wake milk contributes to Track and report milk totals", appSource.includes("function isNightWakeMilkFeedEntry(e)") && appSource.includes("function babyMilkAmount(e)") && appSource.includes("clockLogEntriesLab.reduce((sum, entry) => sum + babyMilkAmount(entry), 0)") && appSource.includes("const nightFeedCount=nEs.filter(e=>e.type===\"feed\"||isNightWakeMilkFeedEntry(e)).length"));
   assert("clock log tab backfills every real visible clock dot", appSource.includes("const clockLogRowFromEventLab = (item, rowIndex, allowVisibleFallback = false) =>") && appSource.includes("const clockLogRowKeyLab = (row) =>") && appSource.includes("clockRenderEvents.forEach((item, rowIndex) =>") && appSource.includes("clockLogRowFromEventLab(item, rows.length + rowIndex, true)"));
-  assert("wake-to-wake clock renders timed night wakes as visible overnight arcs", appSource.includes("const entryShouldRenderBeforeWakeDayStartLab = (entry, sourceDayKey) =>") && appSource.includes("if (isNightWakeTimedLab(entry)) return true;") && appSource.includes("const clockOvernightVisualOptsLab = (entry, sourceDayKey) =>") && appSource.includes("const visualStart = start + 1440;") && appSource.includes("pushVisualEntry(entry, dayKey, clockOvernightVisualOptsLab(entry, dayKey));") && appSource.includes("pushVisualEntry(entry, nextDayKey, clockOvernightVisualOptsLab(entry, nextDayKey));") && appSource.includes("else pushVisualEntry(entry, nextDayKey, {logOnly:true});") && appSource.includes("!item.logOnly && !clockTimelineSettlingFeedKeyLab(item)"));
+  assert("wake-to-wake clock renders timed night wakes as visible overnight arcs", appSource.includes("const entryShouldRenderBeforeWakeDayStartLab = (entry, sourceDayKey) =>") && appSource.includes("if (isNightWakeTimedLab(entry, sourceDayKey)) return true;") && appSource.includes("const clockOvernightVisualOptsLab = (entry, sourceDayKey) =>") && appSource.includes("const visualStart = start + 1440;") && appSource.includes("pushVisualEntry(entry, dayKey, clockOvernightVisualOptsLab(entry, dayKey));") && appSource.includes("pushVisualEntry(entry, nextDayKey, clockOvernightVisualOptsLab(entry, nextDayKey));") && appSource.includes("else pushVisualEntry(entry, nextDayKey, {logOnly:true});") && appSource.includes("!item.logOnly && !clockTimelineSettlingFeedKeyLab(item)"));
   {
     const dayKey = "2026-05-09";
     const rows = [
