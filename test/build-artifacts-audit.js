@@ -18,6 +18,8 @@ const hostedRequiredFiles = [
 const nativeSourceDirs = [
   "ios/App/App",
   "android/app/src/main/res",
+  "android/capacitor-cordova-android-plugins",
+  "ios/capacitor-cordova-ios-plugins",
 ];
 const buildOutputDirs = [
   "build",

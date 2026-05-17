@@ -13578,7 +13578,7 @@ function App(){
             return wm !== null && wm >= 4 * 60 && wm <= mins;
           });
           const isNightWake = entry.type === "wake" && (entry.night || entry.nightLocked);
-          const isNightMilk = entry.type === "feed" && entry.feedType !== "solids";
+          const isNightMilk = entry.type === "feed" && entry.feedType !== "solids" && entry.feedType !== "pump";
           if (morningWakeBefore || (!isNightWake && !isNightMilk)) { keep.push(entry); return; }
           const moved = entry.type === "feed" ? {...entry, night:true} : entry;
           const movedSig = entrySignature(prevDay, moved);
@@ -34592,8 +34592,15 @@ function App(){
     return entries.map(e => {
       // Never touch entries the user explicitly locked
       if (e.nightLocked) return e;
-      // Only classify wake and feed entries (Rule #2: only wake & feed can be night:true)
+      // Only classify wake and actual baby milk feeds. Pumping and solids are
+      // daytime care logs even when they happen after bedtime; marking them as
+      // night feeds hides them from the parent-facing day totals and skews advice.
       if (e.type !== "wake" && e.type !== "feed") return e;
+      if (e.type === "feed") {
+        const feedType = String(e.feedType || "").toLowerCase();
+        if (feedType === "pump" || feedType === "solids" || e.dreamFeed) return e;
+        if (!_isMilkOrBreastFeedEntry(e)) return e;
+      }
       // Skip entries without valid time
       if (!hasValidTime(e)) return e;
       const eMins = timeVal(e);
@@ -36685,10 +36692,18 @@ function App(){
 	          const bedDay = safeDateKey(bedDayArg || activeBedTimerDayForQuickLog() || "");
 	          const todayKey = todayStr();
 	          const selectedDay = safeDateKey(selDay || "");
-	          if (dayBoundary !== "wake" || !bedDay || !todayKey || !selectedDay || selectedDay >= todayKey) return false;
+	          const selectedIsHistorical = selectedDay < todayKey;
+	          const selectedIsBedtimeDay = selectedDay === bedDay;
+	          if (dayBoundary !== "wake" || !bedDay || !todayKey || !selectedDay || (!selectedIsHistorical && !selectedIsBedtimeDay)) return false;
 	          if (data && (data.night || data.nightLocked || data.dreamFeed)) return false;
 	          if (!(type === "feed" || type === "poop" || type === "nap")) return false;
 	          const mins = clockMins((data && (data.time || data.start)) || "");
+	          if (selectedIsBedtimeDay && mins !== null) {
+	            const bedEntries = days[bedDay] || [];
+	            const bedEntry = findBedtime(bedEntries);
+	            const bedStart = clockMins((bedEntry && (bedEntry.time || bedEntry.start)) || (()=>{try{return localStorage.getItem("bed_timer_start") || "";}catch{return "";}})());
+	            if (bedStart !== null && mins >= bedStart) return false;
+	          }
 	          const hour = mins !== null ? Math.floor(mins / 60) : new Date().getHours();
 	          return hour >= 6 && hour < 20;
 	        }
