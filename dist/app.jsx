@@ -30687,38 +30687,6 @@ function App(){
 	    if (ctxReasons && ctxReasons.length) bits.push("adjusted for " + ctxReasons.join(", "));
 	    return "~" + hm(dur) + " " + bits.join(" · ");
 	  }
-	  function getLongNapPlanPressureMeta(completedNaps, napProfile, ageWeeks) {
-	    const naps = Array.isArray(completedNaps) ? completedNaps : [];
-	    const profile = napProfile || getAgeNapProfile(ageWeeks) || {};
-	    const idealMin = Math.max(0, Math.round(profile.idealTotalMin || 0));
-	    const idealMax = Math.max(idealMin, Math.round(profile.idealTotalMax || idealMin || 0));
-	    const idealNapMax = Math.max(45, Math.round(profile.idealNapDurMax || 90));
-	    const durations = naps
-	      .map(n => n && n.start && n.end ? minDiff(n.start, n.end) : 0)
-	      .filter(d => Number.isFinite(d) && d > 0);
-	    const totalMins = durations.reduce((s, d) => s + d, 0);
-	    const longestMins = durations.length ? Math.max(...durations) : 0;
-	    const restorativeThreshold = Math.max(120, Math.min(150, idealNapMax + 15));
-	    const restorativeLongNap = longestMins >= 150 || longestMins >= restorativeThreshold;
-	    const daySleepMet = idealMin > 0 && totalMins >= Math.max(0, idealMin - 10);
-	    const daySleepHigh = idealMax > 0 && totalMins >= Math.max(idealMin, idealMax - 15);
-	    const excess = Math.max(0, longestMins - idealNapMax);
-	    const finalWakeExtension = restorativeLongNap
-	      ? (longestMins >= 180 ? 60 : Math.min(45, Math.max(20, Math.round(excess * 0.38))))
-	      : 0;
-	    return {
-	      totalMins,
-	      longestMins,
-	      idealMin,
-	      idealMax,
-	      restorativeLongNap,
-	      daySleepMet,
-	      daySleepHigh,
-	      skipTemplateNaps: restorativeLongNap && daySleepMet,
-	      bridgeOnlyAfterLongNap: restorativeLongNap && daySleepMet,
-	      finalWakeExtension
-	    };
-	  }
 
 	  function clampWakeWindow(wwMins, ageWeeks) {
     // Strict to the *active* guidance band. On short-nap recovery / illness /
@@ -48138,10 +48106,6 @@ function App(){
 	        const napsDone = completedNaps.length + (clockNapOnThisDay ? 1 : 0);
 	        let expectedTotal = napStructure ? napStructure.effectiveNapCount : napProfile.expectedNaps;
 	        if (scheduleOverride && typeof scheduleOverride.napCount === "number") expectedTotal = scheduleOverride.napCount;
-	        const _longNapPlanMeta = getLongNapPlanPressureMeta(completedNaps, napProfile, w);
-	        if (_longNapPlanMeta.skipTemplateNaps && !clockNapOnThisDay) {
-	          expectedTotal = Math.min(expectedTotal, napsDone);
-	        }
 	        let cursor = null;
 	        let _cursorInferred = false;
 	        if (clockNapOnThisDay && napStartT) {
@@ -48182,9 +48146,6 @@ function App(){
 	          const _contextualWWRange = getContextualWakeWindowRange(w);
 	          const _contextualFinalWWCap = _contextualWWRange.max;
 	          const _comfortableFinalWWMax = Math.min(_personalFinalWWCap || _contextualFinalWWCap, _contextualFinalWWCap);
-	          const _planFinalWakeMax = _longNapPlanMeta.skipTemplateNaps
-	            ? Math.max(_comfortableFinalWWMax, _comfortableFinalWWMax + (_longNapPlanMeta.finalWakeExtension || 0))
-	            : _comfortableFinalWWMax;
 	          const _capBedtimeByFinalWake = (mins) => {
 	            if (!_personalFinalWWCap) return clampBedtime(mins, w);
 	            return Math.max(17 * 60, Math.min(clampBedtime(mins, w), mins));
@@ -48264,7 +48225,7 @@ function App(){
 	          const _targetFillWakeCeiling = Math.max(_targetFillWakeFloor + 15, Math.round((_contextualWWRange.max || ww.max) * 1.2));
 	          const _targetFillDurations = [...new Set([_safeAvgNapDur, Math.round(_safeAvgNapDur * 0.7), 25, 20, 15]
 	            .map(d => clampNapDuration(d, w))
-	            .filter(d => d >= 15 && (!_longNapPlanMeta.bridgeOnlyAfterLongNap || d <= 25)))];
+	            .filter(d => d >= 15))];
 	          let _targetFillCount = 0;
 	          const _lastProjectedWakeWindow = () => {
 	            const _naps = items.filter(i => i && i.predicted && (i.label || "").toLowerCase().includes("nap") && typeof i.mins === "number");
@@ -48299,7 +48260,7 @@ function App(){
 	            napIdx++;
 	            _targetFillCount++;
 	          };
-	          while (_targetBedForFill && _targetBedForFill > cursor + _planFinalWakeMax + 10 && _targetFillCount < 4) {
+	          while (_targetBedForFill && _targetBedForFill > cursor + _comfortableFinalWWMax + 10 && _targetFillCount < 4) {
 	            const latestEnd = _targetBedForFill - _targetFillMinBedWW;
 	            if (latestEnd <= cursor + _targetFillWakeFloor + 15) break;
 	            let placed = false;
@@ -48310,13 +48271,13 @@ function App(){
 	              const earliestStart = cursor + dynamicWakeFloor;
 	              const latestStart = latestEnd - tryDur;
 	              if (latestStart < earliestStart) continue;
-	              const targetEndFloor = _targetBedForFill - _planFinalWakeMax;
+	              const targetEndFloor = _targetBedForFill - _comfortableFinalWWMax;
 	              const desiredStart = Math.max(earliestStart, targetEndFloor - tryDur);
 	              if (desiredStart - cursor > dynamicWakeCeiling) continue;
 	              const start = Math.min(latestStart, desiredStart);
 	              const end = start + tryDur;
 	              if (end > latestEnd) continue;
-	              if (_targetBedForFill - end > _planFinalWakeMax + 10) continue;
+	              if (_targetBedForFill - end > _comfortableFinalWWMax + 10) continue;
 	              if (tryDur <= 25 && _wouldBridgePushAboveSleepRange(tryDur)) continue;
 	              _pushTargetFillNap(start, tryDur);
 	              placed = true;
@@ -48335,11 +48296,11 @@ function App(){
 	            }
 	            if (!placed) break;
 	          }
-	          const bedWW = Math.min(_planFinalWakeMax, clampWakeWindow(progressiveWW(w, napIdx, expectedTotal), w));
+	          const bedWW = Math.min(_comfortableFinalWWMax, clampWakeWindow(progressiveWW(w, napIdx, expectedTotal), w));
 	          let bedM = _capBedtimeByFinalWake(cursor + bedWW);
 	          let bedTime = mtp(bedM);
 	          let _finalWakeProtected = false;
-	          if (_targetBedForFill && _targetBedForFill >= cursor + _targetFillMinBedWW && _targetBedForFill <= cursor + _planFinalWakeMax + 10) {
+	          if (_targetBedForFill && _targetBedForFill >= cursor + _targetFillMinBedWW && _targetBedForFill <= cursor + _comfortableFinalWWMax + 10) {
 	            bedM = _targetBedForFill;
 	            bedTime = mtp(bedM);
 	          }
@@ -48349,7 +48310,7 @@ function App(){
 	          }
 	          const _engineSaysBridge = !!(_enginePred && _enginePred.forceBridge);
 	          const gapToBed = bedM - cursor;
-	          const _localSaysBridge = gapToBed > _planFinalWakeMax + 10;
+	          const _localSaysBridge = gapToBed > _comfortableFinalWWMax + 10;
 	          if ((_engineSaysBridge || _localSaysBridge) && napIdx >= expectedTotal) {
 	            const _engBridge = _engineSaysBridge && _enginePred.bridgeSuggestion;
 	            let bridgeStart;
@@ -48369,9 +48330,9 @@ function App(){
 	              cursor = _safeEnd;
 	              const _engineBed = _enginePred && _enginePred.time ? clockMins(_enginePred.time) : null;
 	              if (_engineBed && _engineBed >= cursor + 60) bedM = _engineBed;
-	              else bedM = _capBedtimeByFinalWake(cursor + _planFinalWakeMax);
-	              if (bedM - cursor > _planFinalWakeMax + 10) {
-	                bedM = _capBedtimeByFinalWake(cursor + _planFinalWakeMax);
+	              else bedM = _capBedtimeByFinalWake(cursor + _comfortableFinalWWMax);
+	              if (bedM - cursor > _comfortableFinalWWMax + 10) {
+	                bedM = _capBedtimeByFinalWake(cursor + _comfortableFinalWWMax);
 	                _finalWakeProtected = true;
 	              }
 	              bedTime = mtp(bedM);
@@ -48380,11 +48341,11 @@ function App(){
 	          const _tickBedMins = (tickDataRef.current || {}).bedMins;
 	          if (_tickBedMins && typeof _tickBedMins === "number") {
 	            const _minBedWW = w < 30 ? 60 : 90;
-	            if (_tickBedMins >= cursor + _minBedWW && _tickBedMins <= cursor + _planFinalWakeMax + 10) {
+	            if (_tickBedMins >= cursor + _minBedWW && _tickBedMins <= cursor + _comfortableFinalWWMax + 10) {
 	              bedM = _tickBedMins;
 	              bedTime = mtp(bedM);
-	            } else if (_tickBedMins > cursor + _planFinalWakeMax + 10) {
-	              bedM = _capBedtimeByFinalWake(cursor + _planFinalWakeMax);
+	            } else if (_tickBedMins > cursor + _comfortableFinalWWMax + 10) {
+	              bedM = _capBedtimeByFinalWake(cursor + _comfortableFinalWWMax);
 	              bedTime = mtp(bedM);
 	              _finalWakeProtected = true;
 	            } else {
@@ -48402,8 +48363,8 @@ function App(){
 	              }
 	            }
 	          }
-	          if (bedM - cursor > _planFinalWakeMax + 10) {
-	            bedM = _capBedtimeByFinalWake(cursor + _planFinalWakeMax);
+	          if (bedM - cursor > _comfortableFinalWWMax + 10) {
+	            bedM = _capBedtimeByFinalWake(cursor + _comfortableFinalWWMax);
 	            bedTime = mtp(bedM);
 	            _finalWakeProtected = true;
 	          }
@@ -48411,8 +48372,6 @@ function App(){
 	            let napNote = "";
 	            if (_cursorInferred && !wake && completedNaps.length === 0) {
 	              napNote = "estimated from a typical start to the day. adjusts once wake is logged.";
-	            } else if (_longNapPlanMeta.skipTemplateNaps && completedNaps.length > 0) {
-	              napNote = "long nap cleared sleep pressure (" + hm(_longNapPlanMeta.totalMins) + " day sleep), so bedtime is the safer next sleep.";
 	            } else if (napIdx < expectedTotal) {
 	              const _ageExpected = napProfile.expectedNaps;
 	              const _idealRange = getExpectedDaySleepRange(w);
@@ -48431,7 +48390,7 @@ function App(){
 	              else if (_hasLongNap && _withinRange) napNote = napIdx + " nap" + (napIdx > 1 ? "s" : "") + " today (" + hm(_totalDaySleep) + " total). a longer nap cleared more sleep pressure.";
 	              else if (napIdx < _ageExpected && _withinRange) napNote = napIdx + " nap" + (napIdx > 1 ? "s" : "") + " today (" + hm(_totalDaySleep) + " total). " + (babyName || "Baby") + " is consolidating into longer naps.";
 	              else if (napIdx < _ageExpected && !_withinRange && _totalDaySleep < _idealRange.min) napNote = (expectedTotal - napIdx) + " fewer nap" + (expectedTotal - napIdx > 1 ? "s" : "") + " today. day sleep (" + hm(_totalDaySleep) + ") is below target.";
-	              else napNote = (expectedTotal - napIdx) + " fewer nap" + (expectedTotal - napIdx > 1 ? "s" : "") + " today. long nap cleared sleep pressure.";
+	              else napNote = (expectedTotal - napIdx) + " fewer nap" + (expectedTotal - napIdx > 1 ? "s" : "") + " today. long nap reduced sleep debt";
 	            } else if (_finalWakeProtected && _personalFinalWWCap) {
 	              napNote = "Bedtime brought forward to protect " + (babyName || "baby") + "'s personal final wake window.";
 	            } else {
@@ -55358,10 +55317,6 @@ function App(){
                   const napsDone = completedNaps.length + (napOn ? 1 : 0);
                   let expectedTotal = napStructure ? napStructure.effectiveNapCount : napProfile.expectedNaps;
                   if (scheduleOverride && typeof scheduleOverride.napCount === "number") expectedTotal = scheduleOverride.napCount;
-                  const _longNapPlanMeta = getLongNapPlanPressureMeta(completedNaps, napProfile, w);
-                  if (_longNapPlanMeta.skipTemplateNaps && !napOn) {
-                    expectedTotal = Math.min(expectedTotal, napsDone);
-                  }
 
 	                  // Find cursor: last known end point
 	                  let cursor;
@@ -55441,9 +55396,6 @@ function App(){
                   const _contextualWWRange = getContextualWakeWindowRange(w);
                   const _contextualFinalWWCap = _contextualWWRange.max;
                   const _comfortableFinalWWMax = Math.min(_personalFinalWWCap || _contextualFinalWWCap, _contextualFinalWWCap);
-                  const _planFinalWakeMax = _longNapPlanMeta.skipTemplateNaps
-                    ? Math.max(_comfortableFinalWWMax, _comfortableFinalWWMax + (_longNapPlanMeta.finalWakeExtension || 0))
-                    : _comfortableFinalWWMax;
                   const _capBedtimeByFinalWake = (mins) => {
                     // clampBedtime has a normal age floor (often 6pm). When a
                     // sensitive baby has already been awake too long, protecting
@@ -55552,7 +55504,7 @@ function App(){
                   const _targetFillWakeCeiling = Math.max(_targetFillWakeFloor + 15, Math.round((_contextualWWRange.max || ww.max) * 1.2));
                   const _targetFillDurations = [...new Set([_safeAvgNapDur, Math.round(_safeAvgNapDur * 0.7), 25, 20, 15]
                     .map(d => clampNapDuration(d, w))
-                    .filter(d => d >= 15 && (!_longNapPlanMeta.bridgeOnlyAfterLongNap || d <= 25)))];
+                    .filter(d => d >= 15))];
                   let _targetFillCount = 0;
                   const _lastProjectedWakeWindow = () => {
                     const _naps = items.filter(i => i && i.predicted && (i.label || "").toLowerCase().includes("nap") && typeof i.mins === "number");
@@ -55587,7 +55539,7 @@ function App(){
                     napIdx++;
                     _targetFillCount++;
                   };
-                  while (_targetBedForFill && _targetBedForFill > cursor + _planFinalWakeMax + 10 && _targetFillCount < 4) {
+                  while (_targetBedForFill && _targetBedForFill > cursor + _comfortableFinalWWMax + 10 && _targetFillCount < 4) {
                     const latestEnd = _targetBedForFill - _targetFillMinBedWW;
                     if (latestEnd <= cursor + _targetFillWakeFloor + 15) break;
                     let placed = false;
@@ -55599,13 +55551,13 @@ function App(){
                       const earliestStart = cursor + dynamicWakeFloor;
                       const latestStart = latestEnd - tryDur;
                       if (latestStart < earliestStart) continue;
-                      const targetEndFloor = _targetBedForFill - _planFinalWakeMax;
+                      const targetEndFloor = _targetBedForFill - _comfortableFinalWWMax;
                       const desiredStart = Math.max(earliestStart, targetEndFloor - tryDur);
                       if (desiredStart - cursor > dynamicWakeCeiling) continue;
                       const start = Math.min(latestStart, desiredStart);
                       const end = start + tryDur;
                       if (end > latestEnd) continue;
-                      if (_targetBedForFill - end > _planFinalWakeMax + 10) continue;
+                      if (_targetBedForFill - end > _comfortableFinalWWMax + 10) continue;
                       if (tryDur <= 25 && _wouldBridgePushAboveSleepRange(tryDur)) continue;
                       _pushTargetFillNap(start, tryDur);
                       placed = true;
@@ -55627,11 +55579,11 @@ function App(){
                   }
 
                   // Step 2: Calculate bedtime from last nap end
-                  const bedWW = Math.min(_planFinalWakeMax, clampWakeWindow(progressiveWW(w, napIdx, expectedTotal), w));
+                  const bedWW = Math.min(_comfortableFinalWWMax, clampWakeWindow(progressiveWW(w, napIdx, expectedTotal), w));
                   let bedM = _capBedtimeByFinalWake(cursor + bedWW);
                   let bedTime = mtp(bedM);
                   let _finalWakeProtected = false;
-                  if (_targetBedForFill && _targetBedForFill >= cursor + _targetFillMinBedWW && _targetBedForFill <= cursor + _planFinalWakeMax + 10) {
+                  if (_targetBedForFill && _targetBedForFill >= cursor + _targetFillMinBedWW && _targetBedForFill <= cursor + _comfortableFinalWWMax + 10) {
                     bedM = _targetBedForFill;
                     bedTime = mtp(bedM);
                   }
@@ -55675,7 +55627,7 @@ function App(){
                   }
                   const _engineSaysBridge = !!(_enginePred && _enginePred.forceBridge);
                   const gapToBed = bedM - cursor;
-                  const _localSaysBridge = gapToBed > _planFinalWakeMax + 10;
+                  const _localSaysBridge = gapToBed > _comfortableFinalWWMax + 10;
 
                   if ((_engineSaysBridge || _localSaysBridge) && napIdx >= expectedTotal) {
                     // Use engine suggestion if available, else fall back to local math.
@@ -55714,10 +55666,10 @@ function App(){
                       if (_engineBed && _engineBed >= cursor + 60) {
                         bedM = _engineBed;
                       } else {
-                        bedM = _capBedtimeByFinalWake(cursor + _planFinalWakeMax);
+                        bedM = _capBedtimeByFinalWake(cursor + _comfortableFinalWWMax);
                       }
-                      if (bedM - cursor > _planFinalWakeMax + 10) {
-                        bedM = _capBedtimeByFinalWake(cursor + _planFinalWakeMax);
+                      if (bedM - cursor > _comfortableFinalWWMax + 10) {
+                        bedM = _capBedtimeByFinalWake(cursor + _comfortableFinalWWMax);
                         _finalWakeProtected = true;
                       }
                       bedTime = mtp(bedM);
@@ -55736,11 +55688,11 @@ function App(){
                   if (_tickBedMins && typeof _tickBedMins === "number") {
                     // `cursor` at this point = end time of the last placed nap (or wake if no naps)
                     const _minBedWW = w < 30 ? 60 : 90; // min wake window before bed
-                    if (_tickBedMins >= cursor + _minBedWW && _tickBedMins <= cursor + _planFinalWakeMax + 10) {
+                    if (_tickBedMins >= cursor + _minBedWW && _tickBedMins <= cursor + _comfortableFinalWWMax + 10) {
                       bedM = _tickBedMins;
                       bedTime = mtp(bedM);
-                    } else if (_tickBedMins > cursor + _planFinalWakeMax + 10) {
-                      bedM = _capBedtimeByFinalWake(cursor + _planFinalWakeMax);
+                    } else if (_tickBedMins > cursor + _comfortableFinalWWMax + 10) {
+                      bedM = _capBedtimeByFinalWake(cursor + _comfortableFinalWWMax);
                       bedTime = mtp(bedM);
                       _finalWakeProtected = true;
                     } else {
@@ -55769,8 +55721,8 @@ function App(){
                     }
                   }
 
-                  if (bedM - cursor > _planFinalWakeMax + 10) {
-                    bedM = _capBedtimeByFinalWake(cursor + _planFinalWakeMax);
+                  if (bedM - cursor > _comfortableFinalWWMax + 10) {
+                    bedM = _capBedtimeByFinalWake(cursor + _comfortableFinalWWMax);
                     bedTime = mtp(bedM);
                     _finalWakeProtected = true;
                   }
@@ -55781,8 +55733,6 @@ function App(){
                     let napNote = "";
                     if (_cursorInferred && !wake && completedNaps.length === 0) {
                       napNote = "estimated from a typical start to the day. adjusts once wake is logged.";
-                    } else if (_longNapPlanMeta.skipTemplateNaps && completedNaps.length > 0) {
-                      napNote = `long nap cleared sleep pressure (${hm(_longNapPlanMeta.totalMins)} day sleep), so bedtime is the safer next sleep.`;
                     } else if (napIdx < expectedTotal) {
                       const _ageExpected = napProfile.expectedNaps;
                       const _idealRange = getExpectedDaySleepRange(w);
@@ -55814,7 +55764,7 @@ function App(){
                         // Fewer naps AND below range. suggest bridge nap
                         napNote = `${expectedTotal - napIdx} fewer nap${expectedTotal-napIdx>1?"s":""} today. day sleep (${hm(_totalDaySleep)}) is below target (${hm(_idealRange.min)}). A short bridge nap may help.`;
                       } else {
-                        napNote = `${expectedTotal - napIdx} fewer nap${expectedTotal-napIdx>1?"s":""} today. long nap cleared sleep pressure.`;
+                        napNote = `${expectedTotal - napIdx} fewer nap${expectedTotal-napIdx>1?"s":""} today. long nap reduced sleep debt`;
                       }
                     } else if (_finalWakeProtected && _personalFinalWWCap) {
                       napNote = `Bedtime brought forward to protect ${babyName||"baby"}'s personal final wake window.`;
