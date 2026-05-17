@@ -139,6 +139,64 @@ body.dark-mode .ob-mascot-zzz{color:#F0C078;text-shadow:0 0 10px rgba(255,190,90
   .ob-bubbamoji-animate,.ob-mascot,.ob-mascot-shine,.ob-mascot-zzz,.ob-mascot-confetti{animation:none!important}
 }
 
+/* obubba.com root download gate.
+   Native shells and local QA still load the app; the public root sends parents
+   to the store instead of presenting a web sign-in surface. */
+.ob-download-landing{
+  min-height:100dvh;
+  width:100%;
+  display:grid;
+  place-items:center;
+  padding:32px 24px;
+  background:
+    radial-gradient(circle at 50% 22%,rgba(255,238,186,0.20),transparent 34%),
+    linear-gradient(170deg,#080e1c 0%,#0c1628 46%,#101d35 100%);
+  color:#fff7ef;
+  overflow:hidden;
+}
+.ob-download-landing-inner{
+  width:min(100%,320px);
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:18px;
+  text-align:center;
+}
+.ob-download-landing img{
+  width:116px;
+  height:116px;
+  object-fit:contain;
+  border-radius:30px;
+  filter:drop-shadow(0 18px 32px rgba(0,0,0,0.32)) drop-shadow(0 0 24px rgba(255,190,90,0.16));
+}
+.ob-download-landing .ob-brand-title{
+  font-size:42px;
+  line-height:1;
+  color:#fff2dc;
+  text-shadow:0 0 18px rgba(255,190,90,0.22);
+}
+.ob-download-now{
+  width:100%;
+  min-height:56px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:999px;
+  border:1px solid rgba(255,221,179,0.56);
+  background:
+    radial-gradient(ellipse at 50% 112%,rgba(255,178,78,0.40),rgba(213,126,47,0.20) 46%,transparent 76%),
+    linear-gradient(180deg,rgba(75,70,94,0.92),rgba(31,30,50,0.92));
+  color:#fff8ed!important;
+  text-decoration:none;
+  font-size:18px;
+  font-weight:900;
+  box-shadow:
+    inset 0 1px 0 rgba(255,247,230,0.24),
+    0 0 0 1px rgba(255,190,104,0.16),
+    0 0 18px rgba(255,184,82,0.30),
+    0 16px 36px rgba(0,0,0,0.26);
+}
+
 /* ═══ BACKGROUND — watercolour washes, no transition ═══ */
 body{background:var(--bg-solid);color:var(--text-deep);position:relative;min-height:100vh}
 
@@ -16913,16 +16971,35 @@ body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root bu
   border:1px solid rgba(255,221,179,0.27)!important;
   -webkit-backdrop-filter:blur(8px) saturate(1.42)!important;
   backdrop-filter:blur(8px) saturate(1.42)!important;
+  overflow:visible!important;
+  isolation:isolate!important;
   box-shadow:inset 0 1px 0 rgba(255,247,230,0.12),0 8px 16px rgba(0,0,0,0.14)!important;
 }
 body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root button.ob-main-tab-btn[aria-current="page"]{
   background:
-    radial-gradient(circle at 50% 0%,rgba(255,190,104,0.24),transparent 68%),
+    radial-gradient(circle at 50% 0%,rgba(255,226,176,0.22),transparent 68%),
     linear-gradient(180deg,rgba(55,54,72,0.38),rgba(26,25,43,0.24))!important;
+  border-color:rgba(255,213,155,0.66)!important;
   box-shadow:
-    inset 0 1px 0 rgba(255,247,230,0.18),
-    0 0 22px rgba(255,190,104,0.14),
+    inset 0 1px 0 rgba(255,247,230,0.24),
+    inset 0 -1px 0 rgba(255,179,84,0.18),
+    0 0 0 1px rgba(255,190,104,0.18),
+    0 0 18px rgba(255,184,82,0.34),
     0 10px 20px rgba(0,0,0,0.18)!important;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root button.ob-main-tab-btn[aria-current="page"]::after{
+  content:"";
+  position:absolute;
+  inset:-2px;
+  border-radius:24px;
+  border:1px solid rgba(255,214,151,0.34);
+  box-shadow:0 0 12px rgba(255,184,82,0.38),0 0 22px rgba(239,132,44,0.20);
+  pointer-events:none;
+  z-index:1;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"] .ob-app-root button.ob-main-tab-btn[aria-current="page"] > *{
+  position:relative;
+  z-index:2;
 }
 
 /* Final readability lock.
@@ -16942,6 +17019,13 @@ body.dark-mode{
   --ob-readable-text:#f8fbff;
   --ob-readable-sub:#e3ebf5;
   --ob-readable-muted:#cbd6e3;
+  --ob-readable-button:#f8fbff;
+  --ob-readable-field:#f8fbff;
+}
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="night"]{
+  --ob-readable-text:#f8fbff;
+  --ob-readable-sub:#e8eff8;
+  --ob-readable-muted:#d3deeb;
   --ob-readable-button:#f8fbff;
   --ob-readable-field:#f8fbff;
 }
@@ -17813,9 +17897,9 @@ html body[data-ob-sheet-open="1"] .ob-app-root div[role="navigation"][aria-label
   display:none!important;
 }
 
-/* Clock lab nap sweet spot final lock: one-glance timing signal on top of
+/* Clock lab nap window final lock: one-glance timing signal on top of
    OBubba's existing prediction and learned wake-window data. */
-body[data-clock-home-lab="1"] .ob-app-root .ob-clock-sweet-spot-chip{
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-nap-window-chip{
   appearance:none!important;
   width:min(100%,318px)!important;
   max-width:calc(100% - 16px)!important;
@@ -17823,15 +17907,15 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-sweet-spot-chip{
   margin:0 auto!important;
   padding:8px 10px 9px!important;
   border-radius:14px!important;
-  border:1px solid color-mix(in srgb,var(--ob-clock-sweet-spot,#3FD889) 52%,rgba(255,255,255,0.18))!important;
+  border:1px solid color-mix(in srgb,var(--ob-clock-nap-window,#3FD889) 52%,rgba(255,255,255,0.18))!important;
   background:
-    radial-gradient(circle at 9% 18%,color-mix(in srgb,var(--ob-clock-sweet-spot,#3FD889) 22%,transparent),transparent 42%),
+    radial-gradient(circle at 9% 18%,color-mix(in srgb,var(--ob-clock-nap-window,#3FD889) 22%,transparent),transparent 42%),
     linear-gradient(180deg,rgba(14,17,28,0.92),rgba(7,10,19,0.92))!important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.10),
-    0 0 0 3px color-mix(in srgb,var(--ob-clock-sweet-spot,#3FD889) 16%,transparent),
+    0 0 0 3px color-mix(in srgb,var(--ob-clock-nap-window,#3FD889) 16%,transparent),
     0 10px 22px rgba(0,0,0,0.20),
-    0 0 24px var(--ob-clock-sweet-spot-glow,rgba(63,216,137,0.38))!important;
+    0 0 24px var(--ob-clock-nap-window-glow,rgba(63,216,137,0.38))!important;
   color:#F4E3C7!important;
   display:grid!important;
   grid-template-columns:14px minmax(0,1fr) auto!important;
@@ -17843,17 +17927,17 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-sweet-spot-chip{
   position:relative!important;
   z-index:3!important;
 }
-body[data-clock-home-lab="1"] .ob-app-root .ob-clock-sweet-spot-dot{
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-nap-window-dot{
   grid-area:dot!important;
   width:13px!important;
   height:13px!important;
   border-radius:999px!important;
-  background:var(--ob-clock-sweet-spot,#3FD889)!important;
+  background:var(--ob-clock-nap-window,#3FD889)!important;
   box-shadow:
-    0 0 0 4px color-mix(in srgb,var(--ob-clock-sweet-spot,#3FD889) 18%,transparent),
-    0 0 16px var(--ob-clock-sweet-spot-glow,rgba(63,216,137,0.50))!important;
+    0 0 0 4px color-mix(in srgb,var(--ob-clock-nap-window,#3FD889) 18%,transparent),
+    0 0 16px var(--ob-clock-nap-window-glow,rgba(63,216,137,0.50))!important;
 }
-body[data-clock-home-lab="1"] .ob-app-root .ob-clock-sweet-spot-chip b{
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-nap-window-chip b{
   grid-area:title!important;
   min-width:0!important;
   color:#F4E3C7!important;
@@ -17865,10 +17949,10 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-sweet-spot-chip b{
   text-overflow:ellipsis!important;
   white-space:nowrap!important;
 }
-body[data-clock-home-lab="1"] .ob-app-root .ob-clock-sweet-spot-chip em{
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-nap-window-chip em{
   grid-area:detail!important;
   min-width:0!important;
-  color:color-mix(in srgb,var(--ob-clock-sweet-spot,#3FD889) 78%,#F4E3C7)!important;
+  color:color-mix(in srgb,var(--ob-clock-nap-window,#3FD889) 78%,#F4E3C7)!important;
   font-size:11px!important;
   line-height:1.1!important;
   font-style:normal!important;
@@ -17876,7 +17960,7 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-sweet-spot-chip em{
   font-variant-numeric:tabular-nums!important;
   white-space:nowrap!important;
 }
-body[data-clock-home-lab="1"] .ob-app-root .ob-clock-sweet-spot-bar{
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-nap-window-bar{
   grid-area:bar!important;
   width:100%!important;
   height:7px!important;
@@ -17885,74 +17969,125 @@ body[data-clock-home-lab="1"] .ob-app-root .ob-clock-sweet-spot-bar{
   background:linear-gradient(90deg,rgba(155,167,182,0.38),rgba(63,216,137,0.34),rgba(242,184,75,0.34),rgba(255,94,110,0.34))!important;
   box-shadow:inset 0 1px 2px rgba(0,0,0,0.30)!important;
 }
-body[data-clock-home-lab="1"] .ob-app-root .ob-clock-sweet-spot-bar > span{
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-nap-window-bar > span{
   display:block!important;
   height:100%!important;
   width:0;
   min-width:7px!important;
   max-width:100%!important;
   border-radius:inherit!important;
-  background:var(--ob-clock-sweet-spot,#3FD889)!important;
-  box-shadow:0 0 14px var(--ob-clock-sweet-spot-glow,rgba(63,216,137,0.48))!important;
+  background:var(--ob-clock-nap-window,#3FD889)!important;
+  box-shadow:0 0 14px var(--ob-clock-nap-window-glow,rgba(63,216,137,0.48))!important;
   transition:width 0.35s ease, background-color 0.25s ease!important;
 }
-body[data-clock-home-lab="1"] .ob-app-root .ob-clock-sweet-spot-chip.is-ready{
-  animation:obClockSweetSpotPulse 2.4s ease-in-out infinite!important;
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-nap-window-chip.is-ready{
+  animation:obClockNapWindowPulse 2.4s ease-in-out infinite!important;
 }
-@keyframes obClockSweetSpotPulse{
-  0%,100%{box-shadow:inset 0 1px 0 rgba(255,255,255,0.10),0 0 0 3px color-mix(in srgb,var(--ob-clock-sweet-spot,#3FD889) 16%,transparent),0 10px 22px rgba(0,0,0,0.20),0 0 20px var(--ob-clock-sweet-spot-glow,rgba(63,216,137,0.36));}
-  50%{box-shadow:inset 0 1px 0 rgba(255,255,255,0.14),0 0 0 4px color-mix(in srgb,var(--ob-clock-sweet-spot,#3FD889) 24%,transparent),0 10px 22px rgba(0,0,0,0.20),0 0 30px var(--ob-clock-sweet-spot-glow,rgba(63,216,137,0.50));}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-nap-window-chip.is-overtired{
+  border:1.2px solid color-mix(in srgb,var(--ob-clock-nap-window,#F0B56A) 38%,rgba(255,255,255,0.16))!important;
+  background:
+    radial-gradient(circle at 9% 18%,color-mix(in srgb,var(--ob-clock-nap-window,#F0B56A) 14%,transparent),transparent 42%),
+    linear-gradient(180deg,rgba(18,26,42,0.92),rgba(9,13,24,0.92))!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.08),
+    0 0 0 2px color-mix(in srgb,var(--ob-clock-nap-window,#F0B56A) 10%,transparent),
+    0 8px 18px rgba(0,0,0,0.18),
+    0 0 16px color-mix(in srgb,var(--ob-clock-nap-window,#F0B56A) 18%,transparent)!important;
+}
+body.dark-mode .ob-app-root button.ob-clock-nap-window-chip.is-overtired,
+body[data-clock-home-lab="1"].dark-mode .ob-app-root button.ob-clock-nap-window-chip.is-overtired{
+  border:1.2px solid transparent!important;
+  background:
+    linear-gradient(180deg,rgba(18,29,47,0.94),rgba(9,14,25,0.94)) padding-box,
+    linear-gradient(135deg,rgba(244,214,166,0.50),rgba(240,181,106,0.32),rgba(255,244,224,0.14)) border-box!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,241,220,0.10),
+    inset 0 -1px 0 rgba(240,181,106,0.05),
+    0 0 0 0.5px rgba(240,181,106,0.08),
+    0 7px 16px rgba(0,0,0,0.20),
+    0 0 14px rgba(240,181,106,0.14)!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-nap-window-chip.is-overtired .ob-clock-nap-window-dot{
+  opacity:0.9!important;
+  box-shadow:
+    0 0 0 3px color-mix(in srgb,var(--ob-clock-nap-window,#F0B56A) 14%,transparent),
+    0 0 10px color-mix(in srgb,var(--ob-clock-nap-window,#F0B56A) 26%,transparent)!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-nap-window-chip.is-overtired .ob-clock-nap-window-bar,
+body.dark-mode .ob-app-root button.ob-clock-nap-window-chip.is-overtired .ob-clock-nap-window-bar{
+  height:6px!important;
+  background:linear-gradient(90deg,rgba(244,227,199,0.15),rgba(240,181,106,0.18))!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-nap-window-chip.is-overtired .ob-clock-nap-window-bar > span,
+body.dark-mode .ob-app-root button.ob-clock-nap-window-chip.is-overtired .ob-clock-nap-window-bar > span{
+  background:linear-gradient(90deg,#D7B577,#F0B56A)!important;
+  box-shadow:0 0 10px color-mix(in srgb,var(--ob-clock-nap-window,#F0B56A) 24%,transparent)!important;
+}
+@keyframes obClockNapWindowPulse{
+  0%,100%{box-shadow:inset 0 1px 0 rgba(255,255,255,0.10),0 0 0 3px color-mix(in srgb,var(--ob-clock-nap-window,#3FD889) 16%,transparent),0 10px 22px rgba(0,0,0,0.20),0 0 20px var(--ob-clock-nap-window-glow,rgba(63,216,137,0.36));}
+  50%{box-shadow:inset 0 1px 0 rgba(255,255,255,0.14),0 0 0 4px color-mix(in srgb,var(--ob-clock-nap-window,#3FD889) 24%,transparent),0 10px 22px rgba(0,0,0,0.20),0 0 30px var(--ob-clock-nap-window-glow,rgba(63,216,137,0.50));}
 }
 @media (prefers-reduced-motion:reduce){
-  body[data-clock-home-lab="1"] .ob-app-root .ob-clock-sweet-spot-chip.is-ready{
+  body[data-clock-home-lab="1"] .ob-app-root .ob-clock-nap-window-chip.is-ready{
     animation:none!important;
   }
 }
-body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-sweet-spot-chip{
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-nap-window-chip{
   background:
-    radial-gradient(circle at 9% 18%,color-mix(in srgb,var(--ob-clock-sweet-spot,#3FD889) 19%,transparent),transparent 42%),
+    radial-gradient(circle at 9% 18%,color-mix(in srgb,var(--ob-clock-nap-window,#3FD889) 19%,transparent),transparent 42%),
     linear-gradient(180deg,rgba(255,253,249,0.86),rgba(241,250,253,0.72))!important;
-  border-color:color-mix(in srgb,var(--ob-clock-sweet-spot,#3FD889) 46%,rgba(255,255,255,0.74))!important;
+  border-color:color-mix(in srgb,var(--ob-clock-nap-window,#3FD889) 46%,rgba(255,255,255,0.74))!important;
   color:#403640!important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.86),
-    0 0 0 3px color-mix(in srgb,var(--ob-clock-sweet-spot,#3FD889) 13%,transparent),
+    0 0 0 3px color-mix(in srgb,var(--ob-clock-nap-window,#3FD889) 13%,transparent),
     0 8px 18px rgba(65,84,104,0.10),
-    0 0 20px color-mix(in srgb,var(--ob-clock-sweet-spot,#3FD889) 18%,transparent)!important;
+    0 0 20px color-mix(in srgb,var(--ob-clock-nap-window,#3FD889) 18%,transparent)!important;
 }
-body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-sweet-spot-chip b{
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-nap-window-chip b{
   color:#403640!important;
   text-shadow:0 1px 0 rgba(255,255,255,0.66)!important;
 }
-body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-sweet-spot-chip em{
-  color:color-mix(in srgb,var(--ob-clock-sweet-spot,#3FD889) 70%,#4E4551)!important;
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-nap-window-chip em{
+  color:color-mix(in srgb,var(--ob-clock-nap-window,#3FD889) 70%,#4E4551)!important;
 }
-body[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn.is-sweet-spot{
-  border-color:color-mix(in srgb,var(--ob-clock-sweet-spot,#3FD889) 70%,rgba(255,255,255,0.16))!important;
+body[data-clock-home-lab="1"][data-clock-home-lab-theme="day"] .ob-app-root .ob-clock-nap-window-chip.is-overtired{
+  background:
+    radial-gradient(circle at 9% 18%,color-mix(in srgb,var(--ob-clock-nap-window,#F0B56A) 13%,transparent),transparent 42%),
+    linear-gradient(180deg,rgba(255,253,249,0.88),rgba(246,248,248,0.74))!important;
+  border-color:color-mix(in srgb,var(--ob-clock-nap-window,#F0B56A) 34%,rgba(255,255,255,0.84))!important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.86),
+    0 0 0 2px color-mix(in srgb,var(--ob-clock-nap-window,#F0B56A) 10%,transparent),
+    0 8px 16px rgba(65,84,104,0.09),
+    0 0 14px color-mix(in srgb,var(--ob-clock-nap-window,#F0B56A) 14%,transparent)!important;
+}
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn.is-nap-window{
+  border-color:color-mix(in srgb,var(--ob-clock-nap-window,#3FD889) 70%,rgba(255,255,255,0.16))!important;
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.12),
-    0 0 0 1px color-mix(in srgb,var(--ob-clock-sweet-spot,#3FD889) 28%,transparent),
-    0 0 24px var(--ob-clock-sweet-spot-glow,rgba(63,216,137,0.40)),
+    0 0 0 1px color-mix(in srgb,var(--ob-clock-nap-window,#3FD889) 28%,transparent),
+    0 0 24px var(--ob-clock-nap-window-glow,rgba(63,216,137,0.40)),
     0 14px 28px rgba(0,0,0,0.24)!important;
 }
-body[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn.is-sweet-spot .ob-clock-log-badge{
-  background:color-mix(in srgb,var(--ob-clock-sweet-spot,#3FD889) 22%,rgba(255,255,255,0.08))!important;
-  border-color:color-mix(in srgb,var(--ob-clock-sweet-spot,#3FD889) 58%,rgba(255,255,255,0.16))!important;
-  color:color-mix(in srgb,var(--ob-clock-sweet-spot,#3FD889) 72%,#FFF4D5)!important;
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn.is-nap-window .ob-clock-log-badge{
+  background:color-mix(in srgb,var(--ob-clock-nap-window,#3FD889) 22%,rgba(255,255,255,0.08))!important;
+  border-color:color-mix(in srgb,var(--ob-clock-nap-window,#3FD889) 58%,rgba(255,255,255,0.16))!important;
+  color:color-mix(in srgb,var(--ob-clock-nap-window,#3FD889) 72%,#FFF4D5)!important;
 }
-body[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn.is-sweet-spot[data-sweet-spot="ready"] .ob-clock-log-icon{
+body[data-clock-home-lab="1"] .ob-app-root .ob-clock-log-btn.is-nap-window[data-nap-window="ready"] .ob-clock-log-icon{
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.12),
     inset 0 -8px 18px rgba(2,8,18,0.24),
-    0 0 0 1px color-mix(in srgb,var(--ob-clock-sweet-spot,#3FD889) 24%,rgba(16,25,38,0.74)),
-    0 0 18px var(--ob-clock-sweet-spot-glow,rgba(63,216,137,0.44))!important;
+    0 0 0 1px color-mix(in srgb,var(--ob-clock-nap-window,#3FD889) 24%,rgba(16,25,38,0.74)),
+    0 0 18px var(--ob-clock-nap-window-glow,rgba(63,216,137,0.44))!important;
 }
 @media (max-width:380px){
-  body[data-clock-home-lab="1"] .ob-app-root .ob-clock-sweet-spot-chip{
+  body[data-clock-home-lab="1"] .ob-app-root .ob-clock-nap-window-chip{
     grid-template-columns:13px minmax(0,1fr)!important;
     grid-template-areas:"dot title" "dot detail" "bar bar"!important;
   }
-  body[data-clock-home-lab="1"] .ob-app-root .ob-clock-sweet-spot-chip em{
+  body[data-clock-home-lab="1"] .ob-app-root .ob-clock-nap-window-chip em{
     justify-self:start!important;
     font-size:10.5px!important;
   }

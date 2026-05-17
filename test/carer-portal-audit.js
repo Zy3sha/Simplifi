@@ -117,7 +117,7 @@ assert("parent app rotates Bubba Care share sessions for fresh links and QR code
   app.includes("async function startCarerSessionForToken(tokenData)") &&
   app.includes("activeToken: tokenData.token") &&
   app.includes("tokenData.previousToken") &&
-  (app.match(/ensureSyncedCarerToken\(\{rotate:true\}\)/g) || []).length >= 3 &&
+  (app.match(/ensureSyncedCarerToken\(\{rotate:true\}\)/g) || []).length >= 2 &&
   app.includes("revokedAtMs: Date.now()"));
 assert("parent app opens a real Bubba Care preview with a live synced link",
   app.includes("async function previewCareCard()") &&
@@ -127,15 +127,14 @@ assert("parent app opens a real Bubba Care preview with a live synced link",
   app.includes('const previewCareUrl = (() => {') &&
   app.includes('text: name + "\'s care guide from OBubba" + (previewCareUrl ? "\\n\\n" + previewCareUrl : "")'));
 assert("parent app Bubba Care preview and link buttons work in touch webviews",
-  app.includes("async function sendCareLink()") &&
   app.includes("function runCarerActionOnce(key, action)") &&
   app.includes('const[carePortalReadyUrl,setCarePortalReadyUrl]=useState("");') &&
-  app.includes('Open live Bubba Care preview') &&
+  app.includes('Live Bubba Care link ready') &&
   app.includes('await ensureSyncedCarerToken({rotate:false, startSession:true});') &&
   app.includes('onPointerUp={e=>{e.preventDefault();e.stopPropagation();haptic();runCarerActionOnce("preview", previewCareCard);}}') &&
   app.includes('onTouchEnd={e=>{e.preventDefault();e.stopPropagation();haptic();runCarerActionOnce("preview", previewCareCard);}}') &&
-  app.includes('onPointerUp={e=>{e.preventDefault();e.stopPropagation();haptic();runCarerActionOnce("send-link", sendCareLink);}}') &&
-  app.includes('onTouchEnd={e=>{e.preventDefault();e.stopPropagation();haptic();runCarerActionOnce("send-link", sendCareLink);}}') &&
+  !app.includes('runCarerActionOnce("send-link", sendCareLink)') &&
+  !app.includes("Send Link (no QR needed)") &&
   app.includes('const controller = typeof AbortController !== "undefined" ? new AbortController() : null;') &&
   app.includes('setTimeout(() => controller.abort(), 4000)'));
 assert("parent app waits for auth and has REST fallbacks before creating Bubba Care links",

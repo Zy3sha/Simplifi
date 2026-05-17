@@ -343,6 +343,30 @@ assert(
 );
 
 assert(
+  "child sync identity repair is account-scoped before adding this device as a participant",
+  app.includes('const localOwner = normaliseUsername((localStorage.getItem("ob_children_owner") || localStorage.getItem("ob_auth_username") || "").toString());') &&
+    app.includes('const localOwnerBackup = String(localStorage.getItem("ob_children_owner_code") || localStorage.getItem("ob_auth_backup_code") || "").trim().toUpperCase();') &&
+    app.includes("if (localOwner && currentUser && localOwner !== currentUser) return false;") &&
+    app.includes("if (localOwnerBackup && currentBackup && localOwnerBackup !== currentBackup) return false;") &&
+    app.includes('if (_existingUsername && key && _existingUsername !== key) _isAccountSwitch = true;')
+);
+
+assert(
+  "child sync sharing is organised around access first and invite details stay hidden",
+  app.includes("const [showInviteDetails, setShowInviteDetails] = React.useState(false);") &&
+    app.includes("const isOwnerShare = !!isShared && (") &&
+    app.includes("syncMeta={code ? (childSyncMeta[code] || childSyncMeta[cid] || null) : null}") &&
+    app.includes("{!isOwnerShare && <div") &&
+    app.includes('child-sync-manage-access-card') &&
+    app.includes('People with access') &&
+    app.includes('Replace invite and remove current access') &&
+    app.includes('Invite someone') &&
+    app.includes('The current link will stop working for everyone listed.') &&
+    !app.includes('Show QR/code') &&
+    !app.includes('Sync code</div>')
+);
+
+assert(
   "synced active nap timers stay live even when an older build wrote a moving end time",
   app.includes("if (e._active === true) return true;") &&
     app.includes("Older builds could leave a moving `end` on an active nap") &&
@@ -396,6 +420,9 @@ assert(
 assert(
   "regenerating a child sync code verifies or repairs the old code before creating the replacement",
   app.includes("async function ensureCurrentUserCanRetireChildSyncCode(childId, code, ownerUid)") &&
+    app.includes("async function _syncCurrentUidBackupChildCode(childId, code, codesOverride)") &&
+    app.includes("if(backupForRules) payload.backupCode = backupForRules;") &&
+    app.includes("try { await _syncCurrentUidBackupChildCode(childId, currentCode); } catch {}") &&
     app.includes("const restoredDoc = await restoreMissingChildSyncDocument(childId, clean") &&
     app.includes("const claimed = await claimChildSyncBackupOwner(childId || data.childId, clean, data);") &&
     app.includes("const claimedLegacy = await claimLegacyChildSyncOwner(clean, data);") &&

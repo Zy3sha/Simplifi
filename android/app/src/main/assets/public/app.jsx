@@ -87,7 +87,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 // Fix iOS double-tap delay: tell browser not to wait for zoom gesture on interactive elements
 (function(){
   const s = document.createElement("style");
-  s.textContent = "html,body{overscroll-behavior:none!important;overflow-x:hidden!important;max-width:100vw!important;width:100%!important;touch-action:pan-y!important;margin:0!important;padding:0!important;}#root,.ob-app-root{width:100%!important;max-width:100%!important;overflow-x:hidden!important;}.ob-app-root *{min-width:0;}body{-webkit-overflow-scrolling:touch;position:relative;overflow-x:hidden!important;min-height:100vh!important;min-height:100dvh!important;}*{-webkit-overflow-scrolling:touch;box-sizing:border-box;}button,input,select,textarea,a,[role=button]{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}input,textarea,select{max-width:100%!important;box-sizing:border-box!important;}.ob-keyboard-safe-overlay{max-width:100vw!important;overflow-x:hidden!important;justify-content:center!important;box-sizing:border-box!important;}.ob-keyboard-safe-sheet,.ob-night-sheet-surface{max-width:100%!important;overflow-x:hidden!important;box-sizing:border-box!important;}";
+  s.textContent = "html,body{overscroll-behavior:none!important;overflow-x:hidden!important;max-width:100%!important;width:100%!important;touch-action:pan-y!important;margin:0!important;padding:0!important;}#root,.ob-app-root{width:100%!important;max-width:100%!important;overflow-x:hidden!important;}.ob-app-root *{min-width:0;}body{-webkit-overflow-scrolling:touch;position:relative;overflow-x:hidden!important;min-height:100vh!important;min-height:100dvh!important;}*{-webkit-overflow-scrolling:touch;box-sizing:border-box;}button,input,select,textarea,a,[role=button]{touch-action:manipulation;-webkit-tap-highlight-color:transparent;}input,textarea,select{max-width:100%!important;box-sizing:border-box!important;}.ob-keyboard-safe-overlay{max-width:100%!important;overflow-x:hidden!important;justify-content:center!important;box-sizing:border-box!important;}.ob-keyboard-safe-sheet,.ob-night-sheet-surface{max-width:100%!important;overflow-x:hidden!important;box-sizing:border-box!important;}";
   document.head.appendChild(s);
 	  // ── Scroll guard: prevent accidental button taps while scrolling ──
 	  // Only suppresses clicks that happen during an active scroll momentum.
@@ -1452,6 +1452,14 @@ function normaliseLogEntryTime(entry) {
     if (Number.isFinite(span) && span > 0 && span < 300 && (!Number.isFinite(currentDuration) || currentDuration !== span)) {
       next.duration = span;
     }
+  }
+  // Clamp feed amounts and breast minutes to prevent negative values corrupting totals
+  if (next.type === "feed") {
+    if (typeof next.amount === "number" && next.amount < 0) next.amount = 0;
+    if (typeof next.breastL === "number" && next.breastL < 0) next.breastL = 0;
+    if (typeof next.breastR === "number" && next.breastR < 0) next.breastR = 0;
+    if (typeof next.pumpL === "number" && next.pumpL < 0) next.pumpL = 0;
+    if (typeof next.pumpR === "number" && next.pumpR < 0) next.pumpR = 0;
   }
   return next;
 }
@@ -10117,9 +10125,10 @@ function OBubbaMascot({type="happy",size=120,alt="OBubba mascot",className="",st
 }
 // iPad / tablet breakpoints. Bumped from 720 → 760/840 on tablets so UI feels spacious
 // (Apple Guideline 4. iPad Air 11-inch M3 review flagged crowded layout at 720).
-const _isTablet = typeof window!=="undefined" && window.innerWidth >= 768;
-const _isLargeTablet = typeof window!=="undefined" && window.innerWidth >= 1024;
-const _maxW = _isLargeTablet ? 840 : _isTablet ? 760 : 520;
+let _isTablet = typeof window!=="undefined" && window.innerWidth >= 768;
+let _isLargeTablet = typeof window!=="undefined" && window.innerWidth >= 1024;
+let _maxW = _isLargeTablet ? 840 : _isTablet ? 760 : 520;
+if (typeof window !== "undefined") { try { window.addEventListener("resize", () => { _isTablet = window.innerWidth >= 768; _isLargeTablet = window.innerWidth >= 1024; _maxW = _isLargeTablet ? 840 : _isTablet ? 760 : 520; }, { passive: true }); } catch {} }
 // ── Responsive scaling system ──
 // Detects viewport width and provides scale-aware values for fonts, padding, spacing.
 // iPhone 15 (390px) = baseline 1.0. Samsung A series (360px) = 0.92. Pro Max (430px) = 1.1.
@@ -11338,34 +11347,46 @@ function UsernameSetForm({ normaliseUsername, reserveUsername, checkUsernameAvai
   );
 }
 
-function ChildSyncCard({ child, cid, code, isShared, participants, myUid, createChildSyncCode, regenerateChildSyncCode, unlinkChild, showToast, showConfirm, haptic, safeCopyText, trackEvent, C }) {
+function ChildSyncCard({ child, cid, code, isShared, participants, syncMeta, myUid, createChildSyncCode, regenerateChildSyncCode, unlinkChild, showToast, showConfirm, haptic, safeCopyText, trackEvent, C }) {
   const [newCode, setNewCode] = React.useState("");
   const [error, setError] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [showCreate, setShowCreate] = React.useState(false);
-  const [showRegen, setShowRegen] = React.useState(false);
-  const [regenCode, setRegenCode] = React.useState("");
   const [regenError, setRegenError] = React.useState("");
+  const [showInviteDetails, setShowInviteDetails] = React.useState(false);
   const childLabel = child.name || "your baby";
+  const myUsername = normaliseUsername((localStorage.getItem("family_username") || "").toString());
+  const syncOwnerUsername = normaliseUsername(((syncMeta && syncMeta.ownerUsername) || "").toString());
+  const syncOwnerUid = ((syncMeta && syncMeta.ownerUid) || "").toString();
+  const isOwnerShare = !!isShared && (
+    (syncOwnerUid && myUid && syncOwnerUid === myUid) ||
+    (syncOwnerUsername && myUsername && syncOwnerUsername === myUsername) ||
+    (!syncOwnerUid && !syncOwnerUsername && !!code)
+  );
   const visibleParticipants = React.useMemo(() => {
-    const mine = normaliseUsername((localStorage.getItem("family_username") || "").toString());
     const byPerson = new Map();
     (Array.isArray(participants) ? participants : []).forEach((p) => {
       if (!p || typeof p !== "object") return;
       const usernameKey = normaliseUsername((p.username || "").toString());
       const key = usernameKey || (p.uid ? "uid:" + p.uid : "");
       if (!key) return;
-      if ((myUid && p.uid === myUid) || (mine && usernameKey === mine)) return;
+      if ((myUid && p.uid === myUid) || (myUsername && usernameKey === myUsername)) return;
       const previous = byPerson.get(key);
       const previousMs = previous ? safeTimestampMs(previous.joinedAt, 0) : 0;
       const nextMs = safeTimestampMs(p.joinedAt, 0);
       if (!previous || nextMs >= previousMs) byPerson.set(key, p);
     });
     return Array.from(byPerson.values()).slice(-6);
-  }, [participants, myUid]);
+  }, [participants, myUid, myUsername]);
   const inviteUrl = code ? buildChildSyncInviteUrl(code) : "";
-  const inviteQrUrl = inviteUrl ? `https://api.qrserver.com/v1/create-qr-code/?size=190x190&data=${encodeURIComponent(inviteUrl)}&bgcolor=FFFCF9` : "";
   const inviteText = code ? `I'm using OBubba to track ${child.name||"baby"}'s feeds, nappies and sleep.\n\nTap this invite link to join ${child.name||"baby"}'s tracker:\n${inviteUrl}\n\nIf OBubba asks for a code, use: ${code}` : "";
+  const hasExternalAccess = visibleParticipants.length > 0;
+  function friendlyRegenError(message) {
+    const raw = String(message || "");
+    if(/verify|restore ownership|old code/i.test(raw)) return "OBubba couldn't replace this invite yet. Make sure the app says Synced, then try again.";
+    if(/connection|No connection|warming/i.test(raw)) return "OBubba couldn't reach sync yet. Check your connection, then try again.";
+    return raw || "OBubba couldn't replace this invite yet. Try again in a moment.";
+  }
 
   async function shareChildInvite() {
     try{trackEvent&&trackEvent("partner_invite_tapped",{method:"native_share"});}catch{}
@@ -11400,8 +11421,8 @@ function ChildSyncCard({ child, cid, code, isShared, participants, myUid, create
     setLoading(true);
     const result = await regenerateChildSyncCode(cid); // auto-generates new code
     setLoading(false);
-    if(result.ok) { setRegenCode(""); setShowRegen(false); haptic("medium"); showToast("New code generated \u2014 old partner link is now broken", 2500, 1); }
-    else { setRegenError(result.error); }
+      if(result.ok) { setShowInviteDetails(false); haptic("medium"); showToast("Invite replaced \u2014 old access removed", 2500, 1); }
+    else { setRegenError(friendlyRegenError(result.error)); }
   }
 
   return (
@@ -11424,93 +11445,49 @@ function ChildSyncCard({ child, cid, code, isShared, participants, myUid, create
       {/* ── Shared: show code + actions ── */}
       {isShared && (
         <>
-          <div data-testid="child-sync-invite-profile-card" style={{position:"relative",overflow:"hidden",background:"linear-gradient(145deg,#15132F 0%,#121B31 48%,#07101F 100%)",border:"1px solid rgba(225,158,132,0.36)",borderRadius:22,padding:"18px 16px 16px",marginBottom:10,boxShadow:"0 18px 46px rgba(7,12,28,0.34), inset 0 1px 0 rgba(255,255,255,0.08)",color:"#FFF8F1"}}>
-            <div aria-hidden="true" style={{position:"absolute",inset:"-35% -20% auto",height:180,background:"radial-gradient(circle at 50% 45%, rgba(159,137,255,0.28), transparent 62%)",pointerEvents:"none"}}/>
-            <div aria-hidden="true" style={{position:"absolute",left:22,top:18,width:4,height:26,borderRadius:99,background:"rgba(210,206,255,0.72)"}}/>
-            <div style={{position:"relative",display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
-              <OBubbaMascot type="happy" size={78} alt="OBubba" style={{flexShrink:0}}/>
-              <div style={{minWidth:0}}>
-                <div style={{fontSize:10,fontFamily:_fM,color:"rgba(202,237,255,0.78)",textTransform:"uppercase",letterSpacing:_ls08,fontWeight:800,marginBottom:4}}>Family invite</div>
-                <div style={{fontFamily:"Georgia,serif",fontSize:22,fontWeight:800,lineHeight:1.08,color:"#FFF8F1",letterSpacing:0}}>Share {childLabel}'s OBubba profile</div>
+          <div data-testid="child-sync-manage-access-card" style={{background:"var(--card-bg-alt)",border:"1px solid "+C.blush,borderRadius:12,padding:"10px 12px",marginBottom:8}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,marginBottom:8}}>
+              <div>
+                <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:700}}>People with access</div>
+                <div style={{fontSize:12,color:C.mid,marginTop:2}}>They can see and add logs for {child.name||"this child"} only.</div>
               </div>
+              <span aria-hidden="true" style={{fontSize:18}}>🔒</span>
             </div>
-            <div style={{position:"relative",fontSize:13,color:"rgba(237,244,255,0.78)",lineHeight:1.48,marginBottom:14,fontWeight:650}}>Invite someone you trust to co-log feeds, naps, nappies and soothing notes for this child only.</div>
-            <div style={{position:"relative",display:"grid",gridTemplateColumns:"minmax(116px, 154px) 1fr",gap:14,alignItems:"center"}}>
-              <div style={{background:"#FFFCF9",borderRadius:18,padding:10,border:"1px solid rgba(255,255,255,0.75)",boxShadow:"0 0 0 7px rgba(129,118,215,0.16), 0 16px 34px rgba(0,0,0,0.26)"}}>
-                {inviteQrUrl ? (
-                  <img src={inviteQrUrl} alt="" style={{display:"block",width:"100%",aspectRatio:"1 / 1",objectFit:"cover",borderRadius:10}}/>
-                ) : (
-                  <div style={{width:"100%",aspectRatio:"1 / 1",borderRadius:10,display:"flex",alignItems:"center",justifyContent:"center",color:C.lt,fontSize:12,fontWeight:800}}>QR</div>
-                )}
-              </div>
-              <div style={{minWidth:0}}>
-                <div style={{fontSize:11,color:"rgba(202,237,255,0.76)",fontFamily:_fM,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:6}}>Scan or send</div>
-                <div style={{fontFamily:_fM,fontSize:21,fontWeight:800,color:"#F3C49E",letterSpacing:"0.16em",marginBottom:12,wordBreak:"break-word"}}>{code}</div>
-                <button onClick={shareChildInvite} style={{width:"100%",minHeight:42,borderRadius:99,border:"1px solid rgba(205,229,255,0.44)",background:"linear-gradient(135deg,#CDE9FF,#A798FF)",color:"#15132F",fontSize:14,fontWeight:900,fontFamily:_fI,cursor:_cP,boxShadow:"0 0 22px rgba(157,210,255,0.28)"}}>Send invite</button>
-              </div>
-            </div>
-          </div>
-          <div style={{background:"var(--card-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderRadius:10,padding:"10px 12px",display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6,border:"1px solid var(--card-border)",boxShadow:"var(--card-shadow)"}}>
-            <div>
-              <div style={{fontSize:11,fontFamily:_fM,color:"var(--mint)",textTransform:"uppercase",letterSpacing:_ls08,marginBottom:2}}>Sync code</div>
-              <div style={{fontFamily:_fM,fontSize:24,fontWeight:700,color:C.ter,letterSpacing:"0.18em"}}>{code}</div>
-            </div>
-            <div style={{display:"flex",gap:6,flexWrap:"wrap",justifyContent:"flex-end"}}>
-	              <button onClick={()=>{try{trackEvent&&trackEvent("partner_invite_tapped",{method:"copy_link"});}catch{} safeCopyText && safeCopyText(buildChildSyncInviteUrl(code),"Invite link copied ✓");}} style={{padding:"6px 12px",borderRadius:99,border:`1px solid ${C.blush}`,background:"var(--card-bg-solid)",fontSize:12,fontWeight:600,color:C.mid,cursor:_cP,fontFamily:_fI}}>
-                Copy link
-	              </button>
-	              <button onClick={()=>{
-	                try{trackEvent&&trackEvent("partner_invite_tapped",{method:"email"});}catch{}
-	                const subj = `Join me tracking ${child.name||"baby"} on OBubba`;
-	                const inviteUrl = buildChildSyncInviteUrl(code);
-	                const body = `Hi!\n\nI'm using OBubba to track ${child.name||"baby"}'s feeds, nappies and sleep. I'd love for you to see it too.\n\nTap this invite link and OBubba will open ready to join ${child.name||"baby"}'s tracker:\n${inviteUrl}\n\nIf the app asks for a code, use: ${code}\n\nYou'll see the same data I see, and anything you log will sync to me too.\n\n💛`;
-	                try { window.location.href = safeMailtoHref("", subj, body); } catch(_){}
-	              }} style={{padding:"6px 12px",borderRadius:99,border:`1px solid ${C.sky}40`,background:"rgba(122,171,196,0.12)",fontSize:12,fontWeight:600,color:C.sky,cursor:_cP,fontFamily:_fI}}>
-                ✉ Email
-              </button>
-              <button onClick={async()=>{
-                await shareChildInvite();
-              }} style={{padding:"6px 12px",borderRadius:99,border:`1px solid ${C.mint}`,background:"rgba(155,184,168,0.12)",fontSize:12,fontWeight:600,color:C.mint,cursor:_cP,fontFamily:_fI}}>
-                Share ↗
-              </button>
-            </div>
-          </div>
-          <div style={{fontSize:12,color:C.lt,marginBottom:6}}>Share the invite link with a co-parent. It opens OBubba ready to join this baby; the code stays here as a fallback. Change it anytime to stop sharing.</div>
-
-          {/* ── WHO HAS JOINED ─────────────────────────────────
-              Backend was already writing this to child_syncs on join
-              (line ~8270) but the UI never read it. Now the card shows
-              every device/account that's joined this baby's code, with a
-              joined date and a subtle "you" marker on your own entry.
-              Filtered to exclude the code owner — the owner sees their
-              own children elsewhere and doesn't need to see themselves
-              as a "participant". */}
-          {visibleParticipants.length > 0 && (
-            <div style={{background:"var(--card-bg-alt)",border:"1px solid "+C.blush,borderRadius:10,padding:"8px 12px",marginBottom:8}}>
-              <div style={{fontSize:10,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:"0.06em",fontWeight:700,marginBottom:4}}>
-                👥 {visibleParticipants.length} joined
-              </div>
-              {visibleParticipants.map((p, i)=>{
+            {hasExternalAccess ? (
+              visibleParticipants.map((p, i)=>{
                 const _joined = p.joinedAt ? (()=>{ try { const ms=safeTimestampMs(p.joinedAt, NaN); if(!Number.isFinite(ms)) return ""; const d=new Date(ms); return d.toLocaleDateString(undefined,{day:"numeric",month:"short"}); } catch { return ""; } })() : "";
                 return (
-                  <div key={normaliseUsername((p.username || "").toString()) || p.uid || i} style={{fontSize:12,color:C.mid,padding:"3px 0",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                    <span style={{fontWeight:600,color:C.deep}}>{p.username || "Unknown device"}</span>
-                    {_joined && <span style={{fontSize:10,color:C.lt}}>joined {_joined}</span>}
+                  <div key={normaliseUsername((p.username || "").toString()) || p.uid || i} style={{fontSize:13,color:C.mid,padding:"5px 0",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10,borderTop:i===0?"none":"1px solid rgba(255,255,255,0.08)"}}>
+                    <span style={{fontWeight:800,color:C.deep,overflow:"hidden",textOverflow:"ellipsis"}}>{p.username || "Unknown device"}</span>
+                    {_joined && <span style={{fontSize:11,color:C.lt,whiteSpace:"nowrap"}}>{_joined}</span>}
                   </div>
                 );
-              })}
+              })
+            ) : (
+              <div style={{fontSize:13,color:C.mint,fontWeight:800,padding:"6px 0"}}>Only you right now.</div>
+            )}
+          </div>
+          {hasExternalAccess && (
+            <div style={{fontSize:12,color:C.gold,background:"rgba(212,168,85,0.08)",border:"1px solid rgba(212,168,85,0.24)",borderRadius:10,padding:"9px 10px",marginBottom:8,lineHeight:1.45}}>
+              If you do not recognise someone, replace the invite. The old link stops working and only the new invite can be used.
             </div>
           )}
-          <div style={{fontSize:11,color:C.mint,background:"rgba(111,168,152,0.07)",border:"1px solid rgba(111,168,152,0.2)",borderRadius:8,padding:"8px 10px",marginBottom:8,lineHeight:1.5}}>
-            <strong style={{color:C.mid}}>🔒 Per-child sharing.</strong> Whoever uses this code will see <strong style={{color:C.deep}}>{child.name||"this child"}</strong> only. They will not see any other children on your account. Perfect for blended families and co-parents who each have other children.
-          </div>
 
-          {/* ── Regenerate code (one tap) ── */}
           {regenError && <div style={{fontSize:12,color:C.ter,marginBottom:6,textAlign:"center"}}>{regenError}</div>}
-          <div style={{display:"flex",gap:8,alignItems:"center",flexWrap:"wrap"}}>
-            <button onClick={()=>{showConfirm("Generate a new code?","This will break the current partner link. Your partner will need the new code to reconnect.",handleRegen);}} disabled={loading} style={{fontSize:12,color:C.lt,background:"var(--card-bg)",border:`1px solid var(--card-border)`,borderRadius:99,padding:"4px 12px",cursor:_cP,fontFamily:_fI}}>
-              {loading?"Generating...":"Regenerate code"}
+          <div style={{display:"grid",gap:8}}>
+            <button onClick={()=>{showConfirm("Replace this invite?","The current link will stop working for everyone listed. You can send the new invite only to people you trust.",handleRegen);}} disabled={loading} style={{width:"100%",fontSize:13,color:"#15132F",background:"linear-gradient(135deg,#F5D7A6,#D4A855)",border:_bN,borderRadius:99,padding:"10px 14px",cursor:_cP,fontFamily:_fI,fontWeight:900}}>
+              {loading?"Replacing invite...":"Replace invite and remove current access"}
             </button>
+            <button onClick={()=>setShowInviteDetails(v=>!v)} style={{width:"100%",fontSize:12,color:C.mid,background:"var(--card-bg)",border:`1px solid ${C.blush}`,borderRadius:99,padding:"9px 14px",cursor:_cP,fontFamily:_fI,fontWeight:800}}>
+              {showInviteDetails ? "Hide invite details" : "Invite someone"}
+            </button>
+            {showInviteDetails && (
+              <div style={{background:"rgba(255,255,255,0.06)",border:`1px solid ${C.blush}`,borderRadius:12,padding:"10px 12px",display:"grid",gap:8}}>
+                <div style={{fontSize:11,color:C.lt,lineHeight:1.45}}>Send this privately. Anyone with the invite can join {child.name||"this child"}'s logs.</div>
+                <div style={{fontFamily:_fM,fontSize:16,fontWeight:800,color:C.ter,letterSpacing:"0.12em",wordBreak:"break-word"}}>{code}</div>
+                <button onClick={shareChildInvite} style={{width:"100%",minHeight:38,borderRadius:99,border:`1px solid ${C.mint}`,background:"rgba(155,184,168,0.12)",fontSize:13,fontWeight:900,color:C.mint,cursor:_cP,fontFamily:_fI}}>Send invite</button>
+              </div>
+            )}
           </div>
         </>
       )}
@@ -11522,7 +11499,7 @@ function ChildSyncCard({ child, cid, code, isShared, participants, myUid, create
           shared gate so every child card can be removed regardless of sync
           state. Uses showConfirm because this deletes all local data for the
           child and adds them to the persistent ob_removed_child_ids blacklist. */}
-      <div style={{display:"flex",justifyContent:"flex-end",marginTop:isShared?6:8,paddingTop:isShared?6:0,borderTop:isShared?`1px solid ${C.blush}`:"none"}}>
+      {!isOwnerShare && <div style={{display:"flex",justifyContent:"flex-end",marginTop:isShared?6:8,paddingTop:isShared?6:0,borderTop:isShared?`1px solid ${C.blush}`:"none"}}>
         <button onClick={()=>{
           showConfirm(
             "Remove "+(child.name||"this child")+" from my app?",
@@ -11533,7 +11510,7 @@ function ChildSyncCard({ child, cid, code, isShared, participants, myUid, create
         }} style={{fontSize:12,color:"#e8574a",background:"rgba(232,87,74,0.06)",border:"1px solid rgba(232,87,74,0.25)",cursor:_cP,padding:"5px 12px",borderRadius:99,fontFamily:_fI,fontWeight:600}}>
           🗑 Remove from my app
         </button>
-      </div>
+      </div>}
     </div>
   );
 }
@@ -11814,7 +11791,63 @@ function normaliseSleepCoachState(value) {
   return { style, startDate };
 }
 
+function obubbaDownloadStoreUrl() {
+  try {
+    const url = obubbaStoreUrlForDevice();
+    if (url && url !== OBUBBA_DOWNLOAD_URL) return url;
+  } catch {}
+  return OBUBBA_APP_STORE_URL;
+}
+
+function shouldShowObubbaDownloadLanding() {
+  try {
+    if (window._isNative) return false;
+    if (window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()) return false;
+    const params = new URLSearchParams(window.location.search || "");
+    if (params.get("downloadGatePreview") === "1") return true;
+    if (params.get("webApp") === "1" || params.has("codexSmoke") || params.has("viewportAudit")) return false;
+    const host = String(window.location.hostname || "").toLowerCase();
+    const path = String(window.location.pathname || "/").replace(/\/+$/, "") || "/";
+    return (host === "obubba.com" || host === "www.obubba.com") && (path === "/" || path === "/index.html");
+  } catch {
+    return false;
+  }
+}
+
+function dismissObubbaInitialSplash(delay = 0) {
+  try {
+    const splash = document.getElementById("ob-splash");
+    if (!splash) return;
+    setTimeout(() => {
+      try {
+        splash.style.transition = "opacity 0.25s ease";
+        splash.style.opacity = "0";
+        setTimeout(() => {
+          try { splash.remove(); } catch {}
+        }, 260);
+      } catch {}
+    }, delay);
+  } catch {}
+}
+
+function ObubbaDownloadLanding() {
+  React.useEffect(() => {
+    dismissObubbaInitialSplash(80);
+  }, []);
+  const storeUrl = obubbaDownloadStoreUrl();
+  return (
+    <main className="ob-download-landing" aria-label="Download OBubba">
+      <div className="ob-download-landing-inner">
+        <img src="obubba-happy.png" alt="" width="116" height="116"/>
+        <div className="ob-brand-title">OBubba</div>
+        <a className="ob-download-now" href={storeUrl}>Download now</a>
+      </div>
+    </main>
+  );
+}
+
 function App(){
+  if (shouldShowObubbaDownloadLanding()) return <ObubbaDownloadLanding/>;
   const viewport=useResponsiveViewport();
   const[,setLocaleTick]=useState(0);
   const _i18n = (typeof window !== "undefined" && window.OBI18N) ? window.OBI18N : null;
@@ -11859,7 +11892,7 @@ function App(){
       setIsDark(document.body.classList.contains('dark-mode'));
       setThemeKey(k=>k+1);
     });
-    obs.observe(document.body,{attributes:true,attributeFilter:['class']});
+    obs.observe(document.body,{attributes:true,attributeFilter:['class','data-clock-home-lab-theme','data-clock-home-lab-forced-theme']});
     return()=>{obs.disconnect();window._themeCallback=null;};
   },[]);
 
@@ -18564,6 +18597,8 @@ function App(){
 
 	  const pushToCloud = React.useCallback(async(code, allChildren, opts = {}) => {
 	    if(!window._fb || !code || window._deletingAccount) return;
+	    // Block sync during account switch to prevent cross-account data leaks
+	    try { if (localStorage.getItem("ob_sync_blocked") === "1") { localStorage.removeItem("ob_sync_blocked"); return; } } catch {}
 	    const forceActiveTimer = !!(opts && opts.forceActiveTimer);
 	    if (shouldBlockLocalPreviewCloudWrite("families")) return;
     // Safety: never push blank/empty state to cloud (would wipe real data)
@@ -18605,7 +18640,7 @@ function App(){
 	    if (!forceActiveTimer && _elapsed < PUSH_MIN_INTERVAL) {
 	      // Queue a push for when the interval expires (only keep latest)
 	      clearTimeout(_pushQueued.current);
-	      _pushQueued.current = setTimeout(() => pushToCloud(code, allChildren), PUSH_MIN_INTERVAL - _elapsed + 100);
+	      _pushQueued.current = setTimeout(() => pushToCloud(code, childrenRef.current || allChildren), PUSH_MIN_INTERVAL - _elapsed + 100);
 	      return;
 	    }
 	    if (forceActiveTimer) clearTimeout(_pushQueued.current);
@@ -19822,7 +19857,7 @@ function App(){
     const dayKey = entry.date || todayStr();
     const sourceLabel = entry.loggedBy === "nursery" ? "nursery" : "carer";
     const sourceNote = String(entry.note || entry.text || "").trim();
-    const newEntry = {id:uid(), type:entry.type, time:entry.time, modifiedAt:Date.now(), loggedBy:sourceLabel, note:(sourceNote+" (logged by "+sourceLabel+")").trim()};
+    const newEntry = {id:uid(), type:entry.type, time:entry.time, modifiedAt:Date.now(), loggedBy:sourceLabel, carerEntryId:entry.carerEntryId||entry.id||"", note:(sourceNote+" (logged by "+sourceLabel+")").trim()};
     if(entry.type==="note") newEntry.text = sourceNote;
     if(entry.type==="feed") { newEntry.amount=entry.amount||0; newEntry.feedType=entry.feedType||"bottle"; }
     if(entry.type==="nappy") { newEntry.poopType=entry.poopType||"wet"; newEntry.type="poop"; }
@@ -20359,10 +20394,12 @@ function App(){
     try { ["bio_user","bio_pin","bio_enabled"].forEach(k => _nativePrefRemove(k).catch(()=>{})); } catch {}
 
     // ═══ RESET ALL REACT STATE ═══
+    // Block cloud sync during account switch to prevent pushing old data under new account
+    try { localStorage.setItem("ob_sync_blocked", "1"); } catch {}
     const blankChild = {id:uid(),name:"",dob:"",sex:"",unborn:false,days:{},weights:[],heights:[],photos:[],milestones:{}};
+    setBackupCode(null);
     setChildren({[blankChild.id]:blankChild});
     setActiveChildId(blankChild.id);
-    setBackupCode(null);
     setFamilyCode(null);
     setFamilyUsername(null);
     setSyncStatus("idle");
@@ -20820,6 +20857,12 @@ function App(){
   }
   async function rebindChildSyncIdentityForCurrentUser(codesOverride) {
     try {
+      const currentUser = normaliseUsername((familyUsername || localStorage.getItem("family_username") || "").toString());
+      const currentBackup = String(backupCodeRef.current || localStorage.getItem("backup_code") || "").trim().toUpperCase();
+      const localOwner = normaliseUsername((localStorage.getItem("ob_children_owner") || localStorage.getItem("ob_auth_username") || "").toString());
+      const localOwnerBackup = String(localStorage.getItem("ob_children_owner_code") || localStorage.getItem("ob_auth_backup_code") || "").trim().toUpperCase();
+      if (localOwner && currentUser && localOwner !== currentUser) return false;
+      if (localOwnerBackup && currentBackup && localOwnerBackup !== currentBackup) return false;
       const uid2 = await ensureFirebaseUid(5000);
       if(!uid2) return false;
       const codes = codesOverride && typeof codesOverride === "object"
@@ -21249,6 +21292,8 @@ function App(){
     let _isAccountSwitch = false;
     try {
       const _existingCode = backupCodeRef.current || localStorage.getItem("backup_code") || null;
+      const _existingUsername = normaliseUsername((familyUsername || localStorage.getItem("family_username") || "").toString());
+      if (_existingUsername && key && _existingUsername !== key) _isAccountSwitch = true;
       if (_existingCode && resolvedBackup && _existingCode !== resolvedBackup) _isAccountSwitch = true;
     } catch {}
     if(_isAccountSwitch && opts.resetAuthOnBackupSwitch !== false && !opts.authResetAlready) {
@@ -23045,7 +23090,7 @@ function App(){
       updatedAt: serverTimestamp ? serverTimestamp() : Date.now()
     };
     if(window._fbUid) {
-      try { await fsSet("uid_to_backup", window._fbUid, {childSyncCodes:_allCodes, updatedAt:serverTimestamp ? serverTimestamp() : Date.now()}, true); } catch(e){}
+      try { await _syncCurrentUidBackupChildCode(childId, code, _allCodes); } catch(e){}
     }
     if(ownerUsername) {
       try { const _k = normaliseUsername(ownerUsername); await fsSet("usernames", _k, {childSyncCodes:_allCodes}, true); } catch(e){}
@@ -23061,6 +23106,21 @@ function App(){
       localStorage.setItem(persistAtKey, String(Date.now()));
     } catch {}
     return _allCodes;
+	  }
+	  async function _syncCurrentUidBackupChildCode(childId, code, codesOverride) {
+	    const {serverTimestamp} = window._fb || {};
+	    const uid = window._fbUid || await ensureFirebaseUid(5000).catch(()=>"");
+	    const clean = safeChildSyncCodeParam(code);
+	    if(!uid || !childId || !clean) return false;
+	    const backupForRules = String(backupCodeRef.current || localStorage.getItem("backup_code") || "").trim().toUpperCase();
+	    const nextCodes = {..._parseChildSyncCodes(localStorage.getItem("child_sync_codes_v1")), ...(codesOverride || {}), [childId]: clean};
+	    const payload = {
+	      childSyncCodes: nextCodes,
+	      updatedAt: serverTimestamp ? serverTimestamp() : Date.now()
+	    };
+	    if(backupForRules) payload.backupCode = backupForRules;
+	    const ok = await fsSet("uid_to_backup", uid, payload, true);
+	    return !!ok;
 	  }
 		  async function ensureChildSyncParticipant(code, data) {
 		    const uid = await ensureFirebaseUid().catch(()=>"");
@@ -23105,6 +23165,7 @@ function App(){
 	  async function claimChildSyncBackupOwner(childId, code, data) {
 	    const uid = await ensureFirebaseUid(5000).catch(()=>"");
 	    if(!uid || !code || !data || data.ownerUid === uid) return data && data.ownerUid === uid;
+	    try { await _syncCurrentUidBackupChildCode(childId || data.childId || "", code); } catch {}
 	    const existingUids = Array.isArray(data.participantUids)
 	      ? data.participantUids.filter(Boolean)
 	      : (Array.isArray(data.participants) ? data.participants.map(p=>p&&p.uid).filter(Boolean) : []);
@@ -23253,8 +23314,9 @@ function App(){
 	      return {ok:false, replacementCode, error:replacementCode ? "This code was already replaced. ask your partner to use the newer link" : "This sync code is no longer active. create a fresh invite"};
 	    }
 	    if(data.ownerUid && data.ownerUid !== uid) {
+	      try { await _syncCurrentUidBackupChildCode(childId || data.childId || "", clean); } catch {}
 	      const claimed = await claimChildSyncBackupOwner(childId || data.childId, clean, data);
-	      if(!claimed) return {ok:false, error:"Could not verify this is your old code. tap Save now, then try regenerating again"};
+	      if(!claimed) return {ok:false, error:"Could not replace this invite yet. make sure the app is synced, then try again"};
 	      try {
 	        const fresh = await fsGet("child_syncs", clean);
 	        if(fresh.exists()) data = fresh.data() || data;
@@ -23428,6 +23490,7 @@ function App(){
 	    if(!ownerUid) return {ok:false, error:"Connection still warming up. try again in a moment"};
 	    const currentCode = safeChildSyncCodeParam(childSyncCodes[childId]);
     if(!currentCode) return {ok:false, error:"No existing code"};
+    try { await _syncCurrentUidBackupChildCode(childId, currentCode); } catch {}
     const oldCodeReady = await ensureCurrentUserCanRetireChildSyncCode(childId, currentCode, ownerUid);
     if(!oldCodeReady.ok) return {ok:false, error:oldCodeReady.error || "Could not verify the old code. try again"};
     let newCode;
@@ -24831,7 +24894,11 @@ function App(){
   // ── Widget data: push current-day summary to native WidgetKit ──
   // Data shape must match Swift WidgetData struct exactly
   React.useEffect(function() {
-    if (!babyName) return;
+    if (!babyName) {
+      // Clear widget data when no baby name to prevent stale displays
+      try { const _wb = window.Capacitor?.Plugins?.OBWidgetBridge; if (_wb?.setData) _wb.setData({json:"{}"}); } catch {}
+      return;
+    }
     try {
       // Widgets/Live Activities should reflect "right now", not whichever day
       // the parent is viewing. Using selDay here let yesterday's bedtime keep
@@ -34924,7 +34991,7 @@ function App(){
     const ctx=soundCtxRef.current||(soundCtxRef.current=new(window.AudioContext||window.webkitAudioContext)());
     if(ctx.state==="suspended") ctx.resume();
     const gain=ctx.createGain();
-    gain.gain.value=vol||soundVolume;
+    gain.gain.value=Math.max(0,Math.min(1,vol||soundVolume||0.5));
     gain.connect(ctx.destination);
     const nodes=[];
 
@@ -41190,23 +41257,6 @@ function App(){
     return finalHtml;
   }
 
-  async function sendCareLink() {
-    let _ctData = null;
-    let _url = carePortalReadyUrl || "";
-    try {
-      if (!_url) {
-        _ctData = await ensureSyncedCarerToken({rotate:true});
-        _url = safeCarePortalUrl(_ctData.token, resolvedActiveId || "");
-      }
-    } catch(e2) { showCareTokenError(e2); return; }
-    if(!_url) { showCareTokenError(new Error("Invalid Bubba Care token")); return; }
-    const _msg = "Here's the link to "+(babyName||"baby")+"'s Bubba Care. You can log feeds, naps and nappies:\n\n"+_url+"\n\n💛";
-    if(navigator.share){
-      try{await safeNavigatorShare({title:(babyName||"Baby")+"'s Bubba Care",text:_msg});}
-      catch(e3){if(e3.name!=="AbortError")safeCopyText(_url,"📋 Link copied!");}
-    } else safeCopyText(_url,"📋 Link copied!");
-  }
-
   async function shareCarerCard() {
     const name = babyName || "Baby";
     // Ensure CT token is in Firestore before sharing the link.
@@ -41379,7 +41429,7 @@ function App(){
 
     const d = document.createElement("div");
     d.id = "print-overlay";
-    d.style.cssText = "position:fixed;inset:0;z-index:99999;background:white;overflow:auto;-webkit-overflow-scrolling:touch;max-width:100vw;box-sizing:border-box;font-size:14px;line-height:1.5;-webkit-text-size-adjust:100%;";
+    d.style.cssText = "position:fixed;inset:0;z-index:99999;background:white;overflow:auto;-webkit-overflow-scrolling:touch;max-width:100%;box-sizing:border-box;font-size:14px;line-height:1.5;-webkit-text-size-adjust:100%;";
     document.body.appendChild(d);
 
     // Action bar
@@ -44795,7 +44845,10 @@ function App(){
 			      return _delta <= 15 && _delta >= -240;
 			    } catch { return false; }
 			  })();
-			  const clockHomeLabIsDay = clockHomeLabThemeOverride === "day" || (clockHomeLabThemeOverride !== "night" && !isDark && !clockHomeLabBedtimeSoonTheme);
+			  const clockHomeLabForcedThemeActive = (()=>{try{return document.body.getAttribute("data-clock-home-lab-forced-theme")==="1";}catch{return false;}})();
+			  const clockHomeLabPrevTheme = (()=>{try{return document.body.getAttribute("data-clock-home-lab-prev-theme")||"";}catch{return "";}})();
+			  const clockHomeLabBaseIsDark = clockHomeLabForcedThemeActive ? clockHomeLabPrevTheme === "dark" : isDark;
+			  const clockHomeLabIsDay = clockHomeLabThemeOverride === "day" || (clockHomeLabThemeOverride !== "night" && !clockHomeLabBaseIsDark && !clockHomeLabBedtimeSoonTheme);
 		  const clockHomeLabTheme = clockHomeLabIsDay ? "day" : "night";
 			  const clockPresencePreviewActive = (()=>{try{const p=new URLSearchParams(window.location.search||"");return p.get("presencePreview")==="1" || localStorage.getItem("ob_clock_presence_preview")==="1";}catch{return false;}})();
 			  const clockPresenceQueryLimit = 60;
@@ -44806,20 +44859,24 @@ function App(){
 		    try {
 		      const restoreClockLabTheme = () => {
 	        const prev = document.body.getAttribute("data-clock-home-lab-prev-theme") || "";
-	        if (!prev) return;
+	        if (!prev) { document.body.removeAttribute("data-clock-home-lab-forced-theme"); return; }
 	        document.body.classList.toggle("dark-mode", prev === "dark");
 	        document.body.classList.toggle("light-mode", prev !== "dark");
 	        document.body.removeAttribute("data-clock-home-lab-prev-theme");
+	        document.body.removeAttribute("data-clock-home-lab-forced-theme");
 	      };
-	      if (clockHomeLabEnabled && tab === "day") {
+	      if (clockHomeLabEnabled) {
 	        document.body.setAttribute("data-clock-home-lab","1");
 	        document.body.setAttribute("data-clock-home-lab-theme",clockHomeLabTheme);
-	        if (clockHomeLabThemeOverride) {
+	        if (clockHomeLabThemeOverride || clockHomeLabBedtimeSoonTheme) {
 	          if (!document.body.hasAttribute("data-clock-home-lab-prev-theme")) {
 	            document.body.setAttribute("data-clock-home-lab-prev-theme", document.body.classList.contains("dark-mode") ? "dark" : "light");
 	          }
+	          document.body.setAttribute("data-clock-home-lab-forced-theme","1");
 	          document.body.classList.toggle("dark-mode", clockHomeLabTheme === "night");
 	          document.body.classList.toggle("light-mode", clockHomeLabTheme === "day");
+	        } else {
+	          restoreClockLabTheme();
 	        }
 	      } else {
 	        document.body.removeAttribute("data-clock-home-lab");
@@ -44828,7 +44885,7 @@ function App(){
 	      }
 	      return ()=>{try{document.body.removeAttribute("data-clock-home-lab");document.body.removeAttribute("data-clock-home-lab-theme");restoreClockLabTheme();}catch{}};
 		    } catch {}
-		  }, [clockHomeLabEnabled, tab, clockHomeLabTheme, clockHomeLabThemeOverride]);
+		  }, [clockHomeLabEnabled, clockHomeLabTheme, clockHomeLabThemeOverride, clockHomeLabBedtimeSoonTheme]);
 		  React.useEffect(()=>{
 		    let pulseTimer = null;
 		    if (!clockHomeLabEnabled || tab !== "day" || !clockPresencePreviewActive) return ()=>{};
@@ -46341,6 +46398,7 @@ function App(){
       return {x:cx + r * Math.cos(rad), y:cy + r * Math.sin(rad)};
     };
     const arcPath = (startMins, endMins, radius) => {
+      if (!Number.isFinite(startMins) || !Number.isFinite(endMins) || !Number.isFinite(radius)) return "";
       const startAngle = (startMins % 1440) / 1440 * 360;
       const endAngle = (endMins % 1440) / 1440 * 360;
       const span = Math.max(5, endMins - startMins);
@@ -46961,7 +47019,7 @@ function App(){
 	      if (!clockCurrentWakeWindow || !clockLabIsToday || activeTimer) return null;
 	      try { return getOptimalWakeWindow(); } catch { return null; }
 	    })();
-	    const clockNapSweetSpot = (() => {
+	    const clockNapWindow = (() => {
 	      if (!clockLabIsToday || activeTimer || clockBedtimeLogged || !clockCurrentWakeWindow || !clockExpectedWakeWindow) return null;
 	      const hasNapAhead = !!(
 	        (nextEvent && nextEvent.type === "nap") ||
@@ -47007,25 +47065,25 @@ function App(){
 	      let glow = "rgba(155,167,182,0.36)";
 	      if (awake >= sweetStart && awake <= sweetEnd) {
 	        state = "ready";
-	        label = "Sweet spot";
+	        label = "Nap window";
 	        detail = "offer nap if cues fit";
-	        badge = "sweet spot";
+	        badge = "nap window";
 	        color = "#3FD889";
 	        glow = "rgba(63,216,137,0.52)";
 	      } else if (awake > sweetEnd && awake <= warningEnd) {
 	        state = "warning";
 	        label = "Watch cues";
-	        detail = hm(awake - sweetEnd) + " past sweet spot";
+	        detail = hm(awake - sweetEnd) + " past the nap window";
 	        badge = "watch cues";
 	        color = "#F2B84B";
 	        glow = "rgba(242,184,75,0.50)";
 	      } else if (awake > warningEnd) {
 	        state = "overtired";
-	        label = "Overtired risk";
-	        detail = "offer sleep if cues fit";
-	        badge = "overtired";
-	        color = "#FF5E6E";
-	        glow = "rgba(255,94,110,0.52)";
+	        label = "Sleep cues likely";
+	        detail = "start if sleepy";
+	        badge = "sleep cues";
+	        color = "#F0B56A";
+	        glow = "rgba(240,181,106,0.36)";
 	      }
 	      return {
 	        state,
@@ -47042,25 +47100,25 @@ function App(){
 	        canStart:state === "ready" || state === "warning" || state === "overtired"
 	      };
 	    })();
-	    const showClockSweetSpotTip = (item = clockNapSweetSpot) => {
+	    const showClockNapWindowTip = (item = clockNapWindow) => {
 	      if (!item) return;
 	      setClockLabTip({
-	        kind:"sweet-spot",
+	        kind:"nap-window",
 	        label:item.label,
 	        detail:item.awakeText + " · window " + item.windowText + " · " + item.sourceLabel + ". " + item.detail + ". Baby cues first.",
 	        color:item.color,
-	        id:"nap-sweet-spot-" + item.state + "-" + Math.round(item.awake || 0)
+	        id:"nap-window-" + item.state + "-" + Math.round(item.awake || 0)
 	      });
 	    };
-	    const hideClockSweetSpotTip = () => {
-	      setClockLabTip(current => current && current.kind === "sweet-spot" ? null : current);
+	    const hideClockNapWindowTip = () => {
+	      setClockLabTip(current => current && current.kind === "nap-window" ? null : current);
 	    };
-	    const clockSweetSpotChipTap = (ev) => {
+	    const clockNapWindowChipTap = (ev) => {
 	      try{ev && ev.stopPropagation && ev.stopPropagation();}catch{}
-	      if (!clockNapSweetSpot) return;
+	      if (!clockNapWindow) return;
 	      haptic();
-	      if (clockNapSweetSpot.canStart) { startNap(); return; }
-	      showClockSweetSpotTip(clockNapSweetSpot);
+	      if (clockNapWindow.canStart) { startNap(); return; }
+	      showClockNapWindowTip(clockNapWindow);
 	    };
 	    const clockLabels = [
 	      {mins:0,top:"12",bottom:"am"},
@@ -48248,11 +48306,11 @@ function App(){
 	          <button
 	            key={id}
 	            type="button"
-	          className={"ob-clock-log-btn"+(opts.isActive?" is-active":"")+(opts.sweetSpot?" is-sweet-spot":"")}
-	          data-sweet-spot={opts.sweetSpot ? opts.sweetSpot.state : undefined}
-	          aria-label={(opts.ariaLabel || label) + (opts.badge ? ". " + opts.badge : "") + (opts.sweetSpot ? ". Nap timing: " + opts.sweetSpot.label + ". " + opts.sweetSpot.detail : "") + (longAction ? ". Tap to log, hold for details." : ". Tap to open.")}
-	          title={(opts.ariaLabel || label) + (opts.badge ? " - " + opts.badge : "") + (opts.sweetSpot ? " - " + opts.sweetSpot.label + ": " + opts.sweetSpot.detail : "") + (longAction ? " - tap to log, hold for details" : " - tap to open")}
-	          style={{"--ob-clock-accent":accent,"--ob-clock-sweet-spot":opts.sweetSpot?.color,"--ob-clock-sweet-spot-glow":opts.sweetSpot?.glow,touchAction:longAction?"none":"manipulation",WebkitUserSelect:"none",userSelect:"none",WebkitTouchCallout:"none"}}
+	          className={"ob-clock-log-btn"+(opts.isActive?" is-active":"")+(opts.napWindow?" is-nap-window":"")}
+	          data-nap-window={opts.napWindow ? opts.napWindow.state : undefined}
+	          aria-label={(opts.ariaLabel || label) + (opts.badge ? ". " + opts.badge : "") + (opts.napWindow ? ". Nap timing: " + opts.napWindow.label + ". " + opts.napWindow.detail : "") + (longAction ? ". Tap to log, hold for details." : ". Tap to open.")}
+	          title={(opts.ariaLabel || label) + (opts.badge ? " - " + opts.badge : "") + (opts.napWindow ? " - " + opts.napWindow.label + ": " + opts.napWindow.detail : "") + (longAction ? " - tap to log, hold for details" : " - tap to open")}
+	          style={{"--ob-clock-accent":accent,"--ob-clock-nap-window":opts.napWindow?.color,"--ob-clock-nap-window-glow":opts.napWindow?.glow,touchAction:longAction?"none":"manipulation",WebkitUserSelect:"none",userSelect:"none",WebkitTouchCallout:"none"}}
 	          onPointerDown={(e)=>{
 	            e.stopPropagation();
 	            if(e.pointerType==="touch") return;
@@ -48386,7 +48444,7 @@ function App(){
 		      labAction("feed","feed","Feed",()=>{if(breastActive)cancelBreastTimer();const _feedData={type:"feed",time:nowTime(),feedType:"milk",amount:0,night:false,note:""};if(clockBedOnThisDay&&!bedPaused&&!shouldKeepDaytimeCatchUpOnSelectedDay("feed",_feedData,bedtimeFeedChoiceBedDay())){openBedtimeFeedChoice(_feedData);return;}(logForAll?quickAddLogForAll:quickAddLog)("feed",_feedData);},()=>openLogPanel("feed"),eventMeta.feed.color,{displayIcon:"🍼"}),
 	      labAction("breast","breast","Breastfeed",clockQuickBreastLog,()=>{openBreastTimerEdit(clockActiveBreastSide);},eventMeta.feed.color,{displayIcon:"🤱",displayLabel:"Breast",isActive:clockFeedOnThisDay,badge:clockBreastSideBadge,ariaLabel:clockFeedOnThisDay?"Breastfeed timer":"Breastfeed"}),
 	      labAction("nappy","nappy","Nappy",()=>(logForAll?quickAddLogForAll:quickAddLog)("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""}),()=>openLogPanel("nappy"),eventMeta.poop.color,{displayIcon:"💧💩"}),
-	      labAction("sleep-toggle",clockQuickSleepNeedsWake?"sun":"nap",clockQuickSleepLabel,clockQuickSleepAction,clockQuickSleepLongAction,clockQuickSleepNeedsWake?eventMeta.wake.color:(clockNapSweetSpot?.color || eventMeta.nap.color),{displayIcon:clockQuickSleepIcon,isActive:clockQuickSleepNeedsWake || (clockBedOnThisDay && bedPaused),badge:!clockQuickSleepNeedsWake && clockNapSweetSpot ? clockNapSweetSpot.badge : "",sweetSpot:!clockQuickSleepNeedsWake ? clockNapSweetSpot : null}),
+	      labAction("sleep-toggle",clockQuickSleepNeedsWake?"sun":"nap",clockQuickSleepLabel,clockQuickSleepAction,clockQuickSleepLongAction,clockQuickSleepNeedsWake?eventMeta.wake.color:(clockNapWindow?.color || eventMeta.nap.color),{displayIcon:clockQuickSleepIcon,isActive:clockQuickSleepNeedsWake || (clockBedOnThisDay && bedPaused),badge:!clockQuickSleepNeedsWake && clockNapWindow ? clockNapWindow.badge : "",napWindow:!clockQuickSleepNeedsWake ? clockNapWindow : null}),
 	      labAction("pump","pump","Pump",()=>(logForAll?quickAddLogForAll:quickAddLog)("feed",{type:"feed",time:nowTime(),feedType:"pump",pumpL:0,pumpR:0,amount:0,pumpDuration:0,night:false,note:""}),()=>openLogPanel("pump"),eventMeta.pump.color,{displayIcon:"🫙"})
 	    ];
 	    const clockLabMoreActions = [
@@ -48819,7 +48877,7 @@ function App(){
 	        return current.entry?.id === item.entry.id ? null : current;
 	      });
 	    };
-	    const clockLabTipUsesMeta = (tip) => !!(tip && (tip.kind === "wake-window" || tip.kind === "prediction" || tip.kind === "presence" || tip.kind === "sweet-spot"));
+	    const clockLabTipUsesMeta = (tip) => !!(tip && (tip.kind === "wake-window" || tip.kind === "prediction" || tip.kind === "presence" || tip.kind === "nap-window"));
     const clockLabTipCanEdit = (tip) => !!(tip && tip.entry && !tip.visualOnly && !tip.entry._clockCarrySleep && !clockLabTipUsesMeta(tip));
 	    const clockLabTipDetail = (tip) => {
 	      if (clockLabTipUsesMeta(tip)) return tip.detail || "";
@@ -49171,7 +49229,7 @@ function App(){
 		            {clockWakeWindowItems.map((item, index) => (
 		              <g key={"wake-window-"+index} className="ob-clock-wake-window-group" tabIndex="0" onMouseEnter={()=>showClockWakeWindowTip(item)} onMouseLeave={hideClockWakeWindowTip} onFocus={()=>showClockWakeWindowTip(item)} onBlur={hideClockWakeWindowTip} onClick={(ev)=>{ev.stopPropagation();showClockWakeWindowTip(item);}}>
 		                <path d={arcPath(item.start,item.end,108)} className="ob-clock-wake-window-hit" stroke="rgba(255,255,255,0.001)" strokeWidth="12" pointerEvents="stroke" aria-hidden="true"/>
-		                <path d={arcPath(item.start,item.end,108)} className={"ob-clock-wake-window-arc"+(item.isNow?" is-now":"")+(item.isNow&&clockNapSweetSpot?" is-sweet-spot is-"+clockNapSweetSpot.state:"")} style={{"--ob-clock-wake-window":item.isNow&&clockNapSweetSpot?clockNapSweetSpot.color:clockWakeWindowMeta.color,"--ob-clock-wake-window-glow":item.isNow&&clockNapSweetSpot?clockNapSweetSpot.glow:clockWakeWindowMeta.glow}} stroke={item.isNow&&clockNapSweetSpot?clockNapSweetSpot.color:clockWakeWindowMeta.color}>
+		                <path d={arcPath(item.start,item.end,108)} className={"ob-clock-wake-window-arc"+(item.isNow?" is-now":"")+(item.isNow&&clockNapWindow?" is-nap-window is-"+clockNapWindow.state:"")} style={{"--ob-clock-wake-window":item.isNow&&clockNapWindow?clockNapWindow.color:clockWakeWindowMeta.color,"--ob-clock-wake-window-glow":item.isNow&&clockNapWindow?clockNapWindow.glow:clockWakeWindowMeta.glow}} stroke={item.isNow&&clockNapWindow?clockNapWindow.color:clockWakeWindowMeta.color}>
 		                  <title>{"Wake window · " + clockWakeWindowTipText(item)}</title>
 		                </path>
 		              </g>
@@ -49352,28 +49410,28 @@ function App(){
 			              )}
 			            </div>
 			          )}
-		          {clockNapSweetSpot && !clockLabTip && (
+		          {clockNapWindow && !clockLabTip && (
 	            <button
 	              type="button"
-	              data-testid="clock-sweet-spot-chip"
-	              className={"ob-clock-sweet-spot-chip is-"+clockNapSweetSpot.state}
-	              style={{"--ob-clock-sweet-spot":clockNapSweetSpot.color,"--ob-clock-sweet-spot-glow":clockNapSweetSpot.glow}}
-	              aria-label={"Nap sweet spot. " + clockNapSweetSpot.label + ". " + clockNapSweetSpot.awakeText + ". " + clockNapSweetSpot.detail}
-	              onMouseEnter={()=>showClockSweetSpotTip(clockNapSweetSpot)}
-	              onMouseLeave={hideClockSweetSpotTip}
-	              onFocus={()=>showClockSweetSpotTip(clockNapSweetSpot)}
-	              onBlur={hideClockSweetSpotTip}
-	              onClick={clockSweetSpotChipTap}
+	              data-testid="clock-nap-window-chip"
+	              className={"ob-clock-nap-window-chip is-"+clockNapWindow.state}
+	              style={{"--ob-clock-nap-window":clockNapWindow.color,"--ob-clock-nap-window-glow":clockNapWindow.glow}}
+	              aria-label={"Nap timing. " + clockNapWindow.label + ". " + clockNapWindow.awakeText + ". " + clockNapWindow.detail}
+	              onMouseEnter={()=>showClockNapWindowTip(clockNapWindow)}
+	              onMouseLeave={hideClockNapWindowTip}
+	              onFocus={()=>showClockNapWindowTip(clockNapWindow)}
+	              onBlur={hideClockNapWindowTip}
+	              onClick={clockNapWindowChipTap}
 	            >
-		              <span className="ob-clock-sweet-spot-dot" aria-hidden="true"/>
-		              <b>{clockNapSweetSpot.label}</b>
-		              <em>{clockNapSweetSpot.awakeText} · {clockNapSweetSpot.canStart ? "tap to start" : clockNapSweetSpot.detail}</em>
-		              <span className="ob-clock-sweet-spot-bar" data-testid="clock-sweet-spot-bar" aria-hidden="true">
-		                <span data-testid="clock-sweet-spot-fill" style={{width:clockNapSweetSpot.progress+"%"}}/>
+		              <span className="ob-clock-nap-window-dot" aria-hidden="true"/>
+		              <b>{clockNapWindow.label}</b>
+		              <em>{clockNapWindow.awakeText} · {clockNapWindow.canStart ? "tap to start" : clockNapWindow.detail}</em>
+		              <span className="ob-clock-nap-window-bar" data-testid="clock-nap-window-bar" aria-hidden="true">
+		                <span data-testid="clock-nap-window-fill" style={{width:clockNapWindow.progress+"%"}}/>
 		              </span>
 		            </button>
 	          )}
-          {predictionItem && !clockLabTip && !clockPredictedNapStartReady && !clockNapSweetSpot && (
+          {predictionItem && !clockLabTip && !clockPredictedNapStartReady && !clockNapWindow && (
 	            <button type="button" className="ob-clock-prediction-chip" style={{"--ob-clock-predict":predictionItem.meta.color}} onClick={clockPredictionChipTap}>
 		              <span/>
 		              <b>{clockPredictedNapStartReady ? "Predicted nap" : predictionItem.label}{!clockPredictedNapStartReady && predictionItem.contextLabel ? <small style={{fontWeight:500,opacity:0.7,fontSize:"0.8em"}}>{predictionItem.contextLabel}</small> : null}</b>
@@ -50032,7 +50090,7 @@ function App(){
               style={{width:"100%",marginTop:20,background:obName.trim()?"linear-gradient(135deg,#9B8BB8,#7B6BA0)":"rgba(155,139,184,0.2)",border:_bN,borderRadius:99,padding:"14px",color:obName.trim()?"white":"rgba(155,139,184,0.5)",fontSize:16,fontWeight:700,cursor:obName.trim()?_cP:"not-allowed",boxShadow:obName.trim()?"0 4px 24px rgba(155,139,184,0.35), 0 0 20px rgba(155,139,184,0.1)":"none"}}>
               Continue {"\u2192"}
             </button>
-            <button onClick={()=>{setAuthMode("login");setAuthScreen("login");setAuthError("");setAuthPin("");}} style={{width:"100%",marginTop:12,background:_bN,border:_bN,color:C.lt,fontSize:13,cursor:_cP,fontFamily:_fI}}>
+            <button onClick={()=>{setAuthMode("login");setAuthScreen("login");setAuthError("");setAuthPin("");}} style={{width:"100%",marginTop:12,background:"var(--card-bg-solid)",border:`1.5px solid ${C.blush}`,borderRadius:99,padding:"11px 14px",color:C.mid,fontSize:13,fontWeight:800,cursor:_cP,fontFamily:_fI}}>
               I already have an account {"\u2192"}
             </button>
           </div>
@@ -58882,7 +58940,7 @@ function App(){
                   </button>
                   <button onClick={()=>{
                     const isOverlay = !!window._isNative;
-                    const w=(()=>{if(isOverlay){const d=document.createElement("div");d.id="print-overlay";d.style.cssText="position:fixed;inset:0;z-index:99999;background:white;overflow:auto;-webkit-overflow-scrolling:touch;max-width:100vw;box-sizing:border-box;font-size:14px;line-height:1.5;-webkit-text-size-adjust:100%;";document.body.appendChild(d);return{document:{open:()=>{},write:(h)=>{d.innerHTML=h;},close:()=>{}}};} try{const _w=window.open("","_blank","noopener,noreferrer");if(_w)try{_w.opener=null;}catch{}return _w;}catch{return null;}})();
+                    const w=(()=>{if(isOverlay){const d=document.createElement("div");d.id="print-overlay";d.style.cssText="position:fixed;inset:0;z-index:99999;background:white;overflow:auto;-webkit-overflow-scrolling:touch;max-width:100%;box-sizing:border-box;font-size:14px;line-height:1.5;-webkit-text-size-adjust:100%;";document.body.appendChild(d);return{document:{open:()=>{},write:(h)=>{d.innerHTML=h;},close:()=>{}}};} try{const _w=window.open("","_blank","noopener,noreferrer");if(_w)try{_w.opener=null;}catch{}return _w;}catch{return null;}})();
                     if(!w)return;
                     const rEntries2=(days[selDay]||[]).filter(e=>!e.night).sort((a,b)=>timeVal(a)-timeVal(b));
                     const rNight2=getNightWakeEventsForDay(days,selDay,nextCalDay(selDay));
@@ -63151,7 +63209,7 @@ function App(){
 
 	      <div role="navigation" aria-label="Main navigation" style={{position:"fixed",bottom:0,left:0,right:0,zIndex:100,background:"var(--nav-bg)",backdropFilter:"blur(var(--glass-blur))",WebkitBackdropFilter:"blur(var(--glass-blur))",borderTop:"1px solid var(--nav-border)",display:"flex",justifyContent:"space-evenly",alignItems:"center",boxShadow:"var(--nav-shadow)",maxWidth:_maxW,margin:"0 auto",borderRadius:"22px 22px 0 0",padding:"4px 8px calc(env(safe-area-inset-bottom,0px) + 8px)",willChange:"transform",WebkitTransform:"translateZ(0)",transform:"translateZ(0)"}}>
 	        {["day","insights","develop","settings"].map(t=>(
-	          <button key={t} data-tour-id={"nav-"+t} className="ob-main-tab-btn" aria-label={tabLabels[t]+" tab"} aria-current={tab===t?"page":undefined} onClick={()=>{haptic();setTab(t);setDaySubScreen(null);if(t==="day")setTodayPanel("log");setLogPanel(null);setTodayPlanOpen(false);setNotesOpen(false);setHeroWhyOpen(false);setInsightSection({trends:false,sleep:false,feeding:false,reports:false});setMsShowPastMs(false);setInsightFilter(null);setDevFilter(null);try{window.scrollTo({top:0,behavior:"smooth"});}catch{}}} style={tabSt(t)}>
+	          <button key={t} data-tour-id={"nav-"+t} className="ob-main-tab-btn" aria-label={tabLabels[t]+" tab"} aria-current={tab===t?"page":undefined} onClick={()=>{haptic();if(tab===t){try{window.scrollTo({top:0,left:0,behavior:"auto"});}catch{try{window.scrollTo(0,0);}catch{}}return;}setTab(t);setDaySubScreen(null);if(t==="day")setTodayPanel("log");setLogPanel(null);setTodayPlanOpen(false);setNotesOpen(false);setHeroWhyOpen(false);setInsightSection({trends:false,sleep:false,feeding:false,reports:false});setMsShowPastMs(false);setInsightFilter(null);setDevFilter(null);try{window.scrollTo({top:0,left:0,behavior:"auto"});}catch{try{window.scrollTo(0,0);}catch{}}}} style={tabSt(t)}>
             <span className="ob-main-tab-icon" aria-hidden="true" style={{lineHeight:1,transition:"transform 0.15s",transform:tab===t?"scale(1.1)":"scale(1)"}}><BubbaIcon name={tabIcons[t]} size={20}/></span>
             <span className="ob-main-tab-label">{tabLabels[t]}</span>
 	            {tab===t&&<div style={{position:"absolute",top:0,left:"50%",transform:"translateX(-50%)",width:24,height:2.5,borderRadius:99,background:C.ter}}/>}
@@ -67671,9 +67729,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             </div>
             <div style={{marginBottom:10,padding:"10px 12px",borderRadius:14,border:`1px solid ${carePortalStatus==="ready"?C.mint:C.blush}`,background:carePortalStatus==="ready"?"rgba(123,166,140,0.08)":"var(--card-bg-alt)",fontSize:12,lineHeight:1.45,color:C.mid,textAlign:"center"}}>
               {carePortalStatus==="ready" && carePortalReadyUrl ? (
-                <a href={carePortalReadyUrl} target="_blank" rel="noopener noreferrer" style={{color:C.mint,fontWeight:900,textDecoration:"none"}}>
-                  Open live Bubba Care preview
-                </a>
+                <span style={{color:C.mint,fontWeight:900}}>Live Bubba Care link ready</span>
               ) : carePortalStatus==="error" ? (
                 <span style={{color:C.ter,fontWeight:800}}>Live link not ready. check internet and try again.</span>
               ) : (
@@ -67690,9 +67746,6 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
             </button>
             <button onPointerUp={e=>{e.preventDefault();e.stopPropagation();haptic();runCarerActionOnce("preview", previewCareCard);}} onTouchEnd={e=>{e.preventDefault();e.stopPropagation();haptic();runCarerActionOnce("preview", previewCareCard);}} onClick={e=>{e.stopPropagation();haptic();runCarerActionOnce("preview", previewCareCard);}} style={{width:"100%",padding:"13px",borderRadius:99,border:`1.5px solid ${C.gold}50`,background:"var(--card-bg-alt)",color:C.gold,fontSize:14,fontWeight:800,cursor:_cP,fontFamily:_fI,marginBottom:8,touchAction:"manipulation"}}>
               👀 Preview Care Guide
-            </button>
-            <button onPointerUp={e=>{e.preventDefault();e.stopPropagation();haptic();runCarerActionOnce("send-link", sendCareLink);}} onTouchEnd={e=>{e.preventDefault();e.stopPropagation();haptic();runCarerActionOnce("send-link", sendCareLink);}} onClick={e=>{e.stopPropagation();haptic();runCarerActionOnce("send-link", sendCareLink);}} style={{width:"100%",padding:"13px",borderRadius:99,border:`1.5px solid ${C.ter}40`,background:"var(--card-bg-alt)",color:C.ter,fontSize:14,fontWeight:700,cursor:_cP,fontFamily:_fI,marginBottom:8,touchAction:"manipulation"}}>
-              🔗 Send Link (no QR needed)
             </button>
             <button onClick={e=>{e.stopPropagation();setShowCarerCard(false);}} style={{width:"100%",padding:"12px",borderRadius:99,border:_bN,background:C.blush,color:C.mid,fontSize:14,fontWeight:600,cursor:_cP,fontFamily:_fI,touchAction:"manipulation"}}>
               Close
@@ -68938,6 +68991,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 return (
                   <ChildSyncCard key={cid} child={child} cid={cid} code={code} isShared={isShared}
                     participants={code ? (childSyncParticipants[code] || []) : []}
+                    syncMeta={code ? (childSyncMeta[code] || childSyncMeta[cid] || null) : null}
                     myUid={window._fbUid || ""}
                     createChildSyncCode={createChildSyncCode} regenerateChildSyncCode={regenerateChildSyncCode}
                     unlinkChild={unlinkChild} showToast={showToast} showConfirm={showConfirm} haptic={haptic} safeCopyText={safeCopyText} trackEvent={trackEvent} C={C} />

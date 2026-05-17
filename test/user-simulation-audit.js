@@ -1405,7 +1405,7 @@ function runPredictionSimulations() {
 
   // Single nap 18mo should have bedtime 18:30-20:30
   const singleNap18 = simulateDay(78, 420, 1, 90); // 7:00 wake
-  assert("18mo single nap bedtime in sweet spot (18:30-20:30)",
+  assert("18mo single nap bedtime in nap window (18:30-20:30)",
     singleNap18.bedtime >= 18*60+30 && singleNap18.bedtime <= 20*60+30,
     minsToClock(singleNap18.bedtime));
 
