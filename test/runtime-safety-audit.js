@@ -27,5 +27,8 @@ assert("local preview clears stale service worker caches", loader.includes("var 
 assert("service worker serves core app shell network-first", serviceWorker.includes("function networkFirst(event, cacheKey)") && serviceWorker.includes("event.request.mode === 'navigate'") && serviceWorker.includes("url.pathname === '/app.js'") && serviceWorker.includes("url.pathname === '/loader.js'") && serviceWorker.includes("fetch(event.request, { cache: 'no-store' })"));
 assert("preview cache clear page is included in generated outputs", fs.existsSync(path.join(root, "__clear-preview-cache.html")) && buildScript.includes("public/__clear-preview-cache.html") && buildScript.includes("dist/__clear-preview-cache.html"));
 assert("scroll guard does not swallow real control clicks", app.includes('tag === "button"') && app.includes("target.closest(\"button,a,[role='button'],input,select,textarea\")"));
+const ageMemoIndex = app.indexOf("const age = React.useMemo(() => calcAge(babyDob, activeChild.dueDate)");
+const firstAgeReaderIndex = app.indexOf("Letters to Your Future Self");
+assert("baby age memo is initialised before age-reading effects", ageMemoIndex > -1 && firstAgeReaderIndex > -1 && ageMemoIndex < firstAgeReaderIndex);
 
 console.log("Runtime safety audit passed.");

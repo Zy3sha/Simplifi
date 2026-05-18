@@ -12652,6 +12652,8 @@ function App(){
   const babyDob     = activeChild.dob || _legacyBabyDob;
   const babySex     = activeChild.sex;
   const babyUnborn  = activeChild.unborn;
+  const age = React.useMemo(() => calcAge(babyDob, activeChild.dueDate), [babyDob, activeChild.dueDate]);
+  const ageWeeks = age ? (age.predictiveWeeks ?? age.totalWeeks) : null;
   const days        = React.useMemo(() => normaliseDaysPayload(activeChild.days || {}), [activeChild.days]);
   const growthDeleteKeysForRender = React.useMemo(() => {
     try { return new Set(normaliseGrowthMeasurementDeleteKeysPayload(localStorage.getItem(GROWTH_MEASUREMENT_DELETE_KEY))); } catch { return new Set(); }
@@ -24790,9 +24792,6 @@ function App(){
   useEffect(()=>{try{const sideKey=normaliseBreastSideKey(breastSide);if(sideKey)localStorage.setItem("breast_side",sideKey);else localStorage.removeItem("breast_side");}catch{}},[breastSide]);
   useEffect(()=>{try{localStorage.setItem("breast_sec",JSON.stringify(breastSec));}catch{}},[breastSec]);
 	  useEffect(()=>{try{localStorage.setItem("breast_active",breastActive?"1":"0");}catch{}},[breastActive]);
-		  const age = React.useMemo(() => calcAge(babyDob, activeChild.dueDate), [babyDob, activeChild.dueDate]);
-		  const ageWeeks = age ? (age.predictiveWeeks ?? age.totalWeeks) : null;
-
 	  function obuddyAgeAtDate(dob, dateLike) {
     if (!dob || !dateLike) return "";
     const birthMs = dateKeyMs(dob, NaN);
