@@ -3104,6 +3104,7 @@ function applyNativePlatformClass() {
   try {
     const platform = String(window.Capacitor?.getPlatform?.() || "").toLowerCase();
     const isAndroid = platform === "android";
+    const isIOS = platform === "ios";
     const root = document.documentElement;
     const body = document.body;
     if (root) {
@@ -3122,6 +3123,7 @@ function applyNativePlatformClass() {
       if (platform) body.setAttribute("data-ob-platform", platform);
       else body.removeAttribute("data-ob-platform");
       body.classList.toggle("android", isAndroid);
+      body.classList.toggle("ios", isIOS);
       body.toggleAttribute("data-ob-android-webview", isAndroid);
     }
   } catch {}
@@ -7355,7 +7357,7 @@ function diagnoseFeedPattern(todayEntries, recent14, ageWeeks, weights, latestWe
     const span = t3 - t1;
     if (span > 0 && span <= 90) { _clusterCount++; }
   }
-  if (_clusterCount >= 1 && ageWeeks < 40) {
+  if (_clusterCount >= 1 && ageWeeks >= 8 && ageWeeks < 40) {
     return {
       type: "cluster_feed",
       emoji: "🍼",
@@ -7828,18 +7830,34 @@ function detectHealthRedFlags(todayArr, recent7Days, meds, ageWeeks) {
       });
     });
     const _maxTemp = _recentTemps.length ? Math.max(..._recentTemps) : 0;
-    if (_maxTemp >= 38.0) {
+    if (_maxTemp >= 40.0) {
+      // Very high fever is an emergency at any age
+      _flags.push({
+        severity: "urgent",
+        title: "Very high temperature " + _maxTemp.toFixed(1) + "°C",
+        action: "A temperature this high is an emergency at any age. Call " + _emergNum + " now or go to A&E immediately.",
+        link: _emergNum
+      });
+    } else if (_maxTemp >= 38.0) {
       _flags.push({
         severity: "urgent",
         title: "Temperature " + _maxTemp.toFixed(1) + "°C logged today",
-        action: ageWeeks < 13 ? "Fever in a baby under 3 months is a medical emergency. Call " + _emergNum + " now." : "If temp stays above 38°C for > 24h or baby is listless, call " + _helpLine + " today.",
+        action: (ageWeeks !== null && ageWeeks < 13) ? "Fever in a baby under 3 months is a medical emergency. Call " + _emergNum + " now." : "If temp stays above 38°C for > 24h or baby is listless, call " + _helpLine + " today.",
         link: _nonEmergencyTel || _emergNum
       });
-    } else if (_maxTemp >= 37.5 && ageWeeks < 13) {
+    } else if (_maxTemp >= 37.5 && ageWeeks !== null && ageWeeks < 13) {
       _flags.push({
         severity: "urgent",
         title: "Temperature " + _maxTemp.toFixed(1) + "°C in a young baby",
         action: "Under 3 months, even a low-grade temperature is a medical consultation. Call " + _helpLine + " today.",
+        link: _nonEmergencyTel || _emergNum
+      });
+    } else if (_maxTemp > 0 && _maxTemp < 36.0) {
+      // Hypothermia flag — normal range is 36–37.5°C
+      _flags.push({
+        severity: "urgent",
+        title: "Low temperature " + _maxTemp.toFixed(1) + "°C",
+        action: "Normal body temperature is 36–37.5°C. A reading below 36°C may mean baby is cold or unwell. Warm baby gently and call " + _helpLine + " if it stays low.",
         link: _nonEmergencyTel || _emergNum
       });
     }
@@ -12894,8 +12912,10 @@ function App(){
       const w=weights.find(x=>x.date===d);
       const h=heights.find(x=>x.date===d);
       let wp="",hp="";
-      if(w&&babyDob){const mo=ageMonthsFromDates(babyDob,d);wp=(mo!=null?getPercentile(w.kg,mo,babySex):null)||"";}
-      if(h&&babyDob){const mo=ageMonthsFromDates(babyDob,d);hp=(mo!=null?getHeightPercentile(h.cm,mo,babySex):null)||"";}
+      // Use corrected age (dueDate) for preterm babies when calculating WHO percentiles
+      const _csvGrowthDob=(activeChild&&activeChild.dueDate&&activeChild.dueDate>babyDob)?activeChild.dueDate:babyDob;
+      if(w&&babyDob){const mo=ageMonthsFromDates(_csvGrowthDob,d);wp=(mo!=null?getPercentile(w.kg,mo,babySex):null)||"";}
+      if(h&&babyDob){const mo=ageMonthsFromDates(_csvGrowthDob,d);hp=(mo!=null?getHeightPercentile(h.cm,mo,babySex):null)||"";}
       rows.push([d,w?kgToDisplay(w.kg,MU):"",h?cmToDisplay(h.cm,MU):"",wp,hp].map(v=>'"'+String(v)+'"'));
     });
     const csv=rows.map(r=>r.join(",")).join("\n");
@@ -17526,6 +17546,21 @@ function App(){
     try{const _saved=safeTempUnit(localStorage.getItem("temp_unit_v1"), ""); if(_saved) return _saved; return countryDefaultUnits(_countryKey).temp;}catch{return "c";}
   });
   const FU=fluidUnit; // shorthand for templates
+  // Recalculate typed feed amounts when user switches fluid unit mid-entry
+  const _prevFluidUnitRef = React.useRef(FU);
+  React.useEffect(()=>{
+    const prev = _prevFluidUnitRef.current;
+    _prevFluidUnitRef.current = FU;
+    if (prev === FU) return;
+    if (logForm.amount && logForm.feedType === "bottle") {
+      const _ml = displayToMl(logForm.amount, prev);
+      if (_ml > 0) setLogForm(f=>({...f, amount: String(mlToDisplay(_ml, FU))}));
+    }
+    if (nwForm.ml) {
+      const _ml = displayToMl(nwForm.ml, prev);
+      if (_ml > 0) setNwForm(f=>({...f, ml: String(mlToDisplay(_ml, FU))}));
+    }
+  }, [FU]); // eslint-disable-line react-hooks/exhaustive-deps
   const MU=measureUnit; // "metric" or "lbs"
   const TU=tempUnit; // "c" or "f"
   // Temperature conversions (always store °C internally)
@@ -23996,7 +24031,7 @@ function App(){
 	      });
 	      queueSyncV2ChildReadShadowAudit(code, childId, childForCloud, "after-child-sync-write");
 	      try { await _persistChildSyncCode(childId, code, childForCloud); } catch {}
-	    } catch(e) { console.warn("pushChildSync error", e); }
+	    } catch(e) { console.warn("pushChildSync error", e); try { setSyncStatus("error"); showToast("Sync failed — check your connection and try again", 4000, 2); } catch {} }
 	  }
   const subscribeToChildSync = React.useCallback((childId, code) => {
     if(!window._fb || !code) return;
@@ -37661,7 +37696,7 @@ function App(){
       if (!preserveMode) localStorage.setItem("timer_mode_v1","prediction");
 	    }catch{}
 	    if (!keepNativeTimer) {
-	      clearExternalTimerSurfaces(null);
+	      clearExternalTimerSurfaces(null); // widget, Live Activity, and Android timer stop immediately
 	    }
     try { console.log("[OBubba] cleared nap timer", reason); } catch {}
   }
@@ -39218,6 +39253,9 @@ function App(){
       scheduleMedicineReminderSet({seed:schedId,title,body,scheduleKey:entry.schedule,timeStr})
         .then(count=>{ if(count>0) showToast(`💊 Logged + reminder set (${medicineReminderLabel(entry.schedule)})`, 3000, 1); })
         .catch(()=>showToast("💊 Logged. Reminder could not be scheduled",3000,2));
+    } else if (built.tempC !== null && built.tempC >= 40) {
+      // Safety: very high fever at any age — emergency
+      setTimeout(() => showToast(`🌡️ ${built.tempC.toFixed(1)}°C — this is very high. Please call ${_emergNum} or go to A&E now.`, 10000, 3), 300);
     } else if (built.tempC !== null && built.tempC >= 38 && age && age.totalWeeks < 13) {
       // Safety: fever in under 3 months — urgent
       setTimeout(() => showToast(`🌡️ ${cToDisplay(38)}${tempLabel}+ under 3 months. please call ${_helpLine} immediately`, 8000, 3), 300);
@@ -39225,7 +39263,11 @@ function App(){
       // Safety: fever in under 6 months — seek advice
       setTimeout(() => showToast(`🌡️ ${cToDisplay(38)}${tempLabel}+ under 6 months. please call ${_helpLine} for guidance`, 8000, 3), 300);
     } else if (built.tempC !== null && built.tempC >= 38) {
-      setTimeout(() => showToast(`🌡️ Temperature logged. Keep baby comfortable and hydrated. You can always call ${_helpLine} if you'd like advice.`, 5000, 2), 300);
+      // When age is unknown, give a conservative warning — baby may be very young
+      setTimeout(() => showToast(!age
+        ? `🌡️ Temperature logged. If baby is under 3 months with a fever, please call ${_helpLine} or ${_emergNum} immediately.`
+        : `🌡️ Temperature logged. Keep baby comfortable and hydrated. You can always call ${_helpLine} if you'd like advice.`,
+        !age ? 8000 : 5000, !age ? 3 : 2), 300);
     } else {
       showToast(entry.name ? "💊 Logged. Always follow dosing instructions on the packaging or from your pharmacist." : "💊 Logged", entry.name ? 3000 : 1200, 1);
     }
@@ -39347,7 +39389,9 @@ function App(){
     const sorted = [...weights].sort((a, b) => a.date.localeCompare(b.date));
     const latest = sorted[sorted.length - 1];
     if (!latest) return null;
-    const ageMo = ageMonthsFromDates(babyDob, latest.date);
+    // Use corrected age (dueDate) for preterm babies when calculating WHO percentiles
+    const _gfcGrowthDob=(activeChild&&activeChild.dueDate&&activeChild.dueDate>babyDob)?activeChild.dueDate:babyDob;
+    const ageMo = ageMonthsFromDates(_gfcGrowthDob, latest.date);
     const pct = ageMo !== null && ageMo >= 0 && ageMo <= 24 ? getPercentile(latest.kg, ageMo, babySex) : null;
     const _gfcRecent = getResolvedRecentDays(days, selDay, 7);
     const dailyMl = _gfcRecent.map(rd => rd.entries.filter(e => e.type === "feed").reduce((s, f) => s + (f.amount || 0), 0)).filter(v => v > 0);
@@ -42044,7 +42088,9 @@ function App(){
       const latest = weights[weights.length-1];
       lines.push("═══ GROWTH ═══");
       lines.push(`Latest weight: ${fmtWt(latest.kg,MU)} (${latest.date})`);
-      const pct = age && babyDob ? (()=>{const _mo=ageMonthsFromDates(babyDob,latest.date); return _mo!=null?getPercentile(latest.kg,_mo,babySex):null;})() : null;
+      // Use corrected age (dueDate) for preterm babies when calculating WHO percentiles
+      const _hvGrowthDob=(activeChild&&activeChild.dueDate&&activeChild.dueDate>babyDob)?activeChild.dueDate:babyDob;
+      const pct = age && babyDob ? (()=>{const _mo=ageMonthsFromDates(_hvGrowthDob,latest.date); return _mo!=null?getPercentile(latest.kg,_mo,babySex):null;})() : null;
       if(pct!==null) lines.push(`WHO percentile: ${ordinal(pct)}`);
       if(heights.length) lines.push(`Latest height: ${fmtHt(heights[heights.length-1].cm,MU)}`);
       lines.push("");
@@ -42070,11 +42116,12 @@ function App(){
 
     // Sleep summary
     lines.push("═══ SLEEP ═══");
-    let totalNaps=0, totalNapMins=0, bedArr=[], wakeArr=[], nightWakeTotal=0;
+    let totalNaps=0, totalNapMins=0, bedArr=[], wakeArr=[], nightWakeTotal=0, _daysWithNapData=0;
     dk.forEach(d=>{
       const entries=days[d]||[];
       const napList=getReliableCompletedDayNaps(entries, TRACK_RELIABLE_NAP_MAX_MINS);
       totalNaps+=napList.length;
+      if(napList.length>0) _daysWithNapData++;
       totalNapMins+=napList.reduce((s,n)=>s+minDiff(n.start,n.end),0);
       const bed=findBedtime(entries);
       if(bed){const _m=clockMins(bed.time);if(_m!==null)bedArr.push(_m);}
@@ -42083,7 +42130,7 @@ function App(){
       const next=nextDayStr(d);
       nightWakeTotal+=getNightWakeEventCount(days,d,next);
     });
-    lines.push(`Avg naps/day: ${Math.round(totalNaps/dk.length*10)/10}`);
+    lines.push(`Avg naps/day: ${Math.round(totalNaps/(_daysWithNapData||dk.length)*10)/10}`);
     lines.push(`Avg nap time: ${hm(Math.round(totalNapMins/dk.length))}/day`);
     if(bedArr.length) lines.push(`Avg bedtime: ${fmt12((() => { const m=Math.round(bedArr.reduce((a,b)=>a+b,0)/bedArr.length); return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0"); })())}`);
     if(wakeArr.length) lines.push(`Avg wake time: ${fmt12((() => { const m=Math.round(wakeArr.reduce((a,b)=>a+b,0)/wakeArr.length); return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0"); })())}`);
@@ -47525,16 +47572,18 @@ function App(){
 	      {mins:1260,top:"9",bottom:"pm"}
 			    ];
 				    const clockAndroidVisualMode = (()=>{try{return document.body?.hasAttribute("data-ob-android-webview") || document.body?.classList?.contains("android") || window.Capacitor?.getPlatform?.()==="android";}catch{return false;}})();
+				    const clockIosVisualMode = (()=>{try{return document.documentElement?.getAttribute("data-ob-platform")==="ios" || document.body?.getAttribute("data-ob-platform")==="ios" || document.body?.classList?.contains("ios") || window.Capacitor?.getPlatform?.()==="ios";}catch{return false;}})();
+				    const clockFireflyCanvasMode = clockAndroidVisualMode || clockIosVisualMode;
 				    const clockPresenceVisibleParents = clockLabIsDay ? [] : (clockPresenceParents || []).slice(0, clockPresenceDisplayLimit);
-				    const clockPresenceAndroidParents = clockAndroidVisualMode ? clockPresenceVisibleParents.slice(0, Math.min(18, clockPresenceDisplayLimit)) : [];
+				    const clockPresenceAndroidParents = clockFireflyCanvasMode ? clockPresenceVisibleParents.slice(0, Math.min(18, clockPresenceDisplayLimit)) : [];
 						    const clockPresenceIphoneMainLimit = 18;
-						    const clockPresenceRimLimit = clockAndroidVisualMode ? 8 : 18;
-						    const clockPresenceGlassLimit = clockAndroidVisualMode ? 2 : 0;
-				    const clockPresenceMainLimit = clockAndroidVisualMode ? clockPresenceRimLimit + clockPresenceGlassLimit : clockPresenceIphoneMainLimit;
+						    const clockPresenceRimLimit = clockFireflyCanvasMode ? 8 : 18;
+						    const clockPresenceGlassLimit = clockFireflyCanvasMode ? 2 : 0;
+				    const clockPresenceMainLimit = clockFireflyCanvasMode ? clockPresenceRimLimit + clockPresenceGlassLimit : clockPresenceIphoneMainLimit;
 				    const clockPresenceMainCount = Math.min(clockPresenceVisibleParents.length, clockPresenceMainLimit);
 				    const clockPresenceGlassCountTarget = Math.min(clockPresenceGlassLimit, Math.max(0, clockPresenceMainCount - clockPresenceRimLimit));
 				    const clockPresenceRimCount = Math.min(clockPresenceRimLimit, Math.max(0, clockPresenceMainCount - clockPresenceGlassCountTarget));
-				    const clockPresenceAndroidRingCount = clockAndroidVisualMode ? Math.min(14, clockPresenceAndroidParents.length) : 0;
+				    const clockPresenceAndroidRingCount = clockFireflyCanvasMode ? Math.min(14, clockPresenceAndroidParents.length) : 0;
 				    const clockPresenceAndroidRingParents = clockPresenceAndroidRingCount ? clockPresenceAndroidParents.slice(0, clockPresenceAndroidRingCount) : [];
 				    const clockPresenceRimParents = clockPresenceVisibleParents.slice(0, clockPresenceRimCount);
 				    const clockPresenceGlassParents = clockPresenceVisibleParents.slice(clockPresenceRimCount, clockPresenceRimCount + clockPresenceGlassCountTarget);
@@ -47614,7 +47663,7 @@ function App(){
 		      const twinkle = 2.6 + ((seed + index) % 18) / 10;
 		      return {...parent, index, xPct:column, yPct:row, size, drift, delay, twinkle};
 		    });
-		    const clockPresenceCanvasGlyphs = clockAndroidVisualMode
+		    const clockPresenceCanvasGlyphs = clockFireflyCanvasMode
 		      ? [
 		        ...clockPresenceAndroidRingGlyphs.map(fly => ({...fly, layer:"ring"})),
 		        ...clockPresenceAndroidAmbientGlyphs.map(fly => ({...fly, layer:"ambient"}))
@@ -49517,7 +49566,7 @@ function App(){
 	    ) : null;
 		    return (
 		      <div data-testid="clock-home-lab" data-presence-online-count={clockPresenceVisibleParents.length} data-presence-rim-count={clockPresenceRimParents.length} data-presence-glass-count={clockPresenceGlassParents.length} data-presence-ambient-count={clockPresenceAmbientParents.length} className={"ob-clock-lab"+(activeTimer?" is-timing":"")+(clockLabIsDay?" is-day":" is-night")} onClick={closeClockLabDrawers}>
-          {!clockAndroidVisualMode && clockPresenceAmbientGlyphs.length > 0 && (
+          {!clockFireflyCanvasMode && clockPresenceAmbientGlyphs.length > 0 && (
             <div className="ob-clock-firefly-field" aria-hidden="true">
               {clockPresenceAmbientGlyphs.map(fly => (
 	                <span
@@ -49548,7 +49597,7 @@ function App(){
 	          {clockPresenceCanvasGlyphs.length > 0 && (
 	            <ClockFireflyCanvas flies={clockPresenceCanvasGlyphs} pulseId={clockPresencePulse && clockPresencePulse.id}/>
 	          )}
-	          {!clockAndroidVisualMode && clockPresenceAndroidRingGlyphs.length > 0 && (
+	          {!clockFireflyCanvasMode && clockPresenceAndroidRingGlyphs.length > 0 && (
 	            <div className="ob-clock-android-ring-fireflies" aria-hidden="false">
 	              {clockPresenceAndroidRingGlyphs.map(fly => {
 	                const pulsing = !!(clockPresencePulse && clockPresencePulse.id === fly.id);
@@ -49612,7 +49661,7 @@ function App(){
             <circle cx="120" cy="120" r="94.8" className="ob-clock-face-recess"/>
 	            <circle cx="120" cy="120" r="96.5" className="ob-clock-bevel-lip"/>
 		            {/* Behind-glass fireflies sit above the recess but below the glass pane. */}
-	            {!clockAndroidVisualMode && clockPresenceGlassGlyphs.map(parent => {
+	            {!clockFireflyCanvasMode && clockPresenceGlassGlyphs.map(parent => {
 	              const pulsing = !!(clockPresencePulse && clockPresencePulse.id === parent.id);
 	              return (
 	                <g key={"bg-presence-"+parent.id} className={"ob-clock-presence-glyph is-firefly is-behind-glass"+(pulsing?" is-pulsing":"")} data-testid="clock-presence-glass-glyph" transform={"translate("+parent.x.toFixed(2)+" "+parent.y.toFixed(2)+")"} style={{"--ob-presence-delay":(parent.index%5)*0.45+"s"}} opacity="0.72">
@@ -49624,7 +49673,7 @@ function App(){
 	              );
 	            })}
 	            {/* Outer fireflies render after the clock face */}
-	            {!clockAndroidVisualMode && clockPresenceGlyphs.map(parent => {
+	            {!clockFireflyCanvasMode && clockPresenceGlyphs.map(parent => {
 	              const pulsing = !!(clockPresencePulse && clockPresencePulse.id === parent.id);
 		              const presenceClass = "is-firefly";
 		              const presenceTip = clockPresenceTipFor(parent);
@@ -51415,8 +51464,9 @@ function App(){
 	                    {babyName || "Baby"}
 	                  </div>
 	                  {age && <div style={{fontSize:10.5,color:clockHomeLabChromeDay?"#665A66":C.mid,fontFamily:_fM,fontWeight:650,lineHeight:1.18,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{fmtAge(age)}</div>}
-                  {!age && babyUnborn && babyDob && (()=>{
-                    const dueMs = dateKeyMs(babyDob, NaN);
+                  {!age && babyUnborn && (activeChild.dueDate||babyDob) && (()=>{
+                    const _dueDateStr = activeChild.dueDate || babyDob;
+                    const dueMs = dateKeyMs(_dueDateStr, NaN);
                     if (!Number.isFinite(dueMs)) return null;
                     const daysUntil = Math.ceil((dueMs - Date.now()) / (1000*60*60*24));
                     return <div style={{fontSize:10,color:C.ter,fontWeight:600,fontFamily:_fM}}>🤰 {daysUntil > 0 ? `Due in ${daysUntil} days` : "Due any day!"}</div>;
@@ -70203,8 +70253,12 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 if (_cc) {
                   try {
                     const r = await _cc.generatePDF({ html: _html, fileName: safeFileStem(digest.name||"Baby") + "-Weekly.pdf" });
-                    if (r?.filePath && navigator.share) {
-                      await safeNavigatorShare({ title: _title, url: "file://" + r.filePath });
+                    if (r?.filePath) {
+                      // Use Capacitor Share for native file paths — web share rejects file:// URLs on iOS
+                      const _capSharePdf = window.Capacitor?.Plugins?.Share;
+                      if (_capSharePdf) {
+                        try { await _capSharePdf.share({ title: _title, url: r.filePath, dialogTitle: "Share PDF" }); } catch(e) { if (e?.name === "AbortError") return; console.warn("PDF share failed", e); }
+                      }
                     }
                     return;
                   } catch(e) { if (e.name === "AbortError") return; console.warn("Weekly PDF failed:", e); }
@@ -71128,7 +71182,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                   </div>
                   {savedMeds.map(sm=>{
                     // Calculate next dose due
-                    const allDoses = Object.entries(meds).flatMap(([dk,arr])=>Array.isArray(arr)?arr.filter(e=>e.name===sm.name).map(e=>({...e,date:dk})):[]);
+                    const allDoses = Object.entries(meds).flatMap(([dk,arr])=>Array.isArray(arr)?arr.filter(e=>(e.name||"").toLowerCase()===(sm.name||"").toLowerCase()).map(e=>({...e,date:dk})):[]);
                     const lastDose = allDoses.sort((a,b)=>loggedMedicineDoseSortKey(b).localeCompare(loggedMedicineDoseSortKey(a)))[0];
                     let nextDueStr = null;
                     let isOverdue = false;
