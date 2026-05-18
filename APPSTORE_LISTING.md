@@ -51,7 +51,7 @@ Character count: 92 / 100
 
 Description:
 
-OBubba helps tired parents track the baby day in one calm place.
+OBubba is a mum-built baby tracker and parent support app that helps tired parents keep the baby day in one calm place.
 
 Log feeds, breastfeeding, bottles, nappies, naps, sleep, night wakes, medicine, temperature, weaning, growth, milestones and notes without relying on exhausted memory.
 
@@ -137,6 +137,9 @@ Prices in other countries are set by Apple and Google using their local pricing 
 
 ### App Store Screenshot Assets
 
+Brand recognition rule:
+Every uploaded screenshot should include the OBubba wordmark or app icon visibly inside the artwork, especially the sleep timer / rhythm clock screenshots. Do not upload dark timer-only screenshots without OBubba branding, because visual search can mistake them for other baby sleep apps.
+
 iPhone 6.5 inch screenshots:
 `/Users/zyesha/Desktop/APPLE_UPLOAD_USE_THESE_6_5_SCREENSHOTS`
 
@@ -183,7 +186,7 @@ Character count: 63 / 80
 
 Full description:
 
-OBubba is a calm baby tracker for tired parents who want feeds, sleep, naps, nappies and care handovers in one place.
+OBubba is a mum-built baby tracker and parent support app for tired parents who want feeds, breastfeeding, sleep, naps, nappies and care handovers in one place.
 
 Track the baby day without rebuilding it from memory:
 
@@ -220,6 +223,9 @@ Full description character count: 1526 / 4000
 
 
 ### Google Play Assets
+
+Brand recognition rule:
+Every uploaded screenshot should include the OBubba wordmark or app icon visibly inside the artwork, especially the sleep timer / rhythm clock screenshots. Do not upload dark timer-only screenshots without OBubba branding, because Google Lens and AI summaries can confuse visually similar baby sleep apps.
 
 Phone screenshots:
 `/Users/zyesha/Desktop/ANDROID_UPLOAD_USE_THESE/screenshots-phone-1080x1920`
