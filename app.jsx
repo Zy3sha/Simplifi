@@ -32874,19 +32874,19 @@ function App(){
       // User-configurable reminders. default to all for legacy appointments without the field
       const _rems = Array.isArray(a.reminders) ? a.reminders : ["1d","1h","30m","morning","travel"];
       if(_rems.includes("1d") && remind1d>now && remind1d<now+_schedWindow){
-        notifications.push({title:"📅 Appointment tomorrow",body:_apptBody,id:stableId("appt1d",a.id),schedule:{at:new Date(remind1d)},sound:"notification.wav",channelId:"obubba_reminders"});
+        notifications.push({title:"📅 Tomorrow's appointment",body:_apptBody,id:stableId("appt1d",a.id),schedule:{at:new Date(remind1d)},sound:"notification.wav",channelId:"obubba_reminders"});
       }
       if(_rems.includes("1h") && remind1h>now && remind1h<now+_schedWindow){
-        notifications.push({title:"📅 Appointment in 1 hour",body:_apptBody,id:stableId("appt1h",a.id),schedule:{at:new Date(remind1h)},sound:"notification.wav",channelId:"obubba_reminders"});
+        notifications.push({title:"📅 Heads up — 1 hour to go",body:_apptBody,id:stableId("appt1h",a.id),schedule:{at:new Date(remind1h)},sound:"notification.wav",channelId:"obubba_reminders"});
       }
       if(_rems.includes("30m") && remind30>now && remind30<now+_schedWindow){
-        notifications.push({title:"📅 Appointment in 30 minutes",body:_apptBody,id:stableId("appt30",a.id),schedule:{at:new Date(remind30)},sound:"notification.wav",channelId:"obubba_reminders"});
+        notifications.push({title:"📅 Nearly time — 30 minutes away",body:_apptBody,id:stableId("appt30",a.id),schedule:{at:new Date(remind30)},sound:"notification.wav",channelId:"obubba_reminders"});
       }
       if(_rems.includes("morning") && remindMorning>now && remindMorning<now+_schedWindow && Math.abs(remindMorning-remind30)>1800000){
-        notifications.push({title:"📅 Appointment Today",body:_apptBody,id:stableId("apptam",a.id),schedule:{at:new Date(remindMorning)},sound:"notification.wav",channelId:"obubba_reminders"});
+        notifications.push({title:"📅 Appointment day 🌤",body:_apptBody,id:stableId("apptam",a.id),schedule:{at:new Date(remindMorning)},sound:"notification.wav",channelId:"obubba_reminders"});
       }
       if(_rems.includes("travel") && remindTravel>0 && remindTravel>now && remindTravel<now+_schedWindow && Math.abs(remindTravel-remind30)>300000){
-        notifications.push({title:"🚗 Time to Leave",body:`Leave now for ${a.title}${a.location?" at "+a.location:""}. Travel time: ~${a.travelMins}min.`,id:stableId("appttv",a.id),schedule:{at:new Date(remindTravel)},sound:"notification.wav",channelId:"obubba_reminders"});
+        notifications.push({title:"🚗 Time to head out",body:`Time to leave for ${a.title}${a.location?" at "+a.location:""}. Allow about ${a.travelMins} min to get there — you've got this 💛`,id:stableId("appttv",a.id),schedule:{at:new Date(remindTravel)},sound:"notification.wav",channelId:"obubba_reminders"});
       }
     });
 
@@ -32916,7 +32916,7 @@ function App(){
       if(!_sleepingNow && napAlert.getTime()>now&&napAlert.getTime()<now+12*3600000){
         if (stableProbability("nap-alert", todayKey, td.napsDone || 0, _notifNapMins) <= _quietFactor) {
         const napLabel=`Nap ${(td.napsDone||0)+1} of ${td.expectedNaps||"?"}`;
-        notifications.push({title:`${_bn}'s nap time approaching`,body:`${napLabel}. predicted around ${fmt12(`${String(napH).padStart(2,"0")}:${String(napM).padStart(2,"0")}`)}. Watch for sleepy cues.`,id:stableId("nap",todayKey+td.napsDone),schedule:{at:napAlert},sound:"notification.wav"});
+        notifications.push({title:`${_bn}'s next nap is coming up`,body:`${napLabel} predicted around ${fmt12(`${String(napH).padStart(2,"0")}:${String(napM).padStart(2,"0")}`)}. Start watching for yawns and eye rubbing 💛`,id:stableId("nap",todayKey+td.napsDone),schedule:{at:napAlert},sound:"notification.wav"});
         }
       }
       // Notify when nap window opens (wake window minimum reached)
@@ -32929,7 +32929,7 @@ function App(){
           const windowOpen = new Date(); windowOpen.setHours(nwH, nwM, 0, 0);
           if (!_sleepingNow && windowOpen.getTime() > now && windowOpen.getTime() < now + 12*3600000) {
             const napLabel = `Nap ${(td.napsDone||0)+1}`;
-            notifications.push({title:`🟢 ${_bn}'s nap window is open`, body:`${napLabel} window open. watch for sleepy cues (yawning, eye rubbing, fussiness). Ideal time is around ${fmt12(`${String(napH).padStart(2,"0")}:${String(napM).padStart(2,"0")}`)}.`, id:stableId("napwin",todayKey+td.napsDone), schedule:{at:windowOpen}, sound:"notification.wav", channelId:"obubba_reminders", extra:{action:"start_timer"}});
+            notifications.push({title:`🟢 ${_bn}'s nap window is open`, body:`Watch for yawns, eye rubbing, or fussiness — ${_bn} is ready for ${napLabel}. Ideal time is around ${fmt12(`${String(napH).padStart(2,"0")}:${String(napM).padStart(2,"0")}`)} 💛`, id:stableId("napwin",todayKey+td.napsDone), schedule:{at:windowOpen}, sound:"notification.wav", channelId:"obubba_reminders", extra:{action:"start_timer"}});
           }
         }
       } catch {}
@@ -32943,7 +32943,7 @@ function App(){
       // Notify 20 min before bedtime for wind-down routine
       const bedAlert=new Date(bedTime.getTime()-20*60*1000);
       if(bedAlert.getTime()>now&&bedAlert.getTime()<now+12*3600000){
-        notifications.push({title:`Start ${_bn}'s bedtime routine`,body:`Predicted bedtime around ${fmt12(`${String(bedH).padStart(2,"0")}:${String(bedM).padStart(2,"0")}`)}. Start winding down. dim lights, quiet play, bath if part of your routine.`,id:stableId("bed",todayKey),schedule:{at:bedAlert},sound:"notification.wav",extra:{action:"log_sleep"}});
+        notifications.push({title:`Time to start winding down 🌙`,body:`${_bn}'s bedtime is predicted around ${fmt12(`${String(bedH).padStart(2,"0")}:${String(bedM).padStart(2,"0")}`)}. Dim the lights, slow the pace — bath, feed, cuddle, whatever works for you 💛`,id:stableId("bed",todayKey),schedule:{at:bedAlert},sound:"notification.wav",extra:{action:"log_sleep"}});
       }
     }
 
@@ -32958,7 +32958,7 @@ function App(){
         if (_wakeMins !== null) {
           const feedRemindTime=new Date();feedRemindTime.setHours(Math.floor(_wakeMins/60),(_wakeMins%60)+30,0,0);
           if(feedRemindTime.getTime()>now&&feedRemindTime.getTime()<now+4*3600000){
-            notifications.push({title:`Time for ${_bn}'s first feed?`,body:`${_bn} woke at ${fmt12(wakeTime)}. it's been 30 minutes with no feed logged.`,id:stableId("feedwake",todayKey),schedule:{at:feedRemindTime},sound:"notification.wav"});
+            notifications.push({title:`${_bn}'s morning feed 🌤`,body:`${_bn} woke at ${fmt12(wakeTime)} and no feed logged yet — might be time 🤍`,id:stableId("feedwake",todayKey),schedule:{at:feedRemindTime},sound:"notification.wav"});
           }
         }
       }
@@ -32989,7 +32989,7 @@ function App(){
             _nappyRemindAt = new Date(now + 30*60*1000);
           }
           if(_nappyRemindAt.getTime() > now && _nappyRemindAt.getTime() < now + 6*3600000){
-            notifications.push({title:`💧💩 Time for a nappy check`,body:`It's been ${hm(nappyReminderMins)} since ${_bn}'s last change at ${fmt12(_lastNappy.time)}.`,id:stableId("nappy",todayKey+_lastNappy.id),schedule:{at:_nappyRemindAt},sound:"notification.wav",channelId:"obubba_reminders",extra:{action:"log_nappy"}});
+            notifications.push({title:`💛 Time for a nappy check`,body:`${_bn}'s last change was at ${fmt12(_lastNappy.time)} — worth a quick peek 💛`,id:stableId("nappy",todayKey+_lastNappy.id),schedule:{at:_nappyRemindAt},sound:"notification.wav",channelId:"obubba_reminders",extra:{action:"log_nappy"}});
           }
         }
       }
@@ -33007,7 +33007,7 @@ function App(){
           const tomorrow9=new Date();tomorrow9.setDate(tomorrow9.getDate()+1);tomorrow9.setHours(9,0,0,0);
           if(tomorrow9.getTime()>now){
             const msNames=upcomingMs.slice(0,3).map(m=>m.label).join(", ");
-            notifications.push({title:`New milestone${upcomingMs.length>1?"s":""} entering ${_bn}'s window`,body:`${msNames}${upcomingMs.length>3?" and "+(upcomingMs.length-3)+" more":""}. Check the Grow tab for activities to try.`,id:stableId("ms",msKey),schedule:{at:tomorrow9},sound:"notification.wav"});
+            notifications.push({title:`Something wonderful is coming 🌟`,body:`${msNames}${upcomingMs.length>3?" and "+(upcomingMs.length-3)+" more":""} — such an exciting stage for ${_bn}. Pop into Grow for ideas to try together 🌱`,id:stableId("ms",msKey),schedule:{at:tomorrow9},sound:"notification.wav"});
             try{localStorage.setItem("_ms_notif_key",msKey);}catch{}
           }
         }
@@ -33025,7 +33025,7 @@ function App(){
           // New phase just started. notify at 9am tomorrow
           const tomorrow9=new Date();tomorrow9.setDate(tomorrow9.getDate()+1);tomorrow9.setHours(9,15,0,0);
           if(tomorrow9.getTime()>now){
-            notifications.push({title:`${_bn} may be in a new development wave`,body:`Wave ${currentPhase.phase}: ${currentPhase.name}. ${currentPhase.summary || currentPhase.fussy.split(".")[0]}. Check Grow for gentle support ideas.`,id:stableId("phase",phaseKey),schedule:{at:tomorrow9},sound:"notification.wav"});
+            notifications.push({title:`${_bn} might be hitting a new phase 🌊`,body:`Wave ${currentPhase.phase}: ${currentPhase.name}. ${currentPhase.summary || currentPhase.fussy.split(".")[0]}. You're not imagining it — check Grow for gentle ways to help 💛`,id:stableId("phase",phaseKey),schedule:{at:tomorrow9},sound:"notification.wav"});
             try{localStorage.setItem("_phase_notif_key",phaseKey);}catch{}
           }
         }
@@ -39155,8 +39155,8 @@ function App(){
     if (entry.schedule && entry.schedule !== "none" && entry.name && _isNative) {
       const timeStr = entry.time || nowTime();
       const schedId = "med_" + entry.id;
-      const title = `💊 ${babyName || "Baby"}'s Medicine`;
-      const body = `Time for ${entry.name}${entry.dose ? " (" + entry.dose + ")" : ""}`;
+      const title = `💊 ${babyName || "Baby"}'s medicine time`;
+      const body = `Time for ${entry.name}${entry.dose ? " (" + entry.dose + ")" : ""} 💊`;
       scheduleMedicineReminderSet({seed:schedId,title,body,scheduleKey:entry.schedule,timeStr})
         .then(count=>{ if(count>0) showToast(`💊 Logged + reminder set (${medicineReminderLabel(entry.schedule)})`, 3000, 1); })
         .catch(()=>showToast("💊 Logged. Reminder could not be scheduled",3000,2));
@@ -71122,8 +71122,8 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                               });
                               // Reschedule notification if recurring
                               if(sm.schedule && sm.schedule!=="none" && _isNative){
-                                const title=`💊 ${babyName||"Baby"}'s Medicine`;
-                                const body=`Time for ${sm.name}${sm.dose?" ("+sm.dose+")":""}`;
+                                const title=`💊 ${babyName||"Baby"}'s medicine time`;
+                                const body=`Time for ${sm.name}${sm.dose?" ("+sm.dose+")":""} 💊`;
                                 scheduleMedicineReminderSet({seed:"med_"+sm.id,title,body,scheduleKey:sm.schedule,timeStr:nowTime()}).catch(()=>{});
                               }
                               showToast("💊 "+sm.name+" logged",1500,1);haptic();
