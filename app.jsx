@@ -367,6 +367,9 @@ function safeMailtoHref(to, subject = "", body = "") {
   const qs = params.toString();
   return "mailto:" + safeTo + (qs ? "?" + qs : "");
 }
+function openSafeMailto(to, subject = "", body = "") {
+  window.location.href = safeMailtoHref(to, subject, body);
+}
 const OB_SHARE_THURSDAY_PROMPT_KEY = "ob_share_thursday_nap1_prompt_v1";
 const OB_SHARE_PROMPT_EMAIL = "hello@obubba.com";
 function safeMapDestination(value) {
@@ -14879,7 +14882,7 @@ function App(){
     try { trackEvent("review_feedback_tapped", { source:_context }); } catch {}
     dismissReview(true, "send_feedback");
     const body = "Hi OBubba team,\n\nHere's what I'd love to see improved:\n\n\n\n---\nBaby: " + (babyName||"") + "\nPlatform: " + (/iPhone|iPad/i.test(navigator.userAgent) ? "iOS" : /Android/i.test(navigator.userAgent) ? "Android" : "Web");
-    window.location.href = safeMailtoHref("hello@obubba.com", "OBubba Feedback", body);
+    openSafeMailto("hello@obubba.com", "OBubba Feedback", body);
     showToast("Thank you for your feedback 💛", 2500, 1);
   }
   function reviewPromptBodyCopy() {
@@ -17119,7 +17122,7 @@ function App(){
         haptic();
         try { trackEvent("share_prompt_email_tapped", { source:"thursday_nap1" }); } catch {}
         const body = "Hi OBubba,\n\nI'd like to enter the 1 month of OBubba Premium giveaway. My screenshot is attached.\n\nAccount/baby: " + (babyName || "") + "\n\nThanks";
-        try { window.location.href = safeMailtoHref(OB_SHARE_PROMPT_EMAIL, "OBubba post screenshot", body); } catch {}
+        try { openSafeMailto(OB_SHARE_PROMPT_EMAIL, "OBubba post screenshot", body); } catch {}
         showToast("Attach your screenshot before sending.", 3000, 1);
       },
       "Email screenshot"
@@ -63025,14 +63028,14 @@ function App(){
 
           {/* ═══ 7. HELP + LEGAL (combined compact) ═══ */}
           <div className="glass-card" style={_S.card}>
-            <a href="mailto:hello@obubba.com?subject=OBubba%20Feedback" style={{display:"flex",alignItems:"center",gap:10,paddingBottom:12,borderBottom:`1px solid ${C.blush}`,textDecoration:"none"}}>
+            <button type="button" onClick={()=>openSafeMailto("hello@obubba.com", "OBubba Feedback")} style={{display:"flex",alignItems:"center",gap:10,padding:"0 0 12px",border:"none",borderBottom:`1px solid ${C.blush}`,background:"transparent",textDecoration:"none",width:"100%",textAlign:"left",fontFamily:_fI,cursor:_cP}}>
               <span style={_S.f18}>💬</span>
               <div style={_S.flex1}>
                 <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Need a hand?</div>
                 <div style={{fontSize:10,color:C.lt}}>Questions, suggestions or issues</div>
               </div>
               <span style={{fontSize:12,color:C.ter,fontWeight:700}}>Email →</span>
-            </a>
+            </button>
             <div style={{paddingTop:10}}>
               <div style={{fontSize:11,color:C.mid,lineHeight:1.6}}>
                 OBubba is <b>not a medical device</b>. Guidance adapts to your country where possible and is based on trusted public-health sources: {_guidanceFooter()}. Always consult your {_healthContact}.
@@ -63247,9 +63250,9 @@ function App(){
             <div style={{background:"rgba(192,112,136,0.06)",border:"1px solid rgba(192,112,136,0.15)",borderRadius:16,padding:"14px",marginBottom:18}}>
               <div style={{fontSize:13,fontWeight:700,color:"#5B4F5F",marginBottom:6}}>Become a beta tester ✨</div>
               <div style={{fontSize:13,color:"#7A6B7E",lineHeight:1.5,marginBottom:10}}>We're looking for parents to test OBubba before it launches. Your feedback will shape the app.</div>
-              <a href="mailto:hello@obubba.com?subject=Beta%20Tester%20Interest" onClick={()=>{setShowBetaBanner(false);try{localStorage.setItem("beta_emailed_v1","1");}catch{};}} style={{display:"inline-block",padding:"10px 24px",borderRadius:99,background:"linear-gradient(135deg,#C07088,#a85a44)",color:"white",fontSize:14,fontWeight:700,textDecoration:"none",fontFamily:"inherit"}}>
+              <button type="button" onClick={()=>{setShowBetaBanner(false);try{localStorage.setItem("beta_emailed_v1","1");}catch{};openSafeMailto("hello@obubba.com", "Beta Tester Interest");}} style={{display:"inline-block",padding:"10px 24px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#C07088,#a85a44)",color:"white",fontSize:14,fontWeight:700,textDecoration:"none",fontFamily:"inherit",cursor:"pointer"}}>
                 Email hello@obubba.com
-              </a>
+              </button>
             </div>
             <button onClick={()=>{setShowBetaBanner(false);try{localStorage.setItem("beta_banner_v1",String(Date.now()));}catch{};}} style={{width:"100%",padding:"12px",borderRadius:99,border:"1px solid #F0D0C8",background:"none",color:"#8A7888",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
               Got it. let me explore!

@@ -16,9 +16,12 @@ function assert(name, condition) {
 
 assert("mailto actions use a bounded shared helper",
   app.includes("function safeMailtoHref(to, subject = \"\", body = \"\")") &&
+  app.includes("function openSafeMailto(to, subject = \"\", body = \"\")") &&
   app.includes("safeTextPayload(body, \"\", 1800)") &&
-  app.includes("window.location.href = safeMailtoHref(\"\", subj, body);") &&
-  app.includes("window.location.href = safeMailtoHref(\"hello@obubba.com\", \"OBubba Feedback\", body);"));
+  app.includes("window.location.href = safeMailtoHref(to, subject, body);") &&
+  app.includes("openSafeMailto(\"hello@obubba.com\", \"OBubba Feedback\", body);") &&
+  app.includes("openSafeMailto(\"hello@obubba.com\", \"OBubba Feedback\")") &&
+  !app.includes("href=\"mailto:"));
 
 assert("map destinations are capped before URL encoding",
   app.includes("function safeMapDestination(value)") &&
