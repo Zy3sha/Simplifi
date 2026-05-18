@@ -3001,7 +3001,7 @@ function clearTimerNotification() {
   try { const ts = window.Capacitor?.Plugins?.OBTimerService; if(ts && window.Capacitor?.getPlatform?.() === 'android') ts.stopTimer().catch(()=>{}); } catch {}
 }
 
-function clearExternalTimerSurfaces(label = null) {
+function clearExternalTimerSurfaces(label = null, skipDelay = false) {
   try {
     const la = window.Capacitor?.Plugins?.OBLiveActivity;
     if (la) {
@@ -3033,7 +3033,11 @@ function clearExternalTimerSurfaces(label = null) {
     } catch {}
   };
   pushClearedWidgetTimer();
-  setTimeout(pushClearedWidgetTimer, 650);
+  // Delay a second clear to catch iOS widget cache — but skip when the caller
+  // is immediately restoring a timer (e.g. child switch) to avoid a race where
+  // the delayed clear fires after the widget-data effect has already pushed
+  // the restored timer back, causing a 650ms flash of "no timer".
+  if (!skipDelay) setTimeout(pushClearedWidgetTimer, 650);
 }
 
 function forceWidgetTimerPaused(label = "Night wake") {
@@ -12704,9 +12708,13 @@ function App(){
         if (hasAny) localStorage.setItem("ob_timer_state_" + prevId, JSON.stringify(saved));
         // Clear global timer keys
         _timerKeys.forEach(k => { try { localStorage.removeItem(k); } catch {} });
-        // Clear widget, Live Activity, and Android timer notification
-        // so the old child's timer doesn't show on the incoming child's UI
-        clearExternalTimerSurfaces(null);
+        // Clear widget, Live Activity, and Android timer notification.
+        // If the incoming child has a saved timer we'll immediately push it back
+        // via the widget-data effect — skip the 650ms delayed clear to avoid a
+        // flash where the widget shows the restored timer then blanks for a moment.
+        const _incomingTimerRaw = safeJsonObject(localStorage.getItem("ob_timer_state_" + resolvedActiveId));
+        const _incomingHasTimer = !!(_incomingTimerRaw && (_incomingTimerRaw.nap_on === "1" || _incomingTimerRaw.breast_active === "1" || _incomingTimerRaw.bed_timer_day));
+        clearExternalTimerSurfaces(null, _incomingHasTimer);
         // Reset React timer state for clean switch
         setNapOn(false); setNapStartT(null); setNapStartMs(null); setNapSec(0);
         setNapEntryId(null); setNapPaused(false); setNapPausedAtSec(0);
@@ -14229,10 +14237,14 @@ function App(){
     document.addEventListener("visibilitychange", _maybeSnapToToday);
     window.addEventListener("focus", _maybeSnapToToday);
     window.addEventListener("pageshow", _maybeSnapToToday);
+    // Poll every 60s so an always-on screen crossing midnight snaps selDay correctly
+    // without needing a background/foreground transition.
+    const _midnightInterval = setInterval(_maybeSnapToToday, 60000);
     return () => {
       document.removeEventListener("visibilitychange", _maybeSnapToToday);
       window.removeEventListener("focus", _maybeSnapToToday);
       window.removeEventListener("pageshow", _maybeSnapToToday);
+      clearInterval(_midnightInterval);
     };
   }, []);
 
@@ -17829,7 +17841,7 @@ function App(){
         const shouldRestore = !localHasChild || (localCount === 0 && nativeCount > 0);
         if (!shouldRestore) return;
 
-        localStorage.setItem("children_v1", JSON.stringify(nativeChildren));
+        try { localStorage.setItem("children_v1", JSON.stringify(nativeChildren)); } catch {}
         setChildren(nativeChildren);
         const _mirrorActiveId = safeChildId(mirror.activeChildId, "");
         if (_mirrorActiveId && nativeChildren[_mirrorActiveId]) {
@@ -36755,6 +36767,16 @@ function App(){
   function addReminder(){
     const safeReminder = normaliseReminderRecord({...reminderForm, id: editRemId || uid(), date: reminderForm.date || todayStr()});
     if(!safeReminder) return;
+    // Warn if a one-shot timed reminder is already in the past — it will save but
+    // the notification will never fire (scheduler only schedules future events).
+    if (safeReminder.repeat === "none" && !safeReminder.trigger && safeReminder.date && safeReminder.time) {
+      try {
+        const _rMs = new Date(safeReminder.date + "T" + safeReminder.time).getTime();
+        if (_rMs && !isNaN(_rMs) && _rMs < Date.now()) {
+          showToast("That time has already passed — this reminder won\u2019t send a notification", 3500, 2);
+        }
+      } catch {}
+    }
     if(editRemId){
       setReminders(prev=>normaliseRemindersPayload(prev.map(r=>r.id===editRemId?safeReminder:r)));
       setEditRemId(null);setShowAddReminder(false);setReminderForm({text:"",date:"",time:"",trigger:"",repeat:"none"});
@@ -37595,7 +37617,9 @@ function App(){
       quickAddLog("feed", data);
     };
     if(f.feedType==="bottle"){
-      routeDetailedFeed({type:"feed",time:t,feedType:"milk",amount:displayToMl(f.amount,FU),note:f.note||""});
+      const _ml = displayToMl(f.amount, FU);
+      if (_ml <= 0) { showToast("Enter an amount to save", 2000, 2); return; }
+      routeDetailedFeed({type:"feed",time:t,feedType:"milk",amount:_ml,note:f.note||""});
     } else if(f.feedType==="breast"){
       routeDetailedFeed({type:"feed",time:t,feedType:"breast",breastL:safeBreastMinutesInput(f.breastL),breastR:safeBreastMinutesInput(f.breastR),amount:0,note:f.note||""});
     } else if(f.feedType==="pump"){
@@ -38678,7 +38702,7 @@ function App(){
     setBedPauseStart(null);
     setBedPausedAtSec(0);
     setBedTotalPausedSec(0);
-    try{localStorage.removeItem("bed_timer_start");localStorage.removeItem("bed_total_paused_sec");localStorage.removeItem("bed_paused");localStorage.removeItem("bed_paused_sec");localStorage.removeItem("bed_pause_start");}catch{}
+    try{localStorage.removeItem("bed_timer_start");localStorage.removeItem("bed_total_paused_sec");localStorage.removeItem("bed_paused");localStorage.removeItem("bed_paused_sec");localStorage.removeItem("bed_pause_start");localStorage.removeItem("bed_wake_entry_id");}catch{}
     // Always stop Live Activity on morning wake. bedtime Live Activity runs without napOn
     // Multiple attempts because iOS ActivityKit can be flaky
     if(_isNative) {
@@ -40408,7 +40432,7 @@ function App(){
     const sideKey = resumeBreastTimer(side);
     const totalSec = breastTimerTotalSeconds(storedBreastTimerSeconds());
     // Update Live Activity with new side
-    if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.update({elapsed:totalSec,side:sideKey==='L'?'left':'right'});
+    if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.update?.({elapsed:totalSec,side:sideKey==='L'?'left':'right'});
     // Android: update foreground service with new side
     _androidTimerUpdate({elapsed:totalSec,side:sideKey==='L'?'left':'right'});
   }
@@ -50520,7 +50544,7 @@ function App(){
                 <div style={{fontSize:11,color:C.lt,marginTop:4,lineHeight:1.4}}>OBubba will use adjusted age for milestones, sleep and growth predictions.</div>
               </div>
             )}
-            <button onClick={()=>obDob&&setObStep(3)} disabled={!obDob}
+            <button onClick={()=>{ if(!obDob) return; if(obDob > todayStr()){ showToast("Date of birth can\u2019t be in the future", 2500, 2); return; } setObStep(3); }} disabled={!obDob}
               style={{width:"100%",marginTop:20,background:obDob?"linear-gradient(135deg,#9B8BB8,#7B6BA0)":"rgba(155,139,184,0.2)",border:_bN,borderRadius:99,padding:"14px",color:obDob?"white":"rgba(155,139,184,0.5)",fontSize:16,fontWeight:700,cursor:obDob?_cP:"not-allowed",boxShadow:obDob?"0 4px 24px rgba(155,139,184,0.35), 0 0 20px rgba(155,139,184,0.1)":"none"}}>
               Continue {"\u2192"}
             </button>
