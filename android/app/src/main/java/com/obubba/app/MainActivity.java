@@ -1,8 +1,12 @@
 package com.obubba.app;
 
+import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
 import android.content.Intent;
 import android.webkit.WebView;
+import androidx.core.view.WindowCompat;
 import com.getcapacitor.BridgeActivity;
 import com.obubba.app.plugins.WidgetBridgePlugin;
 import com.obubba.app.shortcuts.AppShortcutsManager;
@@ -12,6 +16,8 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        // Enable edge-to-edge so Android passes correct safe-area insets to WebView
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         registerPlugin(WidgetBridgePlugin.class);
         registerPlugin(com.obubba.app.plugins.PrintPlugin.class);
         registerPlugin(com.obubba.app.plugins.StorePlugin.class);
@@ -20,12 +26,27 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(com.obubba.app.plugins.CalendarPlugin.class);
         super.onCreate(savedInstanceState);
 
-        // Clear WebView cache to ensure latest web assets are loaded
-        // after an APK update. Without this, the WebView serves stale
-        // cached JS/HTML from the previous install.
+        // Clear WebView cache only when the APK version has changed.
+        // Calling clearCache every launch is wasteful and clears AFTER the
+        // WebView has already started loading — meaning the stale content runs
+        // for that session anyway. Version-tracking means we clear once per
+        // update, then reload so the current session also gets fresh JS.
         try {
-            if (getBridge() != null && getBridge().getWebView() != null) {
-                getBridge().getWebView().clearCache(true);
+            String currentVersion = "";
+            try {
+                PackageInfo pInfo = getPackageManager().getPackageInfo(getPackageName(), 0);
+                currentVersion = pInfo.versionCode + "." + pInfo.versionName;
+            } catch (PackageManager.NameNotFoundException ignored) {}
+
+            SharedPreferences prefs = getSharedPreferences("ob_app_meta", MODE_PRIVATE);
+            String lastClearedVersion = prefs.getString("last_cleared_version", "");
+
+            if (!currentVersion.isEmpty() && !currentVersion.equals(lastClearedVersion)) {
+                if (getBridge() != null && getBridge().getWebView() != null) {
+                    getBridge().getWebView().clearCache(true);
+                    getBridge().getWebView().reload();
+                }
+                prefs.edit().putString("last_cleared_version", currentVersion).apply();
             }
         } catch (Exception e) { /* ignore */ }
 
