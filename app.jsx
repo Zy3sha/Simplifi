@@ -12704,6 +12704,9 @@ function App(){
         if (hasAny) localStorage.setItem("ob_timer_state_" + prevId, JSON.stringify(saved));
         // Clear global timer keys
         _timerKeys.forEach(k => { try { localStorage.removeItem(k); } catch {} });
+        // Clear widget, Live Activity, and Android timer notification
+        // so the old child's timer doesn't show on the incoming child's UI
+        clearExternalTimerSurfaces(null);
         // Reset React timer state for clean switch
         setNapOn(false); setNapStartT(null); setNapStartMs(null); setNapSec(0);
         setNapEntryId(null); setNapPaused(false); setNapPausedAtSec(0);
@@ -34848,7 +34851,35 @@ function App(){
     if (!entries || !entries.length) return entries;
     // Find bedtime on this day
     const bed = findBedtime(entries);
-    if (!bed || !bed.time) return entries; // no bedtime, nothing to classify
+    if (!bed || !bed.time) {
+      // Case B: no bedtime today — check previous day for a late bedtime.
+      // Early-morning feeds (e.g. 02:00, 04:00) on a new calendar day are
+      // still night feeds that belong to the previous night's sleep stretch.
+      if (!prevDayEntries || !prevDayEntries.length) return entries;
+      const prevBed = findBedtime(prevDayEntries);
+      if (!prevBed || !prevBed.time) return entries;
+      const prevBedMins = timeVal(prevBed);
+      if (prevBedMins < 16*60) return entries; // prev bedtime too early, likely nap
+      const morningWake = findMorningWake(entries);
+      const wakeMins = (morningWake && hasValidTime(morningWake)) ? timeVal(morningWake) : null;
+      return entries.map(e => {
+        if (e.nightLocked) return e;
+        if (e.type !== "wake" && e.type !== "feed") return e;
+        if (e.type === "feed") {
+          const feedType = String(e.feedType || "").toLowerCase();
+          if (feedType === "pump" || feedType === "solids" || e.dreamFeed) return e;
+          if (!_isMilkOrBreastFeedEntry(e)) return e;
+        }
+        if (!hasValidTime(e)) return e;
+        const eMins = timeVal(e);
+        // At or after morning wake, or at/after noon → daytime
+        if ((wakeMins !== null && eMins >= wakeMins) || eMins >= 12*60) return {...e, night: false};
+        // Before morning wake and before noon → still night from previous day
+        const isNight = true;
+        if (e.night !== isNight) return {...e, night: isNight};
+        return e;
+      });
+    }
     const bedMins = timeVal(bed);
     if (bedMins < 16*60) return entries; // bedtime before 4pm is likely a nap, skip
 
