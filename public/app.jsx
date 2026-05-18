@@ -3001,7 +3001,7 @@ function clearTimerNotification() {
   try { const ts = window.Capacitor?.Plugins?.OBTimerService; if(ts && window.Capacitor?.getPlatform?.() === 'android') ts.stopTimer().catch(()=>{}); } catch {}
 }
 
-function clearExternalTimerSurfaces(label = null) {
+function clearExternalTimerSurfaces(label = null, skipDelay = false) {
   try {
     const la = window.Capacitor?.Plugins?.OBLiveActivity;
     if (la) {
@@ -3033,7 +3033,11 @@ function clearExternalTimerSurfaces(label = null) {
     } catch {}
   };
   pushClearedWidgetTimer();
-  setTimeout(pushClearedWidgetTimer, 650);
+  // Delay a second clear to catch iOS widget cache — but skip when the caller
+  // is immediately restoring a timer (e.g. child switch) to avoid a race where
+  // the delayed clear fires after the widget-data effect has already pushed
+  // the restored timer back, causing a 650ms flash of "no timer".
+  if (!skipDelay) setTimeout(pushClearedWidgetTimer, 650);
 }
 
 function forceWidgetTimerPaused(label = "Night wake") {
@@ -3100,6 +3104,7 @@ function applyNativePlatformClass() {
   try {
     const platform = String(window.Capacitor?.getPlatform?.() || "").toLowerCase();
     const isAndroid = platform === "android";
+    const isIOS = platform === "ios";
     const root = document.documentElement;
     const body = document.body;
     if (root) {
@@ -3118,6 +3123,7 @@ function applyNativePlatformClass() {
       if (platform) body.setAttribute("data-ob-platform", platform);
       else body.removeAttribute("data-ob-platform");
       body.classList.toggle("android", isAndroid);
+      body.classList.toggle("ios", isIOS);
       body.toggleAttribute("data-ob-android-webview", isAndroid);
     }
   } catch {}
@@ -7351,7 +7357,7 @@ function diagnoseFeedPattern(todayEntries, recent14, ageWeeks, weights, latestWe
     const span = t3 - t1;
     if (span > 0 && span <= 90) { _clusterCount++; }
   }
-  if (_clusterCount >= 1 && ageWeeks < 40) {
+  if (_clusterCount >= 1 && ageWeeks >= 8 && ageWeeks < 40) {
     return {
       type: "cluster_feed",
       emoji: "🍼",
@@ -7824,18 +7830,34 @@ function detectHealthRedFlags(todayArr, recent7Days, meds, ageWeeks) {
       });
     });
     const _maxTemp = _recentTemps.length ? Math.max(..._recentTemps) : 0;
-    if (_maxTemp >= 38.0) {
+    if (_maxTemp >= 40.0) {
+      // Very high fever is an emergency at any age
+      _flags.push({
+        severity: "urgent",
+        title: "Very high temperature " + _maxTemp.toFixed(1) + "°C",
+        action: "A temperature this high is an emergency at any age. Call " + _emergNum + " now or go to A&E immediately.",
+        link: _emergNum
+      });
+    } else if (_maxTemp >= 38.0) {
       _flags.push({
         severity: "urgent",
         title: "Temperature " + _maxTemp.toFixed(1) + "°C logged today",
-        action: ageWeeks < 13 ? "Fever in a baby under 3 months is a medical emergency. Call " + _emergNum + " now." : "If temp stays above 38°C for > 24h or baby is listless, call " + _helpLine + " today.",
+        action: (ageWeeks !== null && ageWeeks < 13) ? "Fever in a baby under 3 months is a medical emergency. Call " + _emergNum + " now." : "If temp stays above 38°C for > 24h or baby is listless, call " + _helpLine + " today.",
         link: _nonEmergencyTel || _emergNum
       });
-    } else if (_maxTemp >= 37.5 && ageWeeks < 13) {
+    } else if (_maxTemp >= 37.5 && ageWeeks !== null && ageWeeks < 13) {
       _flags.push({
         severity: "urgent",
         title: "Temperature " + _maxTemp.toFixed(1) + "°C in a young baby",
         action: "Under 3 months, even a low-grade temperature is a medical consultation. Call " + _helpLine + " today.",
+        link: _nonEmergencyTel || _emergNum
+      });
+    } else if (_maxTemp > 0 && _maxTemp < 36.0) {
+      // Hypothermia flag — normal range is 36–37.5°C
+      _flags.push({
+        severity: "urgent",
+        title: "Low temperature " + _maxTemp.toFixed(1) + "°C",
+        action: "Normal body temperature is 36–37.5°C. A reading below 36°C may mean baby is cold or unwell. Warm baby gently and call " + _helpLine + " if it stays low.",
         link: _nonEmergencyTel || _emergNum
       });
     }
@@ -12604,10 +12626,11 @@ function App(){
     // Network status monitoring
     OB.network.onStatusChange((status)=>{
       if(status.connected){
-        // Re-sync when back online
         try{
-          if(window._fb && window._fbUid) {
-            // Trigger cloud sync
+          const _bc = backupCodeRef.current;
+          const _ch = childrenRef.current;
+          if(window._fb && window._fbUid && _bc && _ch) {
+            pushToCloud(_bc, _ch);
           }
         }catch{}
       }
@@ -12704,6 +12727,13 @@ function App(){
         if (hasAny) localStorage.setItem("ob_timer_state_" + prevId, JSON.stringify(saved));
         // Clear global timer keys
         _timerKeys.forEach(k => { try { localStorage.removeItem(k); } catch {} });
+        // Clear widget, Live Activity, and Android timer notification.
+        // If the incoming child has a saved timer we'll immediately push it back
+        // via the widget-data effect — skip the 650ms delayed clear to avoid a
+        // flash where the widget shows the restored timer then blanks for a moment.
+        const _incomingTimerRaw = safeJsonObject(localStorage.getItem("ob_timer_state_" + resolvedActiveId));
+        const _incomingHasTimer = !!(_incomingTimerRaw && (_incomingTimerRaw.nap_on === "1" || _incomingTimerRaw.breast_active === "1" || _incomingTimerRaw.bed_timer_day));
+        clearExternalTimerSurfaces(null, _incomingHasTimer);
         // Reset React timer state for clean switch
         setNapOn(false); setNapStartT(null); setNapStartMs(null); setNapSec(0);
         setNapEntryId(null); setNapPaused(false); setNapPausedAtSec(0);
@@ -12883,8 +12913,10 @@ function App(){
       const w=weights.find(x=>x.date===d);
       const h=heights.find(x=>x.date===d);
       let wp="",hp="";
-      if(w&&babyDob){const mo=ageMonthsFromDates(babyDob,d);wp=(mo!=null?getPercentile(w.kg,mo,babySex):null)||"";}
-      if(h&&babyDob){const mo=ageMonthsFromDates(babyDob,d);hp=(mo!=null?getHeightPercentile(h.cm,mo,babySex):null)||"";}
+      // Use corrected age (dueDate) for preterm babies when calculating WHO percentiles
+      const _csvGrowthDob=(activeChild&&activeChild.dueDate&&activeChild.dueDate>babyDob)?activeChild.dueDate:babyDob;
+      if(w&&babyDob){const mo=ageMonthsFromDates(_csvGrowthDob,d);wp=(mo!=null?getPercentile(w.kg,mo,babySex):null)||"";}
+      if(h&&babyDob){const mo=ageMonthsFromDates(_csvGrowthDob,d);hp=(mo!=null?getHeightPercentile(h.cm,mo,babySex):null)||"";}
       rows.push([d,w?kgToDisplay(w.kg,MU):"",h?cmToDisplay(h.cm,MU):"",wp,hp].map(v=>'"'+String(v)+'"'));
     });
     const csv=rows.map(r=>r.join(",")).join("\n");
@@ -14226,10 +14258,14 @@ function App(){
     document.addEventListener("visibilitychange", _maybeSnapToToday);
     window.addEventListener("focus", _maybeSnapToToday);
     window.addEventListener("pageshow", _maybeSnapToToday);
+    // Poll every 60s so an always-on screen crossing midnight snaps selDay correctly
+    // without needing a background/foreground transition.
+    const _midnightInterval = setInterval(_maybeSnapToToday, 60000);
     return () => {
       document.removeEventListener("visibilitychange", _maybeSnapToToday);
       window.removeEventListener("focus", _maybeSnapToToday);
       window.removeEventListener("pageshow", _maybeSnapToToday);
+      clearInterval(_midnightInterval);
     };
   }, []);
 
@@ -15628,7 +15664,7 @@ function App(){
   // Allergen safety gate. stored per child
   const allergenProfile = React.useMemo(()=>{
     try{ return safeAllergenProfile(safeJsonObject(localStorage.getItem("allergen_profile_v1"))); }catch{ return null; }
-  },[]);
+  },[resolvedActiveId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [showAllergenGate, setShowAllergenGate] = useState(false);
   const [showAllergenEmergency, setShowAllergenEmergency] = useState(false);
   // Weaning section state. must be at top level to avoid React #310 (hooks inside conditional IIFEs)
@@ -17511,6 +17547,21 @@ function App(){
     try{const _saved=safeTempUnit(localStorage.getItem("temp_unit_v1"), ""); if(_saved) return _saved; return countryDefaultUnits(_countryKey).temp;}catch{return "c";}
   });
   const FU=fluidUnit; // shorthand for templates
+  // Recalculate typed feed amounts when user switches fluid unit mid-entry
+  const _prevFluidUnitRef = React.useRef(FU);
+  React.useEffect(()=>{
+    const prev = _prevFluidUnitRef.current;
+    _prevFluidUnitRef.current = FU;
+    if (prev === FU) return;
+    if (logForm.amount && logForm.feedType === "bottle") {
+      const _ml = displayToMl(logForm.amount, prev);
+      if (_ml > 0) setLogForm(f=>({...f, amount: String(mlToDisplay(_ml, FU))}));
+    }
+    if (nwForm.ml) {
+      const _ml = displayToMl(nwForm.ml, prev);
+      if (_ml > 0) setNwForm(f=>({...f, ml: String(mlToDisplay(_ml, FU))}));
+    }
+  }, [FU]); // eslint-disable-line react-hooks/exhaustive-deps
   const MU=measureUnit; // "metric" or "lbs"
   const TU=tempUnit; // "c" or "f"
   // Temperature conversions (always store °C internally)
@@ -17826,7 +17877,7 @@ function App(){
         const shouldRestore = !localHasChild || (localCount === 0 && nativeCount > 0);
         if (!shouldRestore) return;
 
-        localStorage.setItem("children_v1", JSON.stringify(nativeChildren));
+        try { localStorage.setItem("children_v1", JSON.stringify(nativeChildren)); } catch {}
         setChildren(nativeChildren);
         const _mirrorActiveId = safeChildId(mirror.activeChildId, "");
         if (_mirrorActiveId && nativeChildren[_mirrorActiveId]) {
@@ -21452,7 +21503,7 @@ function App(){
         deletedEntryIdsRef.current = new Set();
         deletedDaysRef.current = new Set();
         deletedGrowthMeasurementsRef.current = new Set();
-        localStorage.removeItem("ob_removed_child_ids");
+        // ob_removed_child_ids intentionally NOT cleared — removed children stay blacklisted across re-login
         localStorage.removeItem("ob_deleted_days");
         localStorage.removeItem("ob_deleted_ids");
         localStorage.removeItem(GROWTH_MEASUREMENT_DELETE_KEY);
@@ -21623,20 +21674,16 @@ function App(){
 	        } catch {}
 	      }
 	      if (!data) {
+	        try {
+	          const localUsername = (localStorage.getItem("family_username") || "").trim();
+	          const localCode = localStorage.getItem("backup_code") || "";
+	          if (localUsername && localCode && normaliseUsername(localUsername) === key) {
+	            setAuthError("This device has the account data, but the cloud sign-in record is missing. Open Account and repair sign-in.");
+	            return false;
+	          }
+	        } catch {}
 	        setAuthError("Could not reach your account. Check your connection and try again.");
 	        return false;
-	      }
-	      if(!data) {
-		          try {
-		            const localUsername = (localStorage.getItem("family_username") || "").trim();
-		            const localCode = localStorage.getItem("backup_code") || "";
-		            if(localUsername && localCode && normaliseUsername(localUsername) === key) {
-		              setAuthError("This device has the account data, but the cloud sign-in record is missing. Open Account and repair sign-in.");
-	              return false;
-	            }
-	          } catch(e) {}
-		          setAuthError("Username not found");
-		          return false;
 	      }
 	      if(data.deleted) { setAuthError("Username not found"); return false; }
 	      try { _rememberAccountCreatedAt(data.createdAt || data.accountCreatedAt || data.createdAtClient); } catch {}
@@ -23981,7 +24028,7 @@ function App(){
 	      });
 	      queueSyncV2ChildReadShadowAudit(code, childId, childForCloud, "after-child-sync-write");
 	      try { await _persistChildSyncCode(childId, code, childForCloud); } catch {}
-	    } catch(e) { console.warn("pushChildSync error", e); }
+	    } catch(e) { console.warn("pushChildSync error", e); try { setSyncStatus("error"); showToast("Sync failed — check your connection and try again", 4000, 2); } catch {} }
 	  }
   const subscribeToChildSync = React.useCallback((childId, code) => {
     if(!window._fb || !code) return;
@@ -34012,7 +34059,7 @@ function App(){
     const _todayFeeds = (days[selDay] || []).filter(e => isBabyFeed(e) && !e.night).sort((a, b) => timeVal(a) - timeVal(b));
     for (let i = 0; i < _todayFeeds.length - 2; i++) {
       const span = timeVal(_todayFeeds[i + 2]) - timeVal(_todayFeeds[i]);
-      if (span > 0 && span <= 120) {
+      if (span > 0 && span <= 90) {
         insights.push({ type: "cluster", text: _n + " cluster fed this " + (timeVal(_todayFeeds[i]) < 720 ? "morning" : "evening") + " (3 feeds in " + hm(span) + "). Cluster feeding is a normal way babies tank up, especially before longer sleep stretches. It's not a sign of low supply." });
         break;
       }
@@ -34829,7 +34876,11 @@ function App(){
 	    const _newAllergens = _allergens.filter(a => !allergenIntroduced(weaningEvidence || weaning || [], a));
 	    if (_newAllergens.length) {
 	      try {
-	        const _allergenTimer = normaliseAllergenTimerPayload({allergens:_newAllergens, food:_food, startMs:Date.now()});
+	        const _existingAt = normaliseAllergenTimerPayload(safeJsonObject(localStorage.getItem("ob_allergen_timer")));
+	        const _timerAllergens = _existingAt ? [...new Set([..._existingAt.allergens, ..._newAllergens])] : _newAllergens;
+	        const _timerFood = _existingAt ? _existingAt.food + " + " + _food : _food;
+	        const _timerStart = _existingAt ? _existingAt.startMs : Date.now();
+	        const _allergenTimer = normaliseAllergenTimerPayload({allergens:_timerAllergens, food:_timerFood, startMs:_timerStart});
 	        if (_allergenTimer) localStorage.setItem("ob_allergen_timer", JSON.stringify(_allergenTimer));
 	      } catch {}
 	    }
@@ -34848,7 +34899,35 @@ function App(){
     if (!entries || !entries.length) return entries;
     // Find bedtime on this day
     const bed = findBedtime(entries);
-    if (!bed || !bed.time) return entries; // no bedtime, nothing to classify
+    if (!bed || !bed.time) {
+      // Case B: no bedtime today — check previous day for a late bedtime.
+      // Early-morning feeds (e.g. 02:00, 04:00) on a new calendar day are
+      // still night feeds that belong to the previous night's sleep stretch.
+      if (!prevDayEntries || !prevDayEntries.length) return entries;
+      const prevBed = findBedtime(prevDayEntries);
+      if (!prevBed || !prevBed.time) return entries;
+      const prevBedMins = timeVal(prevBed);
+      if (prevBedMins < 16*60) return entries; // prev bedtime too early, likely nap
+      const morningWake = findMorningWake(entries);
+      const wakeMins = (morningWake && hasValidTime(morningWake)) ? timeVal(morningWake) : null;
+      return entries.map(e => {
+        if (e.nightLocked) return e;
+        if (e.type !== "wake" && e.type !== "feed") return e;
+        if (e.type === "feed") {
+          const feedType = String(e.feedType || "").toLowerCase();
+          if (feedType === "pump" || feedType === "solids" || e.dreamFeed) return e;
+          if (!_isMilkOrBreastFeedEntry(e)) return e;
+        }
+        if (!hasValidTime(e)) return e;
+        const eMins = timeVal(e);
+        // At or after morning wake, or at/after noon → daytime
+        if ((wakeMins !== null && eMins >= wakeMins) || eMins >= 12*60) return {...e, night: false};
+        // Before morning wake and before noon → still night from previous day
+        const isNight = true;
+        if (e.night !== isNight) return {...e, night: isNight};
+        return e;
+      });
+    }
     const bedMins = timeVal(bed);
     if (bedMins < 16*60) return entries; // bedtime before 4pm is likely a nap, skip
 
@@ -36724,6 +36803,16 @@ function App(){
   function addReminder(){
     const safeReminder = normaliseReminderRecord({...reminderForm, id: editRemId || uid(), date: reminderForm.date || todayStr()});
     if(!safeReminder) return;
+    // Warn if a one-shot timed reminder is already in the past — it will save but
+    // the notification will never fire (scheduler only schedules future events).
+    if (safeReminder.repeat === "none" && !safeReminder.trigger && safeReminder.date && safeReminder.time) {
+      try {
+        const _rMs = new Date(safeReminder.date + "T" + safeReminder.time).getTime();
+        if (_rMs && !isNaN(_rMs) && _rMs < Date.now()) {
+          showToast("That time has already passed — this reminder won\u2019t send a notification", 3500, 2);
+        }
+      } catch {}
+    }
     if(editRemId){
       setReminders(prev=>normaliseRemindersPayload(prev.map(r=>r.id===editRemId?safeReminder:r)));
       setEditRemId(null);setShowAddReminder(false);setReminderForm({text:"",date:"",time:"",trigger:"",repeat:"none"});
@@ -36744,7 +36833,7 @@ function App(){
     setReminderPopup({text: active[0].text, type: _typeLabels[eventType] || "Reminder", reminders: active});
     haptic("success");
     // Fire native notification for ALL active reminders (shows on lock screen even if app is in foreground)
-    if(_isNative && window.Capacitor?.Plugins?.LocalNotifications){
+    if(_isNative && window.Capacitor?.Plugins?.LocalNotifications && document.visibilityState !== "visible"){
       active.forEach(r => {
         try{
           scheduleSafeLocalNotifications(window.Capacitor.Plugins.LocalNotifications, [{
@@ -37564,7 +37653,9 @@ function App(){
       quickAddLog("feed", data);
     };
     if(f.feedType==="bottle"){
-      routeDetailedFeed({type:"feed",time:t,feedType:"milk",amount:displayToMl(f.amount,FU),note:f.note||""});
+      const _ml = displayToMl(f.amount, FU);
+      if (_ml <= 0) { showToast("Enter an amount to save", 2000, 2); return; }
+      routeDetailedFeed({type:"feed",time:t,feedType:"milk",amount:_ml,note:f.note||""});
     } else if(f.feedType==="breast"){
       routeDetailedFeed({type:"feed",time:t,feedType:"breast",breastL:safeBreastMinutesInput(f.breastL),breastR:safeBreastMinutesInput(f.breastR),amount:0,note:f.note||""});
     } else if(f.feedType==="pump"){
@@ -37606,7 +37697,7 @@ function App(){
       if (!preserveMode) localStorage.setItem("timer_mode_v1","prediction");
 	    }catch{}
 	    if (!keepNativeTimer) {
-	      clearExternalTimerSurfaces(null);
+	      clearExternalTimerSurfaces(null); // widget, Live Activity, and Android timer stop immediately
 	    }
     try { console.log("[OBubba] cleared nap timer", reason); } catch {}
   }
@@ -38638,7 +38729,7 @@ function App(){
       } catch {}
     }
     // Stop any running nap/bedtime timer. the night is over
-    if(napOn) {
+    if(napOn || localStorage.getItem("nap_on") === "1") {
       setNapOn(false); setNapSec(0); setNapStartT(null); setNapEntryId(null); setNapPaused(false);
       try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day"].forEach(k=>localStorage.removeItem(k));}catch{}
     }
@@ -38647,7 +38738,7 @@ function App(){
     setBedPauseStart(null);
     setBedPausedAtSec(0);
     setBedTotalPausedSec(0);
-    try{localStorage.removeItem("bed_timer_start");localStorage.removeItem("bed_total_paused_sec");localStorage.removeItem("bed_paused");localStorage.removeItem("bed_paused_sec");localStorage.removeItem("bed_pause_start");}catch{}
+    try{localStorage.removeItem("bed_timer_start");localStorage.removeItem("bed_total_paused_sec");localStorage.removeItem("bed_paused");localStorage.removeItem("bed_paused_sec");localStorage.removeItem("bed_pause_start");localStorage.removeItem("bed_wake_entry_id");}catch{}
     // Always stop Live Activity on morning wake. bedtime Live Activity runs without napOn
     // Multiple attempts because iOS ActivityKit can be flaky
     if(_isNative) {
@@ -38734,18 +38825,24 @@ function App(){
       let nightLen = wakeMins < bedMins ? (24*60 - bedMins + wakeMins) : (wakeMins - bedMins);
       if (nightLen > 840) nightLen = 840; // cap at 14h
 
-      // Find longest stretch
-      const times = [bedEntry.time, ...nightWakes.map(e => e.time).sort((a,b) => {
-        const ta = timeVal({time:a}), tb = timeVal({time:b});
+      // Find longest stretch — subtract assistedDuration so assisted re-settles don't inflate the gap
+      const _sortedWakes = [...nightWakes].sort((a, b) => {
+        const ta = timeVal(a), tb = timeVal(b);
         const ka = ta >= bedMins ? ta : ta + 1440;
         const kb = tb >= bedMins ? tb : tb + 1440;
         return ka - kb;
-      }), wakeTime];
+      });
+      const _stretchEvents = [
+        {time: bedEntry.time, assistedDuration: 0},
+        ..._sortedWakes.map(e => ({time: e.time, assistedDuration: e.assistedDuration || 0})),
+        {time: wakeTime, assistedDuration: 0}
+      ];
       let longestStretch = 0;
-      for (let i = 1; i < times.length; i++) {
-        let diff = timeVal({time:times[i]}) - timeVal({time:times[i-1]});
+      for (let i = 1; i < _stretchEvents.length; i++) {
+        let diff = timeVal({time:_stretchEvents[i].time}) - timeVal({time:_stretchEvents[i-1].time});
         if (diff < 0) diff += 1440;
-        if (diff > longestStretch && diff < 840) longestStretch = diff;
+        const unbrokenSleep = Math.max(0, diff - _stretchEvents[i-1].assistedDuration);
+        if (unbrokenSleep > longestStretch && unbrokenSleep < 840) longestStretch = unbrokenSleep;
       }
 
       const summary = [];
@@ -39163,6 +39260,9 @@ function App(){
       scheduleMedicineReminderSet({seed:schedId,title,body,scheduleKey:entry.schedule,timeStr})
         .then(count=>{ if(count>0) showToast(`💊 Logged + reminder set (${medicineReminderLabel(entry.schedule)})`, 3000, 1); })
         .catch(()=>showToast("💊 Logged. Reminder could not be scheduled",3000,2));
+    } else if (built.tempC !== null && built.tempC >= 40) {
+      // Safety: very high fever at any age — emergency
+      setTimeout(() => showToast(`🌡️ ${built.tempC.toFixed(1)}°C — this is very high. Please call ${_emergNum} or go to A&E now.`, 10000, 3), 300);
     } else if (built.tempC !== null && built.tempC >= 38 && age && age.totalWeeks < 13) {
       // Safety: fever in under 3 months — urgent
       setTimeout(() => showToast(`🌡️ ${cToDisplay(38)}${tempLabel}+ under 3 months. please call ${_helpLine} immediately`, 8000, 3), 300);
@@ -39170,7 +39270,11 @@ function App(){
       // Safety: fever in under 6 months — seek advice
       setTimeout(() => showToast(`🌡️ ${cToDisplay(38)}${tempLabel}+ under 6 months. please call ${_helpLine} for guidance`, 8000, 3), 300);
     } else if (built.tempC !== null && built.tempC >= 38) {
-      setTimeout(() => showToast(`🌡️ Temperature logged. Keep baby comfortable and hydrated. You can always call ${_helpLine} if you'd like advice.`, 5000, 2), 300);
+      // When age is unknown, give a conservative warning — baby may be very young
+      setTimeout(() => showToast(!age
+        ? `🌡️ Temperature logged. If baby is under 3 months with a fever, please call ${_helpLine} or ${_emergNum} immediately.`
+        : `🌡️ Temperature logged. Keep baby comfortable and hydrated. You can always call ${_helpLine} if you'd like advice.`,
+        !age ? 8000 : 5000, !age ? 3 : 2), 300);
     } else {
       showToast(entry.name ? "💊 Logged. Always follow dosing instructions on the packaging or from your pharmacist." : "💊 Logged", entry.name ? 3000 : 1200, 1);
     }
@@ -39277,8 +39381,8 @@ function App(){
     const lastWeekRd = _nftRecent.slice(-14, -7);
     if (lastWeekRd.length < 5) return null;
     const avg = arr => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length * 10) / 10 : 0;
-    const twFeeds = thisWeekRd.map(rd => getNightFeedEventsForDay(days, rd.dayKey, nextCalDay(rd.dayKey)).length);
-    const lwFeeds = lastWeekRd.map(rd => getNightFeedEventsForDay(days, rd.dayKey, nextCalDay(rd.dayKey)).length);
+    const twFeeds = thisWeekRd.map(rd => rd.entries.filter(e => e.night && isBabyFeed(e)).length);
+    const lwFeeds = lastWeekRd.map(rd => rd.entries.filter(e => e.night && isBabyFeed(e)).length);
     const twAvg = avg(twFeeds);
     const lwAvg = avg(lwFeeds);
     const diff = Math.round((lwAvg - twAvg) * 10) / 10;
@@ -39292,7 +39396,9 @@ function App(){
     const sorted = [...weights].sort((a, b) => a.date.localeCompare(b.date));
     const latest = sorted[sorted.length - 1];
     if (!latest) return null;
-    const ageMo = ageMonthsFromDates(babyDob, latest.date);
+    // Use corrected age (dueDate) for preterm babies when calculating WHO percentiles
+    const _gfcGrowthDob=(activeChild&&activeChild.dueDate&&activeChild.dueDate>babyDob)?activeChild.dueDate:babyDob;
+    const ageMo = ageMonthsFromDates(_gfcGrowthDob, latest.date);
     const pct = ageMo !== null && ageMo >= 0 && ageMo <= 24 ? getPercentile(latest.kg, ageMo, babySex) : null;
     const _gfcRecent = getResolvedRecentDays(days, selDay, 7);
     const dailyMl = _gfcRecent.map(rd => rd.entries.filter(e => e.type === "feed").reduce((s, f) => s + (f.amount || 0), 0)).filter(v => v > 0);
@@ -39307,7 +39413,7 @@ function App(){
     const _bdiRecent = getResolvedRecentDays(days, selDay, 7);
     const durations = [];
     _bdiRecent.forEach(rd => {
-      rd.entries.filter(e => e.type === "feed" && e.feedType === "breast" && e.breastL).forEach(f => {
+      rd.entries.filter(e => e.type === "feed" && e.feedType === "breast" && (e.breastL || e.breastR)).forEach(f => {
         const total = (parseInt(f.breastL) || 0) + (parseInt(f.breastR) || 0);
         if (total > 0) durations.push({ total, time: f.time, day: rd.dayKey });
       });
@@ -40377,7 +40483,7 @@ function App(){
     const sideKey = resumeBreastTimer(side);
     const totalSec = breastTimerTotalSeconds(storedBreastTimerSeconds());
     // Update Live Activity with new side
-    if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.update({elapsed:totalSec,side:sideKey==='L'?'left':'right'});
+    if(_isNative) window.Capacitor?.Plugins?.OBLiveActivity?.update?.({elapsed:totalSec,side:sideKey==='L'?'left':'right'});
     // Android: update foreground service with new side
     _androidTimerUpdate({elapsed:totalSec,side:sideKey==='L'?'left':'right'});
   }
@@ -41989,7 +42095,9 @@ function App(){
       const latest = weights[weights.length-1];
       lines.push("═══ GROWTH ═══");
       lines.push(`Latest weight: ${fmtWt(latest.kg,MU)} (${latest.date})`);
-      const pct = age && babyDob ? (()=>{const _mo=ageMonthsFromDates(babyDob,latest.date); return _mo!=null?getPercentile(latest.kg,_mo,babySex):null;})() : null;
+      // Use corrected age (dueDate) for preterm babies when calculating WHO percentiles
+      const _hvGrowthDob=(activeChild&&activeChild.dueDate&&activeChild.dueDate>babyDob)?activeChild.dueDate:babyDob;
+      const pct = age && babyDob ? (()=>{const _mo=ageMonthsFromDates(_hvGrowthDob,latest.date); return _mo!=null?getPercentile(latest.kg,_mo,babySex):null;})() : null;
       if(pct!==null) lines.push(`WHO percentile: ${ordinal(pct)}`);
       if(heights.length) lines.push(`Latest height: ${fmtHt(heights[heights.length-1].cm,MU)}`);
       lines.push("");
@@ -42015,11 +42123,12 @@ function App(){
 
     // Sleep summary
     lines.push("═══ SLEEP ═══");
-    let totalNaps=0, totalNapMins=0, bedArr=[], wakeArr=[], nightWakeTotal=0;
+    let totalNaps=0, totalNapMins=0, bedArr=[], wakeArr=[], nightWakeTotal=0, _daysWithNapData=0;
     dk.forEach(d=>{
       const entries=days[d]||[];
       const napList=getReliableCompletedDayNaps(entries, TRACK_RELIABLE_NAP_MAX_MINS);
       totalNaps+=napList.length;
+      if(napList.length>0) _daysWithNapData++;
       totalNapMins+=napList.reduce((s,n)=>s+minDiff(n.start,n.end),0);
       const bed=findBedtime(entries);
       if(bed){const _m=clockMins(bed.time);if(_m!==null)bedArr.push(_m);}
@@ -42028,7 +42137,7 @@ function App(){
       const next=nextDayStr(d);
       nightWakeTotal+=getNightWakeEventCount(days,d,next);
     });
-    lines.push(`Avg naps/day: ${Math.round(totalNaps/dk.length*10)/10}`);
+    lines.push(`Avg naps/day: ${Math.round(totalNaps/(_daysWithNapData||dk.length)*10)/10}`);
     lines.push(`Avg nap time: ${hm(Math.round(totalNapMins/dk.length))}/day`);
     if(bedArr.length) lines.push(`Avg bedtime: ${fmt12((() => { const m=Math.round(bedArr.reduce((a,b)=>a+b,0)/bedArr.length); return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0"); })())}`);
     if(wakeArr.length) lines.push(`Avg wake time: ${fmt12((() => { const m=Math.round(wakeArr.reduce((a,b)=>a+b,0)/wakeArr.length); return String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0"); })())}`);
@@ -42079,6 +42188,27 @@ function App(){
           lines.push(medLine);
         });
       });
+      lines.push("");
+    }
+
+    // Allergen introductions
+    const _weanLog = Array.isArray(weaningEvidence) && weaningEvidence.length ? weaningEvidence : (Array.isArray(weaning) ? weaning : []);
+    const _weanInPeriod = _weanLog.filter(w => w.date && dk.includes(w.date));
+    const _allAllergensDone = ALLERGEN_GUIDE ? ALLERGEN_GUIDE.filter(ag => allergenIntroduced(_weanLog, ag.key || ag.name)).map(ag => ag.name || ag.key) : [];
+    const _allAllergensPending = ALLERGEN_GUIDE ? ALLERGEN_GUIDE.filter(ag => !allergenIntroduced(_weanLog, ag.key || ag.name)).map(ag => ag.name || ag.key) : [];
+    if (_weanInPeriod.length || _allAllergensDone.length) {
+      lines.push("═══ WEANING & ALLERGEN INTRODUCTIONS ═══");
+      if (_weanInPeriod.length) {
+        lines.push("Foods introduced this period:");
+        _weanInPeriod.forEach(w => {
+          const _al = Array.isArray(w.allergens) && w.allergens.length ? ` (allergens: ${w.allergens.join(", ")})` : "";
+          const _rx = w.reaction && w.reaction !== "neutral" ? ` — reaction: ${w.reaction}` : "";
+          lines.push(`  ${fmtDate(w.date)}: ${w.food || "?"}${_al}${_rx}`);
+        });
+        lines.push("");
+      }
+      if (_allAllergensDone.length) lines.push(`Top 14 allergens introduced: ${_allAllergensDone.join(", ")}`);
+      if (_allAllergensPending.length) lines.push(`Still to introduce: ${_allAllergensPending.join(", ")}`);
       lines.push("");
     }
 
@@ -46045,7 +46175,7 @@ function App(){
 			    const clockFeedTimerCandidateOnThisDay = !!(clockLabIsToday && (clockBreastActiveForTimer || clockBreastStartForTimer || clockBreastHasTrackedSeconds));
 			    const clockBedActivelySleeping = !!(clockBedOnThisDay && !bedPaused);
 		    const clockNapOnThisDayRaw = !!(napOn && activeNapDay === dayKey);
-		    const clockNapSuppressedByBedtime = !!(clockBedOnThisDay && !bedPaused);
+		    const clockNapSuppressedByBedtime = !!clockBedOnThisDay; // suppress nap pill whenever bed timer exists, even when paused mid-wake
 		    const clockNapSuppressedByForegroundFeed = !!(clockFeedTimerCandidateOnThisDay && !clockBedActivelySleeping);
 			    const clockNapOnThisDay = !!(clockNapOnThisDayRaw && !clockNapSuppressedByBedtime && !clockNapSuppressedByForegroundFeed);
 		    const clockFeedOnThisDay = !!(clockFeedOnThisDayRaw && !clockBedActivelySleeping);
@@ -47470,16 +47600,18 @@ function App(){
 	      {mins:1260,top:"9",bottom:"pm"}
 			    ];
 				    const clockAndroidVisualMode = (()=>{try{return document.body?.hasAttribute("data-ob-android-webview") || document.body?.classList?.contains("android") || window.Capacitor?.getPlatform?.()==="android";}catch{return false;}})();
+				    const clockIosVisualMode = (()=>{try{return document.documentElement?.getAttribute("data-ob-platform")==="ios" || document.body?.getAttribute("data-ob-platform")==="ios" || document.body?.classList?.contains("ios") || window.Capacitor?.getPlatform?.()==="ios";}catch{return false;}})();
+				    const clockFireflyCanvasMode = clockAndroidVisualMode || clockIosVisualMode;
 				    const clockPresenceVisibleParents = clockLabIsDay ? [] : (clockPresenceParents || []).slice(0, clockPresenceDisplayLimit);
-				    const clockPresenceAndroidParents = clockAndroidVisualMode ? clockPresenceVisibleParents.slice(0, Math.min(18, clockPresenceDisplayLimit)) : [];
+				    const clockPresenceAndroidParents = clockFireflyCanvasMode ? clockPresenceVisibleParents.slice(0, Math.min(18, clockPresenceDisplayLimit)) : [];
 						    const clockPresenceIphoneMainLimit = 18;
-						    const clockPresenceRimLimit = clockAndroidVisualMode ? 8 : 18;
-						    const clockPresenceGlassLimit = clockAndroidVisualMode ? 2 : 0;
-				    const clockPresenceMainLimit = clockAndroidVisualMode ? clockPresenceRimLimit + clockPresenceGlassLimit : clockPresenceIphoneMainLimit;
+						    const clockPresenceRimLimit = clockFireflyCanvasMode ? 8 : 18;
+						    const clockPresenceGlassLimit = clockFireflyCanvasMode ? 2 : 0;
+				    const clockPresenceMainLimit = clockFireflyCanvasMode ? clockPresenceRimLimit + clockPresenceGlassLimit : clockPresenceIphoneMainLimit;
 				    const clockPresenceMainCount = Math.min(clockPresenceVisibleParents.length, clockPresenceMainLimit);
 				    const clockPresenceGlassCountTarget = Math.min(clockPresenceGlassLimit, Math.max(0, clockPresenceMainCount - clockPresenceRimLimit));
 				    const clockPresenceRimCount = Math.min(clockPresenceRimLimit, Math.max(0, clockPresenceMainCount - clockPresenceGlassCountTarget));
-				    const clockPresenceAndroidRingCount = clockAndroidVisualMode ? Math.min(14, clockPresenceAndroidParents.length) : 0;
+				    const clockPresenceAndroidRingCount = clockFireflyCanvasMode ? Math.min(14, clockPresenceAndroidParents.length) : 0;
 				    const clockPresenceAndroidRingParents = clockPresenceAndroidRingCount ? clockPresenceAndroidParents.slice(0, clockPresenceAndroidRingCount) : [];
 				    const clockPresenceRimParents = clockPresenceVisibleParents.slice(0, clockPresenceRimCount);
 				    const clockPresenceGlassParents = clockPresenceVisibleParents.slice(clockPresenceRimCount, clockPresenceRimCount + clockPresenceGlassCountTarget);
@@ -47559,7 +47691,7 @@ function App(){
 		      const twinkle = 2.6 + ((seed + index) % 18) / 10;
 		      return {...parent, index, xPct:column, yPct:row, size, drift, delay, twinkle};
 		    });
-		    const clockPresenceCanvasGlyphs = clockAndroidVisualMode
+		    const clockPresenceCanvasGlyphs = clockFireflyCanvasMode
 		      ? [
 		        ...clockPresenceAndroidRingGlyphs.map(fly => ({...fly, layer:"ring"})),
 		        ...clockPresenceAndroidAmbientGlyphs.map(fly => ({...fly, layer:"ambient"}))
@@ -49462,7 +49594,7 @@ function App(){
 	    ) : null;
 		    return (
 		      <div data-testid="clock-home-lab" data-presence-online-count={clockPresenceVisibleParents.length} data-presence-rim-count={clockPresenceRimParents.length} data-presence-glass-count={clockPresenceGlassParents.length} data-presence-ambient-count={clockPresenceAmbientParents.length} className={"ob-clock-lab"+(activeTimer?" is-timing":"")+(clockLabIsDay?" is-day":" is-night")} onClick={closeClockLabDrawers}>
-          {!clockAndroidVisualMode && clockPresenceAmbientGlyphs.length > 0 && (
+          {!clockFireflyCanvasMode && clockPresenceAmbientGlyphs.length > 0 && (
             <div className="ob-clock-firefly-field" aria-hidden="true">
               {clockPresenceAmbientGlyphs.map(fly => (
 	                <span
@@ -49493,7 +49625,7 @@ function App(){
 	          {clockPresenceCanvasGlyphs.length > 0 && (
 	            <ClockFireflyCanvas flies={clockPresenceCanvasGlyphs} pulseId={clockPresencePulse && clockPresencePulse.id}/>
 	          )}
-	          {!clockAndroidVisualMode && clockPresenceAndroidRingGlyphs.length > 0 && (
+	          {!clockFireflyCanvasMode && clockPresenceAndroidRingGlyphs.length > 0 && (
 	            <div className="ob-clock-android-ring-fireflies" aria-hidden="false">
 	              {clockPresenceAndroidRingGlyphs.map(fly => {
 	                const pulsing = !!(clockPresencePulse && clockPresencePulse.id === fly.id);
@@ -49557,7 +49689,7 @@ function App(){
             <circle cx="120" cy="120" r="94.8" className="ob-clock-face-recess"/>
 	            <circle cx="120" cy="120" r="96.5" className="ob-clock-bevel-lip"/>
 		            {/* Behind-glass fireflies sit above the recess but below the glass pane. */}
-	            {!clockAndroidVisualMode && clockPresenceGlassGlyphs.map(parent => {
+	            {!clockFireflyCanvasMode && clockPresenceGlassGlyphs.map(parent => {
 	              const pulsing = !!(clockPresencePulse && clockPresencePulse.id === parent.id);
 	              return (
 	                <g key={"bg-presence-"+parent.id} className={"ob-clock-presence-glyph is-firefly is-behind-glass"+(pulsing?" is-pulsing":"")} data-testid="clock-presence-glass-glyph" transform={"translate("+parent.x.toFixed(2)+" "+parent.y.toFixed(2)+")"} style={{"--ob-presence-delay":(parent.index%5)*0.45+"s"}} opacity="0.72">
@@ -49569,7 +49701,7 @@ function App(){
 	              );
 	            })}
 	            {/* Outer fireflies render after the clock face */}
-	            {!clockAndroidVisualMode && clockPresenceGlyphs.map(parent => {
+	            {!clockFireflyCanvasMode && clockPresenceGlyphs.map(parent => {
 	              const pulsing = !!(clockPresencePulse && clockPresencePulse.id === parent.id);
 		              const presenceClass = "is-firefly";
 		              const presenceTip = clockPresenceTipFor(parent);
@@ -50489,7 +50621,7 @@ function App(){
                 <div style={{fontSize:11,color:C.lt,marginTop:4,lineHeight:1.4}}>OBubba will use adjusted age for milestones, sleep and growth predictions.</div>
               </div>
             )}
-            <button onClick={()=>obDob&&setObStep(3)} disabled={!obDob}
+            <button onClick={()=>{ if(!obDob) return; if(obDob > todayStr()){ showToast("Date of birth can\u2019t be in the future", 2500, 2); return; } setObStep(3); }} disabled={!obDob}
               style={{width:"100%",marginTop:20,background:obDob?"linear-gradient(135deg,#9B8BB8,#7B6BA0)":"rgba(155,139,184,0.2)",border:_bN,borderRadius:99,padding:"14px",color:obDob?"white":"rgba(155,139,184,0.5)",fontSize:16,fontWeight:700,cursor:obDob?_cP:"not-allowed",boxShadow:obDob?"0 4px 24px rgba(155,139,184,0.35), 0 0 20px rgba(155,139,184,0.1)":"none"}}>
               Continue {"\u2192"}
             </button>
@@ -51360,8 +51492,9 @@ function App(){
 	                    {babyName || "Baby"}
 	                  </div>
 	                  {age && <div style={{fontSize:10.5,color:clockHomeLabChromeDay?"#665A66":C.mid,fontFamily:_fM,fontWeight:650,lineHeight:1.18,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{fmtAge(age)}</div>}
-                  {!age && babyUnborn && babyDob && (()=>{
-                    const dueMs = dateKeyMs(babyDob, NaN);
+                  {!age && babyUnborn && (activeChild.dueDate||babyDob) && (()=>{
+                    const _dueDateStr = activeChild.dueDate || babyDob;
+                    const dueMs = dateKeyMs(_dueDateStr, NaN);
                     if (!Number.isFinite(dueMs)) return null;
                     const daysUntil = Math.ceil((dueMs - Date.now()) / (1000*60*60*24));
                     return <div style={{fontSize:10,color:C.ter,fontWeight:600,fontFamily:_fM}}>🤰 {daysUntil > 0 ? `Due in ${daysUntil} days` : "Due any day!"}</div>;
@@ -53033,7 +53166,17 @@ function App(){
                                     <div style={{fontSize:12,fontWeight:850,color:"#e8574a"}}>Allergen watch · {Math.floor(_remaining/60)}h {_remaining%60}m left</div>
                                     <div style={{fontSize:11,color:C.mid,marginTop:2,lineHeight:1.35}}>{_at.food} ({_timerAllergens.join(", ")})</div>
                                   </div>
-                                  <button onClick={()=>{try{localStorage.removeItem("ob_allergen_timer");}catch{}haptic();showToast("✓ No reaction logged",1500,1);}} style={{padding:"5px 10px",borderRadius:99,border:"1px solid rgba(111,168,152,0.3)",background:"rgba(111,168,152,0.08)",color:C.mint,fontSize:10,fontWeight:800,cursor:_cP}}>All clear</button>
+                                  <button onClick={()=>{
+                                    try{
+                                      setWeaning(prev => {
+                                        const _p = Array.isArray(prev) ? prev : [];
+                                        const _entry = {id:uid(), food:_at.food, date:selDay, time:nowTime(), allergens:_timerAllergens, reaction:"none", note:"All clear — no reaction (2h watch)"};
+                                        return [..._p, _entry];
+                                      });
+                                    }catch{}
+                                    try{localStorage.removeItem("ob_allergen_timer");}catch{}
+                                    haptic();showToast("✓ No reaction logged",1500,1);
+                                  }} style={{padding:"5px 10px",borderRadius:99,border:"1px solid rgba(111,168,152,0.3)",background:"rgba(111,168,152,0.08)",color:C.mint,fontSize:10,fontWeight:800,cursor:_cP}}>All clear</button>
                                 </div>
                               </div>
                             );
@@ -54684,7 +54827,7 @@ function App(){
                   {reminders.filter(r=>r.done).length>0&&(
                     <div style={{marginTop:6,paddingTop:4,borderTop:`1px solid ${C.blush}`}}>
                       <div style={{fontSize:10,color:C.lt,fontFamily:_fM,marginBottom:3}}>Done</div>
-                      {reminders.filter(r=>r.done).map(r=>(
+                      {reminders.filter(r=>r.done).slice(-10).map(r=>(
                         <div key={r.id} style={{display:"flex",alignItems:"center",gap:10,padding:"3px 0",opacity:0.45}}>
                           <div onClick={()=>toggleReminder(r.id)} style={{width:20,height:20,borderRadius:"50%",border:`2px solid ${C.mint}`,background:C.mint,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,flexShrink:0}}>
                             <span style={{color:"white",fontSize:10,fontWeight:700}}>✓</span>
@@ -56621,7 +56764,7 @@ function App(){
         )}
         {tab==="insights" && !(daySubScreen && (daySubScreen==="wellbeing" || daySubScreen.startsWith("weaning"))) && (()=>{
           const babyDobMsForInsights = babyDob ? dateKeyMs(babyDob, NaN) : NaN;
-          const ageMonths = Number.isFinite(babyDobMsForInsights) ? Math.floor((Date.now() - babyDobMsForInsights) / (1000*60*60*24*30.44)) : null;
+          const ageMonths = Number.isFinite(babyDobMsForInsights) ? Math.floor((Date.now() - babyDobMsForInsights) / (1000*60*60*24*30.4375)) : null;
           const sortedW = [...weights].sort((a,b)=>a.date.localeCompare(b.date));
           const sortedH = [...heights].sort((a,b)=>a.date.localeCompare(b.date));
           const wWithPct = sortedW.map(w => {
@@ -58914,7 +59057,7 @@ function App(){
                     const _dobMs = dateKeyMs(babyDob);
                     const wData = weights.map(w => {
                       const _wMs = dateKeyMs(w.date);
-                      const ageMo = Number.isFinite(_wMs) && Number.isFinite(_dobMs) ? Math.round(((_wMs - _dobMs) / (1000*60*60*24*30.44))*100)/100 : NaN;
+                      const ageMo = Number.isFinite(_wMs) && Number.isFinite(_dobMs) ? Math.round(((_wMs - _dobMs) / (1000*60*60*24*30.4375))*100)/100 : NaN;
                       return { mo: ageMo, val: w.kg };
                     }).filter(d => d.mo >= 0 && d.mo <= 24).sort((a,b) => a.mo - b.mo);
                     // Weekly average for frequent loggers (>14 points)
@@ -58943,7 +59086,7 @@ function App(){
                     const _dobMs = dateKeyMs(babyDob);
                     const hData = heights.map(h => {
                       const _hMs = dateKeyMs(h.date);
-                      const ageMo = Number.isFinite(_hMs) && Number.isFinite(_dobMs) ? Math.round(((_hMs - _dobMs) / (1000*60*60*24*30.44))*100)/100 : NaN;
+                      const ageMo = Number.isFinite(_hMs) && Number.isFinite(_dobMs) ? Math.round(((_hMs - _dobMs) / (1000*60*60*24*30.4375))*100)/100 : NaN;
                       return { mo: ageMo, val: h.cm };
                     }).filter(d => d.mo >= 0 && d.mo <= 24).sort((a,b) => a.mo - b.mo);
                     const chartData = hData.length > 14 ? (()=>{
@@ -66183,7 +66326,11 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                     );
                   }, 500);
                   try {
-                    const _allergenTimer = normaliseAllergenTimerPayload({allergens:_newAllergens, food:_foodTrim, startMs:Date.now()});
+                    const _existingAt2 = normaliseAllergenTimerPayload(safeJsonObject(localStorage.getItem("ob_allergen_timer")));
+                    const _timerAllergens2 = _existingAt2 ? [...new Set([..._existingAt2.allergens, ..._newAllergens])] : _newAllergens;
+                    const _timerFood2 = _existingAt2 ? _existingAt2.food + " + " + _foodTrim : _foodTrim;
+                    const _timerStart2 = _existingAt2 ? _existingAt2.startMs : Date.now();
+                    const _allergenTimer = normaliseAllergenTimerPayload({allergens:_timerAllergens2, food:_timerFood2, startMs:_timerStart2});
                     if (_allergenTimer) localStorage.setItem("ob_allergen_timer", JSON.stringify(_allergenTimer));
                   } catch {}
                 }
@@ -70148,8 +70295,12 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                 if (_cc) {
                   try {
                     const r = await _cc.generatePDF({ html: _html, fileName: safeFileStem(digest.name||"Baby") + "-Weekly.pdf" });
-                    if (r?.filePath && navigator.share) {
-                      await safeNavigatorShare({ title: _title, url: "file://" + r.filePath });
+                    if (r?.filePath) {
+                      // Use Capacitor Share for native file paths — web share rejects file:// URLs on iOS
+                      const _capSharePdf = window.Capacitor?.Plugins?.Share;
+                      if (_capSharePdf) {
+                        try { await _capSharePdf.share({ title: _title, url: r.filePath, dialogTitle: "Share PDF" }); } catch(e) { if (e?.name === "AbortError") return; console.warn("PDF share failed", e); }
+                      }
                     }
                     return;
                   } catch(e) { if (e.name === "AbortError") return; console.warn("Weekly PDF failed:", e); }
@@ -71073,7 +71224,7 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                   </div>
                   {savedMeds.map(sm=>{
                     // Calculate next dose due
-                    const allDoses = Object.entries(meds).flatMap(([dk,arr])=>Array.isArray(arr)?arr.filter(e=>e.name===sm.name).map(e=>({...e,date:dk})):[]);
+                    const allDoses = Object.entries(meds).flatMap(([dk,arr])=>Array.isArray(arr)?arr.filter(e=>(e.name||"").toLowerCase()===(sm.name||"").toLowerCase()).map(e=>({...e,date:dk})):[]);
                     const lastDose = allDoses.sort((a,b)=>loggedMedicineDoseSortKey(b).localeCompare(loggedMedicineDoseSortKey(a)))[0];
                     let nextDueStr = null;
                     let isOverdue = false;

@@ -12626,10 +12626,11 @@ function App(){
     // Network status monitoring
     OB.network.onStatusChange((status)=>{
       if(status.connected){
-        // Re-sync when back online
         try{
-          if(window._fb && window._fbUid) {
-            // Trigger cloud sync
+          const _bc = backupCodeRef.current;
+          const _ch = childrenRef.current;
+          if(window._fb && window._fbUid && _bc && _ch) {
+            pushToCloud(_bc, _ch);
           }
         }catch{}
       }
@@ -15663,7 +15664,7 @@ function App(){
   // Allergen safety gate. stored per child
   const allergenProfile = React.useMemo(()=>{
     try{ return safeAllergenProfile(safeJsonObject(localStorage.getItem("allergen_profile_v1"))); }catch{ return null; }
-  },[]);
+  },[resolvedActiveId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [showAllergenGate, setShowAllergenGate] = useState(false);
   const [showAllergenEmergency, setShowAllergenEmergency] = useState(false);
   // Weaning section state. must be at top level to avoid React #310 (hooks inside conditional IIFEs)
@@ -21502,7 +21503,7 @@ function App(){
         deletedEntryIdsRef.current = new Set();
         deletedDaysRef.current = new Set();
         deletedGrowthMeasurementsRef.current = new Set();
-        localStorage.removeItem("ob_removed_child_ids");
+        // ob_removed_child_ids intentionally NOT cleared — removed children stay blacklisted across re-login
         localStorage.removeItem("ob_deleted_days");
         localStorage.removeItem("ob_deleted_ids");
         localStorage.removeItem(GROWTH_MEASUREMENT_DELETE_KEY);
@@ -21673,20 +21674,16 @@ function App(){
 	        } catch {}
 	      }
 	      if (!data) {
+	        try {
+	          const localUsername = (localStorage.getItem("family_username") || "").trim();
+	          const localCode = localStorage.getItem("backup_code") || "";
+	          if (localUsername && localCode && normaliseUsername(localUsername) === key) {
+	            setAuthError("This device has the account data, but the cloud sign-in record is missing. Open Account and repair sign-in.");
+	            return false;
+	          }
+	        } catch {}
 	        setAuthError("Could not reach your account. Check your connection and try again.");
 	        return false;
-	      }
-	      if(!data) {
-		          try {
-		            const localUsername = (localStorage.getItem("family_username") || "").trim();
-		            const localCode = localStorage.getItem("backup_code") || "";
-		            if(localUsername && localCode && normaliseUsername(localUsername) === key) {
-		              setAuthError("This device has the account data, but the cloud sign-in record is missing. Open Account and repair sign-in.");
-	              return false;
-	            }
-	          } catch(e) {}
-		          setAuthError("Username not found");
-		          return false;
 	      }
 	      if(data.deleted) { setAuthError("Username not found"); return false; }
 	      try { _rememberAccountCreatedAt(data.createdAt || data.accountCreatedAt || data.createdAtClient); } catch {}
@@ -34062,7 +34059,7 @@ function App(){
     const _todayFeeds = (days[selDay] || []).filter(e => isBabyFeed(e) && !e.night).sort((a, b) => timeVal(a) - timeVal(b));
     for (let i = 0; i < _todayFeeds.length - 2; i++) {
       const span = timeVal(_todayFeeds[i + 2]) - timeVal(_todayFeeds[i]);
-      if (span > 0 && span <= 120) {
+      if (span > 0 && span <= 90) {
         insights.push({ type: "cluster", text: _n + " cluster fed this " + (timeVal(_todayFeeds[i]) < 720 ? "morning" : "evening") + " (3 feeds in " + hm(span) + "). Cluster feeding is a normal way babies tank up, especially before longer sleep stretches. It's not a sign of low supply." });
         break;
       }
@@ -34879,7 +34876,11 @@ function App(){
 	    const _newAllergens = _allergens.filter(a => !allergenIntroduced(weaningEvidence || weaning || [], a));
 	    if (_newAllergens.length) {
 	      try {
-	        const _allergenTimer = normaliseAllergenTimerPayload({allergens:_newAllergens, food:_food, startMs:Date.now()});
+	        const _existingAt = normaliseAllergenTimerPayload(safeJsonObject(localStorage.getItem("ob_allergen_timer")));
+	        const _timerAllergens = _existingAt ? [...new Set([..._existingAt.allergens, ..._newAllergens])] : _newAllergens;
+	        const _timerFood = _existingAt ? _existingAt.food + " + " + _food : _food;
+	        const _timerStart = _existingAt ? _existingAt.startMs : Date.now();
+	        const _allergenTimer = normaliseAllergenTimerPayload({allergens:_timerAllergens, food:_timerFood, startMs:_timerStart});
 	        if (_allergenTimer) localStorage.setItem("ob_allergen_timer", JSON.stringify(_allergenTimer));
 	      } catch {}
 	    }
@@ -36832,7 +36833,7 @@ function App(){
     setReminderPopup({text: active[0].text, type: _typeLabels[eventType] || "Reminder", reminders: active});
     haptic("success");
     // Fire native notification for ALL active reminders (shows on lock screen even if app is in foreground)
-    if(_isNative && window.Capacitor?.Plugins?.LocalNotifications){
+    if(_isNative && window.Capacitor?.Plugins?.LocalNotifications && document.visibilityState !== "visible"){
       active.forEach(r => {
         try{
           scheduleSafeLocalNotifications(window.Capacitor.Plugins.LocalNotifications, [{
@@ -38728,7 +38729,7 @@ function App(){
       } catch {}
     }
     // Stop any running nap/bedtime timer. the night is over
-    if(napOn) {
+    if(napOn || localStorage.getItem("nap_on") === "1") {
       setNapOn(false); setNapSec(0); setNapStartT(null); setNapEntryId(null); setNapPaused(false);
       try{["nap_on","nap_startT","nap_sec","nap_entry_id","nap_paused","nap_paused_sec","nap_startMs","nap_start_day"].forEach(k=>localStorage.removeItem(k));}catch{}
     }
@@ -38824,18 +38825,24 @@ function App(){
       let nightLen = wakeMins < bedMins ? (24*60 - bedMins + wakeMins) : (wakeMins - bedMins);
       if (nightLen > 840) nightLen = 840; // cap at 14h
 
-      // Find longest stretch
-      const times = [bedEntry.time, ...nightWakes.map(e => e.time).sort((a,b) => {
-        const ta = timeVal({time:a}), tb = timeVal({time:b});
+      // Find longest stretch — subtract assistedDuration so assisted re-settles don't inflate the gap
+      const _sortedWakes = [...nightWakes].sort((a, b) => {
+        const ta = timeVal(a), tb = timeVal(b);
         const ka = ta >= bedMins ? ta : ta + 1440;
         const kb = tb >= bedMins ? tb : tb + 1440;
         return ka - kb;
-      }), wakeTime];
+      });
+      const _stretchEvents = [
+        {time: bedEntry.time, assistedDuration: 0},
+        ..._sortedWakes.map(e => ({time: e.time, assistedDuration: e.assistedDuration || 0})),
+        {time: wakeTime, assistedDuration: 0}
+      ];
       let longestStretch = 0;
-      for (let i = 1; i < times.length; i++) {
-        let diff = timeVal({time:times[i]}) - timeVal({time:times[i-1]});
+      for (let i = 1; i < _stretchEvents.length; i++) {
+        let diff = timeVal({time:_stretchEvents[i].time}) - timeVal({time:_stretchEvents[i-1].time});
         if (diff < 0) diff += 1440;
-        if (diff > longestStretch && diff < 840) longestStretch = diff;
+        const unbrokenSleep = Math.max(0, diff - _stretchEvents[i-1].assistedDuration);
+        if (unbrokenSleep > longestStretch && unbrokenSleep < 840) longestStretch = unbrokenSleep;
       }
 
       const summary = [];
@@ -39374,8 +39381,8 @@ function App(){
     const lastWeekRd = _nftRecent.slice(-14, -7);
     if (lastWeekRd.length < 5) return null;
     const avg = arr => arr.length ? Math.round(arr.reduce((a, b) => a + b, 0) / arr.length * 10) / 10 : 0;
-    const twFeeds = thisWeekRd.map(rd => getNightFeedEventsForDay(days, rd.dayKey, nextCalDay(rd.dayKey)).length);
-    const lwFeeds = lastWeekRd.map(rd => getNightFeedEventsForDay(days, rd.dayKey, nextCalDay(rd.dayKey)).length);
+    const twFeeds = thisWeekRd.map(rd => rd.entries.filter(e => e.night && isBabyFeed(e)).length);
+    const lwFeeds = lastWeekRd.map(rd => rd.entries.filter(e => e.night && isBabyFeed(e)).length);
     const twAvg = avg(twFeeds);
     const lwAvg = avg(lwFeeds);
     const diff = Math.round((lwAvg - twAvg) * 10) / 10;
@@ -39406,7 +39413,7 @@ function App(){
     const _bdiRecent = getResolvedRecentDays(days, selDay, 7);
     const durations = [];
     _bdiRecent.forEach(rd => {
-      rd.entries.filter(e => e.type === "feed" && e.feedType === "breast" && e.breastL).forEach(f => {
+      rd.entries.filter(e => e.type === "feed" && e.feedType === "breast" && (e.breastL || e.breastR)).forEach(f => {
         const total = (parseInt(f.breastL) || 0) + (parseInt(f.breastR) || 0);
         if (total > 0) durations.push({ total, time: f.time, day: rd.dayKey });
       });
@@ -42181,6 +42188,27 @@ function App(){
           lines.push(medLine);
         });
       });
+      lines.push("");
+    }
+
+    // Allergen introductions
+    const _weanLog = Array.isArray(weaningEvidence) && weaningEvidence.length ? weaningEvidence : (Array.isArray(weaning) ? weaning : []);
+    const _weanInPeriod = _weanLog.filter(w => w.date && dk.includes(w.date));
+    const _allAllergensDone = ALLERGEN_GUIDE ? ALLERGEN_GUIDE.filter(ag => allergenIntroduced(_weanLog, ag.key || ag.name)).map(ag => ag.name || ag.key) : [];
+    const _allAllergensPending = ALLERGEN_GUIDE ? ALLERGEN_GUIDE.filter(ag => !allergenIntroduced(_weanLog, ag.key || ag.name)).map(ag => ag.name || ag.key) : [];
+    if (_weanInPeriod.length || _allAllergensDone.length) {
+      lines.push("═══ WEANING & ALLERGEN INTRODUCTIONS ═══");
+      if (_weanInPeriod.length) {
+        lines.push("Foods introduced this period:");
+        _weanInPeriod.forEach(w => {
+          const _al = Array.isArray(w.allergens) && w.allergens.length ? ` (allergens: ${w.allergens.join(", ")})` : "";
+          const _rx = w.reaction && w.reaction !== "neutral" ? ` — reaction: ${w.reaction}` : "";
+          lines.push(`  ${fmtDate(w.date)}: ${w.food || "?"}${_al}${_rx}`);
+        });
+        lines.push("");
+      }
+      if (_allAllergensDone.length) lines.push(`Top 14 allergens introduced: ${_allAllergensDone.join(", ")}`);
+      if (_allAllergensPending.length) lines.push(`Still to introduce: ${_allAllergensPending.join(", ")}`);
       lines.push("");
     }
 
@@ -46147,7 +46175,7 @@ function App(){
 			    const clockFeedTimerCandidateOnThisDay = !!(clockLabIsToday && (clockBreastActiveForTimer || clockBreastStartForTimer || clockBreastHasTrackedSeconds));
 			    const clockBedActivelySleeping = !!(clockBedOnThisDay && !bedPaused);
 		    const clockNapOnThisDayRaw = !!(napOn && activeNapDay === dayKey);
-		    const clockNapSuppressedByBedtime = !!(clockBedOnThisDay && !bedPaused);
+		    const clockNapSuppressedByBedtime = !!clockBedOnThisDay; // suppress nap pill whenever bed timer exists, even when paused mid-wake
 		    const clockNapSuppressedByForegroundFeed = !!(clockFeedTimerCandidateOnThisDay && !clockBedActivelySleeping);
 			    const clockNapOnThisDay = !!(clockNapOnThisDayRaw && !clockNapSuppressedByBedtime && !clockNapSuppressedByForegroundFeed);
 		    const clockFeedOnThisDay = !!(clockFeedOnThisDayRaw && !clockBedActivelySleeping);
@@ -53138,7 +53166,17 @@ function App(){
                                     <div style={{fontSize:12,fontWeight:850,color:"#e8574a"}}>Allergen watch · {Math.floor(_remaining/60)}h {_remaining%60}m left</div>
                                     <div style={{fontSize:11,color:C.mid,marginTop:2,lineHeight:1.35}}>{_at.food} ({_timerAllergens.join(", ")})</div>
                                   </div>
-                                  <button onClick={()=>{try{localStorage.removeItem("ob_allergen_timer");}catch{}haptic();showToast("✓ No reaction logged",1500,1);}} style={{padding:"5px 10px",borderRadius:99,border:"1px solid rgba(111,168,152,0.3)",background:"rgba(111,168,152,0.08)",color:C.mint,fontSize:10,fontWeight:800,cursor:_cP}}>All clear</button>
+                                  <button onClick={()=>{
+                                    try{
+                                      setWeaning(prev => {
+                                        const _p = Array.isArray(prev) ? prev : [];
+                                        const _entry = {id:uid(), food:_at.food, date:selDay, time:nowTime(), allergens:_timerAllergens, reaction:"none", note:"All clear — no reaction (2h watch)"};
+                                        return [..._p, _entry];
+                                      });
+                                    }catch{}
+                                    try{localStorage.removeItem("ob_allergen_timer");}catch{}
+                                    haptic();showToast("✓ No reaction logged",1500,1);
+                                  }} style={{padding:"5px 10px",borderRadius:99,border:"1px solid rgba(111,168,152,0.3)",background:"rgba(111,168,152,0.08)",color:C.mint,fontSize:10,fontWeight:800,cursor:_cP}}>All clear</button>
                                 </div>
                               </div>
                             );
@@ -54789,7 +54827,7 @@ function App(){
                   {reminders.filter(r=>r.done).length>0&&(
                     <div style={{marginTop:6,paddingTop:4,borderTop:`1px solid ${C.blush}`}}>
                       <div style={{fontSize:10,color:C.lt,fontFamily:_fM,marginBottom:3}}>Done</div>
-                      {reminders.filter(r=>r.done).map(r=>(
+                      {reminders.filter(r=>r.done).slice(-10).map(r=>(
                         <div key={r.id} style={{display:"flex",alignItems:"center",gap:10,padding:"3px 0",opacity:0.45}}>
                           <div onClick={()=>toggleReminder(r.id)} style={{width:20,height:20,borderRadius:"50%",border:`2px solid ${C.mint}`,background:C.mint,display:"flex",alignItems:"center",justifyContent:"center",cursor:_cP,flexShrink:0}}>
                             <span style={{color:"white",fontSize:10,fontWeight:700}}>✓</span>
@@ -56726,7 +56764,7 @@ function App(){
         )}
         {tab==="insights" && !(daySubScreen && (daySubScreen==="wellbeing" || daySubScreen.startsWith("weaning"))) && (()=>{
           const babyDobMsForInsights = babyDob ? dateKeyMs(babyDob, NaN) : NaN;
-          const ageMonths = Number.isFinite(babyDobMsForInsights) ? Math.floor((Date.now() - babyDobMsForInsights) / (1000*60*60*24*30.44)) : null;
+          const ageMonths = Number.isFinite(babyDobMsForInsights) ? Math.floor((Date.now() - babyDobMsForInsights) / (1000*60*60*24*30.4375)) : null;
           const sortedW = [...weights].sort((a,b)=>a.date.localeCompare(b.date));
           const sortedH = [...heights].sort((a,b)=>a.date.localeCompare(b.date));
           const wWithPct = sortedW.map(w => {
@@ -59019,7 +59057,7 @@ function App(){
                     const _dobMs = dateKeyMs(babyDob);
                     const wData = weights.map(w => {
                       const _wMs = dateKeyMs(w.date);
-                      const ageMo = Number.isFinite(_wMs) && Number.isFinite(_dobMs) ? Math.round(((_wMs - _dobMs) / (1000*60*60*24*30.44))*100)/100 : NaN;
+                      const ageMo = Number.isFinite(_wMs) && Number.isFinite(_dobMs) ? Math.round(((_wMs - _dobMs) / (1000*60*60*24*30.4375))*100)/100 : NaN;
                       return { mo: ageMo, val: w.kg };
                     }).filter(d => d.mo >= 0 && d.mo <= 24).sort((a,b) => a.mo - b.mo);
                     // Weekly average for frequent loggers (>14 points)
@@ -59048,7 +59086,7 @@ function App(){
                     const _dobMs = dateKeyMs(babyDob);
                     const hData = heights.map(h => {
                       const _hMs = dateKeyMs(h.date);
-                      const ageMo = Number.isFinite(_hMs) && Number.isFinite(_dobMs) ? Math.round(((_hMs - _dobMs) / (1000*60*60*24*30.44))*100)/100 : NaN;
+                      const ageMo = Number.isFinite(_hMs) && Number.isFinite(_dobMs) ? Math.round(((_hMs - _dobMs) / (1000*60*60*24*30.4375))*100)/100 : NaN;
                       return { mo: ageMo, val: h.cm };
                     }).filter(d => d.mo >= 0 && d.mo <= 24).sort((a,b) => a.mo - b.mo);
                     const chartData = hData.length > 14 ? (()=>{
@@ -66288,7 +66326,11 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                     );
                   }, 500);
                   try {
-                    const _allergenTimer = normaliseAllergenTimerPayload({allergens:_newAllergens, food:_foodTrim, startMs:Date.now()});
+                    const _existingAt2 = normaliseAllergenTimerPayload(safeJsonObject(localStorage.getItem("ob_allergen_timer")));
+                    const _timerAllergens2 = _existingAt2 ? [...new Set([..._existingAt2.allergens, ..._newAllergens])] : _newAllergens;
+                    const _timerFood2 = _existingAt2 ? _existingAt2.food + " + " + _foodTrim : _foodTrim;
+                    const _timerStart2 = _existingAt2 ? _existingAt2.startMs : Date.now();
+                    const _allergenTimer = normaliseAllergenTimerPayload({allergens:_timerAllergens2, food:_timerFood2, startMs:_timerStart2});
                     if (_allergenTimer) localStorage.setItem("ob_allergen_timer", JSON.stringify(_allergenTimer));
                   } catch {}
                 }
