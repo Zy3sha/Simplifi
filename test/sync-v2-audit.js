@@ -359,9 +359,12 @@ assert(
     app.includes("{!isOwnerShare && <div") &&
     app.includes('child-sync-manage-access-card') &&
     app.includes('People with access') &&
+    app.includes('Per-child sharing.') &&
+    app.includes('Perfect for blended families and co-parents who each have other children.') &&
     app.includes('Replace invite and remove current access') &&
     app.includes('Invite someone') &&
     app.includes('The current link will stop working for everyone listed.') &&
+    !app.includes('If you do not recognise someone, replace the invite. The old link stops working and only the new invite can be used.') &&
     !app.includes('Show QR/code') &&
     !app.includes('Sync code</div>')
 );
