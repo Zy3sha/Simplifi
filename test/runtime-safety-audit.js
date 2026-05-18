@@ -1,5 +1,7 @@
 const fs = require("fs");
 const path = require("path");
+const parser = require("@babel/parser");
+const traverse = require("@babel/traverse").default;
 
 const root = path.resolve(__dirname, "..");
 const loader = fs.readFileSync(path.join(root, "loader.js"), "utf8");
@@ -30,5 +32,66 @@ assert("scroll guard does not swallow real control clicks", app.includes('tag ==
 const ageMemoIndex = app.indexOf("const age = React.useMemo(() => calcAge(babyDob, activeChild.dueDate)");
 const firstAgeReaderIndex = app.indexOf("Letters to Your Future Self");
 assert("baby age memo is initialised before age-reading effects", ageMemoIndex > -1 && firstAgeReaderIndex > -1 && ageMemoIndex < firstAgeReaderIndex);
+
+function formatLoc(source, pos) {
+  let line = 1;
+  let column = 0;
+  for (let i = 0; i < pos; i++) {
+    if (source.charCodeAt(i) === 10) {
+      line++;
+      column = 0;
+    } else {
+      column++;
+    }
+  }
+  return `${line}:${column + 1}`;
+}
+
+function findUseBeforeInit(source, names) {
+  const ast = parser.parse(source, {
+    sourceType: "module",
+    plugins: [
+      "jsx",
+      "classProperties",
+      "optionalChaining",
+      "nullishCoalescingOperator",
+      "objectRestSpread",
+      "dynamicImport",
+    ],
+  });
+  const seenScopes = new WeakSet();
+  const issues = [];
+  traverse(ast, {
+    Scopable(scanPath) {
+      const scope = scanPath.scope;
+      if (seenScopes.has(scope)) return;
+      seenScopes.add(scope);
+      for (const name of names) {
+        const binding = scope.bindings[name];
+        if (!binding || !binding.identifier || binding.identifier.start == null) continue;
+        for (const ref of binding.referencePaths) {
+          if (ref.node.start == null) continue;
+          if (ref.node.start < binding.identifier.start) {
+            issues.push(`${name} read at ${formatLoc(source, ref.node.start)} before init at ${formatLoc(source, binding.identifier.start)}`);
+          }
+        }
+      }
+    },
+  });
+  return issues;
+}
+
+const ageRuntimeFiles = [
+  "app.jsx",
+  "public/app.jsx",
+  "dist/app.jsx",
+  "ios/App/App/public/app.jsx",
+  "android/app/src/main/assets/public/app.jsx",
+].filter((rel) => fs.existsSync(path.join(root, rel)));
+for (const rel of ageRuntimeFiles) {
+  const source = fs.readFileSync(path.join(root, rel), "utf8");
+  const issues = findUseBeforeInit(source, ["age", "ageWeeks"]);
+  assert(`${rel} has no age temporal-dead-zone reads`, issues.length === 0);
+}
 
 console.log("Runtime safety audit passed.");

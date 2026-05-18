@@ -37419,10 +37419,20 @@ function App(){
   function saveLogFeed(){
     const f=logForm;
     const t = f.feedTime || nowTime();
+    const routeDetailedFeed = (data) => {
+      const feedKind = String(data && data.feedType || "").toLowerCase();
+      const bedDay = bedtimeFeedChoiceBedDay();
+      if (bedDay && !bedPaused && data && data.type === "feed" && feedKind !== "pump" && feedKind !== "solids" && !data.dreamFeed) {
+        setLogPanel(null);
+        openBedtimeFeedChoice(data);
+        return;
+      }
+      quickAddLog("feed", data);
+    };
     if(f.feedType==="bottle"){
-      quickAddLog("feed",{type:"feed",time:t,feedType:"milk",amount:displayToMl(f.amount,FU),note:f.note||""});
+      routeDetailedFeed({type:"feed",time:t,feedType:"milk",amount:displayToMl(f.amount,FU),note:f.note||""});
     } else if(f.feedType==="breast"){
-      quickAddLog("feed",{type:"feed",time:t,feedType:"breast",breastL:safeBreastMinutesInput(f.breastL),breastR:safeBreastMinutesInput(f.breastR),amount:0,note:f.note||""});
+      routeDetailedFeed({type:"feed",time:t,feedType:"breast",breastL:safeBreastMinutesInput(f.breastL),breastR:safeBreastMinutesInput(f.breastR),amount:0,note:f.note||""});
     } else if(f.feedType==="pump"){
       const pL=displayToMl(f.pumpL,FU), pR=displayToMl(f.pumpR,FU);
       quickAddLog("feed",{type:"feed",time:t,feedType:"pump",pumpL:pL,pumpR:pR,amount:pL+pR,note:f.note||""});
@@ -48356,6 +48366,13 @@ function App(){
 	      showToast("Dream feed logged. back to sleep", 1600, 1);
 	    };
 	    const labAction = (id, icon, label, action, longAction, accent, opts={}) => {
+	      const oneTap = opts.oneTap === true;
+	      const actionHint = oneTap
+	        ? ". Tap starts the timer, hold to edit."
+	        : ". Tap to choose details.";
+	      const titleHint = oneTap
+	        ? " - tap starts timer, hold to edit"
+	        : " - tap to choose details";
 	      const runTapAction = () => {
 	        const now = Date.now();
 	        const guard = clockLabTapGuardRef.current || {};
@@ -48370,8 +48387,8 @@ function App(){
 	            type="button"
 	          className={"ob-clock-log-btn"+(opts.isActive?" is-active":"")+(opts.napWindow?" is-nap-window":"")}
 	          data-nap-window={opts.napWindow ? opts.napWindow.state : undefined}
-	          aria-label={(opts.ariaLabel || label) + (opts.badge ? ". " + opts.badge : "") + (opts.napWindow ? ". Nap timing: " + opts.napWindow.label + ". " + opts.napWindow.detail : "") + (longAction ? ". Tap to log, hold for details." : ". Tap to open.")}
-	          title={(opts.ariaLabel || label) + (opts.badge ? " - " + opts.badge : "") + (opts.napWindow ? " - " + opts.napWindow.label + ": " + opts.napWindow.detail : "") + (longAction ? " - tap to log, hold for details" : " - tap to open")}
+	          aria-label={(opts.ariaLabel || label) + (opts.badge ? ". " + opts.badge : "") + (opts.napWindow ? ". Nap timing: " + opts.napWindow.label + ". " + opts.napWindow.detail : "") + actionHint}
+	          title={(opts.ariaLabel || label) + (opts.badge ? " - " + opts.badge : "") + (opts.napWindow ? " - " + opts.napWindow.label + ": " + opts.napWindow.detail : "") + titleHint}
 	          style={{"--ob-clock-accent":accent,"--ob-clock-nap-window":opts.napWindow?.color,"--ob-clock-nap-window-glow":opts.napWindow?.glow,touchAction:longAction?"none":"manipulation",WebkitUserSelect:"none",userSelect:"none",WebkitTouchCallout:"none"}}
 	          onPointerDown={(e)=>{
 	            e.stopPropagation();
@@ -48436,6 +48453,21 @@ function App(){
 		      if (clockBedOnThisDay && bedPaused) { openPendingOrNewNightWakeDetails(); return; }
 	      openClockSleepCatchupLog();
 	    };
+	    const clockOpenSleepDetailsAction = () => {
+	      if (clockNapOnThisDay) {
+	        showToast("Nap timer is running. Use End nap or Edit timer under the clock.", 2600, 1);
+	        return;
+	      }
+	      if (clockBedOnThisDay && !bedPaused) {
+	        showToast("Bedtime timer is running. Use Night wake or End bedtime under the clock.", 2800, 1);
+	        return;
+	      }
+	      if (clockBedOnThisDay && bedPaused) {
+	        openPendingOrNewNightWakeDetails();
+	        return;
+	      }
+	      openClockSleepCatchupLog();
+	    };
 	    const clockDetailSleepLabel = clockQuickSleepNeedsWake ? "Sleep" : "Wake Up";
 	    const clockDetailSleepIcon = clockQuickSleepNeedsWake ? "😴" : "☀️";
 	    const clockDetailSleepAction = () => {
@@ -48462,6 +48494,9 @@ function App(){
 	        return;
 	      }
 	      openClockSleepCatchupLog();
+	    };
+	    const clockOpenWakeDetailsAction = () => {
+	      openLogPanel("wake", {feedTime:nowTime()});
 	    };
 		    const clockLastBreastSide = normaliseBreastSideKey(lastBreastSide);
 		    const clockNextBreastSide = clockLastBreastSide === "L" ? "R" : "L";
@@ -48503,16 +48538,16 @@ function App(){
 			      showToast("🤱 Breastfeed timer started (" + sideKey + ")", 1400, 1);
 		    };
 	    const clockLabCoreActions = [
-		      labAction("feed","feed","Feed",()=>{if(breastActive)cancelBreastTimer();const _feedData={type:"feed",time:nowTime(),feedType:"milk",amount:0,night:false,note:""};if(clockBedOnThisDay&&!bedPaused&&!shouldKeepDaytimeCatchUpOnSelectedDay("feed",_feedData,bedtimeFeedChoiceBedDay())){openBedtimeFeedChoice(_feedData);return;}(logForAll?quickAddLogForAll:quickAddLog)("feed",_feedData);},()=>openLogPanel("feed"),eventMeta.feed.color,{displayIcon:"🍼"}),
-	      labAction("breast","breast","Breastfeed",clockQuickBreastLog,()=>{openBreastTimerEdit(clockActiveBreastSide);},eventMeta.feed.color,{displayIcon:"🤱",displayLabel:"Breast",isActive:clockFeedOnThisDay,badge:clockBreastSideBadge,ariaLabel:clockFeedOnThisDay?"Breastfeed timer":"Breastfeed"}),
-	      labAction("nappy","nappy","Nappy",()=>(logForAll?quickAddLogForAll:quickAddLog)("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""}),()=>openLogPanel("nappy"),eventMeta.poop.color,{displayIcon:"💧💩"}),
-	      labAction("sleep-toggle",clockQuickSleepNeedsWake?"sun":"nap",clockQuickSleepLabel,clockQuickSleepAction,clockQuickSleepLongAction,clockQuickSleepNeedsWake?eventMeta.wake.color:(clockNapWindow?.color || eventMeta.nap.color),{displayIcon:clockQuickSleepIcon,isActive:clockQuickSleepNeedsWake || (clockBedOnThisDay && bedPaused),badge:!clockQuickSleepNeedsWake && clockNapWindow ? clockNapWindow.badge : "",napWindow:!clockQuickSleepNeedsWake ? clockNapWindow : null}),
-	      labAction("pump","pump","Pump",()=>(logForAll?quickAddLogForAll:quickAddLog)("feed",{type:"feed",time:nowTime(),feedType:"pump",pumpL:0,pumpR:0,amount:0,pumpDuration:0,night:false,note:""}),()=>openLogPanel("pump"),eventMeta.pump.color,{displayIcon:"🫙"})
+		      labAction("feed","feed","Feed",()=>openLogPanel("feed"),null,eventMeta.feed.color,{displayIcon:"🍼",ariaLabel:"Log feed details"}),
+	      labAction("breast","breast","Breastfeed",clockQuickBreastLog,()=>{openBreastTimerEdit(clockActiveBreastSide);},eventMeta.feed.color,{displayIcon:"🤱",displayLabel:"Breast",isActive:clockFeedOnThisDay,badge:clockBreastSideBadge,ariaLabel:clockFeedOnThisDay?"Breastfeed timer":"Breastfeed",oneTap:true}),
+	      labAction("nappy","nappy","Nappy",()=>openLogPanel("nappy"),null,eventMeta.poop.color,{displayIcon:"💧💩",ariaLabel:"Log nappy details"}),
+	      labAction("sleep-toggle",clockQuickSleepNeedsWake?"sun":"nap",clockQuickSleepLabel,clockOpenSleepDetailsAction,null,clockQuickSleepNeedsWake?eventMeta.wake.color:(clockNapWindow?.color || eventMeta.nap.color),{displayIcon:clockQuickSleepIcon,isActive:clockQuickSleepNeedsWake || (clockBedOnThisDay && bedPaused),badge:!clockQuickSleepNeedsWake && clockNapWindow ? clockNapWindow.badge : "",napWindow:!clockQuickSleepNeedsWake ? clockNapWindow : null,ariaLabel:"Log sleep details"}),
+	      labAction("pump","pump","Pump",()=>openLogPanel("pump"),null,eventMeta.pump.color,{displayIcon:"🫙",ariaLabel:"Log pump details"})
 	    ];
 	    const clockLabMoreActions = [
 	      labAction("sounds","sounds",soundPlaying?"Playing":"Sound",()=>{setShowSoundMachine(true);},null,eventMeta.sleep.color,{displayIcon:"🎵",isActive:!!soundPlaying}),
 	      labAction("crying","crying","Crying",()=>{setShowCryingHelper(true);},null,eventMeta.wake.color,{displayIcon:"😭"}),
-	      labAction("sleep-other",clockQuickSleepNeedsWake?"nap":"sun",clockDetailSleepLabel,clockDetailSleepAction,clockDetailSleepLongAction,clockQuickSleepNeedsWake?eventMeta.nap.color:eventMeta.wake.color,{displayIcon:clockDetailSleepIcon}),
+	      labAction("sleep-other",clockQuickSleepNeedsWake?"nap":"sun",clockDetailSleepLabel,clockOpenWakeDetailsAction,null,clockQuickSleepNeedsWake?eventMeta.nap.color:eventMeta.wake.color,{displayIcon:clockDetailSleepIcon,ariaLabel:"Log wake details"}),
 	      labAction("med","medicine","Med/Temp",()=>{setMedTab("meds");setMedForm({name:"",dose:"",time:nowTime(),temp:"",note:"",schedule:"none"});setShowMedForm(true);},null,eventMeta.medicine.color,{displayIcon:"💊"}),
 	      labAction("activities","sparkle","Activities",()=>{setShowActivities(true);},null,eventMeta.tummy.color,{displayIcon:"🎨"}),
 		      labAction("quick-note","notes","Quick Note",()=>{openPaste();},null,eventMeta.wake.color,{displayIcon:"📋"}),
@@ -49544,8 +49579,8 @@ function App(){
         {clockOldTrackActionsNode}
         <section className="ob-clock-log-strip">
           <div className="ob-clock-log-instruction">
-            <b>One-tap logs</b>
-            <span>Tap to log · hold for details</span>
+            <b>Log details</b>
+            <span>Tap to choose details · Breast starts timer</span>
           </div>
 	          <div className={"ob-clock-actions"+(clockLabLogsOpen?" is-expanded is-compact-logs":"")} data-compact-detail={clockLabLogsOpen?"1":undefined} data-testid="clock-home-log-buttons">
 	            {clockLabActions}

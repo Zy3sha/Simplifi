@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 const { spawnSync } = require("child_process");
 
 const root = path.resolve(__dirname, "..");
@@ -113,6 +114,12 @@ const appBundleFiles = [
   "ios/App/App/public/app.js",
   "android/app/src/main/assets/public/app.js",
 ];
+const appSourceBundleFiles = [
+  "public/app.jsx",
+  "dist/app.jsx",
+  "ios/App/App/public/app.jsx",
+  "android/app/src/main/assets/public/app.jsx",
+];
 const runtimePersonalisationFiles = [
   "app.jsx",
   "app.js",
@@ -132,6 +139,13 @@ const unminifiedRuntimeBundles = appBundleFiles.filter(rel => {
   const size = fs.statSync(full).size;
   return size > minifiedAppSize + 1024 || size >= compiledAppSize - 1024;
 });
+function sha256(rel) {
+  return crypto.createHash("sha256").update(fs.readFileSync(path.join(root, rel))).digest("hex");
+}
+const appJsHash = sha256("public/app.js");
+const staleAppJsBundles = appBundleFiles.filter(rel => !fs.existsSync(path.join(root, rel)) || sha256(rel) !== appJsHash);
+const appJsxHash = sha256("app.jsx");
+const staleAppJsxBundles = appSourceBundleFiles.filter(rel => !fs.existsSync(path.join(root, rel)) || sha256(rel) !== appJsxHash);
 const hardcodedExampleBabyNames = runtimePersonalisationFiles.filter(rel =>
   /\bOliver\b/.test(fs.readFileSync(path.join(root, rel), "utf8"))
 );
@@ -201,6 +215,18 @@ if (serviceWorkerSafetyIssues.length) {
 if (unminifiedRuntimeBundles.length) {
   console.error("Runtime app bundles must use the minified mobile bundle:");
   unminifiedRuntimeBundles.forEach(file => console.error("✗ " + file));
+  process.exit(1);
+}
+
+if (staleAppJsBundles.length) {
+  console.error("Generated app.js bundles are stale or do not match public/app.js:");
+  staleAppJsBundles.forEach(file => console.error("✗ " + file));
+  process.exit(1);
+}
+
+if (staleAppJsxBundles.length) {
+  console.error("Generated app.jsx bundles are stale or do not match app.jsx:");
+  staleAppJsxBundles.forEach(file => console.error("✗ " + file));
   process.exit(1);
 }
 

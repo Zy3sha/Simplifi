@@ -367,6 +367,9 @@ function safeMailtoHref(to, subject = "", body = "") {
   const qs = params.toString();
   return "mailto:" + safeTo + (qs ? "?" + qs : "");
 }
+function openSafeMailto(to, subject = "", body = "") {
+  window.location.href = safeMailtoHref(to, subject, body);
+}
 const OB_SHARE_THURSDAY_PROMPT_KEY = "ob_share_thursday_nap1_prompt_v1";
 const OB_SHARE_PROMPT_EMAIL = "hello@obubba.com";
 function safeMapDestination(value) {
@@ -11468,8 +11471,9 @@ function ChildSyncCard({ child, cid, code, isShared, participants, syncMeta, myU
             )}
           </div>
           {hasExternalAccess && (
-            <div style={{fontSize:12,color:C.gold,background:"rgba(212,168,85,0.08)",border:"1px solid rgba(212,168,85,0.24)",borderRadius:10,padding:"9px 10px",marginBottom:8,lineHeight:1.45}}>
-              If you do not recognise someone, replace the invite. The old link stops working and only the new invite can be used.
+            <div style={{fontSize:12,color:C.mint,background:"rgba(111,168,152,0.08)",border:"1px solid rgba(111,168,152,0.24)",borderRadius:10,padding:"9px 10px",marginBottom:8,lineHeight:1.45}}>
+              <strong style={{color:C.mid}}>🔒 Per-child sharing.</strong>{" "}
+              Whoever uses this code will see <strong style={{color:C.deep}}>{child.name||"this child"}</strong> only. They will not see any other children on your account. Perfect for blended families and co-parents who each have other children.
             </div>
           )}
 
@@ -12651,6 +12655,8 @@ function App(){
   const babyDob     = activeChild.dob || _legacyBabyDob;
   const babySex     = activeChild.sex;
   const babyUnborn  = activeChild.unborn;
+  const age = React.useMemo(() => calcAge(babyDob, activeChild.dueDate), [babyDob, activeChild.dueDate]);
+  const ageWeeks = age ? (age.predictiveWeeks ?? age.totalWeeks) : null;
   const days        = React.useMemo(() => normaliseDaysPayload(activeChild.days || {}), [activeChild.days]);
   const growthDeleteKeysForRender = React.useMemo(() => {
     try { return new Set(normaliseGrowthMeasurementDeleteKeysPayload(localStorage.getItem(GROWTH_MEASUREMENT_DELETE_KEY))); } catch { return new Set(); }
@@ -14876,7 +14882,7 @@ function App(){
     try { trackEvent("review_feedback_tapped", { source:_context }); } catch {}
     dismissReview(true, "send_feedback");
     const body = "Hi OBubba team,\n\nHere's what I'd love to see improved:\n\n\n\n---\nBaby: " + (babyName||"") + "\nPlatform: " + (/iPhone|iPad/i.test(navigator.userAgent) ? "iOS" : /Android/i.test(navigator.userAgent) ? "Android" : "Web");
-    window.location.href = safeMailtoHref("hello@obubba.com", "OBubba Feedback", body);
+    openSafeMailto("hello@obubba.com", "OBubba Feedback", body);
     showToast("Thank you for your feedback 💛", 2500, 1);
   }
   function reviewPromptBodyCopy() {
@@ -17116,7 +17122,7 @@ function App(){
         haptic();
         try { trackEvent("share_prompt_email_tapped", { source:"thursday_nap1" }); } catch {}
         const body = "Hi OBubba,\n\nI'd like to enter the 1 month of OBubba Premium giveaway. My screenshot is attached.\n\nAccount/baby: " + (babyName || "") + "\n\nThanks";
-        try { window.location.href = safeMailtoHref(OB_SHARE_PROMPT_EMAIL, "OBubba post screenshot", body); } catch {}
+        try { openSafeMailto(OB_SHARE_PROMPT_EMAIL, "OBubba post screenshot", body); } catch {}
         showToast("Attach your screenshot before sending.", 3000, 1);
       },
       "Email screenshot"
@@ -17373,6 +17379,7 @@ function App(){
   const[providerProof,setProviderProof]=useState("");
   const[providerProofLoading,setProviderProofLoading]=useState(false);
   const[providerLinkStatus,setProviderLinkStatus]=useState("");
+  const[connectedAuthProviders,setConnectedAuthProviders]=useState(()=>readStoredAuthProviderIds());
   const[agreedToTerms,setAgreedToTerms]=useState(false);
   const authUsernameCheckRef = React.useRef(null);
   var _sfp=useState(false),showForgotPin=_sfp[0],setShowForgotPin=_sfp[1];
@@ -22333,6 +22340,58 @@ function App(){
     } catch(e) { return {ok:false, error:"Something went wrong. try again"}; }
   }
 
+  function normaliseAuthProviderIds(values) {
+    try {
+      const raw = Array.isArray(values) ? values : [];
+      return [...new Set(raw.map(v => String(v || "").trim().toLowerCase()).filter(id => ["apple.com","google.com"].includes(id)))];
+    } catch { return []; }
+  }
+  function readStoredAuthProviderIds() {
+    try {
+      const raw = localStorage.getItem("ob_auth_provider_ids_v1") || "";
+      if(!raw) return [];
+      return normaliseAuthProviderIds(JSON.parse(raw));
+    } catch {
+      try {
+        const raw = String(localStorage.getItem("ob_auth_provider_ids_v1") || "");
+        return normaliseAuthProviderIds(raw.split(/[,\s]+/));
+      } catch { return []; }
+    }
+  }
+  function rememberConnectedAuthProviders(providerIds) {
+    const next = normaliseAuthProviderIds([
+      ...readStoredAuthProviderIds(),
+      ...(connectedAuthProviders || []),
+      ...(Array.isArray(providerIds) ? providerIds : [providerIds])
+    ]);
+    try { localStorage.setItem("ob_auth_provider_ids_v1", JSON.stringify(next)); } catch {}
+    setConnectedAuthProviders(next);
+    return next;
+  }
+  async function refreshConnectedAuthProviders() {
+    const found = [...readStoredAuthProviderIds()];
+    try {
+      const user = window._fb?.auth?.currentUser;
+      if(user && !user.isAnonymous && Array.isArray(user.providerData)) {
+        found.push(...user.providerData.map(p => p && p.providerId));
+      }
+    } catch {}
+    try {
+      const plugin = window.Capacitor?.Plugins?.FirebaseAuthentication;
+      if(plugin?.getCurrentUser) {
+        const current = await plugin.getCurrentUser().catch(()=>null);
+        const user = current?.user || null;
+        if(user && !user.isAnonymous && Array.isArray(user.providerData)) {
+          found.push(...user.providerData.map(p => p && p.providerId));
+        }
+      }
+    } catch {}
+    try {
+      const hint = window._obNativeProviderAuthHint || null;
+      if(hint && Date.now() - Number(hint.at || 0) < 30 * 24 * 60 * 60 * 1000) found.push(hint.providerId);
+    } catch {}
+    return rememberConnectedAuthProviders(found);
+  }
   function nativeAuthProviders() {
     try {
       const platform = String(window.Capacitor?.getPlatform?.() || "web").toLowerCase();
@@ -22372,6 +22431,7 @@ function App(){
       const uid = String((user && user.uid) || "").trim();
       if(!["apple.com","google.com"].includes(id) || !uid) return;
       window._obNativeProviderAuthHint = {providerId:id, uid, at:Date.now()};
+      rememberConnectedAuthProviders([id]);
     } catch {}
   }
   function nativeProviderAuthHintMatches(user, providerIds) {
@@ -22554,6 +22614,11 @@ function App(){
       setProviderProofLoading(false);
     }
   }
+
+  useEffect(()=>{
+    if(!familyUsername && !authScreen) return;
+    refreshConnectedAuthProviders().catch(()=>{});
+  },[familyUsername, authScreen, showFamilyModal, authProviderLoading, fbReady]);
 
   useEffect(()=>{
     if(!familyUsername || !backupCode) {
@@ -24730,9 +24795,6 @@ function App(){
   useEffect(()=>{try{const sideKey=normaliseBreastSideKey(breastSide);if(sideKey)localStorage.setItem("breast_side",sideKey);else localStorage.removeItem("breast_side");}catch{}},[breastSide]);
   useEffect(()=>{try{localStorage.setItem("breast_sec",JSON.stringify(breastSec));}catch{}},[breastSec]);
 	  useEffect(()=>{try{localStorage.setItem("breast_active",breastActive?"1":"0");}catch{}},[breastActive]);
-		  const age = React.useMemo(() => calcAge(babyDob, activeChild.dueDate), [babyDob, activeChild.dueDate]);
-		  const ageWeeks = age ? (age.predictiveWeeks ?? age.totalWeeks) : null;
-
 	  function obuddyAgeAtDate(dob, dateLike) {
     if (!dob || !dateLike) return "";
     const birthMs = dateKeyMs(dob, NaN);
@@ -37357,10 +37419,20 @@ function App(){
   function saveLogFeed(){
     const f=logForm;
     const t = f.feedTime || nowTime();
+    const routeDetailedFeed = (data) => {
+      const feedKind = String(data && data.feedType || "").toLowerCase();
+      const bedDay = bedtimeFeedChoiceBedDay();
+      if (bedDay && !bedPaused && data && data.type === "feed" && feedKind !== "pump" && feedKind !== "solids" && !data.dreamFeed) {
+        setLogPanel(null);
+        openBedtimeFeedChoice(data);
+        return;
+      }
+      quickAddLog("feed", data);
+    };
     if(f.feedType==="bottle"){
-      quickAddLog("feed",{type:"feed",time:t,feedType:"milk",amount:displayToMl(f.amount,FU),note:f.note||""});
+      routeDetailedFeed({type:"feed",time:t,feedType:"milk",amount:displayToMl(f.amount,FU),note:f.note||""});
     } else if(f.feedType==="breast"){
-      quickAddLog("feed",{type:"feed",time:t,feedType:"breast",breastL:safeBreastMinutesInput(f.breastL),breastR:safeBreastMinutesInput(f.breastR),amount:0,note:f.note||""});
+      routeDetailedFeed({type:"feed",time:t,feedType:"breast",breastL:safeBreastMinutesInput(f.breastL),breastR:safeBreastMinutesInput(f.breastR),amount:0,note:f.note||""});
     } else if(f.feedType==="pump"){
       const pL=displayToMl(f.pumpL,FU), pR=displayToMl(f.pumpR,FU);
       quickAddLog("feed",{type:"feed",time:t,feedType:"pump",pumpL:pL,pumpR:pR,amount:pL+pR,note:f.note||""});
@@ -48294,6 +48366,13 @@ function App(){
 	      showToast("Dream feed logged. back to sleep", 1600, 1);
 	    };
 	    const labAction = (id, icon, label, action, longAction, accent, opts={}) => {
+	      const oneTap = opts.oneTap === true;
+	      const actionHint = oneTap
+	        ? ". Tap starts the timer, hold to edit."
+	        : ". Tap to choose details.";
+	      const titleHint = oneTap
+	        ? " - tap starts timer, hold to edit"
+	        : " - tap to choose details";
 	      const runTapAction = () => {
 	        const now = Date.now();
 	        const guard = clockLabTapGuardRef.current || {};
@@ -48308,8 +48387,8 @@ function App(){
 	            type="button"
 	          className={"ob-clock-log-btn"+(opts.isActive?" is-active":"")+(opts.napWindow?" is-nap-window":"")}
 	          data-nap-window={opts.napWindow ? opts.napWindow.state : undefined}
-	          aria-label={(opts.ariaLabel || label) + (opts.badge ? ". " + opts.badge : "") + (opts.napWindow ? ". Nap timing: " + opts.napWindow.label + ". " + opts.napWindow.detail : "") + (longAction ? ". Tap to log, hold for details." : ". Tap to open.")}
-	          title={(opts.ariaLabel || label) + (opts.badge ? " - " + opts.badge : "") + (opts.napWindow ? " - " + opts.napWindow.label + ": " + opts.napWindow.detail : "") + (longAction ? " - tap to log, hold for details" : " - tap to open")}
+	          aria-label={(opts.ariaLabel || label) + (opts.badge ? ". " + opts.badge : "") + (opts.napWindow ? ". Nap timing: " + opts.napWindow.label + ". " + opts.napWindow.detail : "") + actionHint}
+	          title={(opts.ariaLabel || label) + (opts.badge ? " - " + opts.badge : "") + (opts.napWindow ? " - " + opts.napWindow.label + ": " + opts.napWindow.detail : "") + titleHint}
 	          style={{"--ob-clock-accent":accent,"--ob-clock-nap-window":opts.napWindow?.color,"--ob-clock-nap-window-glow":opts.napWindow?.glow,touchAction:longAction?"none":"manipulation",WebkitUserSelect:"none",userSelect:"none",WebkitTouchCallout:"none"}}
 	          onPointerDown={(e)=>{
 	            e.stopPropagation();
@@ -48374,6 +48453,21 @@ function App(){
 		      if (clockBedOnThisDay && bedPaused) { openPendingOrNewNightWakeDetails(); return; }
 	      openClockSleepCatchupLog();
 	    };
+	    const clockOpenSleepDetailsAction = () => {
+	      if (clockNapOnThisDay) {
+	        showToast("Nap timer is running. Use End nap or Edit timer under the clock.", 2600, 1);
+	        return;
+	      }
+	      if (clockBedOnThisDay && !bedPaused) {
+	        showToast("Bedtime timer is running. Use Night wake or End bedtime under the clock.", 2800, 1);
+	        return;
+	      }
+	      if (clockBedOnThisDay && bedPaused) {
+	        openPendingOrNewNightWakeDetails();
+	        return;
+	      }
+	      openClockSleepCatchupLog();
+	    };
 	    const clockDetailSleepLabel = clockQuickSleepNeedsWake ? "Sleep" : "Wake Up";
 	    const clockDetailSleepIcon = clockQuickSleepNeedsWake ? "😴" : "☀️";
 	    const clockDetailSleepAction = () => {
@@ -48400,6 +48494,9 @@ function App(){
 	        return;
 	      }
 	      openClockSleepCatchupLog();
+	    };
+	    const clockOpenWakeDetailsAction = () => {
+	      openLogPanel("wake", {feedTime:nowTime()});
 	    };
 		    const clockLastBreastSide = normaliseBreastSideKey(lastBreastSide);
 		    const clockNextBreastSide = clockLastBreastSide === "L" ? "R" : "L";
@@ -48441,16 +48538,16 @@ function App(){
 			      showToast("🤱 Breastfeed timer started (" + sideKey + ")", 1400, 1);
 		    };
 	    const clockLabCoreActions = [
-		      labAction("feed","feed","Feed",()=>{if(breastActive)cancelBreastTimer();const _feedData={type:"feed",time:nowTime(),feedType:"milk",amount:0,night:false,note:""};if(clockBedOnThisDay&&!bedPaused&&!shouldKeepDaytimeCatchUpOnSelectedDay("feed",_feedData,bedtimeFeedChoiceBedDay())){openBedtimeFeedChoice(_feedData);return;}(logForAll?quickAddLogForAll:quickAddLog)("feed",_feedData);},()=>openLogPanel("feed"),eventMeta.feed.color,{displayIcon:"🍼"}),
-	      labAction("breast","breast","Breastfeed",clockQuickBreastLog,()=>{openBreastTimerEdit(clockActiveBreastSide);},eventMeta.feed.color,{displayIcon:"🤱",displayLabel:"Breast",isActive:clockFeedOnThisDay,badge:clockBreastSideBadge,ariaLabel:clockFeedOnThisDay?"Breastfeed timer":"Breastfeed"}),
-	      labAction("nappy","nappy","Nappy",()=>(logForAll?quickAddLogForAll:quickAddLog)("poop",{type:"poop",time:nowTime(),poopType:"wet",night:false,note:""}),()=>openLogPanel("nappy"),eventMeta.poop.color,{displayIcon:"💧💩"}),
-	      labAction("sleep-toggle",clockQuickSleepNeedsWake?"sun":"nap",clockQuickSleepLabel,clockQuickSleepAction,clockQuickSleepLongAction,clockQuickSleepNeedsWake?eventMeta.wake.color:(clockNapWindow?.color || eventMeta.nap.color),{displayIcon:clockQuickSleepIcon,isActive:clockQuickSleepNeedsWake || (clockBedOnThisDay && bedPaused),badge:!clockQuickSleepNeedsWake && clockNapWindow ? clockNapWindow.badge : "",napWindow:!clockQuickSleepNeedsWake ? clockNapWindow : null}),
-	      labAction("pump","pump","Pump",()=>(logForAll?quickAddLogForAll:quickAddLog)("feed",{type:"feed",time:nowTime(),feedType:"pump",pumpL:0,pumpR:0,amount:0,pumpDuration:0,night:false,note:""}),()=>openLogPanel("pump"),eventMeta.pump.color,{displayIcon:"🫙"})
+		      labAction("feed","feed","Feed",()=>openLogPanel("feed"),null,eventMeta.feed.color,{displayIcon:"🍼",ariaLabel:"Log feed details"}),
+	      labAction("breast","breast","Breastfeed",clockQuickBreastLog,()=>{openBreastTimerEdit(clockActiveBreastSide);},eventMeta.feed.color,{displayIcon:"🤱",displayLabel:"Breast",isActive:clockFeedOnThisDay,badge:clockBreastSideBadge,ariaLabel:clockFeedOnThisDay?"Breastfeed timer":"Breastfeed",oneTap:true}),
+	      labAction("nappy","nappy","Nappy",()=>openLogPanel("nappy"),null,eventMeta.poop.color,{displayIcon:"💧💩",ariaLabel:"Log nappy details"}),
+	      labAction("sleep-toggle",clockQuickSleepNeedsWake?"sun":"nap",clockQuickSleepLabel,clockOpenSleepDetailsAction,null,clockQuickSleepNeedsWake?eventMeta.wake.color:(clockNapWindow?.color || eventMeta.nap.color),{displayIcon:clockQuickSleepIcon,isActive:clockQuickSleepNeedsWake || (clockBedOnThisDay && bedPaused),badge:!clockQuickSleepNeedsWake && clockNapWindow ? clockNapWindow.badge : "",napWindow:!clockQuickSleepNeedsWake ? clockNapWindow : null,ariaLabel:"Log sleep details"}),
+	      labAction("pump","pump","Pump",()=>openLogPanel("pump"),null,eventMeta.pump.color,{displayIcon:"🫙",ariaLabel:"Log pump details"})
 	    ];
 	    const clockLabMoreActions = [
 	      labAction("sounds","sounds",soundPlaying?"Playing":"Sound",()=>{setShowSoundMachine(true);},null,eventMeta.sleep.color,{displayIcon:"🎵",isActive:!!soundPlaying}),
 	      labAction("crying","crying","Crying",()=>{setShowCryingHelper(true);},null,eventMeta.wake.color,{displayIcon:"😭"}),
-	      labAction("sleep-other",clockQuickSleepNeedsWake?"nap":"sun",clockDetailSleepLabel,clockDetailSleepAction,clockDetailSleepLongAction,clockQuickSleepNeedsWake?eventMeta.nap.color:eventMeta.wake.color,{displayIcon:clockDetailSleepIcon}),
+	      labAction("sleep-other",clockQuickSleepNeedsWake?"nap":"sun",clockDetailSleepLabel,clockOpenWakeDetailsAction,null,clockQuickSleepNeedsWake?eventMeta.nap.color:eventMeta.wake.color,{displayIcon:clockDetailSleepIcon,ariaLabel:"Log wake details"}),
 	      labAction("med","medicine","Med/Temp",()=>{setMedTab("meds");setMedForm({name:"",dose:"",time:nowTime(),temp:"",note:"",schedule:"none"});setShowMedForm(true);},null,eventMeta.medicine.color,{displayIcon:"💊"}),
 	      labAction("activities","sparkle","Activities",()=>{setShowActivities(true);},null,eventMeta.tummy.color,{displayIcon:"🎨"}),
 		      labAction("quick-note","notes","Quick Note",()=>{openPaste();},null,eventMeta.wake.color,{displayIcon:"📋"}),
@@ -49482,8 +49579,8 @@ function App(){
         {clockOldTrackActionsNode}
         <section className="ob-clock-log-strip">
           <div className="ob-clock-log-instruction">
-            <b>One-tap logs</b>
-            <span>Tap to log · hold for details</span>
+            <b>Log details</b>
+            <span>Tap to choose details · Breast starts timer</span>
           </div>
 	          <div className={"ob-clock-actions"+(clockLabLogsOpen?" is-expanded is-compact-logs":"")} data-compact-detail={clockLabLogsOpen?"1":undefined} data-testid="clock-home-log-buttons">
 	            {clockLabActions}
@@ -62966,14 +63063,14 @@ function App(){
 
           {/* ═══ 7. HELP + LEGAL (combined compact) ═══ */}
           <div className="glass-card" style={_S.card}>
-            <a href="mailto:hello@obubba.com?subject=OBubba%20Feedback" style={{display:"flex",alignItems:"center",gap:10,paddingBottom:12,borderBottom:`1px solid ${C.blush}`,textDecoration:"none"}}>
+            <button type="button" onClick={()=>openSafeMailto("hello@obubba.com", "OBubba Feedback")} style={{display:"flex",alignItems:"center",gap:10,padding:"0 0 12px",border:"none",borderBottom:`1px solid ${C.blush}`,background:"transparent",textDecoration:"none",width:"100%",textAlign:"left",fontFamily:_fI,cursor:_cP}}>
               <span style={_S.f18}>💬</span>
               <div style={_S.flex1}>
                 <div style={{fontSize:13,fontWeight:700,color:C.deep}}>Need a hand?</div>
                 <div style={{fontSize:10,color:C.lt}}>Questions, suggestions or issues</div>
               </div>
               <span style={{fontSize:12,color:C.ter,fontWeight:700}}>Email →</span>
-            </a>
+            </button>
             <div style={{paddingTop:10}}>
               <div style={{fontSize:11,color:C.mid,lineHeight:1.6}}>
                 OBubba is <b>not a medical device</b>. Guidance adapts to your country where possible and is based on trusted public-health sources: {_guidanceFooter()}. Always consult your {_healthContact}.
@@ -63188,9 +63285,9 @@ function App(){
             <div style={{background:"rgba(192,112,136,0.06)",border:"1px solid rgba(192,112,136,0.15)",borderRadius:16,padding:"14px",marginBottom:18}}>
               <div style={{fontSize:13,fontWeight:700,color:"#5B4F5F",marginBottom:6}}>Become a beta tester ✨</div>
               <div style={{fontSize:13,color:"#7A6B7E",lineHeight:1.5,marginBottom:10}}>We're looking for parents to test OBubba before it launches. Your feedback will shape the app.</div>
-              <a href="mailto:hello@obubba.com?subject=Beta%20Tester%20Interest" onClick={()=>{setShowBetaBanner(false);try{localStorage.setItem("beta_emailed_v1","1");}catch{};}} style={{display:"inline-block",padding:"10px 24px",borderRadius:99,background:"linear-gradient(135deg,#C07088,#a85a44)",color:"white",fontSize:14,fontWeight:700,textDecoration:"none",fontFamily:"inherit"}}>
+              <button type="button" onClick={()=>{setShowBetaBanner(false);try{localStorage.setItem("beta_emailed_v1","1");}catch{};openSafeMailto("hello@obubba.com", "Beta Tester Interest");}} style={{display:"inline-block",padding:"10px 24px",borderRadius:99,border:"none",background:"linear-gradient(135deg,#C07088,#a85a44)",color:"white",fontSize:14,fontWeight:700,textDecoration:"none",fontFamily:"inherit",cursor:"pointer"}}>
                 Email hello@obubba.com
-              </a>
+              </button>
             </div>
             <button onClick={()=>{setShowBetaBanner(false);try{localStorage.setItem("beta_banner_v1",String(Date.now()));}catch{};}} style={{width:"100%",padding:"12px",borderRadius:99,border:"1px solid #F0D0C8",background:"none",color:"#8A7888",fontSize:14,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>
               Got it. let me explore!
@@ -68870,83 +68967,109 @@ Severe: breathing changes, swelling of face/throat, very pale or floppy. please 
                   </div>
                   <span style={{fontSize:22}}>👤</span>
                 </div>
-                {nativeAuthProviders().length > 0 && (
-                  <div style={{borderTop:`1px solid ${C.blush}`,paddingTop:10,marginBottom:10}}>
-                    <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:7}}>Sign-in options</div>
-                    <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                      {nativeAuthProviders().map(providerId => (
-                        <button key={providerId} onClick={()=>startProviderAuth(providerId, {linkExisting:true})} disabled={!!authProviderLoading}
-                          style={{flex:"1 1 140px",minHeight:42,padding:"9px 12px",borderRadius:99,border:`1.5px solid ${providerId==="apple.com"?"#222":"#d7dce8"}`,background:providerId==="apple.com"?"#111":"var(--card-bg-solid)",color:providerId==="apple.com"?"#fff":C.deep,fontSize:13,fontWeight:800,cursor:authProviderLoading?"wait":_cP,fontFamily:_fI,display:"flex",alignItems:"center",justifyContent:"center",gap:8,opacity:authProviderLoading&&authProviderLoading!==providerId?0.55:1}}>
-                          <span style={{fontFamily:providerId==="apple.com"?"-apple-system, BlinkMacSystemFont, sans-serif":_fM,fontWeight:900}}>{providerIcon(providerId)}</span>
-                          {authProviderLoading===providerId?"Connecting...":providerButtonText(providerId, "connect")}
-                        </button>
-                      ))}
+                {nativeAuthProviders().length > 0 && (()=>{
+                  const providerOptions = nativeAuthProviders();
+                  const connectedSet = new Set(normaliseAuthProviderIds(connectedAuthProviders));
+                  const connectedOptions = providerOptions.filter(providerId => connectedSet.has(providerId));
+                  const providerButtons = providerOptions.filter(providerId => !connectedSet.has(providerId));
+                  const connectedLabel = connectedOptions.map(providerLabel).join(" + ");
+                  return (
+                    <div style={{borderTop:`1px solid ${C.blush}`,paddingTop:10,marginBottom:10}}>
+                      <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:7}}>Sign-in options</div>
+                      {connectedOptions.length > 0 && (
+                        <div data-ob-provider-connected="1" style={{fontSize:13,color:C.mint,fontWeight:900,background:"rgba(111,168,152,0.10)",border:"1px solid rgba(111,168,152,0.28)",borderRadius:12,padding:"9px 11px",marginBottom:8,display:"flex",alignItems:"center",gap:8}}>
+                          <span aria-hidden="true">✓</span>
+                          <span>{connectedLabel} connected</span>
+                        </div>
+                      )}
+                      {providerButtons.length > 0 && (
+                        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                          {providerButtons.map(providerId => (
+                            <button key={providerId} onClick={()=>startProviderAuth(providerId, {linkExisting:true})} disabled={!!authProviderLoading}
+                              style={{flex:"1 1 140px",minHeight:42,padding:"9px 12px",borderRadius:99,border:`1.5px solid ${providerId==="apple.com"?"#222":"#d7dce8"}`,background:providerId==="apple.com"?"#111":"var(--card-bg-solid)",color:providerId==="apple.com"?"#fff":C.deep,fontSize:13,fontWeight:800,cursor:authProviderLoading?"wait":_cP,fontFamily:_fI,display:"flex",alignItems:"center",justifyContent:"center",gap:8,opacity:authProviderLoading&&authProviderLoading!==providerId?0.55:1}}>
+                              <span style={{fontFamily:providerId==="apple.com"?"-apple-system, BlinkMacSystemFont, sans-serif":_fM,fontWeight:900}}>{providerIcon(providerId)}</span>
+                              {authProviderLoading===providerId?"Connecting...":providerButtonText(providerId, "connect")}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {providerLinkStatus&&<div style={{fontSize:12,color:providerLinkStatus.includes("connected")?"var(--mint)":C.ter,marginTop:7,fontWeight:700}}>{providerLinkStatus}</div>}
                     </div>
-                    {providerLinkStatus&&<div style={{fontSize:12,color:providerLinkStatus.includes("connected")?"var(--mint)":C.ter,marginTop:7,fontWeight:700}}>{providerLinkStatus}</div>}
+                  );
+                })()}
+                {normaliseAuthProviderIds(connectedAuthProviders).length > 0 ? (
+                  <div data-ob-provider-recovery-note="1" style={{borderTop:`1px solid ${C.blush}`,paddingTop:10}}>
+                    <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>Account recovery</div>
+                    <div style={{fontSize:12,color:C.mid,lineHeight:1.45,background:"rgba(111,168,152,0.08)",border:"1px solid rgba(111,168,152,0.22)",borderRadius:12,padding:"10px 11px"}}>
+                      {normaliseAuthProviderIds(connectedAuthProviders).map(providerLabel).join(" or ")} is connected, so you can sign back in with that account. Recovery email and memorable word are only shown for username/PIN accounts.
+                    </div>
                   </div>
+                ) : (
+                  <>
+                    <div data-ob-recovery-email="1" style={{borderTop:`1px solid ${C.blush}`,paddingTop:10}}>
+                      <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>Recovery email</div>
+                      <div style={{fontSize:12,color:C.mid,marginBottom:8,lineHeight:1.4}}>Used to recover your username or reset your PIN.</div>
+                      <div className="ob-recovery-email-row">
+                        <input
+                          type="email"
+                          value={recoveryEmail}
+                          onChange={e=>{ setRecoveryEmail(e.target.value); setRecoveryEmailStatus(null); }}
+                          placeholder="your@email.com"
+                          autoCapitalize="none" autoCorrect="off" spellCheck="false"
+                          style={{minWidth:0,width:"100%",fontSize:15,padding:"9px 12px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"var(--bg-solid)",outline:"none",fontFamily:_fI,color:C.deep,boxSizing:"border-box"}}
+                        />
+                        <button
+                          onClick={async()=>{
+                            const em=recoveryEmail.trim();
+                            if(!em||!em.includes("@")){setRecoveryEmailStatus("invalid");return;}
+                            setRecoveryEmailSaving(true); setRecoveryEmailStatus(null);
+                          const ok = await saveRecoveryEmail(em);
+                          setRecoveryEmailSaving(false);
+                          setRecoveryEmailStatus(ok?"saved":"error");
+                          if(ok) showToast("Recovery email saved",2200,1);
+                          }}
+                          disabled={recoveryEmailSaving||!recoveryEmail.trim().includes("@")}
+                          style={{padding:"9px 14px",borderRadius:10,border:"none",background:recoveryEmail.trim().includes("@")?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",color:recoveryEmail.trim().includes("@")?"white":"#b89890",fontSize:13,fontWeight:700,cursor:recoveryEmail.trim().includes("@")?"pointer":"not-allowed",fontFamily:_fI,flexShrink:0,whiteSpace:"nowrap"}}>
+                          {recoveryEmailSaving?"Saving…":"Save"}
+                        </button>
+                      </div>
+                      {recoveryEmailStatus==="saved"&&<div style={{fontSize:12,color:"var(--mint)",marginTop:6,fontWeight:600}}>Recovery email saved</div>}
+                      {recoveryEmailStatus==="error"&&<div style={{fontSize:12,color:C.ter,marginTop:6}}>Something went wrong. try again</div>}
+                      {recoveryEmailStatus==="invalid"&&<div style={{fontSize:12,color:C.ter,marginTop:6}}>Please enter a valid email address</div>}
+                    </div>
+                    <div data-ob-recovery-word="1" style={{borderTop:`1px solid ${C.blush}`,paddingTop:10,marginTop:10}}>
+                      <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>Recovery word</div>
+                      <div style={{fontSize:12,color:C.mid,marginBottom:8,lineHeight:1.4}}>Use this with Forgot PIN if your backup code is not available.</div>
+                      <div className="ob-recovery-email-row">
+                        <input
+                          type="password"
+                          value={recoveryWord}
+                          onChange={e=>{ setRecoveryWord(e.target.value); setRecoveryWordStatus(null); }}
+                          placeholder="Memorable phrase"
+                          autoCapitalize="none" autoCorrect="off" spellCheck="false"
+                          style={{minWidth:0,width:"100%",fontSize:15,padding:"9px 12px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"var(--bg-solid)",outline:"none",fontFamily:_fI,color:C.deep,boxSizing:"border-box"}}
+                        />
+                        <button
+                          onClick={async()=>{
+                            const word=recoveryWord.trim();
+                            if(word.length<6){setRecoveryWordStatus("invalid");return;}
+                            setRecoveryWordSaving(true); setRecoveryWordStatus(null);
+                            const ok = await saveRecoveryWord(word);
+                            setRecoveryWordSaving(false);
+                            setRecoveryWordStatus(ok?"saved":"error");
+                            if(ok){ setRecoveryWord(""); showToast("Recovery word saved",2200,1); }
+                          }}
+                          disabled={recoveryWordSaving||recoveryWord.trim().length<6}
+                          style={{padding:"9px 14px",borderRadius:10,border:"none",background:recoveryWord.trim().length>=6?`linear-gradient(135deg,#9B8BB8,#7B6BA0)`:"rgba(155,139,184,0.2)",color:recoveryWord.trim().length>=6?"white":"rgba(155,139,184,0.5)",fontSize:13,fontWeight:700,cursor:recoveryWord.trim().length>=6?"pointer":"not-allowed",fontFamily:_fI,flexShrink:0,whiteSpace:"nowrap"}}>
+                          {recoveryWordSaving?"Saving...":"Save"}
+                        </button>
+                      </div>
+                      {recoveryWordStatus==="saved"&&<div style={{fontSize:12,color:"var(--mint)",marginTop:6,fontWeight:600}}>Recovery word saved</div>}
+                      {recoveryWordStatus==="error"&&<div style={{fontSize:12,color:C.ter,marginTop:6}}>Something went wrong. try again</div>}
+                      {recoveryWordStatus==="invalid"&&<div style={{fontSize:12,color:C.ter,marginTop:6}}>Use at least 6 characters</div>}
+                    </div>
+                  </>
                 )}
-                <div data-ob-recovery-email="1" style={{borderTop:`1px solid ${C.blush}`,paddingTop:10}}>
-                  <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>Recovery email</div>
-                  <div style={{fontSize:12,color:C.mid,marginBottom:8,lineHeight:1.4}}>Used to recover your username or reset your PIN.</div>
-                  <div className="ob-recovery-email-row">
-                    <input
-                      type="email"
-                      value={recoveryEmail}
-                      onChange={e=>{ setRecoveryEmail(e.target.value); setRecoveryEmailStatus(null); }}
-                      placeholder="your@email.com"
-                      autoCapitalize="none" autoCorrect="off" spellCheck="false"
-                      style={{minWidth:0,width:"100%",fontSize:15,padding:"9px 12px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"var(--bg-solid)",outline:"none",fontFamily:_fI,color:C.deep,boxSizing:"border-box"}}
-                    />
-                    <button
-                      onClick={async()=>{
-                        const em=recoveryEmail.trim();
-                        if(!em||!em.includes("@")){setRecoveryEmailStatus("invalid");return;}
-                        setRecoveryEmailSaving(true); setRecoveryEmailStatus(null);
-                      const ok = await saveRecoveryEmail(em);
-                      setRecoveryEmailSaving(false);
-                      setRecoveryEmailStatus(ok?"saved":"error");
-                      if(ok) showToast("Recovery email saved",2200,1);
-                      }}
-                      disabled={recoveryEmailSaving||!recoveryEmail.trim().includes("@")}
-                      style={{padding:"9px 14px",borderRadius:10,border:"none",background:recoveryEmail.trim().includes("@")?`linear-gradient(135deg,#c9705a,#a85a44)`:"#f2d9cc",color:recoveryEmail.trim().includes("@")?"white":"#b89890",fontSize:13,fontWeight:700,cursor:recoveryEmail.trim().includes("@")?"pointer":"not-allowed",fontFamily:_fI,flexShrink:0,whiteSpace:"nowrap"}}>
-                      {recoveryEmailSaving?"Saving…":"Save"}
-                    </button>
-                  </div>
-                  {recoveryEmailStatus==="saved"&&<div style={{fontSize:12,color:"var(--mint)",marginTop:6,fontWeight:600}}>Recovery email saved</div>}
-                  {recoveryEmailStatus==="error"&&<div style={{fontSize:12,color:C.ter,marginTop:6}}>Something went wrong. try again</div>}
-                  {recoveryEmailStatus==="invalid"&&<div style={{fontSize:12,color:C.ter,marginTop:6}}>Please enter a valid email address</div>}
-                </div>
-                <div data-ob-recovery-word="1" style={{borderTop:`1px solid ${C.blush}`,paddingTop:10,marginTop:10}}>
-                  <div style={{fontSize:11,fontFamily:_fM,color:C.lt,textTransform:"uppercase",letterSpacing:_ls08,marginBottom:4}}>Recovery word</div>
-                  <div style={{fontSize:12,color:C.mid,marginBottom:8,lineHeight:1.4}}>Use this with Forgot PIN if your backup code is not available.</div>
-                  <div className="ob-recovery-email-row">
-                    <input
-                      type="password"
-                      value={recoveryWord}
-                      onChange={e=>{ setRecoveryWord(e.target.value); setRecoveryWordStatus(null); }}
-                      placeholder="Memorable phrase"
-                      autoCapitalize="none" autoCorrect="off" spellCheck="false"
-                      style={{minWidth:0,width:"100%",fontSize:15,padding:"9px 12px",borderRadius:10,border:`1.5px solid ${C.blush}`,background:"var(--bg-solid)",outline:"none",fontFamily:_fI,color:C.deep,boxSizing:"border-box"}}
-                    />
-                    <button
-                      onClick={async()=>{
-                        const word=recoveryWord.trim();
-                        if(word.length<6){setRecoveryWordStatus("invalid");return;}
-                        setRecoveryWordSaving(true); setRecoveryWordStatus(null);
-                        const ok = await saveRecoveryWord(word);
-                        setRecoveryWordSaving(false);
-                        setRecoveryWordStatus(ok?"saved":"error");
-                        if(ok){ setRecoveryWord(""); showToast("Recovery word saved",2200,1); }
-                      }}
-                      disabled={recoveryWordSaving||recoveryWord.trim().length<6}
-                      style={{padding:"9px 14px",borderRadius:10,border:"none",background:recoveryWord.trim().length>=6?`linear-gradient(135deg,#9B8BB8,#7B6BA0)`:"rgba(155,139,184,0.2)",color:recoveryWord.trim().length>=6?"white":"rgba(155,139,184,0.5)",fontSize:13,fontWeight:700,cursor:recoveryWord.trim().length>=6?"pointer":"not-allowed",fontFamily:_fI,flexShrink:0,whiteSpace:"nowrap"}}>
-                      {recoveryWordSaving?"Saving...":"Save"}
-                    </button>
-                  </div>
-                  {recoveryWordStatus==="saved"&&<div style={{fontSize:12,color:"var(--mint)",marginTop:6,fontWeight:600}}>Recovery word saved</div>}
-                  {recoveryWordStatus==="error"&&<div style={{fontSize:12,color:C.ter,marginTop:6}}>Something went wrong. try again</div>}
-                  {recoveryWordStatus==="invalid"&&<div style={{fontSize:12,color:C.ter,marginTop:6}}>Use at least 6 characters</div>}
-                </div>
               </div>
             ) : (
               <div data-ob-recovery-email="1" style={{background:"var(--card-bg-alt)",borderRadius:14,padding:"14px 16px",marginBottom:10,border:"1px solid var(--card-border)"}}>
