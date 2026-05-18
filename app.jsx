@@ -12221,6 +12221,9 @@ function App(){
             } catch{}
             break;
           } else {
+            // If the action was stop_timer but nothing was active (e.g. iOS widget
+            // double-tap delivered twice), do nothing — don't start a new nap.
+            if(_isStopOnly) break;
             // No nap or breast active. start a nap (using LOCAL day key, not UTC).
             const _eid = uid();
             const _today = todayStr();
@@ -12505,7 +12508,7 @@ function App(){
             // regardless of stale widget caches. Stop only timer LAs; prediction
             // LAs are separate and remain intentional for premium users.
             console.log("[OBubba] No active timer keys. cleaning up orphaned timer Live Activities");
-            window.Capacitor.Plugins.OBLiveActivity.stop().catch(function(){});
+            window.Capacitor?.Plugins?.OBLiveActivity?.stop?.().catch(function(){});
             try {
               var _wdRaw = localStorage.getItem("ob_widget_data_v1") || localStorage.getItem("_lastWidgetData") || "{}";
               var _wd = safeJsonObject(_wdRaw);
@@ -24709,7 +24712,7 @@ function App(){
       } catch {}
     }, 60000);
     return ()=>clearInterval(guardInterval);
-  },[napOn, napPaused]);
+  },[napOn, napPaused, napEntryId, age, bedTimerDay, days]);
 
   // Snap ALL timers to wall-clock when phone unlocks (catches drift from iOS sleep/lock)
   // iOS Safari doesn't reliably fire visibilitychange. also listen for focus, pageshow, and Capacitor resume
@@ -26202,7 +26205,7 @@ function App(){
     _syncPredictionLA();
 
     return()=>clearInterval(countdownRef.current);
-  },[selDay, days, age, timerMode, napOn, bedTimerDay, napRefusedChoice]);
+  },[selDay, days, age, timerMode, napOn, bedTimerDay, napRefusedChoice, dayBoundary]);
   // Legacy Track hero card retired. Clock Track is now the single Track home surface.
   function getAgeStage(){
     if(!age) return null;
@@ -39130,7 +39133,7 @@ function App(){
 
   function saveMedicine() {
     const m = medForm;
-    if (!m.name && !m.temp) return;
+    if (!m.name && !m.temp) { showToast("Enter a medicine name or temperature to save", 2500, 2); return; }
     // Rapid-tap dedup: medicine especially matters — double-entry makes
     // it look like the parent dosed twice.
     const _mNow = Date.now();
@@ -39924,7 +39927,7 @@ function App(){
               .then(function(r){console.log("[OBubba] Bedtime Live Activity started:",JSON.stringify(r));})
               .catch(function(e){console.error("[OBubba] Bedtime Live Activity FAILED:",e);});
           }, 600);
-        });
+        }).catch(function(){});
       }
     }
     // Android: persistent lock screen notification for bedtime
