@@ -13,7 +13,6 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
-import android.os.PowerManager;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import com.obubba.app.MainActivity;
@@ -58,7 +57,6 @@ public class TimerService extends Service {
     private String predictionLabel;
     private String predictionTimeFormatted;
     private String predictionBabyName;
-    private PowerManager.WakeLock wakeLock;
 
     private String safeText(String value, String fallback, int maxLen) {
         String text = value == null ? fallback : value;
@@ -168,7 +166,6 @@ public class TimerService extends Service {
 
     private void startTimer() {
         running = true;
-        acquireWakeLock();
 
         if (handler != null && updateRunnable != null) {
             handler.removeCallbacks(updateRunnable);
@@ -200,7 +197,6 @@ public class TimerService extends Service {
         if (handler != null && updateRunnable != null) {
             handler.removeCallbacks(updateRunnable);
         }
-        releaseWakeLock();
         stopForeground(STOP_FOREGROUND_REMOVE);
     }
 
@@ -445,26 +441,6 @@ public class TimerService extends Service {
         prefs.edit().clear().apply();
     }
 
-    // ── WakeLock: prevents Samsung/OEM aggressive killing ──
-
-    private void acquireWakeLock() {
-        if (wakeLock == null) {
-            PowerManager pm = (PowerManager) getSystemService(Context.POWER_SERVICE);
-            if (pm != null) {
-                wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "obubba:timer");
-                wakeLock.setReferenceCounted(false);
-                wakeLock.acquire(16 * 60 * 60 * 1000L); // 16h max (covers bed timers), auto-releases
-            }
-        }
-    }
-
-    private void releaseWakeLock() {
-        if (wakeLock != null && wakeLock.isHeld()) {
-            wakeLock.release();
-            wakeLock = null;
-        }
-    }
-
     // ── Survive app swipe-away from recents ──
 
     @Override
@@ -492,7 +468,6 @@ public class TimerService extends Service {
             if (updateRunnable != null) handler.removeCallbacks(updateRunnable);
             if (predictionRunnable != null) handler.removeCallbacks(predictionRunnable);
         }
-        releaseWakeLock();
         super.onDestroy();
     }
 }

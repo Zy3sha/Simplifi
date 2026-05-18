@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en" style="background:#F0DDD6">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+
+  <!-- SEO Essentials -->
+  <title>OBubba | Best Baby Tracker App for Sleep, Feeds, Naps & Parenting</title>
+  <meta name="description" content="OBubba is built to be the best baby tracker app and parenting app for baby sleep, feeds, naps, nappies, growth, milestones, routines, reports and Bubba Care handovers."/>
+  <meta name="keywords" content="best baby tracker app, baby tracker, baby sleep tracker, baby feed tracker, feeding tracker, sleep tracker, nap tracker, newborn tracker, parenting app, baby routine tracker, baby milestone tracker, growth chart, baby care handover app, NHS baby, nap prediction, bedtime prediction"/>
+  <link rel="canonical" href="https://obubba.com/"/>
+
+  <!-- Open Graph (Facebook, WhatsApp, iMessage link previews) -->
+  <meta property="og:type" content="website"/>
+  <meta property="og:url" content="https://obubba.com/"/>
+  <meta property="og:title" content="OBubba | Best Baby Tracker App"/>
+  <meta property="og:description" content="Track baby sleep, feeds, naps, nappies, milestones, growth and family handovers in one calm parenting app."/>
+  <meta property="og:image" content="https://obubba.com/og-image.png"/>
+  <meta property="og:image:width" content="1200"/>
+  <meta property="og:image:height" content="630"/>
+  <meta property="og:site_name" content="OBubba"/>
+  <meta property="og:locale" content="en_GB"/>
+
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary_large_image"/>
+  <meta name="twitter:title" content="OBubba | Best Baby Tracker App"/>
+  <meta name="twitter:description" content="The parenting app for baby sleep, feeds, naps, nappies, milestones, growth and care handovers."/>
+  <meta name="twitter:image" content="https://obubba.com/og-image.png"/>
+
+  <!-- PWA / Mobile -->
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="OBubba"/>
+  <meta name="application-name" content="OBubba"/>
+  <meta name="theme-color" content="#f0ddd6"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <link rel="manifest" href="manifest.json"/>
+  <link rel="icon" type="image/png" href="icon.png"/>
+  <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
+
+  <!-- Structured Data -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "OBubba, Best Baby Tracker App",
+    "alternateName": ["baby sleep tracker", "baby feed tracker", "parenting app", "newborn tracker"],
+    "description": "Baby tracker and parenting app for sleep, feeds, naps, nappies, growth, milestones, routines, reports and Bubba Care handovers.",
+    "applicationCategory": "HealthApplication",
+    "operatingSystem": "iOS, Android, Web",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "GBP" },
+    "author": { "@type": "Organization", "name": "OBubba", "url": "https://obubba.com" },
+    "url": "https://obubba.com",
+    "image": "https://obubba.com/obubba-happy.png"
+  }
+  </script>
+
+  <!-- Fonts — OBubba Script is bundled locally for splash/native boot -->
+  <style>@font-face{font-family:'OBubba Script';src:url('Parisienne-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:block}@font-face{font-family:'Parisienne';src:url('Parisienne-Regular.ttf') format('truetype');font-weight:400;font-style:normal;font-display:block}</style>
+  <link rel="preload" href="Parisienne-Regular.ttf" as="font" type="font/ttf"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Parisienne&family=Spectral:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap" rel="stylesheet"/>
+
+  <!-- External libraries (vendored locally so web, PWA, and native shells boot offline) -->
+  <script src="/vendor/react.production.min.js"></script>
+  <script src="/vendor/react-dom.production.min.js"></script>
+
+  <!-- Firebase -->
+  <script type="module" src="/firebase.js"></script>
+
+  <!-- Native Plugin Bridge -->
+  <script src="/native-plugins.js" defer></script>
+
+  <!-- Localisation -->
+  <script src="/i18n.js?v=1779132092"></script>
+
+  <!-- Styles -->
+  <link rel="stylesheet" href="styles.css?v=1779132092"/>
+</head>
+<body style="background:#F0DDD6;margin:0">
+<div id="ob-splash" style="position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#F0DDD6">
+  <style>
+    #ob-splash .baby{animation:babyBreathe 3.5s ease-in-out infinite}
+    @keyframes babyBreathe{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.008)}}
+  </style>
+  <img class="baby" src="obubba-happy.png" alt="" width="150" height="150" style="object-fit:contain;margin-bottom:14px;border-radius:36px">
+  <div style="font-family:'OBubba Script','Parisienne',cursive;font-size:28px;color:#5B4F5F;margin-bottom:8px">OBubba</div>
+  <div style="font-size:13px;color:#A89898">Getting everything ready...</div>
+</div>
+<div id="root"></div>
+<button id="theme-toggle" aria-label="Toggle theme" onclick="toggleTheme()">🌙</button>
+
+<!-- Theme system -->
+<script src="/theme.js"></script>
+
+<!-- App loader: installs error/mount guards before app.js executes -->
+<script src="/loader.js"></script>
+
+<!-- App (pre-compiled by Babel; see build-pwa.sh) -->
+<script defer src="/app.js?v=1779132092"></script>
+
+<!-- Splash is dismissed by App after React commits its first screen. -->
+
+</body>
+</html>

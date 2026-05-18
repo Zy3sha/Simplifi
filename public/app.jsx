@@ -24825,8 +24825,9 @@ function App(){
     try {
       if (soundCtxRef.current && soundCtxRef.current.addEventListener) {
         soundCtxRef.current.addEventListener("statechange", ()=>{
-          if (soundCtxRef.current.state === "suspended" || soundCtxRef.current.state === "interrupted") {
-            soundCtxRef.current.resume().catch(()=>{});
+          const ctx = soundCtxRef.current;
+          if (ctx && (ctx.state === "suspended" || ctx.state === "interrupted")) {
+            ctx.resume().catch(()=>{});
           }
         });
       }
