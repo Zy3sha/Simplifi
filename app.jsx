@@ -141,10 +141,41 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 const STORAGE_KEY = "babyTracker_v6";
 const params = new URLSearchParams(window.location.search);
 const quickAction = params.get("action");
+function isObubbaLocalPreviewHost(hostname) {
+  try {
+    const host = String(hostname || window.location.hostname || "").replace(/^\[|\]$/g, "").toLowerCase();
+    return /^(localhost|127\.0\.0\.1|0\.0\.0\.0|::1)$/i.test(host);
+  } catch { return false; }
+}
+function isObubbaNativeRuntime() {
+  try {
+    if (window._isNative) return true;
+    if (window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()) return true;
+    return /^(capacitor|ionic):$/i.test(String(window.location.protocol || ""));
+  } catch { return false; }
+}
+function isObubbaPublicWebHost(hostname) {
+  try {
+    const host = String(hostname || window.location.hostname || "").replace(/^\[|\]$/g, "").toLowerCase();
+    return /(^|\.)obubba\.com$/i.test(host) ||
+      /^obubba-d9ccc\.(web\.app|firebaseapp\.com)$/i.test(host);
+  } catch { return false; }
+}
+function canBypassObubbaPublicWebGate(paramsArg = params) {
+  try {
+    if (!isObubbaLocalPreviewHost()) return false;
+    return paramsArg.get("webApp") === "1" || paramsArg.has("codexSmoke") || paramsArg.has("viewportAudit");
+  } catch { return false; }
+}
+function isObubbaPublicWebRuntime() {
+  try {
+    return isObubbaPublicWebHost() && !isObubbaNativeRuntime() && !canBypassObubbaPublicWebGate();
+  } catch { return false; }
+}
 const OB_WELCOME_PREVIEW = (() => {
   try {
     const host = String(window.location.hostname || "").replace(/^\[|\]$/g, "");
-    const localPreviewHost = /^(localhost|127\.0\.0\.1|0\.0\.0\.0|::1)$/i.test(host);
+    const localPreviewHost = isObubbaLocalPreviewHost(host);
     return localPreviewHost && params.get("debug") === "1" && params.get("ob_welcome_preview") === "1";
   } catch { return false; }
 })();
@@ -183,7 +214,7 @@ function isLocalWebPreviewRuntime() {
   try {
     if (isNativeRuntimeForCloudWrite()) return false;
     const host = String(window.location.hostname || "").replace(/^\[|\]$/g, "");
-    return /^(localhost|127\.0\.0\.1|0\.0\.0\.0|::1)$/i.test(host);
+    return isObubbaLocalPreviewHost(host);
   } catch { return false; }
 }
 function previewCloudWritesAllowed() {
@@ -11916,14 +11947,11 @@ function obubbaDownloadStoreUrl() {
 
 function shouldShowObubbaDownloadLanding() {
   try {
-    if (window._isNative) return false;
-    if (window.Capacitor && typeof window.Capacitor.isNativePlatform === "function" && window.Capacitor.isNativePlatform()) return false;
+    if (isObubbaNativeRuntime()) return false;
     const params = new URLSearchParams(window.location.search || "");
     if (params.get("downloadGatePreview") === "1") return true;
-    if (params.get("webApp") === "1" || params.has("codexSmoke") || params.has("viewportAudit")) return false;
-    const host = String(window.location.hostname || "").toLowerCase();
-    const path = String(window.location.pathname || "/").replace(/\/+$/, "") || "/";
-    return (host === "obubba.com" || host === "www.obubba.com") && (path === "/" || path === "/index.html");
+    if (canBypassObubbaPublicWebGate(params)) return false;
+    return isObubbaPublicWebRuntime();
   } catch {
     return false;
   }

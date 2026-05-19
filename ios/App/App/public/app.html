@@ -34,9 +34,30 @@
   <meta name="application-name" content="OBubba"/>
   <meta name="theme-color" content="#f0ddd6"/>
   <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="robots" content="noindex, nofollow"/>
   <link rel="manifest" href="manifest.json"/>
   <link rel="icon" type="image/png" href="icon.png"/>
   <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
+
+  <!-- OBubba public web download gate.
+       The full tracker belongs in the installed native app. If this native
+       app shell is accidentally reached on obubba.com, send parents to the
+       download landing before Firebase/sign-in code loads. -->
+  <script>
+  (function(){
+    try {
+      var host = String(location.hostname || "").replace(/^\[|\]$/g, "").toLowerCase();
+      var path = String(location.pathname || "/").replace(/\/+$/, "") || "/";
+      var publicHost = /(^|\.)obubba\.com$/i.test(host) || /^obubba-d9ccc\.(web\.app|firebaseapp\.com)$/i.test(host);
+      var localHost = /^(localhost|127\.0\.0\.1|0\.0\.0\.0|::1)$/i.test(host);
+      var nativeProtocol = /^(capacitor|ionic):$/i.test(String(location.protocol || ""));
+      var nativeRuntime = nativeProtocol || !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+      if (publicHost && !localHost && !nativeRuntime && path !== "/" && path !== "/index.html") {
+        location.replace("/");
+      }
+    } catch (e) {}
+  })();
+  </script>
 
   <!-- Structured Data -->
   <script type="application/ld+json">
@@ -47,7 +68,7 @@
     "alternateName": ["baby sleep tracker", "baby feed tracker", "parenting app", "newborn tracker"],
     "description": "Baby tracker and parenting app for sleep, feeds, naps, nappies, growth, milestones, routines, reports and Bubba Care handovers.",
     "applicationCategory": "HealthApplication",
-    "operatingSystem": "iOS, Android, Web",
+    "operatingSystem": "iOS, Android",
     "offers": { "@type": "Offer", "price": "0", "priceCurrency": "GBP" },
     "author": { "@type": "Organization", "name": "OBubba", "url": "https://obubba.com" },
     "url": "https://obubba.com",
@@ -73,10 +94,10 @@
   <script src="/native-plugins.js" defer></script>
 
   <!-- Localisation -->
-  <script src="/i18n.js?v=1779186163"></script>
+  <script src="/i18n.js?v=1779197896"></script>
 
   <!-- Styles -->
-  <link rel="stylesheet" href="styles.css?v=1779186163"/>
+  <link rel="stylesheet" href="styles.css?v=1779197896"/>
 </head>
 <body style="background:#F0DDD6;margin:0">
 <div id="ob-splash" style="position:fixed;inset:0;z-index:99999;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#F0DDD6">
@@ -98,7 +119,7 @@
 <script src="/loader.js"></script>
 
 <!-- App (pre-compiled by Babel; see build-pwa.sh) -->
-<script defer src="/app.js?v=1779186163"></script>
+<script defer src="/app.js?v=1779197896"></script>
 
 <!-- Splash is dismissed by App after React commits its first screen. -->
 
