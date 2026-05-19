@@ -769,6 +769,7 @@ function imageLicenseMetadata() {
     copyrightNotice: IMAGE_COPYRIGHT_NOTICE,
     license: absoluteUrl(IMAGE_LICENSE_PATH),
     acquireLicensePage: absoluteUrl(IMAGE_LICENSE_PATH),
+    creator: { '@id': `${SITE.baseUrl}/#organization` },
   };
 }
 
