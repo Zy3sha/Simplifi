@@ -2,7 +2,7 @@
 // OBubba Service Worker — Offline-first with smart caching
 // ══════════════════════════════════════════════════════════════════
 
-const CACHE_NAME = 'obubba-v1779133582';
+const CACHE_NAME = 'obubba-v1779186163';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

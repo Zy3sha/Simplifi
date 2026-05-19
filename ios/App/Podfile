@@ -45,6 +45,9 @@ post_install do |installer|
   Dir.glob(File.join(__dir__, 'Pods', 'Target Support Files', 'Pods-App', 'Pods-App-frameworks.sh')).each do |script|
     next unless File.exist?(script)
     contents = File.read(script)
+    unless contents.include?('OBubba: prevent macOS metadata from being copied into embedded frameworks')
+      contents.sub!("set -o pipefail\n", "set -o pipefail\n\n# OBubba: prevent macOS metadata from being copied into embedded frameworks\nexport COPYFILE_DISABLE=1\nexport COPY_EXTENDED_ATTRIBUTES_DISABLE=1\n")
+    end
     marker = '# OBubba: strip extended attributes before CocoaPods codesign'
     strip_extended_attrs = <<~'SH'
       # OBubba: strip extended attributes before CocoaPods codesign
@@ -56,6 +59,14 @@ post_install do |installer|
           /usr/bin/xattr -d "${attr}" "${framework_to_sign}" 2>/dev/null || true
           /usr/bin/find "${framework_to_sign}" -depth -exec /usr/bin/xattr -d "${attr}" {} \; 2>/dev/null || true
         done
+        clean_framework="${framework_to_sign}.xattrclean"
+        /bin/rm -rf "${clean_framework}"
+        if /usr/bin/ditto --noextattr --norsrc "${framework_to_sign}" "${clean_framework}" 2>/dev/null; then
+          /bin/rm -rf "${framework_to_sign}"
+          /bin/mv "${clean_framework}" "${framework_to_sign}"
+        else
+          /bin/rm -rf "${clean_framework}"
+        fi
       fi
 
     SH

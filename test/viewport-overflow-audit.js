@@ -165,6 +165,7 @@ async function main() {
   const debugPort = await freePort();
   const profileDir = fs.mkdtempSync(path.join(os.tmpdir(), "obubba-viewport-"));
   const appUrl = "http://127.0.0.1:" + appPort + "/";
+  const appShellUrl = appUrl + "app.html";
   const server = spawn("npx", ["vite", "--host", "127.0.0.1", "--port", String(appPort), "--strictPort"], {
     cwd: root,
     stdio: ["ignore", "pipe", "pipe"],
@@ -216,7 +217,7 @@ async function main() {
     stderr: chromeStderr,
   });
 
-  const newTarget = await fetch("http://127.0.0.1:" + debugPort + "/json/new?" + encodeURIComponent(appUrl), { method: "PUT" }).then(r => r.json());
+  const newTarget = await fetch("http://127.0.0.1:" + debugPort + "/json/new?" + encodeURIComponent(appShellUrl), { method: "PUT" }).then(r => r.json());
   var cdp = new CdpClient(newTarget.webSocketDebuggerUrl);
   await cdp.connect();
   await cdp.send("Page.enable");
@@ -257,7 +258,7 @@ async function main() {
       screenHeight: 844,
     });
     const load = cdp.waitEvent("Page.loadEventFired", 12000).catch(() => null);
-    await cdp.send("Page.navigate", { url: appUrl + "?viewportAudit=" + width });
+    await cdp.send("Page.navigate", { url: appShellUrl + "?viewportAudit=" + width });
     await load;
     await new Promise(resolve => setTimeout(resolve, 1800));
     const metricsExpression = `(() => {

@@ -96,7 +96,10 @@ do
 done
 
 echo "Copying to dist/..."
-cp -f public/index.html dist/index.html
+# public/index.html is the obubba.com download landing. Native shells must
+# package the real app entrypoint, otherwise iOS/Android boot into the store page.
+cp -f public/app.html dist/index.html
+cp -f public/app.html dist/app.html
 cp -f public/manifest.json dist/manifest.json
 cp -f public/icon.png dist/icon.png 2>/dev/null || true
 mkdir -p dist/icons
@@ -113,10 +116,10 @@ cp -f __clear-preview-cache.html dist/__clear-preview-cache.html
 # Ensure font is in dist so cap copy includes it
 cp -f public/Parisienne-Regular.ttf dist/Parisienne-Regular.ttf 2>/dev/null || true
 
-# Cache-bust: update ?v= on all index.html script tags
+# Cache-bust: update ?v= on all HTML entrypoint script tags
 echo "Cache busting..."
 CACHE_V=$(date +%s)
-for f in index.html public/index.html dist/index.html; do
+for f in index.html public/index.html public/app.html dist/index.html dist/app.html; do
   if [ -f "$f" ]; then
     sed -i '' "s|/app\.js?v=[0-9]*\"|/app.js?v=${CACHE_V}\"|g" "$f"
     sed -i '' "s|/app\.js\"|/app.js?v=${CACHE_V}\"|g" "$f"

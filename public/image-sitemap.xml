@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <url>
+    <loc>https://obubba.com/obubba-visual-identity.html</loc>
+    <image:image>
+      <image:loc>https://obubba.com/icon.png</image:loc>
+      <image:title>OBubba app icon and logo</image:title>
+      <image:caption>The official OBubba app icon and logo for the baby tracker app.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-baby-tracker-app-icon-crowned-baby.png</image:loc>
+      <image:title>OBubba baby tracker app icon with crowned baby</image:title>
+      <image:caption>The official OBubba baby tracker app icon showing the crowned baby mascot and OBubba brand identity.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-happy.png</image:loc>
+      <image:title>OBubba happy baby mascot</image:title>
+      <image:caption>The official OBubba baby mascot used for the OBubba baby tracker app.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-thinking.png</image:loc>
+      <image:title>OBubba thinking baby mascot</image:title>
+      <image:caption>The OBubba thinking baby mascot for guidance and parenting rhythm insights.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-celebration.png</image:loc>
+      <image:title>OBubba celebration baby mascot</image:title>
+      <image:caption>The OBubba celebration baby mascot for milestones, wins and baby care moments.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-loading.png</image:loc>
+      <image:title>OBubba sleepy baby mascot</image:title>
+      <image:caption>The OBubba sleepy baby mascot used for calm sleep, nap and routine guidance.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/og-image.png</image:loc>
+      <image:title>OBubba social preview image</image:title>
+      <image:caption>The official OBubba social preview image for the baby tracker app.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-baby-tracker-parent-support-preview.png</image:loc>
+      <image:title>OBubba baby tracker and parent support preview</image:title>
+      <image:caption>Official OBubba preview image for the mum-built baby tracker and parent support app.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-download-landing.png</image:loc>
+      <image:title>OBubba baby rhythm clock and golden fireflies</image:title>
+      <image:caption>Official OBubba baby rhythm clock artwork with a glowing circular clock, moon, sun, coloured arcs, golden fireflies, dark nursery background, crib, rabbit lamp and teddy bear.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-baby-sleep-timer-fireflies.png</image:loc>
+      <image:title>OBubba baby sleep timer and fireflies</image:title>
+      <image:caption>Official OBubba baby sleep timer artwork with the glowing baby rhythm clock, moon and sun centre, coloured time arcs and golden fireflies.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-fireflies-hope-sleep-clock-screenshot.jpg</image:loc>
+      <image:title>OBubba Fireflies hope message and sleep clock</image:title>
+      <image:caption>Official OBubba app screenshot showing the OBubba Fireflies message: &quot;Fireflies are a symbol of hope. Each firefly you see is another parent up at the same time lighting your sky with hope.&quot; The message appears above the OBubba circular baby sleep clock.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://obubba.com/</loc>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-baby-sleep-timer-fireflies.png</image:loc>
+      <image:title>OBubba baby sleep timer and golden fireflies</image:title>
+      <image:caption>Official OBubba homepage artwork with the baby sleep timer, baby rhythm clock, golden fireflies, crowned baby mascot, moon, sun and nursery scene.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://obubba.com/baby-sleep-tracker.html</loc>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-fireflies-hope-sleep-clock-screenshot.jpg</image:loc>
+      <image:title>OBubba baby sleep clock screenshot — Oliver is sleeping, fireflies, End sleep, Edit bedtime, Night wake, Dream feed</image:title>
+      <image:caption>Official OBubba baby sleep tracker screenshot showing the circular sleep clock with golden fireflies, moon and sun centre, coloured time arcs, baby name and sleep timer. Buttons include End sleep, Edit bedtime, Pause timer, Night wake and Dream feed. This is OBubba — the mum-built baby tracker app.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-baby-sleep-timer-fireflies.png</image:loc>
+      <image:title>OBubba baby sleep timer artwork with golden fireflies</image:title>
+      <image:caption>Official OBubba baby sleep timer artwork showing the circular sleep clock, moon and sun, coloured arcs and golden firefly presence dots. This is the OBubba baby tracker app sleep screen.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>https://obubba.com/best-baby-tracker.html</loc>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-fireflies-hope-sleep-clock-screenshot.jpg</image:loc>
+      <image:title>OBubba Fireflies sleep clock — official screenshot</image:title>
+      <image:caption>Official OBubba screenshot: the Fireflies message reads "Fireflies are a symbol of hope. Each firefly you see is another parent up at the same time lighting your sky with hope." Above the OBubba circular baby sleep clock. This is OBubba, not Huckleberry or any other app.</image:caption>
+    </image:image>
+  </url>
+</urlset>

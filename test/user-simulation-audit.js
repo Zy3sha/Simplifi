@@ -9,6 +9,7 @@ const root = path.resolve(__dirname, "..");
 const appSource = fs.readFileSync(path.join(root, "app.jsx"), "utf8");
 
 let failures = 0;
+const CLOCK_LIVE_WAKE_WINDOW_VISUAL_MAX_MINS = 180;
 
 function assert(name, condition, detail) {
   if (!condition) {
@@ -189,7 +190,7 @@ function pauseBedTimerWakeEntrySim(time = "05:29") {
   };
 }
 
-function clockVisibleEventsSim({ dayBoundary = "wake", dayKey, days }) {
+function clockVisibleEventsSim({ dayBoundary = "wake", dayKey, days, nowMins = 12 * 60, activeBedTimerDay = "" }) {
   const entriesForDay = days[dayKey] || [];
   const nextDayKey = nextCalDay(dayKey);
   const nextEntriesForDay = days[nextDayKey] || [];
@@ -209,12 +210,22 @@ function clockVisibleEventsSim({ dayBoundary = "wake", dayKey, days }) {
     const visualStart = start < 12 * 60 ? start + 1440 : start;
     return { visualStart, visualEnd: visualStart + Math.max(26, nightWakeDurationMinutes(entry)) };
   };
+  const isLoggedBedtime = entry => !!(entry && entry.type === "sleep" && !entry.night && entry.time);
+  const bedtimeBelongsToSelectedWakeDay = entry => {
+    if (!isLoggedBedtime(entry)) return false;
+    if (dayBoundary !== "wake") return true;
+    if (activeBedTimerDay === dayKey) return true;
+    if (wakeStart === null) return true;
+    const start = timeVal(entry);
+    return start <= nowMins + 30;
+  };
   const push = (entry, sourceDay, opts = {}) => out.push({ entry, sourceDay, logOnly: !!opts.logOnly, visualStart: opts.visualStart ?? timeVal(entry), visualEnd: opts.visualEnd ?? timeVal(entry) + Math.max(26, nightWakeDurationMinutes(entry)) });
   entriesForDay.forEach(entry => {
     if (beforeWakeStart(entry, wakeStart)) {
       if (shouldRenderBeforeWakeStart(entry)) push(entry, dayKey, visualOpts(entry));
       return;
     }
+    if (isLoggedBedtime(entry) && !bedtimeBelongsToSelectedWakeDay(entry)) return;
     push(entry, dayKey);
   });
   nextEntriesForDay.forEach(entry => {
@@ -247,7 +258,8 @@ function clockWakeWindowItemsSim({ dayKey, rows, nowMins = 12 * 60, clockBedOnTh
   });
   if (awakeStart !== null && !clockBedOnThisDay) {
     const nowForWindow = nowMins < (awakeStart % 1440) ? nowMins + 1440 : nowMins;
-    if (nowForWindow > awakeStart + 5) out.push({ start: awakeStart, end: nowForWindow, duration: nowForWindow - awakeStart, target: "now", isNow: true });
+    const visualEnd = Math.min(nowForWindow, awakeStart + CLOCK_LIVE_WAKE_WINDOW_VISUAL_MAX_MINS);
+    if (nowForWindow > awakeStart + 5) out.push({ start: awakeStart, end: visualEnd, duration: nowForWindow - awakeStart, target: "now", isNow: true });
   }
   return out.filter(item => item.duration >= 10).slice(0, 8);
 }
@@ -601,7 +613,26 @@ function getNightWakeEventsForDay(days, bedtimeDayKey, morningDayKey) {
   if (findBedtime(bedDayEnt)) {
     return collectLastNightWakeEntries(days, bedtimeDayKey, morningDayKey || nextCalDay(bedtimeDayKey));
   }
-  return dedupeNightWakeEvents(bedDayEnt.filter(isNightWakeLikeEntry));
+  const fallback = bedDayEnt
+    .filter(isNightWakeLikeEntry)
+    .map(e => {
+      const m = clockMins(e && (e.time || e.start));
+      return m === null ? e : { ...e, _fromBedMin: m };
+    });
+  const nextMorningEnt = morningDayKey && morningDayKey !== bedtimeDayKey ? (days[morningDayKey] || []) : [];
+  if (nextMorningEnt.length) {
+    const morningWake = findMorningWake(nextMorningEnt);
+    const morningMins = morningWake ? clockMins(morningWake.time) : null;
+    nextMorningEnt
+      .filter(isNightWakeLikeEntry)
+      .forEach(e => {
+        const m = clockMins(e && (e.time || e.start));
+        if (m === null || m >= 12 * 60) return;
+        if (morningMins !== null && m >= morningMins) return;
+        fallback.push({ ...e, _fromBedMin: 24 * 60 + m });
+      });
+  }
+  return dedupeNightWakeEvents(fallback);
 }
 
 function getNightWakeEventCount(days, bedtimeDayKey, morningDayKey) {
@@ -610,7 +641,23 @@ function getNightWakeEventCount(days, bedtimeDayKey, morningDayKey) {
 
 function analyzeLastNight(days, bedtimeDayKey, morningDayKey) {
   const bedDayEnt = days[bedtimeDayKey] || [];
-  const bedEntry = findBedtime(bedDayEnt);
+  let bedEntry = findBedtime(bedDayEnt);
+  let bedEntryDayKey = bedtimeDayKey;
+  if (!bedEntry && morningDayKey && morningDayKey !== bedtimeDayKey) {
+    const morningDayEntFallback = days[morningDayKey] || [];
+    const misplacedBed = findBedtime(morningDayEntFallback);
+    const morningWakeFallback = findMorningWake(morningDayEntFallback);
+    const misplacedBedMins = misplacedBed ? clockMins(misplacedBed.time) : null;
+    const morningWakeMins = morningWakeFallback ? clockMins(morningWakeFallback.time) : null;
+    const hasEarlyMorningNightWakes = morningDayEntFallback.some(e => {
+      const m = clockMins(e && (e.time || e.start));
+      return isNightWakeLikeEntry(e) && m !== null && m < 12 * 60 && (morningWakeMins === null || m < morningWakeMins);
+    });
+    if (misplacedBed && misplacedBedMins !== null && misplacedBedMins >= 12 * 60 && hasEarlyMorningNightWakes) {
+      bedEntry = misplacedBed;
+      bedEntryDayKey = morningDayKey;
+    }
+  }
   if (!bedEntry) return null;
   const bedMins = clockMins(bedEntry.time);
   const morningWake = findMorningWake(days[morningDayKey] || []);
@@ -620,7 +667,7 @@ function analyzeLastNight(days, bedtimeDayKey, morningDayKey) {
     : null;
   const wakes = getNightWakeEventsForDay(days, bedtimeDayKey, morningDayKey)
     .map(e => {
-      const fromBedMin = Number.isFinite(e._fromBedMin) ? e._fromBedMin : nightEntryFromBedMin(e, bedMins);
+      const fromBedMin = Number.isFinite(e._fromBedMin) && e._fromBedMin < 14 * 60 ? e._fromBedMin : nightEntryFromBedMin(e, bedMins);
       const durationMin = Math.min(Math.max(nightWakeDurationMinutes(e), 0), 120) || 5;
       return { ...e, fromBedMin, durationMin };
     })
@@ -656,6 +703,27 @@ function estimateParentSleepFromCompletedNightSim(days, bedtimeDayKey) {
     longestStretchMin,
     parentSleepBlockMin: Math.min(8 * 60, longestStretchMin),
   };
+}
+
+function resolveCompletedSleepSummaryKeysSim(days, anchorDayKey) {
+  const anchor = anchorDayKey;
+  const prev = prevCalDay(anchor);
+  const prevHasBedtime = !!findBedtime((days && days[prev]) || []);
+  if (!prevHasBedtime) {
+    const anchorEntries = (days && days[anchor]) || [];
+    const anchorBed = findBedtime(anchorEntries);
+    const anchorMorningWake = findMorningWake(anchorEntries);
+    const anchorMorningMins = anchorMorningWake ? clockMins(anchorMorningWake.time) : null;
+    const anchorBedMins = anchorBed ? clockMins(anchorBed.time) : null;
+    const hasPreviousNightWakesOnAnchor = anchorEntries.some(e => {
+      const m = clockMins(e && (e.time || e.start));
+      return isNightWakeLikeEntry(e) && m !== null && m < 12 * 60 && (anchorMorningMins === null || m < anchorMorningMins);
+    });
+    if (anchorBed && anchorBedMins !== null && anchorBedMins >= 12 * 60 && hasPreviousNightWakesOnAnchor) {
+      return { bedDayKey: prev, morningDayKey: anchor, skippedOpenNight: false, repairedMisplacedBedtime: true };
+    }
+  }
+  return { bedDayKey: prevHasBedtime ? prev : anchor, morningDayKey: prevHasBedtime ? anchor : nextCalDay(anchor), skippedOpenNight: false };
 }
 
 function classifySettleMethod(e) {
@@ -824,6 +892,24 @@ function runNightSimulations() {
   const midnightModeDays = buildBaselineChangeDays({ morningMode: "midnight" });
   const midnightNight = analyzeLastNight(midnightModeDays, bedDay, morningDay);
   assert("midnight-day simulation counts after-midnight night wakes stored on morning day", midnightNight.wakeCount === 2, "got " + midnightNight.wakeCount);
+
+  const misplacedWakeModeBedtimeDays = {
+    "2026-05-17": [],
+    "2026-05-18": [
+      { id: "roger-nw-1", type: "wake", time: "00:35", night: true, wakeDuration: 12, source: "manual-night-wake" },
+      { id: "roger-nw-2", type: "wake", time: "02:10", night: true, wakeDuration: 9, source: "manual-night-wake" },
+      { id: "roger-nw-3", type: "wake", time: "04:40", night: true, wakeDuration: 18, source: "manual-night-wake" },
+      { id: "roger-am", type: "wake", time: "05:30", night: false },
+      { id: "roger-bed-misplaced", type: "sleep", time: "19:45", night: false },
+    ],
+  };
+  const repairedKeys = resolveCompletedSleepSummaryKeysSim(misplacedWakeModeBedtimeDays, "2026-05-18");
+  const repairedNight = analyzeLastNight(misplacedWakeModeBedtimeDays, repairedKeys.bedDayKey, repairedKeys.morningDayKey);
+  const wakeModeVisibleToday = clockVisibleEventsSim({ dayBoundary: "wake", dayKey: "2026-05-18", days: misplacedWakeModeBedtimeDays, nowMins: 12 * 60 + 2 });
+  const midnightVisibleToday = clockVisibleEventsSim({ dayBoundary: "midnight", dayKey: "2026-05-18", days: misplacedWakeModeBedtimeDays, nowMins: 12 * 60 + 2 });
+  assert("wake-to-wake repairs a misplaced same-calendar bedtime when early-AM night wakes prove it was last night", repairedKeys.repairedMisplacedBedtime && repairedNight && repairedNight.wakeCount === 3, JSON.stringify({ repairedKeys, wakeCount: repairedNight && repairedNight.wakeCount }));
+  assert("wake-to-wake clock does not show a future same-day bedtime after morning wake", !wakeModeVisibleToday.some(item => item.entry.id === "roger-bed-misplaced"), JSON.stringify(wakeModeVisibleToday));
+  assert("midnight mode still shows the same-day bedtime on that calendar day", midnightVisibleToday.some(item => item.entry.id === "roger-bed-misplaced"), JSON.stringify(midnightVisibleToday));
 
   const duplicateDays = {
     "2026-05-01": [
@@ -1046,14 +1132,17 @@ function runNightSimulations() {
 			  assert("clock bottle feed details during bedtime ask night wake or morning wake on save", appSource.includes('labAction("feed","feed","Feed",()=>openLogPanel("feed"),null') && appSource.includes("function openBedtimeFeedChoice(data)") && appSource.includes("function logBedtimeFeedChoice(kind)") && appSource.includes("const routeDetailedFeed = (data) =>") && appSource.includes("openBedtimeFeedChoice(data);") && appSource.includes("Night wake feed or morning wake?") && appSource.includes("Night wake</strong> means baby isn't ready to wake up for the day.") && appSource.includes("Morning wake</strong> means baby is ready to start the day."));
 		  assert("clock breast tap during bedtime pauses bedtime and starts the L/R timer", appSource.includes("function startNightBreastTimerFromBed(sideArg)") && appSource.includes("const pendingFromPause = pauseBedTimer();") && appSource.includes("startBreastTimer(sideKey);") && appSource.includes('showToast("🤱 Night feed timer started"') && appSource.includes("if (clockBedOnThisDay && !bedPausedNow) {") && appSource.includes("startNightBreastTimerFromBed(sideKey);") && appSource.includes("if (bedPausedNow && bedtimeFeedChoiceBedDay()) { startBreastTimer(sideKey);"));
 		  assert("night breastfeeding timer stop completes the pending night wake with L/R feed details and restarts sleep", appSource.includes('const breastLMin = settleMethod === "milk" ? safeBreastMinutesInput(opts && opts.breastL) : 0;') && appSource.includes('hasBreastDetails ? "breast"') && appSource.includes('breastL: _feedType === "breast" && breastLMin > 0 ? breastLMin : undefined') && appSource.includes('resumeBedTimer("milk", {') && appSource.includes("breastL: lMins") && appSource.includes("breastR: rMins") && appSource.includes("Night feed logged. sleep timer restarted"));
-		  assert("bedtime active state wins over stale nap timer state", appSource.includes('function clearNapTimerState(reason = "timer_clear", opts = {})') && appSource.includes('clearNapTimerState("bedtime_timer_wins", {preserveMode:true, keepNativeTimer:true});') && appSource.includes('const clockNapSuppressedByBedtime = !!(clockBedOnThisDay && !bedPaused);') && appSource.includes('type: _bedActive ? "bed" : _breastActive ? "breast" : "nap"') && appSource.includes('if (localStorage.getItem("bed_timer_day") && localStorage.getItem("bed_paused") !== "1") return null;'));
+		  assert("bedtime active state wins over stale nap timer state", appSource.includes('function clearNapTimerState(reason = "timer_clear", opts = {})') && appSource.includes('clearNapTimerState("bedtime_timer_wins", {preserveMode:true, keepNativeTimer:true});') && appSource.includes('const clockNapSuppressedByBedtime = !!clockBedOnThisDay;') && appSource.includes('type: _bedActive ? "bed" : _breastActive ? "breast" : "nap"') && appSource.includes('if (localStorage.getItem("bed_timer_day") && localStorage.getItem("bed_paused") !== "1") return null;'));
 	  assert("morning wake feed choice stops bedtime and logs feed on the new day", appSource.includes('logMorningWakeNextDay(baseData.time, {targetDay, bedDay:choice.bedDay});') && appSource.includes('source:"morning-wake-feed"') && appSource.includes("_targetDayOverride:targetDay") && appSource.includes("_skipWakePrompt:true") && appSource.includes("wakeTargetDayOverride ||"));
 	  assert("clock treats active bedtime quick feeds as night wake/feed rows", appSource.includes('entry.source === "bedtimer-night-feed"') && appSource.includes('bedtimer-night-(wake|feed)'));
 	  const editedBreastTimer = breastTimerEditSaveSim({ left: "7", right: "4", side: "R", nowMs: Date.parse("2026-05-13T10:15:00") });
-	  assert("breast timer edit preserves split L/R duration for final log", editedBreastTimer.sec.L === 420 && editedBreastTimer.sec.R === 240 && editedBreastTimer.log.breastL === 7 && editedBreastTimer.log.breastR === 4 && editedBreastTimer.timerStartMs === Date.parse("2026-05-13T10:04:00"), JSON.stringify(editedBreastTimer));
-	  const backdatedBreastTimer = breastTimerEditSaveSim({ left: "", right: "", side: "L", start: "10:00", nowMs: Date.parse("2026-05-13T10:15:00") });
-	  assert("breast backdated start seeds elapsed duration on selected side", backdatedBreastTimer.sec.L === 900 && backdatedBreastTimer.sec.R === 0 && backdatedBreastTimer.log.breastL === 15, JSON.stringify(backdatedBreastTimer));
-	  assert("breast timer pause and resume keep duration authoritative", appSource.includes("function resumeBreastTimer(side)") && appSource.includes("Date.now() - totalSec * 1000") && appSource.includes('localStorage.setItem("breast_startMs",String(timerStartMs))') && appSource.includes("breastActive?pauseBreastTimer():resumeBreastTimer") && appSource.includes("const sideKey = resumeBreastTimer(side);"));
+		  assert("breast timer edit preserves split L/R duration for final log", editedBreastTimer.sec.L === 420 && editedBreastTimer.sec.R === 240 && editedBreastTimer.log.breastL === 7 && editedBreastTimer.log.breastR === 4 && editedBreastTimer.timerStartMs === Date.parse("2026-05-13T10:04:00"), JSON.stringify(editedBreastTimer));
+		  const backdatedBreastTimer = breastTimerEditSaveSim({ left: "", right: "", side: "L", start: "10:00", nowMs: Date.parse("2026-05-13T10:15:00") });
+		  assert("breast backdated start seeds elapsed duration on selected side", backdatedBreastTimer.sec.L === 900 && backdatedBreastTimer.sec.R === 0 && backdatedBreastTimer.log.breastL === 15, JSON.stringify(backdatedBreastTimer));
+		  assert("breast timer pause and resume keep duration authoritative", appSource.includes("function resumeBreastTimer(side)") && appSource.includes("Date.now() - totalSec * 1000") && appSource.includes('localStorage.setItem("breast_startMs",String(timerStartMs))') && appSource.includes("breastActive?pauseBreastTimer():resumeBreastTimer") && appSource.includes("const sideKey = resumeBreastTimer(side);"));
+		  assert("nap timer edit persists the changed start through native and widget timers", appSource.includes("function saveNapStartEdit()") && appSource.includes("function persistActiveNapTimerState") && appSource.includes('localStorage.setItem("nap_start_day",safeDayKey);') && appSource.includes('localStorage.setItem("timer_mode_v1","activeSleep");') && appSource.includes('localStorage.setItem(_timerKey, JSON.stringify({') && appSource.includes('setNapOn(true);') && appSource.includes('timerProtectedUntilRef.current = Date.now() + 15000;') && appSource.includes('_wd.activeTimer = "nap";') && appSource.includes('_wd.timerStartMs = safeStartMs;') && appSource.includes('window.Capacitor?.Plugins?.OBWidgetBridge?.reloadAll?.().catch(()=>{});') && appSource.includes('_androidTimerStart({type:"nap",startTime:safeStartMs,babyName:babyName||"Baby"});') && appSource.includes('showTimerNotification("😴 " + (babyName||"Baby") + " is napping", "Nap timer updated to " + fmt12(safeStartT));') && appSource.includes('persistActiveNapTimerState({startT:newT,startMs:newStartMs,elapsedSec:elapsed,entryId:activeNapId,dayKey:_napEditDay});') && appSource.includes('persistActiveNapTimerState({startT,startMs,elapsedSec,entryId,dayKey:_entryDayForTimer});'));
+		  assert("nap timer stop cannot leave widget or live activity ticking", appSource.includes("function clearExternalTimerSurfaces(label = null, skipDelay = false)") && appSource.includes("la.stop?.().catch(()=>{});") && appSource.includes("la.stopPrediction?.().catch(()=>{});") && appSource.includes("_androidTimerStop();") && appSource.includes("activeTimer: null") && appSource.includes("setTimeout(pushClearedWidgetTimer, 650);") && appSource.includes("clearExternalTimerSurfaces(null); // widget, Live Activity, and Android timer stop immediately") && appSource.includes('"nap_timer_updated_at"].forEach(k=>localStorage.removeItem(k));'));
+		  assert("bedtime timer edit persists only when ongoing and updates native timers", appSource.includes('markBedtimeOngoing(_sleepTimerDay, formTime);') && appSource.includes('timerProtectedUntilRef.current = Date.now() + 15000;') && appSource.includes('_androidTimerStart({type:"sleep",startTime:_bedEditStartMs,babyName:babyName||"Baby"});') && appSource.includes('showTimerNotification("🌙 " + (babyName||"Baby") + " is sleeping", "Bedtime updated to " + fmt12(formTime));') && appSource.includes('editEntry && _isNative && !_wakeEntry && form.bedOngoing') && appSource.includes('form.bedOngoing && !editEntry') && appSource.includes('"bed_timer_day","bed_timer_start","bed_paused"'));
 	  const locked530Wake = pauseBedTimerWakeEntrySim("05:29");
   assert("explicit 5am night wake from bed timer stays night", locked530Wake.night === true && locked530Wake.nightLocked === true && locked530Wake._pendingSettle === true && locked530Wake.source === "bedtimer-night-wake", JSON.stringify(locked530Wake));
   assert("live app computes nightLocked before spreading data", appSource.includes("let nightFlag = data.nightLocked ? true : (data.night !== undefined ? !!data.night : _autoNight);") && appSource.includes("const _entryOut = {id:entryId,modifiedAt:_now,...data,night:nightFlag};"));
@@ -1140,7 +1229,7 @@ function runSourceWiringSimulations() {
 	    assert("post-bedtime and after-midnight wakes remain night wakes", clockIsNightWakeTimelineEntrySim(afterBedWake, bedtimeStart) && clockIsNightWakeTimelineEntrySim(overnightWake, bedtimeStart));
 	    assert("live app guards night-wake classification against same-evening pre-bedtime rows", appSource.includes("const clockEntryFallsBeforeBedtimeStartLab = (entry, sourceDayKey = dayKey) =>") && appSource.includes("if (bedStart < 12 * 60 || entryStart < 12 * 60) return false;") && appSource.includes("return entryStart < bedStart;") && appSource.includes("const clockIsNightWakeTimelineEntryLab = (entry, sourceDayKey = dayKey)") && appSource.includes("isNightWakeTimedLab(item.entry, item.sourceDay)"));
 	  }
-  assert("night-wake milk contributes to Track and report milk totals", appSource.includes("function isNightWakeMilkFeedEntry(e)") && appSource.includes("function babyMilkAmount(e)") && appSource.includes("clockLogEntriesLab.reduce((sum, entry) => sum + babyMilkAmount(entry), 0)") && appSource.includes("const nightFeedCount=nEs.filter(e=>e.type===\"feed\"||isNightWakeMilkFeedEntry(e)).length"));
+  assert("night-wake milk and breastfeeding minutes contribute to Track and report feeding totals", appSource.includes("function isNightWakeMilkFeedEntry(e)") && appSource.includes("function babyMilkAmount(e)") && appSource.includes("function _breastFeedMinutes(e)") && appSource.includes("clockLogEntriesLab.reduce((sum, entry) => sum + babyMilkAmount(entry), 0)") && appSource.includes("clockLogEntriesLab.reduce((sum, entry) => sum + _breastFeedMinutes(entry), 0)") && appSource.includes("const nightFeedCount=nEs.filter(e=>e.type===\"feed\"||isNightWakeMilkFeedEntry(e)).length") && appSource.includes("const totalBreastMin=dayBreastMin+nightBreastMin;") && appSource.includes("const feedReportSummary=(ml, breastMin)=>"));
   assert("clock log tab backfills every real visible clock dot", appSource.includes("const clockLogRowFromEventLab = (item, rowIndex, allowVisibleFallback = false) =>") && appSource.includes("const clockLogRowKeyLab = (row) =>") && appSource.includes("clockRenderEvents.forEach((item, rowIndex) =>") && appSource.includes("clockLogRowFromEventLab(item, rows.length + rowIndex, true)"));
   assert("wake-to-wake clock renders timed night wakes as visible overnight arcs", appSource.includes("const entryShouldRenderBeforeWakeDayStartLab = (entry, sourceDayKey) =>") && appSource.includes("if (isNightWakeTimedLab(entry, sourceDayKey)) return true;") && appSource.includes("const clockOvernightVisualOptsLab = (entry, sourceDayKey) =>") && appSource.includes("const visualStart = start + 1440;") && appSource.includes("pushVisualEntry(entry, dayKey, clockOvernightVisualOptsLab(entry, dayKey));") && appSource.includes("pushVisualEntry(entry, nextDayKey, clockOvernightVisualOptsLab(entry, nextDayKey));") && appSource.includes("else pushVisualEntry(entry, nextDayKey, {logOnly:true});") && appSource.includes("!item.logOnly && !clockTimelineSettlingFeedKeyLab(item)"));
   {
@@ -1172,10 +1261,11 @@ function runSourceWiringSimulations() {
 				    assert("live clock has the late-day impossible-nap bedtime fallback", appSource.includes("const _lateDayNapCannotFit =") && appSource.includes("promoting bedtime as the next event"));
 				    assert("clock tick recovers a nap prediction when the primary predictor is unavailable", appSource.includes('sourceLabel: "OBubba Sleep Engine fallback"') && appSource.includes("napsDone < expectedNaps && totalNapMins < (napProfile.idealTotalMax || Infinity)"));
 				    assert("Today's Plan only stops projecting naps when naps are actually complete", appSource.includes("const _planBudgetExceeded = (tickDataRef.current || {}).napsComplete === true;") && appSource.includes("const _planBudgetExceeded = (tickDataRef.current||{}).napsComplete === true;") && !appSource.includes("const _planBudgetExceeded = !tickDataRef.current.pred"));
-				    assert("Today's Plan varies suggested nap lengths and refuses late naps that cannot fit before bedtime", appSource.includes("function plannedNapDurationForPlan") && appSource.includes("function plannedNapFitDurations") && appSource.includes("plannedNapDurationLabel(napDur, _safeAvgNapDur, napIdx, expectedTotal, _ctxR)") && appSource.includes("napStart + _mustFitMinDur + minBedWW > _napFitCeiling") && appSource.includes("plannedNapFitDurations(_safePlannedNapDur, _safeAvgNapDur, w)"));
-				    assert("clock bedtime CTA waits for a real bedtime-ready state", appSource.includes("const clockBedtimeActionReady = !!(") && appSource.includes("!clockNextEventIsNap && clockBedtimeActionReady"));
-			    assert("clock bedtime tap does not also run endNap and trigger nap toasts", !appSource.includes("logBedtimeNow(); if(napOn) endNap();"));
-			  }
+					    assert("Today's Plan varies suggested nap lengths and refuses late naps that cannot fit before bedtime", appSource.includes("function plannedNapDurationForPlan") && appSource.includes("function plannedNapFitDurations") && appSource.includes("plannedNapDurationLabel(napDur, _safeAvgNapDur, napIdx, expectedTotal, _ctxR)") && appSource.includes("napStart + _mustFitMinDur + minBedWW > _napFitCeiling") && appSource.includes("plannedNapFitDurations(_safePlannedNapDur, _safeAvgNapDur, w)"));
+					    assert("clock bedtime CTA waits for a real bedtime-ready state", appSource.includes("const clockBedtimeActionReady = !!(") && appSource.includes("!clockNextEventIsNap && clockBedtimeActionReady"));
+					    assert("clock nap pressure chip hides when bedtime is the next prediction", appSource.includes('if (nextEvent && (nextEvent.type === "bed" || nextEvent.type === "sleep")) return null;'));
+				    assert("clock bedtime tap does not also run endNap and trigger nap toasts", !appSource.includes("logBedtimeNow(); if(napOn) endNap();"));
+				  }
 	  {
 	    const eightHourNight = {
 	      "2026-05-08": [{ id: "bed", type: "sleep", time: "22:00", night: false }],
@@ -1223,12 +1313,13 @@ function runSourceWiringSimulations() {
 	  const analyzeAt = appSource.indexOf("function analyzeLastNight(days, bedtimeDayKey, morningDayKey)");
   const analyzeEnd = appSource.indexOf("function resolveCompletedSleepSummaryKeys", analyzeAt);
   const analyzeBlock = analyzeAt > -1 && analyzeEnd > analyzeAt ? appSource.slice(analyzeAt, analyzeEnd) : "";
-  assert("analyzeLastNight uses the shared night-wake collector without a second local dedupe", analyzeBlock.includes("const nightWakesRaw = collectLastNightWakeEntries(days, bedtimeDayKey, morningDayKey);") && !analyzeBlock.includes("const _dedupSorted") && !analyzeBlock.includes("const _nightRaw"));
+  assert("analyzeLastNight uses the shared night-wake collector without a second local dedupe", analyzeBlock.includes("collectLastNightWakeEntries(days, bedtimeDayKey, morningDayKey)") && analyzeBlock.includes("getNightWakeEventsForDay(days, bedtimeDayKey, morningDayKey)") && !analyzeBlock.includes("const _dedupSorted") && !analyzeBlock.includes("const _nightRaw"));
   assert("bedtime wake-time saves replace stale generated morning wakes", appSource.includes("function shouldReplaceBedtimeWakeEntry") && appSource.includes('source:"bedtime-wake-time"') && appSource.includes("bedEntryId:e.id") && appSource.includes("!shouldReplaceBedtimeWakeEntry(x, e.id, form.wakeTime)") && appSource.includes("if(_wakeEntry) {"));
   assert("clock display quarantines implausibly long completed naps without rewriting saved logs", appSource.includes("const TRACK_RELIABLE_NAP_MAX_MINS = 300;") && appSource.includes("const CLOCK_NAP_REVIEW_MAX_MINS = TRACK_RELIABLE_NAP_MAX_MINS;") && appSource.includes("const clockNapExplicitDurationMinsLab = (entry) =>") && appSource.includes("const clockNapHasRawImplausibleSpanLab = (entry) =>") && appSource.includes("return clockNapHasRawImplausibleSpanLab(entry) && !clockNapExplicitDurationMinsLab(entry);") && appSource.includes("!clockNapExplicitDurationMinsLab(entry) &&") && appSource.includes("getMergedCompletedDayNaps(clockLogEntriesLab.filter(e => !clockNapNeedsTimerCheckLab(e) && !clockIsLateLongNapSleepLab(e)).map(clockNapResolvedEntryLab))") && appSource.includes("minDiff(e.start,e.end)>=TRACK_RELIABLE_NAP_MAX_MINS") && appSource.includes('"Nap · time needs review"') && appSource.includes('"End time needs review"'));
   assert("long late nap timers stay naps instead of being re-labelled as bedtime", appSource.includes("Bedtime is only created by bedtime flows.") && appSource.includes("Nap saved as a nap. edit the stop time if the timer was left running.") && !appSource.includes("long_nap_converted_to_bedtime") && !appSource.includes("logBedtimeNow({dayKey:_napDay,time:_endNapStartT});") && !appSource.includes('showToast("🌙 Converted to bedtime"'));
   assert("closed historical days are not auto-reclassified by launch or sync repairs", appSource.includes("function isClosedHistoricalAppDay(dayKey)") && appSource.includes("function autoClassifyOpenAppDay(dayKey, dayEntries, prevDayEntries)") && appSource.includes("if(isClosedHistoricalAppDay(dk)) return;") && appSource.includes("reclassifiedDays[date] = autoClassifyOpenAppDay(date, mergedDays[date]") && appSource.includes("reclassifiedDays[dayKey] = autoClassifyOpenAppDay(dayKey, mergedDays[dayKey]"));
-  assert("clock bedtime arc follows the live bedtime log even when stored timer start is stale", appSource.includes("const activeSleepEntry = [...entriesForDay]") && appSource.includes(".filter(isClockLabLoggedBedtime)") && appSource.includes("const activeSleepStart = activeSleepEntry?.time || activeSleepEntry?.start || bedTimerStart || \"\";") && appSource.includes("const activeEntryMatches = !activeSleepEntry || entry.id === activeSleepEntry.id || entry.time === activeSleepEntry.time || entry.start === activeSleepEntry.start;") && appSource.includes("const activeEndTime = (() =>") && appSource.includes("return {time:activeEndTime, mins:Math.max(start + 6, start + clockLabMinDiff(rawStart, activeEndTime)), source:bedPaused ? \"paused\" : \"active\"};") && appSource.includes("const clockLabBedWallElapsedSec = (() =>") && !appSource.includes("window._bedArcDiag") && !appSource.includes("[Clock Nap Debug]"));
+  assert("clock bedtime arc follows the live bedtime log even when stored timer start is stale", appSource.includes("const activeSleepEntry = [...entriesForDay]") && appSource.includes(".filter(clockBedtimeBelongsToSelectedWakeDayLab)") && appSource.includes("const activeSleepStart = activeSleepEntry?.time || activeSleepEntry?.start || bedTimerStart || \"\";") && appSource.includes("const activeEntryMatches = !activeSleepEntry || entry.id === activeSleepEntry.id || entry.time === activeSleepEntry.time || entry.start === activeSleepEntry.start;") && appSource.includes("const activeEndTime = (() =>") && appSource.includes("return {time:activeEndTime, mins:Math.max(start + 6, start + clockLabMinDiff(rawStart, activeEndTime)), source:bedPaused ? \"paused\" : \"active\"};") && appSource.includes("const clockLabBedWallElapsedSec = (() =>") && !appSource.includes("window._bedArcDiag") && !appSource.includes("[Clock Nap Debug]"));
+  assert("wake-to-wake clock hides future same-day bedtime after morning wake", appSource.includes("const clockBedtimeBelongsToSelectedWakeDayLab = (entry) =>") && appSource.includes("dayBoundary !== \"wake\"") && appSource.includes("clockSelectedMorningWakeMins === null") && appSource.includes("return start === null || start <= nowMins + 30;") && appSource.includes("if (!clockBedtimeBelongsToSelectedWakeDayLab(entry)) return;"));
   assert("paused bedtime stops widget and partner active timer exports", appSource.includes("function forceWidgetTimerPaused(label = \"Night wake\")") && appSource.includes("const _bedPausedForCloud = localStorage.getItem(\"bed_paused\") === \"1\";") && appSource.includes("const _bedActive = !!localStorage.getItem(\"bed_timer_day\") && !_bedPausedForCloud;") && appSource.includes("forceWidgetTimerPaused(\"Night wake\");") && appSource.includes("const _partnerPendingBedWake = (() =>") && appSource.includes("Partner paused bedtime for a night wake"));
   assert("pending bedtime night wakes restore the paused timer and form from the real pause time", appSource.includes("Resurrecting paused bed timer") && appSource.includes("localStorage.setItem(\"bed_wake_entry_id\", _pendingBedWake.id)") && appSource.includes("forceWidgetTimerPaused(\"Night wake\")") && appSource.includes("const hasLivePendingWake = (()=>") && appSource.includes("if (hasLivePendingWake && openPendingOrNewNightWakeDetails()) return;") && appSource.includes("if (!pendingEntry) {") && appSource.includes("source === \"bedtimer-night-wake\""));
   assert("nap counts use saved completed nap logs while totals still use merged safe duration", appSource.includes("function getReliableCompletedDayNapLogs(entries, maxMins = CARE_RELIABLE_NAP_MAX_MINS)") && appSource.includes("const completedNapLogsForTiming = getReliableCompletedDayNapLogs(todayEntries)") && appSource.includes("const napsDone = Math.max(completedNapLogsForTiming.length, _mergedNaps.length);") && appSource.includes("completedNapLogsForTiming.forEach(n =>") && appSource.includes("const _sleepNapLogs = getReliableCompletedDayNapLogs(_sleepDayEntries);") && appSource.includes("Day sleep logged: {_sleepNapLogs.length} nap") && appSource.includes("const _rawToday = getReliableCompletedDayNapLogs(days[selDay]||[]);") && appSource.includes("const _yNapLogs = getReliableCompletedDayNapLogs(_yEnt);") && appSource.includes("const _yNapCount = Math.max(_yNapLogs.length, _yNaps.length);") && appSource.includes("Naps were on target (\" + _yNapCount + \" nap") && appSource.includes("_napNotes.push(_yNapCount + \" nap"));

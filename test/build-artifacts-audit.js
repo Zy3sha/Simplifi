@@ -168,7 +168,9 @@ const firebaseConfig = fs.readFileSync(path.join(root, "firebase.json"), "utf8")
 const indexFiles = [
   "index.html",
   "public/index.html",
+  "public/app.html",
   "dist/index.html",
+  "dist/app.html",
   "ios/App/App/public/index.html",
   "android/app/src/main/assets/public/index.html",
 ].filter(rel => fs.existsSync(path.join(root, rel)));
@@ -177,7 +179,7 @@ const iosAppIconContents = fs.readFileSync(path.join(root, "ios/App/App/Assets.x
 const androidLauncherBackground = fs.readFileSync(path.join(root, "android/app/src/main/res/drawable/ic_launcher_background.xml"), "utf8");
 const iosProject = fs.readFileSync(path.join(root, "ios/App/App.xcodeproj/project.pbxproj"), "utf8");
 const missingFaviconLinks = indexFiles.filter(rel =>
-  !fs.readFileSync(path.join(root, rel), "utf8").includes('<link rel="icon" type="image/png" href="icon.png"/>')
+  !/<link rel="icon" type="image\/png" href="\/?icon\.png"\/>/.test(fs.readFileSync(path.join(root, rel), "utf8"))
 );
 const unsupportedFontPreloads = indexFiles.filter(rel =>
   fs.readFileSync(path.join(root, rel), "utf8").includes('type="font/truetype"')
@@ -282,14 +284,14 @@ if (badScopeExtensions.length) {
   process.exit(1);
 }
 
-if (!iosAppIconContents.includes('"filename" : "obubba-happy.png"') || !androidLauncherBackground.includes('android:fillColor="#FFFFFF"') || androidLauncherBackground.includes("#F0DDD6")) {
-  console.error("Native launcher icons must use the white happy-baby app icon background.");
+if (!iosAppIconContents.includes('"filename" : "obubba-happy.png"') || !androidLauncherBackground.includes('android:fillColor="#F0DDD6"') || androidLauncherBackground.includes("#061A3F")) {
+  console.error("Native launcher icons must use the current OBubba baby app icon background while the new logo is parked.");
   process.exit(1);
 }
 
 const stripXattrPhaseCount = (iosProject.match(/Strip extended attributes before signing/g) || []).length;
-if (stripXattrPhaseCount < 4 || !iosProject.includes('/usr/bin/xattr -cr \\"${CODESIGNING_FOLDER_PATH}\\"')) {
-  console.error("iOS targets must strip extended attributes before codesign so Finder metadata cannot break phone builds.");
+if (stripXattrPhaseCount < 4 || !iosProject.includes('/usr/bin/xattr -cr \\"${CODESIGNING_FOLDER_PATH}\\"') || !iosProject.includes('/usr/bin/ditto --noextattr --norsrc')) {
+  console.error("iOS targets must strip/copy-clean extended attributes before codesign so Finder metadata cannot break phone builds.");
   process.exit(1);
 }
 
@@ -305,6 +307,6 @@ console.log("✓ service worker notification payloads are bounded and same-origi
 console.log("✓ hosted legal pages are present and clean URLs are enabled");
 console.log("✓ favicon and manifest install metadata are clean");
 console.log("✓ startup splash stays visible until React commits");
-console.log("✓ native launcher icons use the white happy-baby background");
+console.log("✓ native launcher icons use the current OBubba baby background");
 console.log("✓ iOS device builds strip Finder metadata before codesign");
 console.log("Build artifact audit passed.");

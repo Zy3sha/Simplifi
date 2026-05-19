@@ -180,8 +180,8 @@ assert(
     app.includes('safeAppImageSrc(v, "")') &&
     app.includes("stripFirestoreLegacyMediaChildren(cleanForCloud)") &&
     app.includes("stripFirestoreLegacyMediaChild(childForCloud)") &&
-    app.includes("CHILD_PUSH_MIN_INTERVAL = 60000") &&
-    app.includes("PUSH_MIN_INTERVAL = 60000")
+    app.includes("CHILD_PUSH_MIN_INTERVAL = 180000") &&
+    app.includes("PUSH_MIN_INTERVAL = 180000")
 );
 
 assert(

@@ -14,7 +14,7 @@ const config: CapacitorConfig = {
     hostname: 'app.obubba.com',
   },
 
-  // Prevent white flash on launch — set webview background to match splash
+  // Prevent white flash on launch — set webview background to match splash.
   android: {
     backgroundColor: '#F0DDD6',
   },

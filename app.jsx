@@ -47482,13 +47482,36 @@ function App(){
 	    })();
 	    const predictionItem = clockPredictionItems.find(item => item.source === "next") || clockPredictionItems[0] || null;
 	    const clockCurrentWakeWindow = clockWakeWindowItems.find(item => item.isNow);
+	    const clockCurrentPressureWindow = (() => {
+	      if (clockCurrentWakeWindow) return clockCurrentWakeWindow;
+	      if (!clockLabIsToday || activeTimer || clockBedtimeLogged || clockBedOnThisDay) return null;
+	      const hasNapAhead = !!(
+	        (nextEvent && nextEvent.type === "nap") ||
+	        (predictionItem && predictionItem.kind === "nap") ||
+	        td.bridgeNapNeeded ||
+	        !td.napsComplete ||
+	        typeof td.nextNapMins === "number"
+	      );
+	      if (!hasNapAhead) return null;
+	      const anchorText = td.pred?.lastAwakeStart || "";
+	      let anchor = clockLabMins(anchorText);
+	      if (anchor === null && typeof td.lastAwakeMins === "number") anchor = td.lastAwakeMins;
+	      if (anchor === null) return null;
+	      let start = Number(anchor);
+	      while (start > nowMins + 720) start -= 1440;
+	      while (start < nowMins - 720) start += 1440;
+	      if (start > nowMins) return null;
+	      const duration = Math.round(nowMins - start);
+	      if (duration < 5 || duration > CLOCK_LIVE_WAKE_WINDOW_VISUAL_MAX_MINS) return null;
+	      return {start,end:nowMins,duration,target:"now",isNow:true,inferred:true};
+	    })();
 	    const clockExpectedWakeWindow = age ? getWakeWindow(age.predictiveWeeks ?? age.totalWeeks) : null;
 	    const clockPersonalWakeWindow = (() => {
-	      if (!clockCurrentWakeWindow || !clockLabIsToday || activeTimer) return null;
+	      if (!clockCurrentPressureWindow || !clockLabIsToday || activeTimer) return null;
 	      try { return getOptimalWakeWindow(); } catch { return null; }
 	    })();
 		    const clockNapWindow = (() => {
-		      if (!clockLabIsToday || activeTimer || clockBedtimeLogged || !clockCurrentWakeWindow || !clockExpectedWakeWindow) return null;
+		      if (!clockLabIsToday || activeTimer || clockBedtimeLogged || !clockCurrentPressureWindow || !clockExpectedWakeWindow) return null;
 		      if (nextEvent && (nextEvent.type === "bed" || nextEvent.type === "sleep")) return null;
 		      const hasNapAhead = !!(
 		        (nextEvent && nextEvent.type === "nap") ||
@@ -47498,13 +47521,13 @@ function App(){
 	        typeof td.nextNapMins === "number"
 	      );
 	      if (!hasNapAhead) return null;
-	      const awake = Math.max(0, Math.round(Number(clockCurrentWakeWindow.duration) || 0));
+	      const awake = Math.max(0, Math.round(Number(clockCurrentPressureWindow.duration) || 0));
 	      if (awake < 5) return null;
 	      const personalMin = Number(clockPersonalWakeWindow?.optimalMin);
 	      const personalMax = Number(clockPersonalWakeWindow?.optimalMax);
 	      let sweetStart = Number.isFinite(personalMin) ? Math.max(20, personalMin - 5) : clockExpectedWakeWindow.min;
 	      let sweetEnd = Number.isFinite(personalMax) ? Math.max(sweetStart + 10, personalMax + 10) : clockExpectedWakeWindow.max;
-	      let sourceLabel = Number.isFinite(personalMin) ? "learned from good naps" : "age-aware window";
+	      let sourceLabel = clockCurrentPressureWindow.inferred ? "estimated from first daytime log" : (Number.isFinite(personalMin) ? "learned from good naps" : "age-aware window");
 	      const napTargetRaw = nextEvent && nextEvent.type === "nap" && nextMins !== null
 	        ? nextMins
 	        : predictionItem && predictionItem.kind === "nap" && Number.isFinite(Number(predictionItem.start))
@@ -47514,7 +47537,7 @@ function App(){
 	            : null;
 	      if (napTargetRaw !== null && Number.isFinite(Number(napTargetRaw))) {
 	        let target = Number(napTargetRaw);
-	        const awakeStart = Number(clockCurrentWakeWindow.start);
+	        const awakeStart = Number(clockCurrentPressureWindow.start);
 	        while (target < awakeStart - 720) target += 1440;
 	        while (target > awakeStart + 720) target -= 1440;
 	        const targetAwake = Math.round(target - awakeStart);
@@ -63496,7 +63519,7 @@ function App(){
               <div style={{fontSize:11,color:C.mid,lineHeight:1.6}}>
                 OBubba is <b>not a medical device</b>. Guidance adapts to your country where possible and is based on trusted public-health sources: {_guidanceFooter()}. Always consult your {_healthContact}.
               </div>
-              <div style={{fontSize:10,color:C.lt,marginTop:6}}>Version 2.7.9 · © {new Date().getFullYear()} OLife Labs Limited · <a href="https://obubba.com/privacy" target="_blank" rel="noopener noreferrer" style={{color:C.lt}}>Privacy</a> · <a href="https://obubba.com/terms" target="_blank" rel="noopener noreferrer" style={{color:C.lt}}>Terms</a></div>
+              <div style={{fontSize:10,color:C.lt,marginTop:6}}>Version 2.7.10 · © {new Date().getFullYear()} OLife Labs Limited · <a href="https://obubba.com/privacy" target="_blank" rel="noopener noreferrer" style={{color:C.lt}}>Privacy</a> · <a href="https://obubba.com/terms" target="_blank" rel="noopener noreferrer" style={{color:C.lt}}>Terms</a></div>
             </div>
           </div>
 
