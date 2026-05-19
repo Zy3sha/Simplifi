@@ -19,7 +19,28 @@
     "ignore": [
       "firebase.json",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "app.html",
+      "app.js",
+      "app.jsx",
+      "firebase.js",
+      "i18n.js",
+      "loader.js",
+      "manifest.json",
+      "native-plugins.js",
+      "sw.js",
+      "theme.js",
+      "vendor/**"
+    ],
+    "rewrites": [
+      {
+        "source": "/app.html",
+        "destination": "/index.html"
+      },
+      {
+        "source": "/join",
+        "destination": "/index.html"
+      }
     ],
     "headers": [
       {
