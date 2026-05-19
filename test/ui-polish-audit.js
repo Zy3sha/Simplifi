@@ -14,6 +14,8 @@ const androidWidgetColors = fs.readFileSync(path.join(root, "android/app/src/mai
 const androidWidgetJava = fs.readFileSync(path.join(root, "android/app/src/main/java/com/obubba/app/widgets/OBubbaSummaryWidget.java"), "utf8");
 const rootIndexHtml = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const publicIndexHtml = fs.readFileSync(path.join(root, "public/index.html"), "utf8");
+const root404Html = fs.existsSync(path.join(root, "404.html")) ? fs.readFileSync(path.join(root, "404.html"), "utf8") : "";
+const public404Html = fs.existsSync(path.join(root, "public/404.html")) ? fs.readFileSync(path.join(root, "public/404.html"), "utf8") : "";
 const publicAppHtml = fs.existsSync(path.join(root, "public/app.html")) ? fs.readFileSync(path.join(root, "public/app.html"), "utf8") : "";
 const buildScript = fs.readFileSync(path.join(root, "build-pwa.sh"), "utf8");
 const firebaseConfig = fs.readFileSync(path.join(root, "firebase.json"), "utf8");
@@ -486,7 +488,28 @@ assert("Widget glass keeps blue accents without washing the whole page", styles.
 assert("Widget breastfeeding actions keep L/R timer state and restore any background sleep timer", app.includes("function normaliseBreastSideKey(side)") && app.includes("case 'end_breast_timer':") && app.includes("breast_stop:1") && app.includes("if(_napActive && !_breastActive && !_isBreastStopOnly)") && app.includes("startBreastTimer(\"L\", {forceNew:true});") && app.includes("startBreastTimer(\"R\", {forceNew:true});") && app.includes("startBreastTimer(sideKey, {forceNew:true});") && app.includes('_bRestoredBackgroundTimer = restoreNapAfterBreastTimer("saved");') && app.includes('resumeBedTimer("milk", {') && app.includes("if (!_bRestoredBackgroundTimer) {") && app.includes("_wdCached2.breastSide = null; _wdCached2.showNursing = true; _wdCached2.lastBreastSide = _bSideKey") && widgetSwift.includes('widgetStorePendingEntry(["type": "breast_stop", "source": "siri"])'));
 assert("Widget data keeps nursing controls visible when L/R state is available", app.includes("function _normaliseBreastSideForWidget(side)") && app.includes("if (activeTimer === \"feed\" || activeSide || lastBreastSideForWidget) showNursing = true;") && app.includes("timerLabel = activeSide ? \"Nursing \""));
 assert("Launch uses the OBubba baby while welcome keeps the happy baby mascot", publicAppHtml.includes('class="baby" src="obubba-happy.png"') && publicAppHtml.includes("background:#F0DDD6") && app.includes('<OBubbaMascot type="happy" size="82%" alt="OBubba" className="ob-welcome-hero-mascot"/>') && !app.includes('_isNight?"loading":"happy"'));
-assert("Production obubba.com is download-only while native builds package the app shell", rootIndexHtml.includes("obubba-download-landing.png") && publicIndexHtml.includes("obubba-download-landing.png") && rootIndexHtml.includes("Download now") && publicIndexHtml.includes("Download now") && rootIndexHtml.includes("storeUrlForDevice") && rootIndexHtml.includes("https://apps.apple.com/gb/app/obubba/id6760968757") && rootIndexHtml.includes("https://play.google.com/store/apps/details?id=com.obubba.app") && rootIndexHtml.includes('"operatingSystem": "iOS, Android"') && publicIndexHtml.includes('"operatingSystem": "iOS, Android"') && !rootIndexHtml.includes(">Start tracking") && !rootIndexHtml.includes(">Import data") && publicAppHtml.includes('<div id="root"></div>') && publicAppHtml.includes('/app.js?v=') && publicAppHtml.includes("OBubba public web download gate") && publicAppHtml.includes('<meta name="robots" content="noindex, nofollow"/>') && firebaseConfig.includes('"app.html"') && firebaseConfig.includes('"app.js"') && firebaseConfig.includes('"source": "/join"') && firebaseConfig.includes('"destination": "/index.html"') && buildScript.includes("public/app.html dist/index.html") && buildScript.includes("public/app.html dist/app.html") && app.includes("function shouldShowObubbaDownloadLanding()") && app.includes("function isObubbaPublicWebRuntime()") && app.includes("function canBypassObubbaPublicWebGate") && app.includes('paramsArg.get("webApp") === "1"') && app.includes('paramsArg.has("codexSmoke")') && app.includes('nativeAuthProviders().length > 0') && app.includes('providerButtonText(providerId, "connect")') && app.includes('startProviderAuth(providerId, {linkExisting:true})') && app.includes('Sign-in options') && app.includes('data-ob-provider-recovery-note="1"') && app.includes('Recovery email and memorable word are only shown for username/PIN accounts.') && app.includes('Import & Export'));
+const downloadOnlyWebPages = [rootIndexHtml, publicIndexHtml, root404Html, public404Html];
+const downloadOnlyWebFallbacksSafe = downloadOnlyWebPages.every(html =>
+  html.includes("obubba-download-landing.png") &&
+  html.includes("Download now") &&
+  html.includes("storeUrlForDevice") &&
+  html.includes("https://apps.apple.com/gb/app/obubba/id6760968757") &&
+  html.includes("https://play.google.com/store/apps/details?id=com.obubba.app") &&
+  html.includes('"operatingSystem": "iOS, Android"') &&
+  !html.includes(">Start tracking") &&
+  !html.includes(">Import data") &&
+  !html.includes('<div id="root"></div>') &&
+  !html.includes("/app.js?v=")
+);
+const nativeSigninOptionsPreserved =
+  app.includes('nativeAuthProviders().length > 0') &&
+  app.includes('providerButtonText(providerId, "connect")') &&
+  app.includes('startProviderAuth(providerId, {linkExisting:true})') &&
+  app.includes('Sign-in options') &&
+  app.includes('data-ob-provider-recovery-note="1"') &&
+  app.includes('Recovery email and memorable word are only shown for username/PIN accounts.') &&
+  app.includes('Import & Export');
+assert("Production obubba.com is download-only while native builds package the app shell", downloadOnlyWebFallbacksSafe && publicAppHtml.includes('<div id="root"></div>') && publicAppHtml.includes('/app.js?v=') && publicAppHtml.includes("OBubba public web download gate") && publicAppHtml.includes('<meta name="robots" content="noindex, nofollow"/>') && firebaseConfig.includes('"app.html"') && firebaseConfig.includes('"app.js"') && firebaseConfig.includes('"source": "/join"') && firebaseConfig.includes('"destination": "/index.html"') && buildScript.includes("public/app.html dist/index.html") && buildScript.includes("public/app.html dist/app.html") && app.includes("function shouldShowObubbaDownloadLanding()") && app.includes("function isObubbaPublicWebRuntime()") && app.includes("function canBypassObubbaPublicWebGate") && app.includes('paramsArg.get("webApp") === "1"') && app.includes('paramsArg.has("codexSmoke")') && nativeSigninOptionsPreserved);
 assert("App shell and modal sheets cannot overflow the mobile viewport", app.includes("ob-child-settings-sheet ob-responsive-dialog") && app.includes("overflowX:\"hidden\"") && app.includes("boxSizing:_bBB") && app.includes('maxWidth:"var(--ob-vw, 100vw)"') && app.includes('gridTemplateColumns:"repeat(3,minmax(0,1fr))"') && app.includes("textOverflow:\"ellipsis\"") && styles.includes("Global horizontal viewport guard") && styles.includes("#root,\n.ob-app-root") && styles.includes("calc(var(--ob-vw,100vw) - var(--ob-modal-pad,16px) - var(--ob-modal-pad,16px))"));
 assert("Poo guide opens above nappy sheets", app.includes('data-testid="poop-guide-modal"') && app.includes("poopWhyOpen&&ReactDOM.createPortal") && app.includes("zIndex:10004") && app.includes("zIndex:500"));
 assert("Teething tab avoids duplicate logged-teeth summary list", app.includes('data-testid="teeth-integrated-display"') && !app.includes('>Logged teeth<') && !app.includes('{teething.length} {teething.length===1?"tooth":"teeth"} logged') && !app.includes('No teeth logged yet'));
