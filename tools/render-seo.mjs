@@ -43,7 +43,7 @@ const BRAND_IMAGES = [
     name: 'OBubba star baby mascot',
     title: 'OBubba star baby mascot',
     caption: 'The official OBubba baby mascot used for the OBubba baby tracker app.',
-    keywords: 'OBubba, OBubba mascot, star baby mascot, star baby mascot, baby tracker app',
+    keywords: 'OBubba, OBubba mascot, star baby mascot, baby tracker app',
     width: 1024,
     height: 1024,
   },
