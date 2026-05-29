@@ -48,6 +48,9 @@ cp -f public/app.html dist/index.html
 cp -f public/app.html dist/app.html
 cp -f public/manifest.json dist/manifest.json
 cp -f public/icon.png dist/icon.png 2>/dev/null || true
+cp -f public/obubba-star-baby.png dist/obubba-star-baby.png 2>/dev/null || true
+cp -f public/obubba-baby-tracker-app-icon-crowned-baby.png dist/obubba-baby-tracker-app-icon-crowned-baby.png 2>/dev/null || true
+cp -f public/obubba-happy.png dist/obubba-happy.png 2>/dev/null || true
 mkdir -p dist/icons
 cp -f public/icons/*.png dist/icons/ 2>/dev/null || true
 cp -f app.js dist/app.js

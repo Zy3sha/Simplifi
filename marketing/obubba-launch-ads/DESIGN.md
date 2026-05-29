@@ -2,7 +2,7 @@
 
 ## Style Prompt
 
-Premium, calm, night-mode parenting ads that feel directly lifted from the OBubba app. Use the emulator-captured UI as the hero proof: deep navy backgrounds, copper/peach borders, soft glass panels, cream serif headlines, script-logo moments, mint sleep accents, warm peach CTA language, and the crowned baby icon. The creative should feel like an exhausted parent opened OBubba at 3am and found a clear, gentle answer. Position OBubba against generic nap timers by saying it learns your baby's own feeds, naps, wake windows, and bedtime rhythm.
+Premium, calm, night-mode parenting ads that feel directly lifted from the OBubba app. Use the emulator-captured UI as the hero proof: deep navy backgrounds, copper/peach borders, soft glass panels, cream serif headlines, script-logo moments, mint sleep accents, warm peach CTA language, and the star baby icon. The creative should feel like an exhausted parent opened OBubba at 3am and found a clear, gentle answer. Position OBubba against generic nap timers by saying it learns your baby's own feeds, naps, wake windows, and bedtime rhythm.
 
 ## Colors
 

@@ -14,6 +14,7 @@ const STATIC_ASSETS = [
   '/native-plugins.js',
   '/manifest.json',
   '/icon.png',
+  '/obubba-star-baby.png',
   '/obubba-happy.png',
   '/obubba-loading.png',
   '/sleep-baby.png',
