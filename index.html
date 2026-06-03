@@ -27,6 +27,13 @@
   <link rel="icon" type="image/png" href="/icon.png"/>
   <link rel="apple-touch-icon" sizes="180x180" href="/icon.png"/>
   <link rel="preload" href="/Parisienne-Regular.ttf" as="font" type="font/ttf" crossorigin/>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-Y7CHSL1YHZ"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag("js", new Date());
+    gtag("config", "G-Y7CHSL1YHZ");
+  </script>
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -241,11 +248,41 @@
         } catch (e) {}
         return appStoreUrl;
       }
+
+      function storeNameForUrl(url) {
+        return /play\.google\.com/i.test(url) ? "google_play" : "app_store";
+      }
+
+      function trackDownloadClick(url) {
+        var store = storeNameForUrl(url);
+        try {
+          if (typeof window.gtag === "function") {
+            window.gtag("event", "download_click", {
+              event_category: "download",
+              event_label: store,
+              store: store,
+              link_url: url,
+              page_location: window.location.href,
+              transport_type: "beacon"
+            });
+          }
+        } catch (e) {}
+        try {
+          if (typeof window.fbq === "function") {
+            window.fbq("trackCustom", "DownloadClick", {
+              store: store,
+              link_url: url
+            });
+          }
+        } catch (e) {}
+      }
       var download = document.getElementById("download-now");
       if (download) {
         download.href = storeUrlForDevice();
         download.addEventListener("click", function () {
-          download.href = storeUrlForDevice();
+          var targetUrl = storeUrlForDevice();
+          download.href = targetUrl;
+          trackDownloadClick(targetUrl);
         });
       }
     })();
