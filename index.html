@@ -179,10 +179,13 @@
     .device{position:relative;width:100%;max-width:330px;margin:0 auto;justify-self:center}
     .device-frame{position:relative;border-radius:42px;padding:11px;background:linear-gradient(150deg,#26365f,#0a1430);box-shadow:0 30px 70px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.06),inset 0 0 0 1px rgba(255,255,255,.04)}
     .device-shot{display:block;width:100%;height:auto;border-radius:32px;background:#041026}
-    .hero-art{position:relative;width:100%;max-width:400px;margin:0 auto;justify-self:center}
-    .hero-art::before{content:"";position:absolute;inset:-22px;border-radius:50%;background:radial-gradient(circle,rgba(244,197,109,.20),transparent 70%);filter:blur(8px);z-index:0}
-    .hero-art img{position:relative;z-index:1;display:block;width:100%;height:auto;border-radius:36px;border:2px solid rgba(244,197,109,.5);box-shadow:0 30px 80px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.05)}
-    .hero-art .float-firefly{z-index:2}
+    .app-screen{position:relative;width:100%;aspect-ratio:849/1852;border-radius:32px;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:34px 24px;background:radial-gradient(circle at 50% 15%,rgba(46,66,120,.55),transparent 58%),linear-gradient(180deg,#0a1733 0%,#06112a 55%,#040c20 100%)}
+    .app-screen .app-logo{width:54%;border-radius:26px;border:2px solid rgba(244,197,109,.45);box-shadow:0 14px 34px rgba(0,0,0,.5),0 0 40px rgba(33,57,112,.5)}
+    .app-screen .app-tag{font-family:Georgia,serif;font-weight:700;font-size:clamp(18px,5.6vw,24px);color:#fff0dc;margin-top:24px;line-height:1.2}
+    .app-screen .app-sub{font-size:clamp(11px,3.3vw,13px);color:#aab4d0;margin-top:12px;line-height:1.55;max-width:26ch}
+    .app-screen .app-cta{margin-top:24px;display:inline-flex;align-items:center;gap:8px;background:linear-gradient(180deg,#ffe6a8,#f4c56d);color:#1b1430;font-weight:800;font-size:clamp(14px,4vw,16px);padding:12px 24px;border-radius:999px;box-shadow:0 12px 26px rgba(0,0,0,.4);white-space:nowrap}
+    .app-screen .app-cta svg{width:18px;height:18px;flex:0 0 auto}
+    .app-screen .float-firefly{z-index:3}
     .feature-intro{text-align:center;max-width:780px;margin:0 auto}
     .feature-intro h2{margin:0 auto}
     .feature-intro .lede{margin:18px auto 0}
@@ -356,10 +359,20 @@
           <p class="microtrust"><strong>Free to download</strong> on iPhone &amp; Android &middot; Built by a mum, guided by NHS &amp; WHO.</p>
         </div>
 
-        <!-- Hero brand visual: OBubba star baby logo -->
-        <div class="hero-art">
-          <span class="float-firefly ff2" aria-hidden="true"></span><span class="float-firefly ff4" aria-hidden="true"></span><span class="float-firefly ff5" aria-hidden="true"></span>
-          <img src="/obubba-star-baby.png" alt="OBubba star baby logo: a crowned baby beneath a constellation of stars" width="1024" height="1024"/>
+        <!-- Hero phone mockup: OBubba welcome screen built around the star baby logo -->
+        <div class="device">
+          <div class="device-frame">
+            <div class="app-screen">
+              <span class="float-firefly ff3" aria-hidden="true"></span><span class="float-firefly ff5" aria-hidden="true"></span><span class="float-firefly ff6" aria-hidden="true"></span>
+              <img class="app-logo" src="/obubba-star-baby.png" alt="OBubba star baby logo: a crowned baby beneath a constellation of stars"/>
+              <div class="app-tag">Understand your baby's rhythm</div>
+              <div class="app-sub">Track feeds, naps, sleep and night wakes in one soft place that learns as your baby grows.</div>
+              <a class="app-cta js-store-cta" href="https://apps.apple.com/gb/app/obubba/id6760968757" aria-label="Download OBubba">
+                <svg viewBox="0 0 32 32" aria-hidden="true"><path fill="#1b1430" d="m16 2 2.9 8.7 9.1 1.2-6.8 5.7 1.9 9-7.1-4.8-7.1 4.8 1.9-9L4 11.9l9.1-1.2L16 2Z"/></svg>
+                <span>Download now</span>
+              </a>
+            </div>
+          </div>
         </div>
       </div>
     </section>
