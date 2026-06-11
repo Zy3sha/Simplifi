@@ -179,6 +179,8 @@
     .device{position:relative;width:100%;max-width:330px;margin:0 auto;justify-self:center}
     .device-frame{position:relative;border-radius:42px;padding:11px;background:linear-gradient(150deg,#26365f,#0a1430);box-shadow:0 30px 70px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.06),inset 0 0 0 1px rgba(255,255,255,.04)}
     .device-shot{display:block;width:100%;height:auto;border-radius:32px;background:#041026}
+    .poster-link{display:block;border-radius:32px;overflow:hidden}
+    .poster-full{display:block;width:100%;height:auto;border-radius:32px}
     .feature-intro{text-align:center;max-width:780px;margin:0 auto}
     .feature-intro h2{margin:0 auto}
     .feature-intro .lede{margin:18px auto 0}
@@ -352,10 +354,12 @@
           <p class="microtrust"><strong>Free to download</strong> on iPhone &amp; Android &middot; Built by a mum, guided by NHS &amp; WHO.</p>
         </div>
 
-        <!-- Hero phone: real OBubba app screenshot (download via nav + badges) -->
+        <!-- Hero phone mockup: OBubba welcome screen (clock + Download now), fills the frame -->
         <div class="device">
           <div class="device-frame">
-            <img class="device-shot" src="/obubba-fireflies-hope-sleep-clock-screenshot.jpg" alt="OBubba app: baby sleeping, the fireflies hope message, the glowing rhythm clock and one-tap log buttons" width="945" height="2048"/>
+            <a class="poster-link js-store-cta" href="https://apps.apple.com/gb/app/obubba/id6760968757" aria-label="Download OBubba">
+              <img class="poster-full" src="/obubba-download-landing.png" alt="OBubba app welcome screen: Understand your baby's rhythm, Download now, and the glowing baby sleep clock with fireflies"/>
+            </a>
           </div>
         </div>
       </div>
