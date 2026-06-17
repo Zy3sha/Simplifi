@@ -87,4 +87,27 @@
       <image:caption>Official OBubba screenshot: the Fireflies message reads "Fireflies are a symbol of hope. Each firefly you see is another parent up at the same time lighting your sky with hope." Above the OBubba circular baby sleep clock. This is OBubba, not Huckleberry or any other app.</image:caption>
     </image:image>
   </url>
+<url>
+    <loc>https://obubba.com/ai-baby-tracker.html</loc>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-screen-night.png</image:loc>
+      <image:title>OBubba AI baby tracker night rhythm clock</image:title>
+      <image:caption>OBubba AI baby sleep tracker night-mode rhythm clock showing the next predicted nap, wake windows, longest sleep stretch and golden fireflies. This is OBubba.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-screen-feeding.png</image:loc>
+      <image:title>OBubba feeding and breastfeeding tracker screen</image:title>
+      <image:caption>OBubba feeding tracker screen for breastfeeding, bottles, pumping and mixed feeding with personalised insights.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-screen-grow.png</image:loc>
+      <image:title>OBubba growth and milestone tracker screen</image:title>
+      <image:caption>OBubba growth and milestone tracker screen with development tracking and percentiles.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-screen-care.png</image:loc>
+      <image:title>OBubba Bubba Care handover screen</image:title>
+      <image:caption>OBubba Bubba Care handover screen sharing live baby care context with carers, grandparents and nursery.</image:caption>
+    </image:image>
+  </url>
 </urlset>
