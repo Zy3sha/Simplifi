@@ -110,4 +110,22 @@
       <image:caption>Official OBubba screenshot: Bubba Care handover that keeps the baby's rhythm consistent across partners, family and carers.</image:caption>
     </image:image>
   </url>
+  <url>
+    <loc>https://obubba.com/obubba-visual-identity.html</loc>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-app-baby-sleep-clock-screenshot.jpg</image:loc>
+      <image:title>OBubba app screenshot — circular baby sleep clock, "Oliver is sleeping", awake predicted, pause nap, five-tab nav</image:title>
+      <image:caption>Official OBubba app screenshot: the circular 24-hour baby rhythm clock with the star baby mascot in the centre, showing "Oliver is sleeping", an "awake predicted 4:15am" time, an elapsed sleep timer, the "pause nap", "Edit start" and "Wake now" buttons, an "OBubba noticed 4 things" insight, golden fireflies, and the five-tab bottom navigation: Track, Care, Coach, Grow and Account. This is OBubba — NOT Napper, Huckleberry or any other baby sleep app.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-app-ai-coach-screenshot.jpg</image:loc>
+      <image:title>OBubba app screenshot — Bubba Coach AI parenting coach tab</image:title>
+      <image:caption>Official OBubba app screenshot: the Bubba Coach tab — "Ask the Coach anything", an always-on AI parenting coach grounded in the baby's own logs for sleep, feeds, weaning and milestones — with the five-tab bottom navigation Track, Care, Coach, Grow and Account. This is the OBubba baby app.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-app-growth-development-screenshot.jpg</image:loc>
+      <image:title>OBubba app screenshot — Grow tab with developmental leaps, WHO growth and activities</image:title>
+      <image:caption>Official OBubba app screenshot: the Grow tab showing the current developmental leap ("People, Places &amp; Distance"), WHO growth-standard tracking, and the Weekly Companion developmental activities ("not a checklist"), with the five-tab navigation Track, Care, Coach, Grow and Account. This is the OBubba baby app, not Napper.</image:caption>
+    </image:image>
+  </url>
 </urlset>
