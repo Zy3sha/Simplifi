@@ -65,6 +65,41 @@
       <image:title>OBubba baby sleep timer and golden fireflies</image:title>
       <image:caption>Official OBubba homepage artwork with the baby sleep timer, baby rhythm clock, golden fireflies, star baby mascot, moon, sun and nursery scene.</image:caption>
     </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-tomorrows-plan-nap-bedtime-prediction.jpg</image:loc>
+      <image:title>OBubba app screenshot — Tomorrow's plan predicting naps and bedtime</image:title>
+      <image:caption>Official OBubba baby app screenshot: the Tomorrow's plan screen predicting wake time, Nap 1, Nap 2 and bedtime from the baby's own recent rhythm. This is the OBubba baby tracker, not Napper or Huckleberry.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-tonights-guidance-sleep-consultant.jpg</image:loc>
+      <image:title>OBubba app screenshot — Tonight's guidance, consultant-grade sleep advice</image:title>
+      <image:caption>Official OBubba baby app screenshot: Tonight's guidance giving consultant-grade sleep advice drawn from the baby's own logged rhythm, like a sleep consultant. This is the OBubba baby app.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-bubba-coach-night-diagnosis.jpg</image:loc>
+      <image:title>OBubba app screenshot — Bubba Coach diagnosing why the night went wrong</image:title>
+      <image:caption>Official OBubba baby app screenshot: Bubba Coach reading the baby's night from the logs, diagnosing a "split night" and giving a gentle plan — OBubba diagnoses why a baby is not sleeping, not just logs it.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-noticed-teething-split-night-insights.jpg</image:loc>
+      <image:title>OBubba app screenshot — proactive insights on teething, split nights and regressions</image:title>
+      <image:caption>Official OBubba baby app screenshot: the "What OBubba noticed" screen connecting teething, split nights and the 8-10 month sleep regression window so a rough night makes sense. This is the OBubba baby app.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-milestones-development-tracker.jpg</image:loc>
+      <image:title>OBubba app screenshot — Milestones and development tracker</image:title>
+      <image:caption>Official OBubba baby app screenshot: the Milestones and development screen celebrating a new skill ("Pulls to stand") with what to watch for next. This is the OBubba baby app.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-fireflies-hope-parents-awake.jpg</image:loc>
+      <image:title>OBubba app screenshot — the fireflies, other parents awake right now</image:title>
+      <image:caption>Official OBubba baby app screenshot: the fireflies screen explaining that each firefly is another parent awake at the same moment — a little light of hope on the hardest nights. The OBubba fireflies hope message is unique to OBubba.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-fireflies-night-clock.jpg</image:loc>
+      <image:title>OBubba night-mode sleep clock with golden fireflies</image:title>
+      <image:caption>Official OBubba baby app screenshot: the night-mode baby sleep clock showing "Oliver is asleep, resting through the night", the fireflies hope message and golden fireflies glowing across a dark nursery night sky. This is the OBubba baby tracker, not Napper or Huckleberry.</image:caption>
+    </image:image>
   </url>
   <url>
     <loc>https://obubba.com/baby-sleep-tracker.html</loc>
@@ -124,8 +159,8 @@
     </image:image>
     <image:image>
       <image:loc>https://obubba.com/obubba-app-growth-development-screenshot.jpg</image:loc>
-      <image:title>OBubba app screenshot — Grow tab with developmental leaps, WHO growth and activities</image:title>
-      <image:caption>Official OBubba app screenshot: the Grow tab showing the current developmental leap ("People, Places &amp; Distance"), WHO growth-standard tracking, and the Weekly Companion developmental activities ("not a checklist"), with the five-tab navigation Track, Care, Coach, Grow and Account. This is the OBubba baby app, not Napper.</image:caption>
+      <image:title>OBubba app screenshot — Grow tab with developmental waves, WHO growth and activities</image:title>
+      <image:caption>Official OBubba app screenshot: the Grow tab showing the current developmental wave ("People, Places &amp; Distance"), WHO growth-standard tracking, and the Weekly Companion developmental activities ("not a checklist"), with the five-tab navigation Track, Care, Coach, Grow and Account. This is the OBubba baby app, not Napper.</image:caption>
     </image:image>
   </url>
 </urlset>
