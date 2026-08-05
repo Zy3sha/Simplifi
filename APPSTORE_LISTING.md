@@ -77,9 +77,50 @@ Shipped in app (obubba_flutter_main/lib/l10n): de, en, es, es_419, es_MX, fr, ja
 
 Every App Store localisation gets its OWN 30-char name, 30-char subtitle and 100-char keyword field, indexed independently in that storefront. Competitors do this heavily: Baby Tracker! runs 34 locales, Baby Tracker 33, Baby+ 19, The Wonder Weeks 16, Baby Tracker - Newborn Log 14. OBubba and Owly both run 1.
 
+Going from 1 to the 14 localisations below takes indexed keyword characters from 99 to 1,252 - a 12x increase in search surface, with no new product work.
+
 Priority order:
-1. English (U.K.), English (Australia), English (Canada) - these are separate App Store localisations from English (U.S.) and cost zero translation. Each adds a fresh 100-char keyword field in a market OBubba already sells in. Use them to split UK/US vocabulary: "nappy" in en-GB/en-AU, "diaper" in en-US/en-CA, which frees ~7 characters in each field.
-2. The 10 non-English locales already translated in-app.
+1. English (U.K.), English (Australia), English (Canada). These are separate App Store localisations from English (U.S.) and cost ZERO translation. Each adds a fresh 100-char keyword field in a market OBubba already sells in. They also let you stop paying for both vocabularies in one field: "nappy" only in en-GB/en-AU, "diaper" only in en-US/en-CA.
+2. The 10 non-English locales already translated in the app.
+
+Every string below is within Apple's limits (verified by character count, shown per cell).
+
+| Locale | Code | App name (30) | Subtitle (30) | Keywords (100) |
+|---|---|---|---|---|
+| English (U.K.) | `en-GB` | OBubba: Baby Sleep Tracker <br>`26/30` | Nap Schedule & Wake Windows <br>`27/30` | newborn,feeding,breastfeeding,bottle,nappy,weaning,milestone,routine,coach,training,log,twins,diary <br>`99/100` |
+| English (U.S.) | `en-US` | OBubba: Baby Sleep Tracker <br>`26/30` | Nap Schedule & Wake Windows <br>`27/30` | newborn,feeding,breastfeeding,bottle,diaper,solids,milestone,routine,coach,training,log,daycare,pump <br>`100/100` |
+| English (Australia) | `en-AU` | OBubba: Baby Sleep Tracker <br>`26/30` | Newborn Nap Timer & Feeds <br>`25/30` | wake,window,schedule,breastfeeding,bottle,nappy,weaning,milestone,routine,coach,training,twins,dummy <br>`100/100` |
+| English (Canada) | `en-CA` | OBubba: Baby Sleep Tracker <br>`26/30` | Newborn Nap Timer & Feeds <br>`25/30` | wake,window,schedule,breastfeeding,bottle,diaper,solids,milestone,routine,coach,training,twins,log <br>`98/100` |
+| German | `de` | OBubba: Baby Schlaf Tracker <br>`27/30` | Schlafplan & Wachfenster <br>`24/30` | neugeborenes,stillen,fläschchen,windel,beikost,meilenstein,routine,schlafcoach,protokoll,zwillinge <br>`98/100` |
+| French | `fr` | OBubba: Suivi Sommeil Bébé <br>`26/30` | Siestes & Fenêtres d'éveil <br>`26/30` | nouveau-né,allaitement,biberon,couche,diversification,étape,routine,coach,journal,jumeaux,rythme <br>`96/100` |
+| Spanish (Spain) | `es` | OBubba: Sueño del Bebé <br>`22/30` | Siestas y Ventanas de Sueño <br>`27/30` | recién nacido,lactancia,biberón,pañal,alimentación,hito,rutina,entrenador,registro,gemelos,horario <br>`98/100` |
+| Spanish (Mexico) | `es-MX` | OBubba: Sueño del Bebé <br>`22/30` | Siestas y Ventanas de Sueño <br>`27/30` | recién nacido,lactancia,mamila,pañal,papilla,hito,rutina,entrenador,registro,gemelos,horario,bebé <br>`97/100` |
+| Spanish (Latin America) | `es-419` | OBubba: Sueño del Bebé <br>`22/30` | Siestas y Ventanas de Sueño <br>`27/30` | recién nacido,lactancia,mamadera,pañal,papilla,hito,rutina,entrenador,registro,mellizos,horario <br>`95/100` |
+| Portuguese | `pt` | OBubba: Sono do Bebê <br>`20/30` | Sonecas e Janelas de Sono <br>`25/30` | recém-nascido,amamentação,mamadeira,fralda,papinha,marco,rotina,treinador,registro,gêmeos,horário <br>`97/100` |
+| Japanese | `ja` | OBubba: 赤ちゃん睡眠記録 <br>`16/30` | お昼寝スケジュールと活動時間 <br>`14/30` | 新生児,授乳,ミルク,おむつ,離乳食,発達,生活リズム,寝かしつけ,記録,双子,育児日記,寝ぐずり,夜泣き,睡眠退行,授乳間隔,成長記録,ねんねトレーニング <br>`78/100` |
+| Korean | `ko` | OBubba: 아기 수면 기록 <br>`16/30` | 낮잠 스케줄과 깨어있는 시간 <br>`15/30` | 신생아,수유,분유,기저귀,이유식,발달,생활패턴,수면교육,기록,쌍둥이,육아일기,통잠,밤수유,수면퇴행,성장기록,낮잠시간,아기수면 <br>`69/100` |
+| Chinese (Simplified) | `zh-Hans` | OBubba: 宝宝睡眠记录 <br>`14/30` | 小睡时间表与清醒时长 <br>`10/30` | 新生儿,母乳,奶瓶,尿布,辅食,里程碑,作息,睡眠训练,记录,双胞胎,育儿,哄睡,夜奶,睡眠倒退,成长记录,宝宝作息,喂养记录 <br>`63/100` |
+| Chinese (Traditional) | `zh-Hant` | OBubba: 寶寶睡眠記錄 <br>`14/30` | 小睡時間表與清醒時長 <br>`10/30` | 新生兒,母乳,奶瓶,尿布,副食品,里程碑,作息,睡眠訓練,記錄,雙胞胎,育兒,哄睡,夜奶,睡眠倒退,成長記錄,寶寶作息,餵養記錄 <br>`64/100` |
+
+Notes on the table:
+
+- The app name is held constant across locales for brand consistency; the subtitle is deliberately varied between the GB/US pair and the AU/CA pair so the two pairs cover different phrases ("nap schedule" + "wake windows" vs "newborn nap timer" + "feeds") instead of duplicating one another.
+- No word is repeated between a locale's name, subtitle and keyword field. Apple combines tokens across all three, so repetition is wasted budget.
+- "dummy" in en-AU is the Australian term for a pacifier/soother; it has no en-GB or en-US equivalent worth the characters.
+- The CJK keyword fields sit at 41-64 of 100 characters because each CJK character counts as one, so these fields have real headroom left. Have a native speaker fill the remainder - that is free ranking surface.
+- The non-English strings were written by an English speaker and are grammatically plausible but NOT native-reviewed. Get a native speaker to check ja, ko, zh-Hans and zh-Hant in particular before submitting; a mistranslated keyword wastes the whole field. The European-language strings (de, fr, es, pt) are lower risk but still worth a read-through.
+
+### In-app purchase display names (free indexed surface, currently wasted)
+
+Apple indexes in-app purchase display names. The current names carry no search value:
+
+| Current | Suggested | Len |
+|---|---|---|
+| OBubba Premium - Monthly | Premium: Sleep Plans & Coach | 28 |
+| OBubba Premium - Annual | Premium Year: Nap Predictions | 29 |
+| OBubba Premium - Lifetime | Premium Forever: Sleep Reports | 30 |
+
+IAP display names are limited to 30 characters and are reviewed by Apple, so keep them describing the actual product. This is a small lever, but it is free and it is currently returning nothing.
 
 ### Non-metadata factors measured against the top trackers
 
@@ -89,6 +130,35 @@ Checked 5 August 2026 across the GB top-12 for "baby tracker":
 - Screenshots: OBubba runs 10 iPhone + 10 iPad, the maximum, matching Huckleberry, Nara and WTE. No gap here.
 - App age: every app in the top 10 launched 2010-2020. OBubba launched 1 April 2026. This is the one factor that cannot be fixed with metadata and is the real reason the head term is out of reach.
 - Apple Search Ads: a 4-rating competitor (Owly) appears on head terms it does not rank for organically, which is the signature of a bought keyword. This is the only way to appear on "baby tracker" in the near term.
+
+### How to apply these changes, and when they take effect
+
+What can be changed WITHOUT a new version submission:
+- Primary and secondary category (App Information - takes effect within hours)
+- Promotional text
+- In-app purchase display names (go through IAP review, usually same-day)
+
+What REQUIRES a new version submission and review:
+- App name, subtitle, keyword field, description
+- Adding any new localisation
+
+So the name/subtitle/keyword/localisation work all ships together with the next binary. Do the category change today, on its own - it is free and immediate.
+
+Expected timeline from the day the new version is APPROVED:
+
+| When | What happens |
+|---|---|
+| Day 0 | Version approved and released. |
+| Day 0-3 | Apple re-indexes the new name, subtitle and keyword fields. New terms become searchable. |
+| Day 3-10 | First ranking positions appear on the new terms, usually volatile and lower than they will settle. |
+| Week 2-4 | Positions stabilise as Apple accumulates impression and conversion data for each new term. This is the number to judge the change by. |
+| Week 4+ | Further movement comes from download velocity and conversion rate, not from the metadata. |
+
+Add 24-48 hours of App Review before Day 0.
+
+Important caveat: renaming an app usually causes a short-term ranking DIP on the terms it already held (here: "newborn tracker", "weaning tracker", "nappy tracker") while Apple re-learns the listing. Expect roughly 1-2 weeks of noise before the net gain is readable. Do not judge the change in week 1, and do not revert it in week 1.
+
+Measurement: re-run the rank check before submitting to capture a clean baseline, then again at day 7 and day 28. The comparison only means something against a pre-change baseline captured the same way.
 
 Description:
 
