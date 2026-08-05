@@ -69,15 +69,27 @@ Alternatives if you prefer keyword-first over brand-first:
 - Name: "Baby Sleep Tracker: OBubba" (26 / 30). Marginally stronger for generic queries and better search-result CTR; costs brand recall. Huckleberry ranks top-4 brand-first, but on 70,758 ratings.
 - Keywords swap: replace "twins" with "growth" (97 / 100) if growth tracking matters more than the twins niche.
 
-### Localisation plan (largest untapped lever)
+### Localisation status (CORRECTION + what was applied)
 
-The app ships 11 locales. The App Store listing ships 1.
+CORRECTION to an earlier note in this file: the claim that "the App Store listing ships 1 locale" was WRONG. It came from the app binary's declared languages (iTunes lookup languageCodesISO2A), not from the store listing. The listing already had 13 localisations.
 
-Shipped in app (obubba_flutter_main/lib/l10n): de, en, es, es_419, es_MX, fr, ja, ko, pt, zh, zh_Hant.
+The real problem was different and worse: all 11 non-English localisations contained ENGLISH text. Every one of them carried the subtitle "Sleep, feeds, naps & nappies" and the identical English keyword string:
 
-Every App Store localisation gets its OWN 30-char name, 30-char subtitle and 100-char keyword field, indexed independently in that storefront. Competitors do this heavily: Baby Tracker! runs 34 locales, Baby Tracker 33, Baby+ 19, The Wonder Weeks 16, Baby Tracker - Newborn Log 14. OBubba and Owly both run 1.
+    newborn,breastfeeding,sleep,weaning,growth,milestone,routine,wake,window,parent,carer,tracker
 
-Going from 1 to the 14 localisations below takes indexed keyword characters from 99 to 1,252 - a 12x increase in search surface, with no new product work.
+That is 1,100 characters of keyword field spent on English words in storefronts where parents search in Japanese, Korean, Chinese, German, Spanish, Portuguese, Arabic and Bengali. The localisations existed; they were never localised.
+
+APPLIED 5 August 2026 via the App Store Connect API (key UU9YN54BH5) to a newly created version 3.2.3, state PREPARE_FOR_SUBMISSION:
+
+- Category changed to Medical / Health & Fitness (was Health & Fitness / Lifestyle).
+- App name and subtitle written for all 15 locales.
+- Keyword field rewritten in the correct language for all 15 locales.
+- en-AU and en-CA created (they did not exist before).
+- Promotional text set on the four English locales.
+
+Verified by reading every field back from Apple: 15 of 15 locales match, 0 mismatches. No build is attached and nothing has been submitted for review - that step is deliberately left to a human.
+
+Rewriting the 13 existing locales into their actual languages and adding en-AU/en-CA takes usable indexed keyword characters from roughly 200 (the two English fields; the other 11 were duplicate English) to 1,341 across 15 locales.
 
 Priority order:
 1. English (U.K.), English (Australia), English (Canada). These are separate App Store localisations from English (U.S.) and cost ZERO translation. Each adds a fresh 100-char keyword field in a market OBubba already sells in. They also let you stop paying for both vocabularies in one field: "nappy" only in en-GB/en-AU, "diaper" only in en-US/en-CA.
