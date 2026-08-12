@@ -1306,21 +1306,55 @@ function siteCss() {
   }
   .post-list {
     display: grid;
-    gap: 16px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
     margin-top: 26px;
   }
   .post-card {
     display: grid;
-    gap: 10px;
-    padding: 22px;
+    align-content: start;
+    gap: 12px;
+    min-height: 260px;
+    padding: clamp(24px, 4vw, 36px);
     border: 1px solid var(--line);
-    border-radius: 8px;
-    background: white;
+    border-radius: 22px;
+    background:
+      radial-gradient(circle at 92% 8%, rgba(192, 112, 136, 0.16), transparent 26%),
+      white;
     text-decoration: none;
-    box-shadow: 0 14px 40px rgba(55, 38, 56, 0.08);
+    box-shadow: 0 18px 48px rgba(55, 38, 56, 0.09);
+    transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
   }
+  .post-card:hover,
+  .post-card:focus-visible {
+    transform: translateY(-4px);
+    border-color: rgba(192, 112, 136, 0.4);
+    box-shadow: 0 24px 60px rgba(55, 38, 56, 0.14);
+  }
+  .post-card.featured {
+    grid-column: 1 / -1;
+    min-height: 320px;
+    padding-right: min(38%, 420px);
+    background:
+      linear-gradient(105deg, rgba(47, 38, 53, 0.98), rgba(47, 38, 53, 0.9) 58%, rgba(47, 38, 53, 0.38)),
+      var(--card-image) right center / min(420px, 42%) auto no-repeat,
+      var(--ink);
+    color: white;
+  }
+  .post-card.featured .meta { color: #f1d0aa; }
+  .post-card.featured h2 { color: white; }
+  .post-card.featured p { color: rgba(255,255,255,0.82); }
+  .post-card .read-link {
+    margin-top: auto;
+    color: var(--rose-dark);
+    font-size: 14px;
+    font-weight: 900;
+  }
+  .post-card.featured .read-link { color: #f1d0aa; }
+  .post-card .read-link::after { content: " →"; }
   .post-card h2 {
-    font-size: clamp(24px, 3vw, 34px);
+    font-size: clamp(26px, 3vw, 38px);
+    line-height: 1.12;
   }
   .post-card p {
     color: var(--muted);
@@ -1376,33 +1410,122 @@ function siteCss() {
     margin: 0 auto;
   }
   .article-header {
-    padding: clamp(58px, 9vw, 104px) clamp(20px, 6vw, 72px) 34px;
-    background: #fff8f2;
+    position: relative;
+    overflow: hidden;
+    padding: clamp(72px, 10vw, 124px) clamp(20px, 6vw, 72px) clamp(58px, 8vw, 92px);
+    background:
+      radial-gradient(circle at 84% 18%, rgba(192, 112, 136, 0.2), transparent 25%),
+      radial-gradient(circle at 68% 88%, rgba(95, 155, 142, 0.2), transparent 30%),
+      linear-gradient(135deg, #fff8f2 0%, #f7eee9 46%, #eaf3ef 100%);
     border-bottom: 1px solid var(--line);
   }
+  .article-header::after {
+    content: "";
+    position: absolute;
+    right: clamp(-64px, 1vw, 20px);
+    bottom: clamp(-92px, -6vw, -42px);
+    width: min(430px, 38vw);
+    aspect-ratio: 1;
+    background: var(--hero-image) center / contain no-repeat;
+    filter: drop-shadow(0 28px 45px rgba(55, 38, 56, 0.14));
+    opacity: 0.92;
+    pointer-events: none;
+  }
+  .article-header .article {
+    position: relative;
+    z-index: 1;
+    width: min(1160px, 100%);
+    margin: 0 auto;
+    padding-right: min(34vw, 390px);
+  }
+  .article-kicker-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 16px;
+    margin-bottom: 16px;
+  }
+  .read-time {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 11px;
+    border: 1px solid rgba(77, 56, 77, 0.14);
+    border-radius: 999px;
+    background: rgba(255,255,255,0.68);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 800;
+  }
+  .read-time::before { content: "☾"; color: var(--rose-dark); }
   .article-header h1 {
     color: var(--ink);
-    font-size: clamp(40px, 7vw, 76px);
+    max-width: 820px;
+    font-size: clamp(42px, 5.4vw, 68px);
+    text-wrap: balance;
   }
   .article-header p {
-    max-width: 790px;
+    max-width: 720px;
     color: var(--muted);
-    font-size: 20px;
+    font-size: clamp(18px, 2vw, 22px);
     line-height: 1.65;
   }
   .rich-text {
-    padding-top: 40px;
-    padding-bottom: 78px;
+    margin-top: clamp(36px, 6vw, 68px);
+    margin-bottom: clamp(54px, 8vw, 96px);
+    padding: clamp(26px, 5vw, 58px);
+    border: 1px solid var(--line);
+    border-radius: 28px;
+    background: rgba(255,255,255,0.92);
+    box-shadow: 0 24px 70px rgba(55, 38, 56, 0.1);
+  }
+  .blog-post main { background: linear-gradient(180deg, #fffcf9 0%, #f8f0e8 58%, #fffcf9 100%); }
+  .rich-text > p:first-child {
+    margin-top: 0;
+    padding: 22px 24px;
+    border-left: 5px solid var(--rose);
+    border-radius: 0 16px 16px 0;
+    background: #fff8f2;
+    color: var(--ink);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(20px, 2.5vw, 25px);
+    line-height: 1.6;
   }
   .rich-text h2,
   .rich-text h3,
   .rich-text h4 {
-    margin-top: 34px;
-    margin-bottom: 12px;
+    margin-top: 48px;
+    margin-bottom: 16px;
+    text-wrap: balance;
   }
-  .rich-text h2 { font-size: 34px; }
+  .rich-text h2 {
+    position: relative;
+    padding-top: 18px;
+    font-size: clamp(30px, 4vw, 42px);
+  }
+  .rich-text h2::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 54px;
+    height: 4px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, var(--rose), var(--gold));
+  }
   .rich-text h3 { font-size: 26px; }
   .rich-text a { color: var(--rose-dark); font-weight: 800; }
+  .rich-text ul,
+  .rich-text ol {
+    display: grid;
+    gap: 10px;
+    margin: 22px 0 28px;
+    padding: 22px 24px 22px 46px;
+    border: 1px solid rgba(95, 155, 142, 0.2);
+    border-radius: 18px;
+    background: rgba(231, 241, 237, 0.58);
+  }
+  .rich-text li::marker { color: var(--rose-dark); font-weight: 900; }
   .rich-text figure {
     margin: 30px 0;
   }
@@ -1420,8 +1543,8 @@ function siteCss() {
     margin-top: 24px;
   }
   .tag {
-    padding: 7px 10px;
-    border-radius: 8px;
+    padding: 8px 12px;
+    border-radius: 999px;
     border: 1px solid var(--line);
     color: var(--muted);
     font-size: 13px;
@@ -1434,8 +1557,10 @@ function siteCss() {
     margin-top: 44px;
     padding: clamp(22px, 4vw, 32px);
     border: 1px solid var(--line);
-    border-radius: 8px;
-    background: #fff8f2;
+    border-radius: 22px;
+    background:
+      radial-gradient(circle at 92% 16%, rgba(200, 148, 62, 0.16), transparent 24%),
+      #fff8f2;
   }
   .related-guides h2 {
     font-size: clamp(26px, 4vw, 40px);
@@ -1451,9 +1576,11 @@ function siteCss() {
     display: grid;
     gap: 14px;
     justify-items: start;
-    background: var(--ink);
+    background:
+      radial-gradient(circle at 90% 20%, rgba(200, 148, 62, 0.25), transparent 26%),
+      linear-gradient(135deg, #2f2635, #4c3d57);
     color: white;
-    border-radius: 8px;
+    border-radius: 22px;
     padding: clamp(26px, 5vw, 46px);
   }
   .cta-band h2 { color: white; }
@@ -1483,8 +1610,26 @@ function siteCss() {
     .nav-links { flex-wrap: wrap; font-size: 13px; }
     .hero { min-height: 76vh; background-position: center; }
     .grid,
+    .post-list,
     .feature-split,
     .visual-grid { grid-template-columns: 1fr; }
+    .post-card.featured {
+      grid-column: auto;
+      min-height: 360px;
+      padding-right: 24px;
+      padding-bottom: 160px;
+      background:
+        linear-gradient(180deg, rgba(47, 38, 53, 0.96), rgba(47, 38, 53, 0.86) 62%, rgba(47, 38, 53, 0.44)),
+        var(--card-image) right bottom / 190px auto no-repeat,
+        var(--ink);
+    }
+    .article-header::after {
+      right: -64px;
+      bottom: -48px;
+      width: 230px;
+      opacity: 0.25;
+    }
+    .article-header .article { padding-right: 0; }
     .visual-card.featured { grid-column: auto; }
     .blog-hero { background-size: 210px auto; background-position: right -28px bottom -24px; }
   }
@@ -1494,6 +1639,17 @@ function siteCss() {
     .nav-links a:not(.nav-cta) { display: none; }
     .hero-actions .button { width: 100%; }
     .section { padding-left: 16px; padding-right: 16px; }
+    .article-header { padding-left: 18px; padding-right: 18px; }
+    .article-header h1 { font-size: 42px; line-height: 1.02; }
+    .rich-text {
+      width: calc(100% - 24px);
+      margin-left: 12px;
+      margin-right: 12px;
+      padding: 24px 18px;
+      border-radius: 22px;
+    }
+    .rich-text ul,
+    .rich-text ol { padding-left: 38px; padding-right: 16px; }
   }
   `;
 }
@@ -2251,11 +2407,12 @@ ${imageCards}
 function renderBlogIndex(posts) {
   const title = 'OBubba Blog - Baby Tracker and Parenting App Advice';
   const description = 'Practical baby tracking, feeding, sleep, nap, milestone and parenting app guides from OBubba.';
-  const postCards = posts.map((post) => `
-      <a class="post-card" href="${post.urlPath}">
+  const postCards = posts.map((post, index) => `
+      <a class="post-card${index === 0 ? ' featured' : ''}" href="${post.urlPath}"${index === 0 ? ` style="--card-image: url('${escapeAttr(post.heroImage || '/obubba-happy.png')}')"` : ''}>
         <div class="meta">${escapeHtml(post.date)} / ${escapeHtml(post.author || 'OBubba')}</div>
         <h2>${escapeHtml(post.title)}</h2>
         <p>${escapeHtml(post.description || '')}</p>
+        <span class="read-link">Read the guide</span>
       </a>`).join('\n');
 
   const body = `
@@ -2264,11 +2421,11 @@ function renderBlogIndex(posts) {
       <div class="section-inner">
         <p class="eyebrow">OBubba Blog</p>
         <h1>Baby tracking and parenting app guides.</h1>
-        <p>SEO-ready advice pages for parents searching for baby tracker, newborn tracker, feeding tracker, sleep tracker and parenting app help.</p>
+        <p>Calm, evidence-aware guides for the questions that arrive with feeds, naps, weaning, night wakes and the everyday work of caring for a baby.</p>
       </div>
     </header>
     <section class="section">
-      <div class="section-inner narrow">
+      <div class="section-inner">
         <div class="post-list">
           ${postCards || '<p>No posts yet.</p>'}
         </div>
@@ -2305,10 +2462,12 @@ function renderBlogIndex(posts) {
 function renderPost(post, posts = []) {
   const title = `${post.title} | OBubba`;
   const description = post.description || SITE.description;
+  const readingMinutes = Math.max(4, Math.ceil(post.body.trim().split(/\s+/).length / 220));
   const articleHtml = markdownToHtml(post.body);
-  const tags = post.tags.map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join('');
+  const tags = post.tags.slice(0, 5).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join('');
   const relatedPosts = posts
     .filter((item) => item.urlPath !== post.urlPath)
+    .slice(0, 6)
     .map((item) => ({ href: item.urlPath, label: item.title }));
   const relatedGuides = relatedGuideSection({
     heading: 'Related baby tracking guides',
@@ -2320,7 +2479,10 @@ function renderPost(post, posts = []) {
   <main id="main">
     <header class="article-header">
       <div class="article">
-        <div class="meta">${escapeHtml(post.date)} / ${escapeHtml(post.author || 'OBubba')}</div>
+        <div class="article-kicker-row">
+          <div class="meta">${escapeHtml(post.date)} / ${escapeHtml(post.author || 'OBubba')}</div>
+          <span class="read-time">${readingMinutes} min read</span>
+        </div>
         <h1>${escapeHtml(post.title)}</h1>
         <p>${escapeHtml(description)}</p>
         ${tags ? `<div class="tags">${tags}</div>` : ''}
