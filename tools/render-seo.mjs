@@ -10,7 +10,7 @@ const SITE = {
   baseUrl: 'https://obubba.com',
   email: 'hello@obubba.com',
   description: 'OBubba is a mum-built baby tracker and parent support app for feeds, breastfeeding, sleep, naps, nappies, weaning, growth, milestones, preterm baby support, colic and reflux notes, memory book moments, partner sync, Bubba Care handovers and calmer family routines.',
-  appStoreUrl: 'https://apps.apple.com/gb/app/obubba-baby-sleep-tracker/id6760968757',
+  appStoreUrl: 'https://apps.apple.com/app/obubba-baby-sleep-tracker/id6760968757',
   playStoreUrl: 'https://play.google.com/store/apps/details?id=com.obubba.app',
   ogImage: '/og-image.png',
 };
@@ -701,7 +701,7 @@ const TOPIC_PAGES = [
     evidence: [
       ['Current two-parent tracking question', 'https://www.reddit.com/r/firsttimemom/comments/1nba5ky/baby_tracking_app_that_syncs_both_parents_accounts/', 'A new parent asks for both parents to see and add to the same feeds and nappy record.'],
       ['Current UK tracking trade-off', 'https://www.reddit.com/r/UKParenting/comments/1tg9umt/baby_apps/', 'Parents describe both the usefulness of shared medicine/feed memory and the risk of tracking becoming anxiety-inducing.'],
-      ['Current OBubba App Store listing', 'https://apps.apple.com/gb/app/obubba-baby-sleep-tracker/id6760968757', 'The public listing describes fast daily tracking and Bubba Care handovers for partners and carers.'],
+      ['Current OBubba App Store listing', 'https://apps.apple.com/app/obubba-baby-sleep-tracker/id6760968757', 'The public listing describes fast daily tracking and Bubba Care handovers for partners and carers.'],
     ],
     faqs: [
       ['How do two parents share a baby tracker in OBubba?', 'One parent opens Account, then Family & Sharing, chooses Invite someone and sends the baby’s sync code privately. The partner enters that code through Connect another device in OBubba.'],
@@ -749,7 +749,7 @@ const TOPIC_PAGES = [
     evidence: [
       ['Current shared-tracking discussion', 'https://www.reddit.com/r/NewParents/comments/1qq4hjh/baby_tracker_apps/', 'Parents describe the value of quickly seeing the last feed, nappy or nap and keeping two carers in sync.'],
       ['Current tracking-workload discussion', 'https://www.reddit.com/r/NewParents/comments/1qlsozf/baby_tracking_apps/', 'Parents describe shared care as useful while also questioning when detailed tracking becomes another chore.'],
-      ['Current OBubba App Store listing', 'https://apps.apple.com/gb/app/obubba-baby-sleep-tracker/id6760968757', 'The public listing identifies Bubba Care as a browser-based handover for trusted carers.'],
+      ['Current OBubba App Store listing', 'https://apps.apple.com/app/obubba-baby-sleep-tracker/id6760968757', 'The public listing identifies Bubba Care as a browser-based handover for trusted carers.'],
     ],
     faqs: [
       ['Does a grandparent need to download OBubba?', 'No. The parent uses OBubba to create a Bubba Care session, then the trusted grandparent opens its private link in a browser without installing the app or creating a login.'],
@@ -883,7 +883,7 @@ const TOPIC_PAGES = [
     description: "OBubba explains its learning timeline: log real moments for days 1–3, personal guidance begins around day four, and the sleep picture gets clearer across roughly twelve complete nights.",
     heroImage: '/obubba-loading.png',
     heroEyebrow: 'A clear answer before you log',
-    appStoreUrl: 'https://apps.apple.com/gb/app/obubba-baby-sleep-tracker/id6760968757',
+    appStoreUrl: 'https://apps.apple.com/app/obubba-baby-sleep-tracker/id6760968757',
     playStoreUrl: 'https://play.google.com/store/apps/details?id=com.obubba.app&referrer=utm_source%3Downed_search%26utm_medium%3Dseo%26utm_campaign%3Dfrom_bump_to_baby_auto%26utm_content%3Dauto_20260815_day_four_night_twelve_timeline',
     answerHeading: 'When does OBubba start becoming personal?',
     aiAnswer: "Personal guidance in OBubba begins around day four, after the app has seen enough of your baby's real days. A clearer sleep picture forms across roughly twelve complete logged nights. Those timings describe how the app learns, not when a baby will sleep differently. Suggested timings remain guides and baby cues come first.",

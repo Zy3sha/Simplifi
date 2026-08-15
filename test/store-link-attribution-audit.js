@@ -5,6 +5,7 @@ const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
 const CAMPAIGN = 'from_bump_to_baby_auto';
+const APPLE_APP_ID = '6760968757';
 
 function decodedHtml(file) {
   return fs.readFileSync(file, 'utf8').replaceAll('&amp;', '&');
@@ -13,6 +14,22 @@ function decodedHtml(file) {
 function hrefs(html, host) {
   const pattern = new RegExp(`href=["'](https://${host.replaceAll('.', '\\.')}/[^"']+)["']`, 'g');
   return [...html.matchAll(pattern)].map((match) => match[1]);
+}
+
+function auditAppleLinks(page, html, failures) {
+  const appLinks = hrefs(html, 'apps.apple.com')
+    .filter((link) => new URL(link).pathname.endsWith(`/id${APPLE_APP_ID}`));
+  if (!appLinks.length) failures.push(`${page}: no OBubba App Store CTA found`);
+
+  for (const link of appLinks) {
+    const url = new URL(link);
+    if (/^\/[a-z]{2}\//i.test(url.pathname)) {
+      failures.push(`${page}: App Store URL forces a country storefront (${url.pathname})`);
+    }
+    if (url.searchParams.has('ct') && !url.searchParams.has('pt')) {
+      failures.push(`${page}: Apple campaign token has no provider token`);
+    }
+  }
 }
 
 const renderer = fs.readFileSync(path.join(ROOT, 'tools', 'render-seo.mjs'), 'utf8');
@@ -67,12 +84,12 @@ for (const page of pages) {
     }
   }
 
-  for (const link of hrefs(html, 'apps.apple.com')) {
-    const url = new URL(link);
-    if (url.searchParams.has('ct') && !url.searchParams.has('pt')) {
-      failures.push(`${page}: Apple campaign token has no provider token`);
-    }
-  }
+  auditAppleLinks(page, html, failures);
+}
+
+
+for (const page of ['index.html', 'blog/index.html', 'obubba-visual-identity.html', 'referral.html']) {
+  auditAppleLinks(page, decodedHtml(path.join(ROOT, page)), failures);
 }
 
 const referralPage = 'referral.html';
