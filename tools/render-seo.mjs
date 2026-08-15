@@ -334,21 +334,57 @@ const TOPIC_PAGES = [
   },
   {
     slug: 'preterm-baby-tracker',
-    keyword: 'preterm baby tracker',
-    title: 'Preterm Baby Tracker App - OBubba',
-    h1: 'Preterm baby support with careful tracking and clear handovers.',
-    description: 'OBubba helps parents of preterm and premature babies track feeds, sleep, nappies, growth, medicine notes, milestones and care handovers.',
+    keyword: 'corrected age baby tracker',
+    title: 'Corrected Age Baby Tracker & Calculator | OBubba',
+    h1: 'Corrected age without changing the birthday.',
+    description: 'Calculate a premature baby’s corrected age privately, then see how OBubba keeps birth date, original due date, milestones, growth context and care records together.',
     heroImage: '/obubba-thinking.png',
-    aiAnswer: 'OBubba keeps feeds, sleep, nappies, growth, medicine notes, milestones and carer handovers together, with corrected-age context for preterm babies. It does not replace professional care.',
+    answerHeading: 'What is corrected age?',
+    aiAnswer: 'Corrected age, also called adjusted age, is chronological age minus the time a baby was born early. OBubba stores the real birth date and original due date separately, then uses corrected-age context for age-driven guidance and growth records when applicable. It does not replace neonatal or medical care.',
+    sectionHeading: 'Keep both dates. Let the context adjust.',
+    sectionLede: 'Parents should not have to create a second baby profile or replace the real birthday with the due date. OBubba keeps the chronological record intact and uses the original due date as separate corrected-age context.',
     features: [
-      ['Care details together', 'Keep feeds, nappies, sleep, growth, medicine notes and milestones in one place.'],
-      ['Preterm-friendly context', 'Track the details parents often need to explain clearly to family, carers or health professionals.'],
-      ['Reports and sharing', 'Use summaries and Bubba Care handovers so important context is not lost.'],
+      ['Two dates, one baby record', 'Keep the actual birth date and original due date separately instead of creating a duplicate profile or using a false birthday.'],
+      ['Corrected-age context', 'OBubba uses corrected age for age-driven guidance, milestone context and supported growth views when its correction rules apply.'],
+      ['Everyday care stays together', 'Feeds, sleep, nappies, medicine notes, growth, milestones and family handovers stay on the same baby record.'],
     ],
+    correctedAgeCalculator: true,
+    guideTitle: 'Set up corrected age in OBubba',
+    guideIntro: 'You need the actual date of birth and the original estimated due date. OBubba keeps both rather than overwriting one with the other.',
+    guideEyebrow: 'Keep the dates honest',
+    guideSteps: [
+      ['Enter the real birth date', 'During baby setup, use the date your baby was actually born. This remains the chronological record.'],
+      ['Choose Born early or premature', 'Turn on the born-early option, then add the original estimated due date. OBubba validates that it comes after the birth date.'],
+      ['Use one continuous record', 'Log feeds, sleep, nappies, growth, medicine and milestones normally. Corrected-age context is applied where the current app uses age-driven guidance.'],
+      ['Share context, not a second profile', 'Use Partner Sync for another parent on the live record or Bubba Care for a private trusted-carer handover.'],
+    ],
+    boundariesTitle: 'A date calculation is context, not an assessment',
+    boundaries: [
+      'The calculator below is a simple calendar calculation. It does not assess development, growth or health.',
+      'Nothing entered into the calculator is sent, collected or saved by this page.',
+      'Different appointments, screening tools or care decisions may use dates differently. Follow the method given by your neonatal team, health visitor, GP or paediatric professional.',
+      'OBubba keeps the actual birth date and original due date separately; it does not ask a parent to disguise the due date as the birthday.',
+      'The whole app is unlocked during pregnancy and through corrected age week 8. Current plan options apply after the early-free phase.',
+    ],
+    evidenceIntro: 'Current parents are still asking for milestone apps that understand corrected age, and some describe workarounds such as changing the birthday or creating two profiles. NHS and CDC resources confirm corrected-age context is used for premature babies’ developmental milestones.',
+    evidence: [
+      ['NHS neonatal development guidance', 'https://www.wuth.nhs.uk/maternity-services/going-home-advice-from-neonatal-unit/development/', 'Wirral University Teaching Hospital explains corrected age with a premature-baby milestone example and advises families not to compare directly with a full-term newborn.'],
+      ['CDC Milestone Tracker', 'https://www.cdc.gov/act-early/milestones-app/index.html', 'The CDC states that its milestone checklists adjust for prematurity using corrected age and that milestone tools do not replace developmental screening.'],
+      ['Current parent request for preemie milestone apps', 'https://www.reddit.com/r/NICUParents/comments/1v7dlvg/milestonedevelopment_apps_for_preemies/', 'A July 2026 parent thread asks for an app that takes corrected age into account and describes due-date and duplicate-profile workarounds.'],
+    ],
+    relatedEyebrow: 'One record from dates to daily care',
+    relatedHeading: 'Corrected age belongs beside the real baby day.',
+    relatedBody: 'The original due date supplies age context; it does not replace the real timeline. OBubba keeps feeds, sleep, nappies, growth, milestones and shared care on that same baby record.',
     faqs: [
-      ['Can OBubba help parents of preterm babies?', 'Yes. OBubba can help parents of preterm or premature babies keep care logs, growth context, medicine notes and handovers organised.'],
-      ['Is OBubba medical advice for preterm babies?', 'No. OBubba is a tracking and sharing tool. Parents should follow their neonatal team, midwife, doctor or health visitor for medical advice.'],
+      ['How do I calculate corrected age?', 'Subtract the amount of time a baby was born early from chronological age. Equivalently, count from the original due date to the date you want to view. The calculator on this page performs that calendar calculation.'],
+      ['Does OBubba replace the birth date with the due date?', 'No. OBubba stores the actual birth date and original due date separately, then applies corrected-age context where supported.'],
+      ['Where does OBubba use corrected age?', 'The current app uses corrected-age context for age-driven guidance, milestone context and supported growth views when its correction rules apply. Everyday care logs remain on the same real baby record.'],
+      ['Is this medical or developmental advice?', 'No. The calculator and OBubba are tracking and context tools. Follow the method and advice given by your neonatal team, health visitor, GP or paediatric professional.'],
     ],
+    ctaHeading: 'Keep corrected age and everyday care together',
+    ctaBody: 'Download OBubba, enter the real birth date and original due date, then keep feeds, sleep, nappies, growth, milestones and shared care on one baby record.',
+    ctaLabel: 'Track with corrected-age context',
+    playStoreUrl: 'https://play.google.com/store/apps/details?id=com.obubba.app&referrer=utm_source%3Downed_search%26utm_medium%3Dseo%26utm_campaign%3Dfrom_bump_to_baby_auto%26utm_content%3Dauto_20260815_corrected_age_calculator',
   },
   {
     slug: 'baby-nap-tracker',
@@ -2044,10 +2080,94 @@ function renderTopicPage(topic) {
             <p>${escapeHtml(answer)}</p>
           </details>`).join('\n');
 
+  const calculatorSection = topic.correctedAgeCalculator ? `
+    <section class="section">
+      <div class="section-inner narrow">
+        <style>
+          .age-calculator { padding: clamp(22px, 4vw, 36px); border: 1px solid var(--line); border-radius: 12px; background: #fff; box-shadow: var(--shadow); }
+          .age-calculator h2 { margin-bottom: 12px; }
+          .age-calculator > p:not(.eyebrow) { color: var(--muted); font-size: 17px; line-height: 1.6; }
+          .age-calculator-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin: 24px 0 18px; }
+          .age-calculator label { display: grid; gap: 7px; color: var(--ink); font-weight: 800; }
+          .age-calculator input { width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink); font: inherit; }
+          .age-result { margin-top: 20px; padding: 20px; border-radius: 10px; background: var(--paper); border: 1px solid var(--line); }
+          .age-result[hidden] { display: none; }
+          .age-result strong { display: block; margin-bottom: 7px; font-size: 22px; }
+          .age-result p { margin: 6px 0; }
+          .age-privacy { margin-top: 14px; font-size: 14px !important; }
+          @media (max-width: 720px) { .age-calculator-grid { grid-template-columns: 1fr; } }
+        </style>
+        <div class="age-calculator" aria-labelledby="corrected-age-heading">
+          <p class="eyebrow">Private calendar tool</p>
+          <h2 id="corrected-age-heading">Corrected age calculator</h2>
+          <p>Use the real birth date and original estimated due date. This gives a calendar estimate for the date you choose.</p>
+          <form id="corrected-age-form">
+            <div class="age-calculator-grid">
+              <label>Actual birth date<input id="corrected-age-birth" type="date" required></label>
+              <label>Original due date<input id="corrected-age-due" type="date" required></label>
+              <label>Age on date<input id="corrected-age-on" type="date" required></label>
+            </div>
+            <button class="button" type="submit">Calculate corrected age</button>
+          </form>
+          <div class="age-result" id="corrected-age-result" role="status" aria-live="polite" hidden></div>
+          <p class="age-privacy">Nothing entered here is sent, collected or saved by this page. This is a simple calendar calculation, not medical or developmental advice.</p>
+        </div>
+        <script>
+        (() => {
+          const form = document.getElementById('corrected-age-form');
+          const birth = document.getElementById('corrected-age-birth');
+          const due = document.getElementById('corrected-age-due');
+          const on = document.getElementById('corrected-age-on');
+          const result = document.getElementById('corrected-age-result');
+          const now = new Date();
+          on.value = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, '0'), String(now.getDate()).padStart(2, '0')].join('-');
+          const dayNumber = (value) => {
+            const parts = value.split('-').map(Number);
+            return Date.UTC(parts[0], parts[1] - 1, parts[2]) / 86400000;
+          };
+          const span = (days) => {
+            const weeks = Math.floor(days / 7);
+            const remainder = days % 7;
+            return weeks + ' week' + (weeks === 1 ? '' : 's') + ' and ' + remainder + ' day' + (remainder === 1 ? '' : 's');
+          };
+          form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const b = dayNumber(birth.value);
+            const d = dayNumber(due.value);
+            const o = dayNumber(on.value);
+            result.hidden = false;
+            if (![b, d, o].every(Number.isFinite)) {
+              result.innerHTML = '<strong>Check the dates</strong><p>Please enter all three dates.</p>';
+              return;
+            }
+            if (d <= b) {
+              result.innerHTML = '<strong>Check the due date</strong><p>For a born-early calculation, the original due date must be after the actual birth date.</p>';
+              return;
+            }
+            if (o < b) {
+              result.innerHTML = '<strong>Check the “age on” date</strong><p>It cannot be before the actual birth date.</p>';
+              return;
+            }
+            const chronologicalDays = o - b;
+            const earlyDays = d - b;
+            const correctedDays = o - d;
+            const chronological = span(chronologicalDays);
+            const early = span(earlyDays);
+            if (correctedDays < 0) {
+              result.innerHTML = '<strong>Not yet at the original due date</strong><p>Chronological age: ' + chronological + '.</p><p>Born early by: ' + early + '.</p><p>The original due date is in ' + span(Math.abs(correctedDays)) + '. Corrected age begins at zero on that date.</p>';
+              return;
+            }
+            result.innerHTML = '<strong>Corrected age: ' + span(correctedDays) + '</strong><p>Chronological age: ' + chronological + '.</p><p>Born early by: ' + early + '.</p><p>Use the date method recommended by your neonatal or paediatric professional for individual care decisions.</p>';
+          });
+        })();
+        </script>
+      </div>
+    </section>` : '';
+
   const guideSection = topic.guideSteps?.length ? `
     <section class="section">
       <div class="section-inner">
-        <p class="eyebrow">Set up the shared record</p>
+        <p class="eyebrow">${escapeHtml(topic.guideEyebrow || 'Set up the shared record')}</p>
         <h2>${escapeHtml(topic.guideTitle)}</h2>
         <p class="section-lede">${escapeHtml(topic.guideIntro)}</p>
         <div class="grid">
@@ -2077,7 +2197,7 @@ function renderTopicPage(topic) {
       <div class="section-inner narrow">
         <p class="eyebrow">Why this guide exists</p>
         <h2>Current parent questions and product evidence</h2>
-        <p class="section-lede">Parents repeatedly ask how two phones can stay on the same baby record, while others warn that tracking can become another source of pressure. This guide answers both needs and uses the current OBubba product flow.</p>
+        <p class="section-lede">${escapeHtml(topic.evidenceIntro || 'Parents repeatedly ask how two phones can stay on the same baby record, while others warn that tracking can become another source of pressure. This guide answers both needs and uses the current OBubba product flow.')}</p>
         <ul>
           ${topic.evidence.map(([label, href, description]) => `<li><a href="${escapeAttr(href)}">${escapeHtml(label)}</a> — ${escapeHtml(description)}</li>`).join('\n          ')}
         </ul>
@@ -2141,6 +2261,7 @@ function renderTopicPage(topic) {
         </div>
       </div>
     </section>
+${calculatorSection}
 ${guideSection}
 ${boundariesSection}
 ${screenshotSection}
@@ -2148,9 +2269,9 @@ ${screenshotSection}
       <div class="section-inner feature-split">
         <img src="/obubba-happy.png" alt="OBubba parenting app for ${escapeAttr(topic.keyword)}" width="430" height="430" loading="lazy"/>
         <div>
-          <p class="eyebrow">Choose the right sharing mode</p>
-          <h2>${escapeHtml(topic.guideSteps?.length ? 'Partner Sync for parents. Bubba Care for other trusted carers.' : 'From search query to OBubba download.')}</h2>
-          <p class="section-lede">${escapeHtml(topic.guideSteps?.length ? 'Use Partner Sync when another parent will use OBubba and contribute to the same live baby record. Use Bubba Care when the OBubba parent wants to create a private browser handover for a trusted carer.' : `This page gives search engines and AI systems a clear page about OBubba for ${topic.keyword}. It also links the topic to the wider OBubba promise: baby tracking, parenting rhythm, reports and Bubba Care handovers.`)}</p>
+          <p class="eyebrow">${escapeHtml(topic.relatedEyebrow || 'Choose the right sharing mode')}</p>
+          <h2>${escapeHtml(topic.relatedHeading || (topic.guideSteps?.length ? 'Partner Sync for parents. Bubba Care for other trusted carers.' : 'From search query to OBubba download.'))}</h2>
+          <p class="section-lede">${escapeHtml(topic.relatedBody || (topic.guideSteps?.length ? 'Use Partner Sync when another parent will use OBubba and contribute to the same live baby record. Use Bubba Care when the OBubba parent wants to create a private browser handover for a trusted carer.' : `This page gives search engines and AI systems a clear page about OBubba for ${topic.keyword}. It also links the topic to the wider OBubba promise: baby tracking, parenting rhythm, reports and Bubba Care handovers.`))}</p>
           <div class="tags">${guideTagLinks(relatedLinks)}</div>
         </div>
       </div>
