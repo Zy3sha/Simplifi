@@ -75,10 +75,34 @@ for (const page of pages) {
   }
 }
 
+const referralPage = 'referral.html';
+const referralLinks = hrefs(decodedHtml(path.join(ROOT, referralPage)), 'play.google.com');
+if (referralLinks.length !== 1) {
+  failures.push(`${referralPage}: expected one Google Play CTA, found ${referralLinks.length}`);
+} else {
+  const url = new URL(referralLinks[0]);
+  const referrer = new URLSearchParams(url.searchParams.get('referrer') || '');
+  const expected = {
+    utm_source: 'product_referral',
+    utm_medium: 'share_card',
+    utm_campaign: CAMPAIGN,
+    utm_content: 'referral_landing',
+  };
+  if (url.searchParams.get('id') !== 'com.obubba.app') {
+    failures.push(`${referralPage}: unexpected package`);
+  }
+  for (const [key, value] of Object.entries(expected)) {
+    if (referrer.get(key) !== value) failures.push(`${referralPage}: ${key} is not ${value}`);
+  }
+  if (referrer.has('code') || referrer.has('referral_code')) {
+    failures.push(`${referralPage}: friend code must not enter store attribution`);
+  }
+}
+
 if (failures.length) {
   console.error(`Store attribution audit failed (${failures.length}):`);
   failures.forEach((failure) => console.error(`- ${failure}`));
   process.exit(1);
 }
 
-console.log(`Store attribution audit passed: ${pages.length} generated acquisition pages, ${contentByPage.size} unique content IDs.`);
+console.log(`Store attribution audit passed: ${pages.length} generated acquisition pages, ${contentByPage.size} unique content IDs, and the privacy-bounded referral CTA.`);
