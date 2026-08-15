@@ -2683,6 +2683,90 @@ function renderPost(post, posts = []) {
     intro: 'Keep exploring the OBubba guides parents use around feeds, sleep, nappies, routines and care handovers.',
     links: relatedPosts,
   });
+  const handoverTool = post.slug === 'baby-care-handover-template-grandparents-nursery' ? `
+      <style>
+      .handover-tool {
+        margin: 0 0 44px;
+        padding: clamp(22px, 4vw, 36px);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: white;
+        box-shadow: var(--shadow);
+      }
+      .handover-tool h2 { margin-bottom: 12px; }
+      .handover-tool > p:not(.eyebrow):not(.handover-status) { color: var(--muted); font-size: 17px; line-height: 1.6; }
+      .handover-tool textarea {
+        width: 100%; min-height: 320px; margin-top: 14px; padding: 18px; resize: vertical;
+        border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink);
+        font: 600 16px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      .handover-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+      .handover-actions button { cursor: pointer; }
+      .handover-status { min-height: 24px; margin: 10px 0 0; color: var(--mint); font-size: 15px; font-weight: 800; }
+      @media print {
+        .site-nav, .article-header, .handover-actions, .handover-status, .cta-band, footer, .related-guides { display: none !important; }
+        .section { padding: 0; }
+        .article { width: 100%; }
+        .handover-tool { box-shadow: none; border: 0; margin: 0; padding: 0; }
+        .handover-tool textarea { min-height: 620px; border: 1px solid #999; background: white; }
+      }
+      </style>
+      <section class="handover-tool" aria-labelledby="handover-tool-heading">
+        <p class="eyebrow">Copyable family template</p>
+        <h2 id="handover-tool-heading">The short baby handover</h2>
+        <p>Keep only the lines your family needs. Nothing typed here is collected or saved by this page.</p>
+        <textarea id="handover-template" aria-label="Copyable baby handover template" rows="11">Baby handover
+
+Last feed: [time + useful detail]
+Last nappy, if tracking: [time + wet/dirty]
+Recent sleep: [last sleep + wake time]
+Medicine, if relevant: [exact name + amount + time from existing instructions]
+What helped: [one familiar settling detail]
+Open question: [one thing still to notice or decide]
+
+If baby seems unwell or you are worried, contact the appropriate health professional rather than relying on this note.</textarea>
+        <div class="handover-actions">
+          <button class="button" type="button" id="copy-handover">Copy the handover</button>
+          <button class="button secondary" type="button" id="share-handover">Share this checklist</button>
+          <button class="button secondary" type="button" id="print-handover">Print</button>
+        </div>
+        <p class="handover-status" id="handover-status" role="status" aria-live="polite"></p>
+      </section>
+      <script>
+      (() => {
+        const field = document.getElementById('handover-template');
+        const status = document.getElementById('handover-status');
+        const setStatus = (message) => { status.textContent = message; };
+        const copyText = async () => {
+          try {
+            await navigator.clipboard.writeText(field.value);
+            setStatus('Handover copied.');
+          } catch (_error) {
+            field.focus();
+            field.select();
+            setStatus('The handover is selected. Use your device copy command.');
+          }
+        };
+        document.getElementById('copy-handover').addEventListener('click', copyText);
+        document.getElementById('share-handover').addEventListener('click', async () => {
+          if (navigator.share) {
+            try {
+              await navigator.share({
+                title: 'Baby care handover checklist',
+                text: field.value,
+                url: window.location.href,
+              });
+              setStatus('Share sheet opened.');
+              return;
+            } catch (error) {
+              if (error && error.name === 'AbortError') return;
+            }
+          }
+          await copyText();
+        });
+        document.getElementById('print-handover').addEventListener('click', () => window.print());
+      })();
+      </script>` : '';
 
   const body = `
   <main id="main">
@@ -2697,7 +2781,7 @@ function renderPost(post, posts = []) {
         ${tags ? `<div class="tags">${tags}</div>` : ''}
       </div>
     </header>
-    <article class="section rich-text article">
+    <article class="section rich-text article">${handoverTool ? `\n      ${handoverTool}` : ''}
       ${articleHtml}
       ${relatedGuides}
       <div class="cta-band" style="margin-top: 44px;">
