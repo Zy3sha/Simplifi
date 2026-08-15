@@ -167,7 +167,7 @@
   </url>
   <url>
     <loc>https://obubba.com/blog/</loc>
-    <lastmod>2026-08-12</lastmod>
+    <lastmod>2026-08-15</lastmod>
     <priority>0.8</priority>
   </url>
   <url>
@@ -179,6 +179,11 @@
     <loc>https://obubba.com/terms.html</loc>
     <lastmod>2026-08-12</lastmod>
     <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://obubba.com/blog/what-to-track-newborn-without-overtracking.html</loc>
+    <lastmod>2026-08-15</lastmod>
+    <priority>0.75</priority>
   </url>
   <url>
     <loc>https://obubba.com/blog/baby-waking-early-4am-morning.html</loc>
