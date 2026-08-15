@@ -6,7 +6,9 @@
     "shell": "firebase functions:shell",
     "start": "npm run shell",
     "deploy": "firebase deploy --only functions",
-    "logs": "firebase functions:log"
+    "logs": "firebase functions:log",
+    "grant:extension": "node scripts/grant-premium-extension.js",
+    "count:store-premium": "node scripts/count-store-premium.js"
   },
   "engines": {
     "node": "22"

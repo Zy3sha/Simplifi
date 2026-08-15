@@ -39,3 +39,8 @@ backups/
 # Local duplicate files created by Finder/Xcode copy operations
 android/app/src/main/res/xml/config [0-9]*.xml
 ios/App/App/config [0-9]*.xml
+
+# Cloud Functions deps (installed per codebase, never committed)
+functions/node_modules/
+functions-subs/node_modules/
+functions-clock/node_modules/
