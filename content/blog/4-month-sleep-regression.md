@@ -50,6 +50,6 @@ A few short nights are normal; weeks of escalating chaos with no settling can po
 
 ## How OBubba helps you through it
 
-This is exactly the moment [OBubba](https://obubba.com) was built for. Its sleep engine watches your real logs and **flags when a regression or developmental leap is likely** — so a brutal fortnight reads as "this is normal, and temporary," not "I'm doing something wrong." It also keeps your nap and bedtime timing dialled in *while* the regression plays out, and offers gentle, data-led settling guidance — like a sleep consultant quietly reading your nights. See our [baby sleep consultant app](/baby-sleep-consultant-app) page for how it works.
+This is exactly the kind of moment [OBubba](https://obubba.com) can help families record. It keeps naps, night wakes, feeds and recent routine changes together so you can review the pattern without treating a guide as a diagnosis or a guarantee. See our [sleep guidance and tracking](/baby-sleep-consultant-app) page for how it works.
 
 The 4-month regression is hard, but it's a sign your baby is exactly where they should be. Keep it gentle, keep it consistent, and you'll both come out the other side.

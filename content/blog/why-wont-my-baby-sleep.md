@@ -43,6 +43,6 @@ Nine times out of ten, the answer is **timing** — the wake window or bedtime i
 
 The frustrating truth is that the reason changes as your baby grows. What worked last month stops working; the "right" wake window drifts; a leap arrives uninvited. Reading it correctly, night after night, on no sleep, is genuinely hard.
 
-That's why we built [OBubba](https://obubba.com). Instead of leaving you to guess, OBubba's sleep engine reads your real logs and **tells you *why* your baby isn't sleeping** — overtired, undertired, false start, regression, hunger, day-sleep surplus — and what to change tonight. It learns *your* baby's patterns and predicts the next nap and bedtime, like a sleep consultant in your pocket, never prescriptive and always kind. See how on our [baby sleep consultant app](/baby-sleep-consultant-app) page.
+That's why we built [OBubba](https://obubba.com). OBubba brings logged naps, night wakes, feeds and wake windows into one picture, helping you notice possible patterns and plan the next part of the day. Guidance is not a diagnosis or a replacement for personalised medical or professional advice. See how on our [sleep guidance and tracking](/baby-sleep-consultant-app) page.
 
 You're not doing anything wrong. Your baby just can't tell you what's off yet — and finding the *why* is the whole game.
