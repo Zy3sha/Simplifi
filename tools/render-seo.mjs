@@ -15,6 +15,16 @@ const SITE = {
   ogImage: '/og-image.png',
 };
 
+function attributedPlayStoreUrl(contentId) {
+  const referrer = new URLSearchParams({
+    utm_source: 'owned_search',
+    utm_medium: 'seo',
+    utm_campaign: 'from_bump_to_baby_auto',
+    utm_content: contentId,
+  });
+  return `${SITE.playStoreUrl}&referrer=${encodeURIComponent(referrer.toString())}`;
+}
+
 const IMAGE_LICENSE_PATH = '/obubba-visual-identity.html#image-licensing';
 const IMAGE_CREDIT_TEXT = 'OBubba';
 const IMAGE_COPYRIGHT_NOTICE = 'Copyright 2026 OBubba. All rights reserved.';
@@ -2126,7 +2136,7 @@ function topicSchema(topic) {
 
 function renderTopicPage(topic) {
   const topicAppStoreUrl = topic.appStoreUrl || SITE.appStoreUrl;
-  const topicPlayStoreUrl = topic.playStoreUrl || SITE.playStoreUrl;
+  const topicPlayStoreUrl = topic.playStoreUrl || attributedPlayStoreUrl(`auto_20260816_owned_${topic.slug}`);
   const featurePanels = topic.features.map(([heading, text]) => `
           <article class="panel">
             <div class="kicker">${escapeHtml(topic.keyword)}</div>
@@ -2375,6 +2385,7 @@ ${genericTryFaq}
 function renderSeoPage() {
   const title = 'How to Choose a Baby Tracker App - OBubba';
   const description = 'A feature-based guide to OBubba for feeds, breastfeeding, sleep, naps, nappies, weaning, growth, milestones and shared care.';
+  const playStoreUrl = attributedPlayStoreUrl('auto_20260816_owned_best_baby_tracker');
 
   const topicLinks = TOPIC_PAGES.map((topic) => `<a class="tag" href="${topic.urlPath}">${escapeHtml(topic.keyword)}</a>`).join('');
 
@@ -2387,7 +2398,7 @@ function renderSeoPage() {
         <p>OBubba keeps feeds, sleep, naps, nappies, growth and milestones together, then offers optional timing guides, summaries and handovers based on the moments a family records.</p>
         <div class="hero-actions" aria-label="Download OBubba">
           <a class="button store" href="${SITE.appStoreUrl}">Download for iPhone</a>
-          <a class="button secondary store" href="${SITE.playStoreUrl}">Get it on Android</a>
+          <a class="button secondary store" href="${playStoreUrl}">Get it on Android</a>
         </div>
       </div>
     </section>
@@ -2577,7 +2588,7 @@ function renderSeoPage() {
         <p>OBubba is free to download and start using on iPhone and Android. Current premium access and early-free eligibility are shown in the app.</p>
         <div class="hero-actions">
           <a class="button store" href="${SITE.appStoreUrl}">Download for iPhone</a>
-          <a class="button secondary store" href="${SITE.playStoreUrl}">Get it on Android</a>
+          <a class="button secondary store" href="${playStoreUrl}">Get it on Android</a>
         </div>
       </div>
     </section>
@@ -2855,7 +2866,7 @@ function renderPost(post, posts = []) {
   const isMinimumUsefulLog = post.slug === 'what-to-track-newborn-without-overtracking';
   const postPlayStoreUrl = isMinimumUsefulLog
     ? `${SITE.playStoreUrl}&referrer=utm_source%3Downed_search%26utm_medium%3Dseo%26utm_campaign%3Dfrom_bump_to_baby_auto%26utm_content%3Dauto_20260815_minimum_useful_log_builder`
-    : SITE.playStoreUrl;
+    : attributedPlayStoreUrl(`auto_20260816_owned_blog_${post.slug}`);
   const readingMinutes = Math.max(4, Math.ceil(post.body.trim().split(/\s+/).length / 220));
   const articleHtml = markdownToHtml(post.body);
   const tags = post.tags.slice(0, 5).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join('');
