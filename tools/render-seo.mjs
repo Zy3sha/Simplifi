@@ -2823,7 +2823,7 @@ function renderPost(post, posts = []) {
   const description = post.description || SITE.description;
   const isMinimumUsefulLog = post.slug === 'what-to-track-newborn-without-overtracking';
   const postPlayStoreUrl = isMinimumUsefulLog
-    ? `${SITE.playStoreUrl}&referrer=utm_source%3Downed_search%26utm_medium%3Dseo%26utm_campaign%3Dfrom_bump_to_baby_auto%26utm_content%3Dauto_20260815_minimum_useful_record`
+    ? `${SITE.playStoreUrl}&referrer=utm_source%3Downed_search%26utm_medium%3Dseo%26utm_campaign%3Dfrom_bump_to_baby_auto%26utm_content%3Dauto_20260815_minimum_useful_log_builder`
     : SITE.playStoreUrl;
   const readingMinutes = Math.max(4, Math.ceil(post.body.trim().split(/\s+/).length / 220));
   const articleHtml = markdownToHtml(post.body);
