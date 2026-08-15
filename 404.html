@@ -3,6 +3,16 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+  <script>
+    // GitHub Pages serves this file for every unknown path. Current OBubba share
+    // cards use /r/OB-XXXXXXXX, so preserve that code and move the parent onto a
+    // real 200-status landing page instead of silently dropping referral context.
+    (function () {
+      var match = window.location.pathname.match(/^\/r\/(OB-[23456789ABCDEFGHJKMNPQRSTUVWXYZ]{8})\/?$/i);
+      if (!match) return;
+      window.location.replace('/referral.html?code=' + encodeURIComponent(match[1].toUpperCase()));
+    })();
+  </script>
   <title>OBubba | Baby Sleep, Feed and Rhythm Tracker</title>
   <meta name="description" content="Download OBubba, the mum-built baby tracker and parent support app for feeds, breastfeeding, sleep, naps, nappies, weaning, Partner Sync and Bubba Care handovers."/>
   <link rel="canonical" href="https://obubba.com/"/>
