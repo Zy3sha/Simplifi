@@ -74,7 +74,7 @@ These ranges are starting points, not strict rules. By focusing on wake windows,
 
 This is where we come in. We are not a digital drill sergeant. We are a **companion**.
 
-OBubba is a parenting assistant app designed to take the guesswork out of your day. We use an **intelligent tracking system** that learns your baby's unique rhythm.
+OBubba is a parenting assistant app that organises the moments a family chooses to record and can offer timing guides from recent patterns.
 
 When you log a sleep or a feed, the app is not just storing data, it is learning. It looks for patterns. It starts to predict when that next nap might be coming, based on *your* baby, not a generic chart from 1995.
 

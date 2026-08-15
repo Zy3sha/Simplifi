@@ -44,7 +44,7 @@ Instead of a fixed schedule, look for sleep windows. These are the moments when 
 - Pulling at ears or rubbing eyes.
 - Becoming unusually quiet or clinging more than usual.
 
-By tracking these moments in the [OBubba app](https://obubba.com), you start to see patterns emerge. Our intelligent system learns your baby's rhythm, gently, and helps you predict when those sleep windows are approaching. It takes the guesswork out of the day, allowing you to stop watching the clock and start watching your baby.
+By recording the moments that matter in the [OBubba app](https://obubba.com), you can review patterns across recent days. OBubba can offer timing guides from those logs, but the suggestions are not guarantees and should sit alongside your baby's cues.
 
 ![Sun and moon symbols representing a baby's natural rhythm](https://cdn.marblism.com/9tBrdTqRWPp.webp)
 
@@ -115,7 +115,7 @@ Our app does not give you a list of chores. It gives you a **companion** that he
 
 Sleep deprivation is incredibly hard. It colours every part of life, from your mood to your relationships. But remember: this is a season, not a forever.
 
-By choosing a gentle approach, you are investing in your baby's emotional security and your own peace of mind. You are teaching them that sleep is a safe place to go, and that you will always be there if they need you.
+A gentle approach can mean making changes gradually while continuing to respond in the way that fits your family. No single settling method guarantees emotional or sleep outcomes, and it is reasonable to pause or seek qualified support when something does not feel right.
 
 Take it one night at a time. Be gentle with your baby, and even gentler with yourself.
 

@@ -33,7 +33,7 @@ A useful pattern: the **first window of the day is usually the shortest**, and t
 
 ## Why wake windows matter more than the clock
 
-Newborn sleep isn't run by the clock; it's run by sleep pressure and an immature body clock. Watching the window rather than a fixed timetable is what stops the two most common nap problems:
+Newborn sleep is not governed by a fixed clock timetable. Watching recent awake time alongside the baby's cues can provide context for two common nap questions:
 
 - **Overtired:** awake too long, cortisol rises, and a wired, over-stimulated baby actually finds it *harder* to fall and stay asleep. Classic signs: fighting the nap, then a short catnap, then an early-morning wake.
 - **Undertired:** put down before enough sleep pressure has built — lots of babbling, rolling, and "playing" in the cot, or a bedtime that turns into a 45-minute party.
@@ -51,7 +51,7 @@ If you consistently see late cues, nudge the window 10–15 minutes earlier. If 
 
 Two babies the same age can have wake windows 30–45 minutes apart, and the same baby's window shifts around growth spurts, [developmental leaps and sleep regressions](/blog/4-month-sleep-regression.html), teething, and illness. This is exactly why a printed chart can only get you so far.
 
-It's also the problem [OBubba](https://obubba.com) was built to solve. Instead of handing you a generic number, OBubba's sleep engine **learns the wake windows that actually produce *your* baby's longest, calmest naps**, then predicts the next nap and bedtime from your real logs — adjusting as your baby grows. It's the difference between guessing and knowing. You can see how it works on our [wake window tracker](/baby-wake-window-tracker) and [baby sleep tracker](/baby-sleep-tracker) pages.
+[OBubba](https://obubba.com) can organise logged awake time, naps, feeds and night sleep and offer timing guides as the pattern changes. Those guides cannot guarantee a longer or calmer nap or establish why a sleep changed. See our [wake window tracker](/baby-wake-window-tracker) and [baby sleep tracker](/baby-sleep-tracker) pages.
 
 ## Frequently asked questions
 

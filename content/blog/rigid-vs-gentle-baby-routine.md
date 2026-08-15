@@ -55,7 +55,7 @@ Think of a routine as "anchors" in your day. A consistent bedtime sequence — p
 
 We might live in a world of instant gratification, but infant development is a slow, beautiful process. Your baby's internal clock (the circadian rhythm) takes months to mature.
 
-Guidelines from the **WHO** and **NHS** consistently remind us that babies thrive on consistency. Predictability helps lower their stress levels. When a baby knows that a feed follows a wake-up, they feel safe. This sense of security is the foundation of healthy brain development and secure attachment.
+Some families find that a familiar order of events makes handovers and wind-downs easier. That does not mean a routine determines stress, brain development or attachment, and it should remain flexible around feeding cues, illness, growth and the baby's changing needs.
 
 However, we must always stay aligned with **AAP safe sleep standards**. This means regardless of your routine, your baby should always sleep on their back, on a flat, firm surface, in a cot free of blankets or toys. Safety is the one area where we *are* rigid. 💛
 

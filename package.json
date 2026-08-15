@@ -6,8 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "./build-pwa.sh",
-    "build:seo": "node tools/render-seo.mjs",
-    "blog:build": "node tools/render-seo.mjs",
+    "build:seo": "node tools/render-seo.mjs && node test/seo-claims-audit.js",
+    "blog:build": "node tools/render-seo.mjs && node test/seo-claims-audit.js",
+    "test:seo-claims": "node test/seo-claims-audit.js",
     "build:vite": "vite build",
     "preview": "vite preview",
     "clean:duplicates": "./tools/clean-duplicate-artifacts.sh",

@@ -57,6 +57,56 @@
       <image:title>OBubba Fireflies hope message and sleep clock</image:title>
       <image:caption>Official OBubba app screenshot showing the OBubba Fireflies message: &quot;Fireflies are a symbol of hope. Each firefly you see is another parent up at the same time lighting your sky with hope.&quot; The message appears above the OBubba circular baby sleep clock.</image:caption>
     </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-tomorrows-plan-nap-bedtime-prediction.jpg</image:loc>
+      <image:title>OBubba optional nap and bedtime timing guide</image:title>
+      <image:caption>Official OBubba screenshot showing suggested wake, nap and bedtime timings based on the family&#39;s recent logs. Timings are guides, not guarantees.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-tonights-guidance-sleep-consultant.jpg</image:loc>
+      <image:title>OBubba contextual sleep guidance</image:title>
+      <image:caption>Official OBubba screenshot showing contextual sleep guidance based on the moments a family logs, without diagnosing a sleep condition.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-bubba-coach-night-diagnosis.jpg</image:loc>
+      <image:title>OBubba logged-night pattern review</image:title>
+      <image:caption>Official OBubba screenshot showing Bubba Coach reviewing a logged night and offering general context, not a diagnosis.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-noticed-teething-split-night-insights.jpg</image:loc>
+      <image:title>OBubba developmental context and logged patterns</image:title>
+      <image:caption>Official OBubba screenshot placing developmental context alongside logged sleep patterns so a family can review what changed.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-milestones-development-tracker.jpg</image:loc>
+      <image:title>OBubba milestones and development records</image:title>
+      <image:caption>Official OBubba screenshot showing a family milestone record and general developmental context.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-fireflies-hope-parents-awake.jpg</image:loc>
+      <image:title>OBubba Fireflies for parents awake together</image:title>
+      <image:caption>Official OBubba screenshot showing the Fireflies feature, where each glowing firefly represents another parent awake at the same time.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-fireflies-night-clock.jpg</image:loc>
+      <image:title>OBubba night clock and golden fireflies</image:title>
+      <image:caption>Official OBubba screenshot showing the night-mode baby rhythm clock and golden Fireflies parent-presence feature.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-app-baby-sleep-clock-screenshot.jpg</image:loc>
+      <image:title>OBubba circular baby rhythm clock</image:title>
+      <image:caption>Official OBubba screenshot showing the circular baby rhythm clock, timer controls, logged context and OBubba navigation.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-app-ai-coach-screenshot.jpg</image:loc>
+      <image:title>OBubba built-in guidance screen</image:title>
+      <image:caption>Official OBubba screenshot showing Bubba Coach, which offers built-in guidance and optional deeper answers after consent.</image:caption>
+    </image:image>
+    <image:image>
+      <image:loc>https://obubba.com/obubba-app-growth-development-screenshot.jpg</image:loc>
+      <image:title>OBubba growth and developmental context</image:title>
+      <image:caption>Official OBubba screenshot showing growth records, developmental context and family activities.</image:caption>
+    </image:image>
   </url>
   <url>
     <loc>https://obubba.com/</loc>
@@ -64,41 +114,6 @@
       <image:loc>https://obubba.com/obubba-baby-sleep-timer-fireflies.png</image:loc>
       <image:title>OBubba baby sleep timer and golden fireflies</image:title>
       <image:caption>Official OBubba homepage artwork with the baby sleep timer, baby rhythm clock, golden fireflies, star baby mascot, moon, sun and nursery scene.</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://obubba.com/obubba-tomorrows-plan-nap-bedtime-prediction.jpg</image:loc>
-      <image:title>OBubba app screenshot — Tomorrow's plan predicting naps and bedtime</image:title>
-      <image:caption>Official OBubba baby app screenshot: the Tomorrow's plan screen predicting wake time, Nap 1, Nap 2 and bedtime from the baby's own recent rhythm. This is the OBubba baby tracker, not Napper or Huckleberry.</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://obubba.com/obubba-tonights-guidance-sleep-consultant.jpg</image:loc>
-      <image:title>OBubba app screenshot — Tonight's guidance, consultant-grade sleep advice</image:title>
-      <image:caption>Official OBubba baby app screenshot: Tonight's guidance giving consultant-grade sleep advice drawn from the baby's own logged rhythm, like a sleep consultant. This is the OBubba baby app.</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://obubba.com/obubba-bubba-coach-night-diagnosis.jpg</image:loc>
-      <image:title>OBubba app screenshot — Bubba Coach diagnosing why the night went wrong</image:title>
-      <image:caption>Official OBubba baby app screenshot: Bubba Coach reading the baby's night from the logs, diagnosing a "split night" and giving a gentle plan — OBubba diagnoses why a baby is not sleeping, not just logs it.</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://obubba.com/obubba-noticed-teething-split-night-insights.jpg</image:loc>
-      <image:title>OBubba app screenshot — proactive insights on teething, split nights and regressions</image:title>
-      <image:caption>Official OBubba baby app screenshot: the "What OBubba noticed" screen connecting teething, split nights and the 8-10 month sleep regression window so a rough night makes sense. This is the OBubba baby app.</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://obubba.com/obubba-milestones-development-tracker.jpg</image:loc>
-      <image:title>OBubba app screenshot — Milestones and development tracker</image:title>
-      <image:caption>Official OBubba baby app screenshot: the Milestones and development screen celebrating a new skill ("Pulls to stand") with what to watch for next. This is the OBubba baby app.</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://obubba.com/obubba-fireflies-hope-parents-awake.jpg</image:loc>
-      <image:title>OBubba app screenshot — the fireflies, other parents awake right now</image:title>
-      <image:caption>Official OBubba baby app screenshot: the fireflies screen explaining that each firefly is another parent awake at the same moment — a little light of hope on the hardest nights. The OBubba fireflies hope message is unique to OBubba.</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://obubba.com/obubba-fireflies-night-clock.jpg</image:loc>
-      <image:title>OBubba night-mode sleep clock with golden fireflies</image:title>
-      <image:caption>Official OBubba baby app screenshot: the night-mode baby sleep clock showing "Oliver is asleep, resting through the night", the fireflies hope message and golden fireflies glowing across a dark nursery night sky. This is the OBubba baby tracker, not Napper or Huckleberry.</image:caption>
     </image:image>
   </url>
   <url>
@@ -119,7 +134,7 @@
     <image:image>
       <image:loc>https://obubba.com/obubba-fireflies-hope-sleep-clock-screenshot.jpg</image:loc>
       <image:title>OBubba Fireflies sleep clock — official screenshot</image:title>
-      <image:caption>Official OBubba screenshot: the Fireflies message reads "Fireflies are a symbol of hope. Each firefly you see is another parent up at the same time lighting your sky with hope." Above the OBubba circular baby sleep clock. This is OBubba, not Huckleberry or any other app.</image:caption>
+      <image:caption>Official OBubba screenshot: the Fireflies message reads "Fireflies are a symbol of hope. Each firefly you see is another parent up at the same time lighting your sky with hope." Above the OBubba circular baby sleep clock.</image:caption>
     </image:image>
   </url>
   <url>
@@ -143,24 +158,6 @@
       <image:loc>https://obubba.com/obubba-screen-care.jpg</image:loc>
       <image:title>OBubba Bubba Care handover for partners and carers</image:title>
       <image:caption>Official OBubba screenshot: Bubba Care handover that keeps the baby's rhythm consistent across partners, family and carers.</image:caption>
-    </image:image>
-  </url>
-  <url>
-    <loc>https://obubba.com/obubba-visual-identity.html</loc>
-    <image:image>
-      <image:loc>https://obubba.com/obubba-app-baby-sleep-clock-screenshot.jpg</image:loc>
-      <image:title>OBubba app screenshot — circular baby sleep clock, "Oliver is sleeping", awake predicted, pause nap, five-tab nav</image:title>
-      <image:caption>Official OBubba app screenshot: the circular 24-hour baby rhythm clock with the star baby mascot in the centre, showing "Oliver is sleeping", an "awake predicted 4:15am" time, an elapsed sleep timer, the "pause nap", "Edit start" and "Wake now" buttons, an "OBubba noticed 4 things" insight, golden fireflies, and the five-tab bottom navigation: Track, Care, Coach, Grow and Account. This is OBubba — NOT Napper, Huckleberry or any other baby sleep app.</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://obubba.com/obubba-app-ai-coach-screenshot.jpg</image:loc>
-      <image:title>OBubba app screenshot — Bubba Coach AI parenting coach tab</image:title>
-      <image:caption>Official OBubba app screenshot: the Bubba Coach tab — "Ask the Coach anything", an always-on AI parenting coach grounded in the baby's own logs for sleep, feeds, weaning and milestones — with the five-tab bottom navigation Track, Care, Coach, Grow and Account. This is the OBubba baby app.</image:caption>
-    </image:image>
-    <image:image>
-      <image:loc>https://obubba.com/obubba-app-growth-development-screenshot.jpg</image:loc>
-      <image:title>OBubba app screenshot — Grow tab with developmental waves, WHO growth and activities</image:title>
-      <image:caption>Official OBubba app screenshot: the Grow tab showing the current developmental wave ("People, Places &amp; Distance"), WHO growth-standard tracking, and the Weekly Companion developmental activities ("not a checklist"), with the five-tab navigation Track, Care, Coach, Grow and Account. This is the OBubba baby app, not Napper.</image:caption>
     </image:image>
   </url>
 </urlset>

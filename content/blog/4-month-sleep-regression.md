@@ -1,9 +1,9 @@
 ---
-title: "The 4-Month Sleep Regression: Why It Happens and How to Get Through It"
+title: "Changing Sleep Around Four Months: A Calm Pattern Guide"
 slug: 4-month-sleep-regression
-description: "What the 4-month sleep regression really is, the signs to look for, how long it lasts, and gentle, practical ways to get your baby (and you) through it."
+description: "A calm guide to reviewing sleep changes around four months without treating a general pattern as an individual diagnosis."
 date: 2026-06-22
-updated: 2026-06-22
+updated: 2026-08-15
 author: OBubba
 tags: 4 month sleep regression, four month sleep regression, baby sleep regression, baby waking at night, baby sleep tracker, gentle sleep, OBubba
 heroImage: /obubba-happy.png
@@ -11,7 +11,7 @@ heroImage: /obubba-happy.png
 
 ![A tired parent comforting a baby at night](/obubba-happy.png)
 
-Your baby was sleeping beautifully. Then, seemingly overnight, the naps got short, bedtime got hard, and the nights filled with wake-ups that no amount of rocking seems to fix. If this is you, take a breath: this is almost certainly the **4-month sleep regression**, and it is one of the most normal — and most exhausting — milestones in the first year.
+Your baby was sleeping beautifully. Then, seemingly overnight, the naps got short, bedtime got hard, and the nights filled with wake-ups that no amount of rocking seems to settle. Families often call this the **4-month sleep regression**, but a general pattern cannot establish why an individual baby's sleep changed.
 
 Here is the part nobody tells you, and it's strangely reassuring: it isn't really a *regression* at all. It's a **progression**.
 
@@ -37,7 +37,7 @@ For most babies, the rough patch lasts around **2–4 weeks** while they adjust.
 
 You don't need to "sleep train" your way through this. A few calm, consistent shifts make the biggest difference:
 
-- **Watch wake windows.** At this age, ~2–2.5 hours awake is typical. Overtiredness makes the regression dramatically worse — see our [wake windows by age](/blog/wake-windows-by-age.html) guide.
+- **Watch your baby's cues and recent awake time.** Published ranges are rough orientation, not a diagnosis or a timetable. See our [wake windows by age](/blog/wake-windows-by-age.html) guide.
 - **A short, predictable wind-down.** The same few cues each time (dim lights, nappy, sleeping bag, a quiet feed or song) tell the maturing brain what comes next.
 - **A dark, cool, boring sleep space.** White or pink noise can soften that between-cycle surfacing.
 - **Offer a chance to resettle.** When your baby stirs, pause a moment before rushing in — sometimes they find their own way back down. Respond if they need you; you're always the safe base.
