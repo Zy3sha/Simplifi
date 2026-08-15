@@ -17,6 +17,18 @@ Start with the question the record needs to answer. In the early days, that may 
 
 Your midwife, health visitor, paediatrician or GP may ask you to record specific information. Follow their individual advice when they do. A general tracking guide cannot replace professional or medical guidance.
 
+The private builder above turns that principle into a short copyable or printable record. It does not send, save or analyse what you select or type.
+
+## Why this guide stays deliberately small
+
+Recent parent conversations show both sides of tracking. Some families say a shared record makes tired handovers easier; others say logging every detail became another task or source of pressure. The useful answer is not “track everything” or “track nothing”. It is to keep the smallest record that answers a real question for this family today.
+
+- In a [March 2026 NewParents discussion](https://www.reddit.com/r/NewParents/comments/1rxg3m7/what_do_you_actually_track_for_your_newborn/), parents discussed shared logging during feeds and overnight handovers.
+- In a [June 2026 NewParents discussion](https://www.reddit.com/r/NewParents/comments/1twvtlj/when_did_you_stop_tracking_everything/), parents described simplifying or stopping categories when detailed logging no longer helped.
+- In a [February 2026 NewParents discussion](https://www.reddit.com/r/NewParents/comments/1rbmesz/new_parents_how_are_you_tracking_everything/), the repeated need was remembering feeds, nappies and sleep without making tracking itself the main job.
+
+These are first-person experiences, not clinical evidence or endorsements of OBubba.
+
 ## What can be useful to track
 
 ### Feeds
@@ -83,6 +95,4 @@ Keep the information that gives something back. Let the rest go.
 
 This guide is published by OBubba, so the product reference here is first-party rather than independent advice. OBubba lets invited partners use one live baby record and gives families tools for feeds, sleep, nappies, medicine and care handovers. You choose which moments are useful to record; the goal is one shared picture, not a perfect log.
 
-[Download OBubba for iPhone](https://apps.apple.com/gb/app/obubba-baby-sleep-tracker/id6760968757) or [get OBubba on Android](https://play.google.com/store/apps/details?id=com.obubba.app&referrer=utm_source%3Downed_search%26utm_medium%3Dseo%26utm_campaign%3Dfrom_bump_to_baby_auto%26utm_content%3Dauto_20260815_minimum_useful_record).
-
-Start with one real moment.
+If you want the same idea in a shared family record, the store links below open OBubba. Start with the next real moment; there is no need to recreate a perfect day.

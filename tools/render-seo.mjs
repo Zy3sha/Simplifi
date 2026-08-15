@@ -2821,6 +2821,10 @@ function renderBlogIndex(posts) {
 function renderPost(post, posts = []) {
   const title = `${post.title} | OBubba`;
   const description = post.description || SITE.description;
+  const isMinimumUsefulLog = post.slug === 'what-to-track-newborn-without-overtracking';
+  const postPlayStoreUrl = isMinimumUsefulLog
+    ? `${SITE.playStoreUrl}&referrer=utm_source%3Downed_search%26utm_medium%3Dseo%26utm_campaign%3Dfrom_bump_to_baby_auto%26utm_content%3Dauto_20260815_minimum_useful_record`
+    : SITE.playStoreUrl;
   const readingMinutes = Math.max(4, Math.ceil(post.body.trim().split(/\s+/).length / 220));
   const articleHtml = markdownToHtml(post.body);
   const tags = post.tags.slice(0, 5).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join('');
@@ -2918,6 +2922,168 @@ If baby seems unwell or you are worried, contact the appropriate health professi
       })();
       </script>` : '';
 
+  const minimumUsefulLogTool = post.slug === 'what-to-track-newborn-without-overtracking' ? `
+      <style>
+      .minimum-log-tool {
+        margin: 0 0 44px;
+        padding: clamp(22px, 4vw, 36px);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: white;
+        box-shadow: var(--shadow);
+      }
+      .minimum-log-tool h2 { margin-bottom: 12px; }
+      .minimum-log-tool > p:not(.eyebrow):not(.minimum-log-status) { color: var(--muted); font-size: 17px; line-height: 1.65; }
+      .minimum-log-options {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        padding: 0;
+        margin: 22px 0 0;
+        border: 0;
+      }
+      .minimum-log-options legend {
+        grid-column: 1 / -1;
+        margin-bottom: 2px;
+        color: var(--ink);
+        font-size: 16px;
+        font-weight: 900;
+      }
+      .minimum-log-option {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        min-height: 72px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--paper);
+        cursor: pointer;
+        transition: border-color 160ms ease, background-color 160ms ease, transform 120ms ease-out;
+      }
+      .minimum-log-option:active { transform: scale(0.98); }
+      .minimum-log-option:has(input:checked) { border-color: var(--mint); background: #edf6f2; }
+      .minimum-log-option input { width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--mint); flex: 0 0 auto; }
+      .minimum-log-option strong { display: block; color: var(--ink); }
+      .minimum-log-option span { display: block; margin-top: 4px; color: var(--muted); font-size: 14px; line-height: 1.45; }
+      .minimum-log-output {
+        width: 100%; min-height: 300px; margin-top: 18px; padding: 18px; resize: vertical;
+        border: 1px solid var(--line); border-radius: 8px; background: #fffdfb; color: var(--ink);
+        font: 600 16px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      .minimum-log-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+      .minimum-log-actions button { cursor: pointer; transition: transform 120ms ease-out; }
+      .minimum-log-actions button:active { transform: scale(0.97); }
+      .minimum-log-status { min-height: 24px; margin: 10px 0 0; color: var(--mint); font-size: 15px; font-weight: 800; }
+      .minimum-log-privacy { padding: 12px 14px; border-left: 4px solid var(--gold); background: #fff9ea; }
+      @media (max-width: 680px) { .minimum-log-options { grid-template-columns: 1fr; } }
+      @media (prefers-reduced-motion: reduce) {
+        .minimum-log-option, .minimum-log-actions button { transition: none; }
+      }
+      @media print {
+        .site-nav, .article-header, .minimum-log-options, .minimum-log-actions, .minimum-log-status, .minimum-log-privacy, .cta-band, footer, .related-guides, .rich-text > :not(.minimum-log-tool) { display: none !important; }
+        .section { padding: 0; }
+        .article { width: 100%; }
+        .minimum-log-tool { box-shadow: none; border: 0; margin: 0; padding: 0; }
+        .minimum-log-output { min-height: 620px; border: 1px solid #777; background: white; }
+      }
+      </style>
+      <section class="minimum-log-tool" aria-labelledby="minimum-log-heading">
+        <p class="eyebrow">Private, no-sign-up tool</p>
+        <h2 id="minimum-log-heading">Build the smallest useful newborn log</h2>
+        <p>Choose only the questions your family currently needs answered. The builder creates a short handover you can copy, share or print.</p>
+        <p class="minimum-log-privacy"><strong>Private by design:</strong> nothing selected or typed here is collected, transmitted or saved by this page.</p>
+        <fieldset class="minimum-log-options">
+          <legend>What would be useful to remember today?</legend>
+          <label class="minimum-log-option">
+            <input type="checkbox" value="feed" checked/>
+            <span><strong>Last useful feed detail</strong><span>Time, side, duration or amount only when it helps.</span></span>
+          </label>
+          <label class="minimum-log-option">
+            <input type="checkbox" value="nappy" checked/>
+            <span><strong>Wet or dirty nappy</strong><span>Keep the count only while someone uses it.</span></span>
+          </label>
+          <label class="minimum-log-option">
+            <input type="checkbox" value="sleep" checked/>
+            <span><strong>Sleep and wake time</strong><span>Useful for the next handover, not a target to pass.</span></span>
+          </label>
+          <label class="minimum-log-option">
+            <input type="checkbox" value="medicine"/>
+            <span><strong>Medicine already given</strong><span>Exact name, dose and time from existing instructions.</span></span>
+          </label>
+          <label class="minimum-log-option">
+            <input type="checkbox" value="handover" checked/>
+            <span><strong>One handover note</strong><span>What helped, what changed or what needs attention next.</span></span>
+          </label>
+          <label class="minimum-log-option">
+            <input type="checkbox" value="professional"/>
+            <span><strong>Professionally requested record</strong><span>Add only the detail your care team asked you to monitor.</span></span>
+          </label>
+        </fieldset>
+        <textarea class="minimum-log-output" id="minimum-log-output" aria-label="Your smallest useful newborn log" rows="12"></textarea>
+        <div class="minimum-log-actions">
+          <button class="button" type="button" id="copy-minimum-log">Copy this log</button>
+          <button class="button secondary" type="button" id="share-minimum-log">Share</button>
+          <button class="button secondary" type="button" id="print-minimum-log">Print</button>
+          <button class="button secondary" type="button" id="clear-minimum-log">Start smaller</button>
+        </div>
+        <p class="minimum-log-status" id="minimum-log-status" role="status" aria-live="polite"></p>
+      </section>
+      <script>
+      (() => {
+        const output = document.getElementById('minimum-log-output');
+        const options = Array.from(document.querySelectorAll('.minimum-log-options input[type="checkbox"]'));
+        const status = document.getElementById('minimum-log-status');
+        const lines = {
+          feed: 'Last feed: [time + only the detail you need]',
+          nappy: 'Last nappy, if still useful: [time + wet/dirty]',
+          sleep: 'Recent sleep: [asleep/wake time + current state]',
+          medicine: 'Medicine already given: [exact name + dose + time from existing instructions]',
+          handover: 'One handover note: [what helped, changed or needs attention next]',
+          professional: 'Care-team record: [only the detail they asked you to monitor]',
+        };
+        const setStatus = (message) => { status.textContent = message; };
+        const build = () => {
+          const chosen = options.filter((option) => option.checked).map((option) => lines[option.value]);
+          output.value = chosen.length
+            ? ['Today’s smallest useful newborn log', '', ...chosen, '', 'If baby seems unwell or you are worried, contact the appropriate health professional rather than relying on this log.'].join('\\n')
+            : 'No categories selected. If nobody needs an answer from a log today, you may not need one.';
+          setStatus('');
+        };
+        const copyText = async () => {
+          try {
+            await navigator.clipboard.writeText(output.value);
+            setStatus('Log copied.');
+          } catch (_error) {
+            output.focus();
+            output.select();
+            setStatus('The log is selected. Use your device copy command.');
+          }
+        };
+        options.forEach((option) => option.addEventListener('change', build));
+        document.getElementById('copy-minimum-log').addEventListener('click', copyText);
+        document.getElementById('share-minimum-log').addEventListener('click', async () => {
+          if (navigator.share) {
+            try {
+              await navigator.share({ title: 'Smallest useful newborn log', text: output.value, url: window.location.href });
+              setStatus('Share sheet opened.');
+              return;
+            } catch (error) {
+              if (error && error.name === 'AbortError') return;
+            }
+          }
+          await copyText();
+        });
+        document.getElementById('print-minimum-log').addEventListener('click', () => window.print());
+        document.getElementById('clear-minimum-log').addEventListener('click', () => {
+          options.forEach((option) => { option.checked = false; });
+          build();
+          output.focus();
+        });
+        build();
+      })();
+      </script>` : '';
+
   const body = `
   <main id="main">
     <header class="article-header">
@@ -2931,15 +3097,15 @@ If baby seems unwell or you are worried, contact the appropriate health professi
         ${tags ? `<div class="tags">${tags}</div>` : ''}
       </div>
     </header>
-    <article class="section rich-text article">${handoverTool ? `\n      ${handoverTool}` : ''}
+    <article class="section rich-text article">${handoverTool ? `\n      ${handoverTool}` : ''}${minimumUsefulLogTool ? `\n      ${minimumUsefulLogTool}` : ''}
       ${articleHtml}
       ${relatedGuides}
       <div class="cta-band" style="margin-top: 44px;">
-        <h2>Ready to try OBubba?</h2>
-        <p>Use OBubba to track feeds, sleep, naps, nappies, growth, milestones and family handovers in one calm baby tracker app.</p>
+        <h2>${isMinimumUsefulLog ? 'Start with the next real moment.' : 'Ready to try OBubba?'}</h2>
+        <p>${isMinimumUsefulLog ? 'Keep feeds, sleep, nappies and handovers in one invited family record without recreating a perfect day.' : 'Use OBubba to track feeds, sleep, naps, nappies, growth, milestones and family handovers in one calm baby tracker app.'}</p>
         <div class="hero-actions">
           <a class="button store" href="${SITE.appStoreUrl}">Download for iPhone</a>
-          <a class="button secondary store" href="${SITE.playStoreUrl}">Get it on Android</a>
+          <a class="button secondary store" href="${escapeAttr(postPlayStoreUrl)}">Get it on Android</a>
         </div>
       </div>
     </article>

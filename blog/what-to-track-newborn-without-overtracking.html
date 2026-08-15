@@ -728,7 +728,7 @@
       <div class="article">
         <div class="article-kicker-row">
           <div class="meta">2026-08-15 / OBubba editorial team</div>
-          <span class="read-time">5 min read</span>
+          <span class="read-time">6 min read</span>
         </div>
         <h1>What Is Worth Tracking With a Newborn — and When to Stop</h1>
         <p>A calm, practical guide to tracking newborn feeds, nappies, medicine and handovers without turning family life into homework.</p>
@@ -736,10 +736,176 @@
       </div>
     </header>
     <article class="section rich-text article">
+
+      <style>
+      .minimum-log-tool {
+        margin: 0 0 44px;
+        padding: clamp(22px, 4vw, 36px);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: white;
+        box-shadow: var(--shadow);
+      }
+      .minimum-log-tool h2 { margin-bottom: 12px; }
+      .minimum-log-tool > p:not(.eyebrow):not(.minimum-log-status) { color: var(--muted); font-size: 17px; line-height: 1.65; }
+      .minimum-log-options {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        padding: 0;
+        margin: 22px 0 0;
+        border: 0;
+      }
+      .minimum-log-options legend {
+        grid-column: 1 / -1;
+        margin-bottom: 2px;
+        color: var(--ink);
+        font-size: 16px;
+        font-weight: 900;
+      }
+      .minimum-log-option {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        min-height: 72px;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--paper);
+        cursor: pointer;
+        transition: border-color 160ms ease, background-color 160ms ease, transform 120ms ease-out;
+      }
+      .minimum-log-option:active { transform: scale(0.98); }
+      .minimum-log-option:has(input:checked) { border-color: var(--mint); background: #edf6f2; }
+      .minimum-log-option input { width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--mint); flex: 0 0 auto; }
+      .minimum-log-option strong { display: block; color: var(--ink); }
+      .minimum-log-option span { display: block; margin-top: 4px; color: var(--muted); font-size: 14px; line-height: 1.45; }
+      .minimum-log-output {
+        width: 100%; min-height: 300px; margin-top: 18px; padding: 18px; resize: vertical;
+        border: 1px solid var(--line); border-radius: 8px; background: #fffdfb; color: var(--ink);
+        font: 600 16px/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      }
+      .minimum-log-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+      .minimum-log-actions button { cursor: pointer; transition: transform 120ms ease-out; }
+      .minimum-log-actions button:active { transform: scale(0.97); }
+      .minimum-log-status { min-height: 24px; margin: 10px 0 0; color: var(--mint); font-size: 15px; font-weight: 800; }
+      .minimum-log-privacy { padding: 12px 14px; border-left: 4px solid var(--gold); background: #fff9ea; }
+      @media (max-width: 680px) { .minimum-log-options { grid-template-columns: 1fr; } }
+      @media (prefers-reduced-motion: reduce) {
+        .minimum-log-option, .minimum-log-actions button { transition: none; }
+      }
+      @media print {
+        .site-nav, .article-header, .minimum-log-options, .minimum-log-actions, .minimum-log-status, .minimum-log-privacy, .cta-band, footer, .related-guides, .rich-text > :not(.minimum-log-tool) { display: none !important; }
+        .section { padding: 0; }
+        .article { width: 100%; }
+        .minimum-log-tool { box-shadow: none; border: 0; margin: 0; padding: 0; }
+        .minimum-log-output { min-height: 620px; border: 1px solid #777; background: white; }
+      }
+      </style>
+      <section class="minimum-log-tool" aria-labelledby="minimum-log-heading">
+        <p class="eyebrow">Private, no-sign-up tool</p>
+        <h2 id="minimum-log-heading">Build the smallest useful newborn log</h2>
+        <p>Choose only the questions your family currently needs answered. The builder creates a short handover you can copy, share or print.</p>
+        <p class="minimum-log-privacy"><strong>Private by design:</strong> nothing selected or typed here is collected, transmitted or saved by this page.</p>
+        <fieldset class="minimum-log-options">
+          <legend>What would be useful to remember today?</legend>
+          <label class="minimum-log-option">
+            <input type="checkbox" value="feed" checked/>
+            <span><strong>Last useful feed detail</strong><span>Time, side, duration or amount only when it helps.</span></span>
+          </label>
+          <label class="minimum-log-option">
+            <input type="checkbox" value="nappy" checked/>
+            <span><strong>Wet or dirty nappy</strong><span>Keep the count only while someone uses it.</span></span>
+          </label>
+          <label class="minimum-log-option">
+            <input type="checkbox" value="sleep" checked/>
+            <span><strong>Sleep and wake time</strong><span>Useful for the next handover, not a target to pass.</span></span>
+          </label>
+          <label class="minimum-log-option">
+            <input type="checkbox" value="medicine"/>
+            <span><strong>Medicine already given</strong><span>Exact name, dose and time from existing instructions.</span></span>
+          </label>
+          <label class="minimum-log-option">
+            <input type="checkbox" value="handover" checked/>
+            <span><strong>One handover note</strong><span>What helped, what changed or what needs attention next.</span></span>
+          </label>
+          <label class="minimum-log-option">
+            <input type="checkbox" value="professional"/>
+            <span><strong>Professionally requested record</strong><span>Add only the detail your care team asked you to monitor.</span></span>
+          </label>
+        </fieldset>
+        <textarea class="minimum-log-output" id="minimum-log-output" aria-label="Your smallest useful newborn log" rows="12"></textarea>
+        <div class="minimum-log-actions">
+          <button class="button" type="button" id="copy-minimum-log">Copy this log</button>
+          <button class="button secondary" type="button" id="share-minimum-log">Share</button>
+          <button class="button secondary" type="button" id="print-minimum-log">Print</button>
+          <button class="button secondary" type="button" id="clear-minimum-log">Start smaller</button>
+        </div>
+        <p class="minimum-log-status" id="minimum-log-status" role="status" aria-live="polite"></p>
+      </section>
+      <script>
+      (() => {
+        const output = document.getElementById('minimum-log-output');
+        const options = Array.from(document.querySelectorAll('.minimum-log-options input[type="checkbox"]'));
+        const status = document.getElementById('minimum-log-status');
+        const lines = {
+          feed: 'Last feed: [time + only the detail you need]',
+          nappy: 'Last nappy, if still useful: [time + wet/dirty]',
+          sleep: 'Recent sleep: [asleep/wake time + current state]',
+          medicine: 'Medicine already given: [exact name + dose + time from existing instructions]',
+          handover: 'One handover note: [what helped, changed or needs attention next]',
+          professional: 'Care-team record: [only the detail they asked you to monitor]',
+        };
+        const setStatus = (message) => { status.textContent = message; };
+        const build = () => {
+          const chosen = options.filter((option) => option.checked).map((option) => lines[option.value]);
+          output.value = chosen.length
+            ? ['Today’s smallest useful newborn log', '', ...chosen, '', 'If baby seems unwell or you are worried, contact the appropriate health professional rather than relying on this log.'].join('\n')
+            : 'No categories selected. If nobody needs an answer from a log today, you may not need one.';
+          setStatus('');
+        };
+        const copyText = async () => {
+          try {
+            await navigator.clipboard.writeText(output.value);
+            setStatus('Log copied.');
+          } catch (_error) {
+            output.focus();
+            output.select();
+            setStatus('The log is selected. Use your device copy command.');
+          }
+        };
+        options.forEach((option) => option.addEventListener('change', build));
+        document.getElementById('copy-minimum-log').addEventListener('click', copyText);
+        document.getElementById('share-minimum-log').addEventListener('click', async () => {
+          if (navigator.share) {
+            try {
+              await navigator.share({ title: 'Smallest useful newborn log', text: output.value, url: window.location.href });
+              setStatus('Share sheet opened.');
+              return;
+            } catch (error) {
+              if (error && error.name === 'AbortError') return;
+            }
+          }
+          await copyText();
+        });
+        document.getElementById('print-minimum-log').addEventListener('click', () => window.print());
+        document.getElementById('clear-minimum-log').addEventListener('click', () => {
+          options.forEach((option) => { option.checked = false; });
+          build();
+          output.focus();
+        });
+        build();
+      })();
+      </script>
       <h2>The useful record is the smallest one that gives something back</h2>
 <p>A newborn log should reduce the number of things a tired family has to remember. It should not become a scorecard for the baby or another job for the parent.</p>
 <p>Start with the question the record needs to answer. In the early days, that may be: When was the last feed? Which side did I start on? How many wet nappies have there been? Has this medicine already been given? If nobody needs an answer, that detail may not need to be logged.</p>
 <p>Your midwife, health visitor, paediatrician or GP may ask you to record specific information. Follow their individual advice when they do. A general tracking guide cannot replace professional or medical guidance.</p>
+<p>The private builder above turns that principle into a short copyable or printable record. It does not send, save or analyse what you select or type.</p>
+<h2>Why this guide stays deliberately small</h2>
+<p>Recent parent conversations show both sides of tracking. Some families say a shared record makes tired handovers easier; others say logging every detail became another task or source of pressure. The useful answer is not “track everything” or “track nothing”. It is to keep the smallest record that answers a real question for this family today.</p>
+<ul><li>In a <a href="https://www.reddit.com/r/NewParents/comments/1rxg3m7/what_do_you_actually_track_for_your_newborn/" target="_blank" rel="noopener noreferrer">March 2026 NewParents discussion</a>, parents discussed shared logging during feeds and overnight handovers.</li><li>In a <a href="https://www.reddit.com/r/NewParents/comments/1twvtlj/when_did_you_stop_tracking_everything/" target="_blank" rel="noopener noreferrer">June 2026 NewParents discussion</a>, parents described simplifying or stopping categories when detailed logging no longer helped.</li><li>In a <a href="https://www.reddit.com/r/NewParents/comments/1rbmesz/new_parents_how_are_you_tracking_everything/" target="_blank" rel="noopener noreferrer">February 2026 NewParents discussion</a>, the repeated need was remembering feeds, nappies and sleep without making tracking itself the main job.</li></ul>
+<p>These are first-person experiences, not clinical evidence or endorsements of OBubba.</p>
 <h2>What can be useful to track</h2>
 <h3>Feeds</h3>
 <p>A light feed record might include the time and, only when it helps, the breastfeeding side, bottle amount or pumping note. The aim is memory support and a clearer handover, not judging a baby&#39;s appetite against another family&#39;s day.</p>
@@ -769,8 +935,7 @@
 <p>Keep the information that gives something back. Let the rest go.</p>
 <h2>How OBubba approaches it</h2>
 <p>This guide is published by OBubba, so the product reference here is first-party rather than independent advice. OBubba lets invited partners use one live baby record and gives families tools for feeds, sleep, nappies, medicine and care handovers. You choose which moments are useful to record; the goal is one shared picture, not a perfect log.</p>
-<p><a href="https://apps.apple.com/gb/app/obubba-baby-sleep-tracker/id6760968757" target="_blank" rel="noopener noreferrer">Download OBubba for iPhone</a> or <a href="https://play.google.com/store/apps/details?id=com.obubba.app&amp;amp;referrer=utm_source%3Downed_search%26utm_medium%3Dseo%26utm_campaign%3Dfrom_bump_to_baby_auto%26utm_content%3Dauto_20260815_minimum_useful_record" target="_blank" rel="noopener noreferrer">get OBubba on Android</a>.</p>
-<p>Start with one real moment.</p>
+<p>If you want the same idea in a shared family record, the store links below open OBubba. Start with the next real moment; there is no need to recreate a perfect day.</p>
 
       <section class="related-guides" aria-label="Related baby tracking guides">
         <h2>Related baby tracking guides</h2>
@@ -778,11 +943,11 @@
         <div class="tags"><a class="tag" href="/blog/baby-waking-early-4am-morning.html">Why Does My Baby Wake at 4am? A Calm Guide to Early Waking</a><a class="tag" href="/blog/rigid-vs-gentle-baby-routine.html">Rigid vs. Gentle: Does a Baby Routine Still Matter in 2026?</a><a class="tag" href="/blog/4-month-sleep-regression.html">Changing Sleep Around Four Months: A Calm Pattern Guide</a><a class="tag" href="/blog/wake-windows-by-age.html">Wake Windows by Age: The Gentle Chart from Newborn to Toddler</a><a class="tag" href="/blog/why-wont-my-baby-sleep.html">Why Won&#39;t My Baby Sleep? Common Context to Review</a><a class="tag" href="/blog/baby-care-handover-template-grandparents-nursery.html">Baby Care Handover Checklist for Two Carers</a></div>
       </section>
       <div class="cta-band" style="margin-top: 44px;">
-        <h2>Ready to try OBubba?</h2>
-        <p>Use OBubba to track feeds, sleep, naps, nappies, growth, milestones and family handovers in one calm baby tracker app.</p>
+        <h2>Start with the next real moment.</h2>
+        <p>Keep feeds, sleep, nappies and handovers in one invited family record without recreating a perfect day.</p>
         <div class="hero-actions">
           <a class="button store" href="https://apps.apple.com/gb/app/obubba-baby-sleep-tracker/id6760968757">Download for iPhone</a>
-          <a class="button secondary store" href="https://play.google.com/store/apps/details?id=com.obubba.app">Get it on Android</a>
+          <a class="button secondary store" href="https://play.google.com/store/apps/details?id=com.obubba.app&amp;referrer=utm_source%3Downed_search%26utm_medium%3Dseo%26utm_campaign%3Dfrom_bump_to_baby_auto%26utm_content%3Dauto_20260815_minimum_useful_record">Get it on Android</a>
         </div>
       </div>
     </article>
