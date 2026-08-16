@@ -16,6 +16,7 @@
     "test:smart-app-banner": "node test/smart-app-banner-audit.js",
     "test:professional-walkthrough": "node test/professional-walkthrough-audit.js",
     "test:import-migration-page": "node test/import-migration-page-audit.js",
+    "test:honest-review-route": "node test/honest-review-route-audit.js",
     "build:vite": "vite build",
     "preview": "vite preview",
     "clean:duplicates": "./tools/clean-duplicate-artifacts.sh",
