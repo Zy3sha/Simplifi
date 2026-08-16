@@ -790,6 +790,17 @@
       .minimum-log-actions button:active { transform: scale(0.97); }
       .minimum-log-status { min-height: 24px; margin: 10px 0 0; color: var(--mint); font-size: 15px; font-weight: 800; }
       .minimum-log-privacy { padding: 12px 14px; border-left: 4px solid var(--gold); background: #fff9ea; }
+      .returning-family-panel {
+        width: min(720px, 100%);
+        margin-top: 8px;
+        padding: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.08);
+      }
+      .returning-family-panel strong { display: block; margin-bottom: 4px; }
+      .returning-family-panel .hero-actions { margin-top: 14px; }
+      .returning-family-note { margin-top: 12px !important; font-size: 13px; }
       @media (max-width: 680px) { .minimum-log-options { grid-template-columns: 1fr; } }
       @media (prefers-reduced-motion: reduce) {
         .minimum-log-option, .minimum-log-actions button { transition: none; }
@@ -945,6 +956,15 @@
       <div class="cta-band" style="margin-top: 44px;">
         <h2>Start with the next real moment.</h2>
         <p>Keep feeds, sleep, nappies and handovers in one invited family record without recreating a perfect day.</p>
+        <div class="returning-family-panel">
+          <p><strong>Already use OBubba?</strong>Open the exact log you need. No catch-up required.</p>
+          <div class="hero-actions" aria-label="Open an OBubba quick log">
+            <a class="button" href="obubba://?action=log_feed">Log a feed</a>
+            <a class="button secondary" href="obubba://?action=log_sleep">Log sleep</a>
+            <a class="button secondary" href="obubba://?action=log_nappy">Log a nappy</a>
+          </div>
+          <p class="returning-family-note">These links only tell the installed OBubba app which log sheet to open. No baby or care details are placed in the link.</p>
+        </div>
         <div class="hero-actions">
           <a class="button store" href="https://apps.apple.com/app/obubba-baby-sleep-tracker/id6760968757">Download for iPhone</a>
           <a class="button secondary store" href="https://play.google.com/store/apps/details?id=com.obubba.app&amp;referrer=utm_source%3Downed_search%26utm_medium%3Dseo%26utm_campaign%3Dfrom_bump_to_baby_auto%26utm_content%3Dauto_20260815_minimum_useful_log_builder">Get it on Android</a>

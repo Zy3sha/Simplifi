@@ -3085,6 +3085,17 @@ If baby seems unwell or you are worried, contact the appropriate health professi
       .minimum-log-actions button:active { transform: scale(0.97); }
       .minimum-log-status { min-height: 24px; margin: 10px 0 0; color: var(--mint); font-size: 15px; font-weight: 800; }
       .minimum-log-privacy { padding: 12px 14px; border-left: 4px solid var(--gold); background: #fff9ea; }
+      .returning-family-panel {
+        width: min(720px, 100%);
+        margin-top: 8px;
+        padding: 18px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.08);
+      }
+      .returning-family-panel strong { display: block; margin-bottom: 4px; }
+      .returning-family-panel .hero-actions { margin-top: 14px; }
+      .returning-family-note { margin-top: 12px !important; font-size: 13px; }
       @media (max-width: 680px) { .minimum-log-options { grid-template-columns: 1fr; } }
       @media (prefers-reduced-motion: reduce) {
         .minimum-log-option, .minimum-log-actions button { transition: none; }
@@ -3212,6 +3223,15 @@ If baby seems unwell or you are worried, contact the appropriate health professi
       <div class="cta-band" style="margin-top: 44px;">
         <h2>${isMinimumUsefulLog ? 'Start with the next real moment.' : 'Ready to try OBubba?'}</h2>
         <p>${isMinimumUsefulLog ? 'Keep feeds, sleep, nappies and handovers in one invited family record without recreating a perfect day.' : 'Use OBubba to track feeds, sleep, naps, nappies, growth, milestones and family handovers in one calm baby tracker app.'}</p>
+        ${isMinimumUsefulLog ? `<div class="returning-family-panel">
+          <p><strong>Already use OBubba?</strong>Open the exact log you need. No catch-up required.</p>
+          <div class="hero-actions" aria-label="Open an OBubba quick log">
+            <a class="button" href="obubba://?action=log_feed">Log a feed</a>
+            <a class="button secondary" href="obubba://?action=log_sleep">Log sleep</a>
+            <a class="button secondary" href="obubba://?action=log_nappy">Log a nappy</a>
+          </div>
+          <p class="returning-family-note">These links only tell the installed OBubba app which log sheet to open. No baby or care details are placed in the link.</p>
+        </div>` : ''}
         <div class="hero-actions">
           <a class="button store" href="${SITE.appStoreUrl}">Download for iPhone</a>
           <a class="button secondary store" href="${escapeAttr(postPlayStoreUrl)}">Get it on Android</a>
