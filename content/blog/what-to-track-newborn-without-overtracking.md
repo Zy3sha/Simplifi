@@ -3,7 +3,7 @@ title: What Is Worth Tracking With a Newborn — and When to Stop
 slug: what-to-track-newborn-without-overtracking
 description: A calm, practical guide to tracking newborn feeds, nappies, medicine and handovers without turning family life into homework.
 date: 2026-08-15
-updated: 2026-08-15
+updated: 2026-08-16
 author: OBubba editorial team
 tags: what to track newborn, newborn feeding log, newborn nappy tracker, shared baby tracker, baby care handover, newborn tracking without anxiety
 heroImage: /obubba-thinking.png
@@ -19,6 +19,17 @@ Your midwife, health visitor, paediatrician or GP may ask you to record specific
 
 The private builder above turns that principle into a short copyable or printable record. It does not send, save or analyse what you select or type.
 
+## A 30-second tracking reset
+
+If logging has started to feel heavy, do not try to catch up. Pause and choose the one question the next parent or carer genuinely needs answered — perhaps when the last feed ended, whether medicine was already given, or when the baby last slept.
+
+1. Keep only the category that answers that question.
+2. Record the next real moment, not the missing past.
+3. Share the one fact needed for the next handover.
+4. Stop again when the record is no longer helping.
+
+That is enough. A useful record can be one moment long, and you can restart a category whenever circumstances change.
+
 ## Why this guide stays deliberately small
 
 Recent parent conversations show both sides of tracking. Some families say a shared record makes tired handovers easier; others say logging every detail became another task or source of pressure. The useful answer is not “track everything” or “track nothing”. It is to keep the smallest record that answers a real question for this family today.
@@ -26,6 +37,7 @@ Recent parent conversations show both sides of tracking. Some families say a sha
 - In a [March 2026 NewParents discussion](https://www.reddit.com/r/NewParents/comments/1rxg3m7/what_do_you_actually_track_for_your_newborn/), parents discussed shared logging during feeds and overnight handovers.
 - In a [June 2026 NewParents discussion](https://www.reddit.com/r/NewParents/comments/1twvtlj/when_did_you_stop_tracking_everything/), parents described simplifying or stopping categories when detailed logging no longer helped.
 - In a [February 2026 NewParents discussion](https://www.reddit.com/r/NewParents/comments/1rbmesz/new_parents_how_are_you_tracking_everything/), the repeated need was remembering feeds, nappies and sleep without making tracking itself the main job.
+- In a [January 2026 BeyondTheBump discussion](https://www.reddit.com/r/beyondthebump/comments/1qa6f84/i_stopped_tracking_finally/), parents described tracking as useful for partner shifts and last-event memory, while exhaustive logging could become stressful or obsessive.
 
 These are first-person experiences, not clinical evidence or endorsements of OBubba.
 
