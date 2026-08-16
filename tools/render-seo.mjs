@@ -2383,8 +2383,8 @@ ${genericTryFaq}
 }
 
 function renderSeoPage() {
-  const title = 'How to Choose a Baby Tracker App - OBubba';
-  const description = 'A feature-based guide to OBubba for feeds, breastfeeding, sleep, naps, nappies, weaning, growth, milestones and shared care.';
+  const title = 'Baby Tracker App Guide: What to Look For | OBubba';
+  const description = 'Choose a baby tracker for feeds, sleep, nappies, partner sharing, carer handovers and pregnancy-to-newborn continuity.';
   const playStoreUrl = attributedPlayStoreUrl('auto_20260816_owned_best_baby_tracker');
 
   const topicLinks = TOPIC_PAGES.map((topic) => `<a class="tag" href="${topic.urlPath}">${escapeHtml(topic.keyword)}</a>`).join('');
@@ -2394,11 +2394,36 @@ function renderSeoPage() {
     <section class="hero">
       <div class="hero-inner">
         <p class="eyebrow">Choosing a baby tracker app</p>
-        <h1>Look for the records and sharing tools your family will actually use.</h1>
-        <p>OBubba keeps feeds, sleep, naps, nappies, growth and milestones together, then offers optional timing guides, summaries and handovers based on the moments a family records.</p>
+        <h1>Choose a baby tracker for the next real job, not the longest feature list.</h1>
+        <p>At 3am, the useful questions are simple: what happened, what might come next and who needs the handover? Start with the one your family keeps asking.</p>
         <div class="hero-actions" aria-label="Download OBubba">
           <a class="button store" href="${SITE.appStoreUrl}">Download for iPhone</a>
           <a class="button secondary store" href="${playStoreUrl}">Get it on Android</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="section alt">
+      <div class="section-inner">
+        <p class="eyebrow">A 30-second shortlist</p>
+        <h2>Start with the job that keeps repeating.</h2>
+        <p class="section-lede">A tracker earns its place when it removes one recurring piece of tired-memory work. Choose the job first; compare the feature list second.</p>
+        <div class="grid">
+          <article class="panel">
+            <div class="kicker">Track today</div>
+            <h3>Feeds, sleep and nappies</h3>
+            <p>Look for quick entries, useful timers and one timeline that another tired parent can scan without reconstructing the day.</p>
+          </article>
+          <article class="panel">
+            <div class="kicker">Share the next shift</div>
+            <h3>Partners and carers need different access</h3>
+            <p>Check whether a partner can join the live baby record and whether a trusted carer can receive only the handover they need. In OBubba, Partner Sync and the parent-controlled Bubba Care browser link are separate tools.</p>
+          </article>
+          <article class="panel">
+            <div class="kicker">Understand the pattern</div>
+            <h3>Ask when guidance becomes personal</h3>
+            <p>OBubba begins gentle personal guidance around day four and builds a clearer sleep picture around twelve complete nights. Timings remain guides; follow your baby's cues.</p>
+          </article>
         </div>
       </div>
     </section>
@@ -2479,6 +2504,18 @@ function renderSeoPage() {
             <a class="button secondary" href="/llms.txt">View AI facts</a>
           </div>
         </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-inner narrow ai-answer">
+        <p class="eyebrow">A useful boundary</p>
+        <h2>When OBubba is not the right tool.</h2>
+        <ul>
+          <li>If you need diagnosis, treatment or a clinical monitoring record, use qualified medical care rather than a parenting tracker.</li>
+          <li>If you expect personalised timing without recording any real moments, OBubba cannot honestly provide that context immediately.</li>
+          <li>If another adult should not see the baby's record, do not invite them or create a Bubba Care link. Sharing remains parent-controlled.</li>
+        </ul>
       </div>
     </section>
 
