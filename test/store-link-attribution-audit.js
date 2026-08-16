@@ -6,6 +6,7 @@ const path = require('node:path');
 const ROOT = path.resolve(__dirname, '..');
 const CAMPAIGN = 'from_bump_to_baby_auto';
 const APPLE_APP_ID = '6760968757';
+const NON_STORE_ACQUISITION_PAGES = new Set(['for-professionals.html']);
 
 function decodedHtml(file) {
   return fs.readFileSync(file, 'utf8').replaceAll('&amp;', '&');
@@ -52,7 +53,9 @@ for (const page of pages) {
   const file = path.join(ROOT, page);
   const html = decodedHtml(file);
   const playLinks = hrefs(html, 'play.google.com');
-  if (!playLinks.length) failures.push(`${page}: no Google Play CTA found`);
+  if (!playLinks.length && !NON_STORE_ACQUISITION_PAGES.has(page)) {
+    failures.push(`${page}: no Google Play CTA found`);
+  }
 
   for (const link of playLinks) {
     const url = new URL(link);

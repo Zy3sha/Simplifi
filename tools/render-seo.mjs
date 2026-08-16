@@ -595,6 +595,48 @@ const TOPIC_PAGES = [
     ],
   },
   {
+    slug: 'for-professionals',
+    keyword: 'baby tracker for professionals',
+    title: 'OBubba for Baby-Care Professionals | Private Walkthrough',
+    h1: 'See how families use one calmer care record.',
+    description: 'Doulas, antenatal educators, lactation consultants and postnatal practitioners can request a private OBubba product walkthrough with no endorsement expected.',
+    heroImage: '/obubba-celebration.png',
+    heroEyebrow: 'For baby-care professionals and educators',
+    answerHeading: 'A parent-controlled tracker you can review without endorsing it.',
+    aiAnswer: 'OBubba is a parent-controlled pregnancy and baby tracker for feeds, sleep, nappies, growth, milestones, reports and care handovers. A professional walkthrough shows the current product and its boundaries; it does not ask for an endorsement, identifiable family data or clinical use.',
+    sectionHeading: 'A useful review starts with the real boundary.',
+    sectionLede: 'The walkthrough is for professionals who help families choose tools, prepare handovers or organise questions for care conversations. OBubba remains a family coordination aid, not a clinical record or a replacement for individual professional judgement.',
+    features: [
+      ['See the current product', 'Review the live parent experience, current tracking scope, reports, Partner Sync and Bubba Care handovers rather than relying on a marketing claim.'],
+      ['Use a fictional walkthrough', 'No identifiable baby or family data is needed. The founder can demonstrate the product with non-personal example scenarios.'],
+      ['Give honest feedback', 'There is no endorsement expectation. Product-fit concerns, safeguarding questions and reasons not to recommend it are useful feedback too.'],
+    ],
+    boundariesTitle: 'What a walkthrough does — and does not — mean',
+    boundaries: [
+      'A walkthrough is an invitation to inspect the current product, not a request for an endorsement, testimonial or referral.',
+      'OBubba is a parent-controlled memory and coordination aid. It is not a clinical record, diagnostic tool or substitute for personalised professional or medical advice.',
+      'No identifiable family data is required for the walkthrough. Do not send a child’s health record or private care details by email.',
+      'No fee, affiliate arrangement, commercial term or ongoing commitment is implied. Any future commercial discussion would require a separate explicit agreement.',
+    ],
+    relatedEyebrow: 'Review material',
+    relatedHeading: 'Start with the product, its privacy boundary and the questions families actually ask.',
+    relatedBody: 'The short press and podcast brief provides a factual overview. The private walkthrough can then focus on the part most relevant to your work, such as newborn logging, shared care, preterm context or family reports.',
+    faqs: [
+      ['Who can request an OBubba professional walkthrough?', 'Doulas, antenatal educators, lactation consultants, postnatal practitioners, sleep consultants, nursery or childminder networks, parent-community organisers and journalists can request one.'],
+      ['Do I have to recommend or endorse OBubba afterwards?', 'No. There is no endorsement expectation. Honest product-fit and safeguarding feedback is welcome.'],
+      ['Do you need a real family’s data for the demonstration?', 'No. The walkthrough can use fictional, non-personal examples. Please do not email identifiable baby or family care information.'],
+      ['Is OBubba a medical or clinical tool?', 'No. OBubba helps families track and coordinate care. It does not diagnose, provide individual medical advice or replace professional judgement.'],
+    ],
+    hideGenericTryFaq: true,
+    primaryCtaUrl: 'mailto:hello@obubba.com?subject=OBubba%20professional%20walkthrough&body=Hi%20OBubba%2C%0A%0AI%20work%20with%20families%20as%20a%20%5Brole%5D.%20I%27d%20like%20a%20private%20product%20walkthrough%20focused%20on%20%5Btopic%5D.%0A%0AI%20will%20not%20include%20identifiable%20family%20or%20baby%20data.%0A%0ABest%2C%0A%5Bname%5D',
+    primaryCtaLabel: 'Request a private walkthrough',
+    secondaryCtaUrl: '/press/obubba-press-podcast-brief.pdf',
+    secondaryCtaLabel: 'Read the factual brief',
+    ctaEyebrow: 'No endorsement expected',
+    ctaHeading: 'Choose the part of OBubba that matters to your families.',
+    ctaBody: 'Email the founder from your professional or organisation address with your role and the area you want to inspect. Do not include identifiable family or baby data.',
+  },
+  {
     slug: 'baby-tracker-app-uk',
     keyword: 'baby tracker app UK',
     title: 'Baby Tracker App UK - OBubba',
@@ -1947,6 +1989,8 @@ function footer() {
 	        <span aria-hidden="true"> / </span>
 	        <a href="/obubba-visual-identity.html">Brand images</a>
 	        <span aria-hidden="true"> / </span>
+	        <a href="/for-professionals.html">For professionals</a>
+	        <span aria-hidden="true"> / </span>
 	        <a href="/feed.xml">RSS</a>
 	      </div>
     </div>
@@ -2138,6 +2182,11 @@ function topicSchema(topic) {
 function renderTopicPage(topic) {
   const topicAppStoreUrl = topic.appStoreUrl || SITE.appStoreUrl;
   const topicPlayStoreUrl = topic.playStoreUrl || attributedPlayStoreUrl(`auto_20260816_owned_${topic.slug}`);
+  const primaryCtaUrl = topic.primaryCtaUrl || topicAppStoreUrl;
+  const primaryCtaLabel = topic.primaryCtaLabel || 'Download for iPhone';
+  const secondaryCtaUrl = topic.secondaryCtaUrl || topicPlayStoreUrl;
+  const secondaryCtaLabel = topic.secondaryCtaLabel || 'Get it on Android';
+  const actionAriaLabel = topic.actionAriaLabel || (topic.primaryCtaUrl ? 'Professional OBubba resources' : 'Download OBubba');
   const featurePanels = topic.features.map(([heading, text]) => `
           <article class="panel">
             <div class="kicker">${escapeHtml(topic.keyword)}</div>
@@ -2307,9 +2356,9 @@ function renderTopicPage(topic) {
         <p class="eyebrow">${escapeHtml(topic.heroEyebrow || `OBubba for ${topic.keyword} searches`)}</p>
         <h1>${escapeHtml(topic.h1)}</h1>
         <p>${escapeHtml(topic.description)}</p>
-        <div class="hero-actions" aria-label="Download OBubba">
-          <a class="button store" href="${escapeAttr(topicAppStoreUrl)}">Download for iPhone</a>
-          <a class="button secondary store" href="${escapeAttr(topicPlayStoreUrl)}">Get it on Android</a>
+        <div class="hero-actions" aria-label="${escapeAttr(actionAriaLabel)}">
+          <a class="button store" href="${escapeAttr(primaryCtaUrl)}">${escapeHtml(primaryCtaLabel)}</a>
+          <a class="button secondary store" href="${escapeAttr(secondaryCtaUrl)}">${escapeHtml(secondaryCtaLabel)}</a>
         </div>
       </div>
     </section>
@@ -2362,12 +2411,12 @@ ${genericTryFaq}
 
     <section class="section">
       <div class="section-inner cta-band">
-        <p class="eyebrow">Try OBubba</p>
+        <p class="eyebrow">${escapeHtml(topic.ctaEyebrow || 'Try OBubba')}</p>
         <h2>${escapeHtml(topic.ctaHeading || 'The baby tracker app behind this guide.')}</h2>
         <p>${escapeHtml(topic.ctaBody || 'OBubba brings baby sleep, feeds, naps, routines, milestones, carer handovers and family reports into one app.')}</p>
         <div class="hero-actions">
-          <a class="button store" href="${escapeAttr(topicAppStoreUrl)}">${escapeHtml(topic.ctaLabel || 'Download for iPhone')}</a>
-          <a class="button secondary store" href="${escapeAttr(topicPlayStoreUrl)}">Get it on Android</a>
+          <a class="button store" href="${escapeAttr(primaryCtaUrl)}">${escapeHtml(topic.ctaLabel || primaryCtaLabel)}</a>
+          <a class="button secondary store" href="${escapeAttr(secondaryCtaUrl)}">${escapeHtml(secondaryCtaLabel)}</a>
         </div>
       </div>
     </section>

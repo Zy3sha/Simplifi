@@ -14,6 +14,7 @@
     "test:baby-tracker-guide": "node test/baby-tracker-guide-audit.js",
     "test:returning-family-links": "node test/returning-family-deep-link-audit.js",
     "test:smart-app-banner": "node test/smart-app-banner-audit.js",
+    "test:professional-walkthrough": "node test/professional-walkthrough-audit.js",
     "build:vite": "vite build",
     "preview": "vite preview",
     "clean:duplicates": "./tools/clean-duplicate-artifacts.sh",
