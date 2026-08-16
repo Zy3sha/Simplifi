@@ -1961,6 +1961,7 @@ function layout({ title, description, canonicalPath, bodyClass = '', heroImage =
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="apple-itunes-app" content="app-id=6760968757"/>
   <title>${escapeHtml(title)}</title>
   <meta name="description" content="${escapeAttr(description)}"/>
   <meta name="robots" content="index, follow, max-image-preview:large"/>
