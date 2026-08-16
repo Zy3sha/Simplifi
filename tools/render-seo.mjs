@@ -2907,10 +2907,10 @@ function renderPost(post, posts = []) {
         .handover-tool textarea { min-height: 620px; border: 1px solid #999; background: white; }
       }
       </style>
-      <section class="handover-tool" aria-labelledby="handover-tool-heading">
+      <section class="handover-tool" id="five-line-handover" aria-labelledby="handover-tool-heading">
         <p class="eyebrow">Copyable family template</p>
         <h2 id="handover-tool-heading">The short baby handover</h2>
-        <p>Keep only the lines your family needs. Nothing typed here is collected or saved by this page.</p>
+        <p>Keep only the lines your family needs. This page does not collect or save what you type; choosing Share passes the text to your device's share sheet.</p>
         <textarea id="handover-template" aria-label="Copyable baby handover template" rows="11">Baby handover
 
 Last feed: [time + useful detail]
@@ -2924,15 +2924,37 @@ If baby seems unwell or you are worried, contact the appropriate health professi
         <div class="handover-actions">
           <button class="button" type="button" id="copy-handover">Copy the handover</button>
           <button class="button secondary" type="button" id="share-handover">Share this checklist</button>
+          <button class="button secondary" type="button" id="copy-handover-link">Copy free builder link</button>
           <button class="button secondary" type="button" id="print-handover">Print</button>
         </div>
+        <p class="handover-builder-link">Share the blank builder without care details: <a id="handover-builder-link" href="https://obubba.com/blog/baby-care-handover-template-grandparents-nursery.html?utm_source=handover_share&amp;utm_medium=copy_share&amp;utm_campaign=from_bump_to_baby_auto&amp;utm_content=five_line_handover_builder#five-line-handover">open the free five-line handover builder</a>.</p>
         <p class="handover-status" id="handover-status" role="status" aria-live="polite"></p>
       </section>
       <script>
       (() => {
+        const shareUrl = 'https://obubba.com/blog/baby-care-handover-template-grandparents-nursery.html?utm_source=handover_share&utm_medium=copy_share&utm_campaign=from_bump_to_baby_auto&utm_content=five_line_handover_builder#five-line-handover';
         const field = document.getElementById('handover-template');
         const status = document.getElementById('handover-status');
         const setStatus = (message) => { status.textContent = message; };
+        const incoming = new URLSearchParams(window.location.search);
+        if (
+          incoming.get('utm_source') === 'handover_share'
+          && incoming.get('utm_medium') === 'copy_share'
+          && incoming.get('utm_campaign') === 'from_bump_to_baby_auto'
+          && incoming.get('utm_content') === 'five_line_handover_builder'
+        ) {
+          const referrer = new URLSearchParams({
+            utm_source: 'handover_share',
+            utm_medium: 'copy_share',
+            utm_campaign: 'from_bump_to_baby_auto',
+            utm_content: 'five_line_handover_builder_landing',
+          });
+          document.querySelectorAll('a[href*="play.google.com/store/apps/details?id=com.obubba.app"]').forEach((anchor) => {
+            const url = new URL(anchor.href);
+            url.searchParams.set('referrer', referrer.toString());
+            anchor.href = url.toString();
+          });
+        }
         const copyText = async () => {
           try {
             await navigator.clipboard.writeText(field.value);
@@ -2944,13 +2966,21 @@ If baby seems unwell or you are worried, contact the appropriate health professi
           }
         };
         document.getElementById('copy-handover').addEventListener('click', copyText);
+        document.getElementById('copy-handover-link').addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(shareUrl);
+            setStatus('Free builder link copied. No care details were included.');
+          } catch (_error) {
+            setStatus('Use the visible free-builder link above.');
+          }
+        });
         document.getElementById('share-handover').addEventListener('click', async () => {
           if (navigator.share) {
             try {
               await navigator.share({
                 title: 'Baby care handover checklist',
                 text: field.value,
-                url: window.location.href,
+                url: shareUrl,
               });
               setStatus('Share sheet opened.');
               return;

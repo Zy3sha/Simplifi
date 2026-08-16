@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "./build-pwa.sh",
-    "build:seo": "node tools/render-seo.mjs && node test/seo-claims-audit.js && node test/store-link-attribution-audit.js",
-    "blog:build": "node tools/render-seo.mjs && node test/seo-claims-audit.js && node test/store-link-attribution-audit.js",
+    "build:seo": "node tools/render-seo.mjs && node test/seo-claims-audit.js && node test/store-link-attribution-audit.js && node test/handover-share-loop-audit.js",
+    "blog:build": "node tools/render-seo.mjs && node test/seo-claims-audit.js && node test/store-link-attribution-audit.js && node test/handover-share-loop-audit.js",
     "test:seo-claims": "node test/seo-claims-audit.js",
     "test:store-attribution": "node test/store-link-attribution-audit.js",
+    "test:handover-share": "node test/handover-share-loop-audit.js",
     "build:vite": "vite build",
     "preview": "vite preview",
     "clean:duplicates": "./tools/clean-duplicate-artifacts.sh",
