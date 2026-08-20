@@ -3009,8 +3009,16 @@ function renderPost(post, posts = []) {
   const readingMinutes = Math.max(4, Math.ceil(post.body.trim().split(/\s+/).length / 220));
   const articleHtml = markdownToHtml(post.body);
   const tags = post.tags.slice(0, 5).map((tag) => `<span class="tag">${escapeHtml(tag)}</span>`).join('');
-  const relatedPosts = posts
-    .filter((item) => item.urlPath !== post.urlPath)
+  const preferredRelatedSlugs = String(post.related || '')
+    .split(',')
+    .map((slug) => slug.trim())
+    .filter(Boolean);
+  const preferredRelatedPosts = preferredRelatedSlugs
+    .map((slug) => posts.find((item) => item.slug === slug))
+    .filter((item) => item && item.urlPath !== post.urlPath);
+  const fallbackRelatedPosts = posts
+    .filter((item) => item.urlPath !== post.urlPath && !preferredRelatedSlugs.includes(item.slug));
+  const relatedPosts = [...preferredRelatedPosts, ...fallbackRelatedPosts]
     .slice(0, 6)
     .map((item) => ({ href: item.urlPath, label: item.title }));
   const relatedGuides = relatedGuideSection({
