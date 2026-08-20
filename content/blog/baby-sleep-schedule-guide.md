@@ -68,7 +68,7 @@ A wake window is simply the amount of time your baby is awake between sleeps. In
 - **7-9 months:** 2-3.5 hours
 - **10-12 months:** 3-4 hours
 
-These ranges are starting points, not strict rules. By focusing on wake windows, you work *with* your baby's biological drive for sleep rather than fighting against it. You catch the sleepy cues, the eye rubs, the glazed stares, the gentle fussing, before they hit the overtired wall.
+These ranges are starting points, not strict rules. Recent awake time and sleepy cues can provide context, but neither predicts a particular nap or explains a difficult settle. If watching the clock is increasing anxiety, use our [wake-window guide without catch-up logging](/blog/baby-wake-windows-without-stress.html).
 
 ## How OBubba helps you find your rhythm
 

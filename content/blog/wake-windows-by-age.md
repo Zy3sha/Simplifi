@@ -11,7 +11,7 @@ heroImage: /obubba-happy.png
 
 ![A calm, sleepy baby ready for a nap](/obubba-happy.png)
 
-If you have ever stood over the cot wondering *was that too soon, or have I left it too late?* — you are already thinking in wake windows. A **wake window** is simply the stretch of time your baby can happily stay awake between sleeps before tiredness tips into overtiredness. Get it roughly right and naps fall into place. Get it wrong and you meet the two villains of baby sleep: the **overtired** baby who fights sleep and wakes early, and the **undertired** baby who simply isn't ready yet.
+If you have ever stood over the cot wondering *was that too soon, or have I left it too late?* — you are already thinking in wake windows. A **wake window** is simply the stretch of time a baby is awake between sleeps. It can be a planning clue, but it cannot guarantee a nap or explain why settling was difficult.
 
 At [OBubba](https://obubba.com) we are never prescriptive, always kind — so think of the chart below as a starting point, not a rule your baby has agreed to.
 
@@ -29,14 +29,14 @@ These are typical ranges, awake time *including* the wind-down before sleep. You
 - **12–18 months (often dropping to one nap):** ~4–6 hours
 - **18 months–3 years (one nap):** ~5–6 hours before the nap, with a longer stretch before bed
 
-A useful pattern: the **first window of the day is usually the shortest**, and the **last window before bedtime is the longest** — your baby has built up the most sleep pressure by the evening.
+Some families notice shorter awake stretches earlier in the day and longer ones before bedtime, but this is not universal. Treat the chart as orientation and watch the baby in front of you.
 
 ## Why wake windows matter more than the clock
 
 Newborn sleep is not governed by a fixed clock timetable. Watching recent awake time alongside the baby's cues can provide context for two common nap questions:
 
-- **Overtired:** awake too long, cortisol rises, and a wired, over-stimulated baby actually finds it *harder* to fall and stay asleep. Classic signs: fighting the nap, then a short catnap, then an early-morning wake.
-- **Undertired:** put down before enough sleep pressure has built — lots of babbling, rolling, and "playing" in the cot, or a bedtime that turns into a 45-minute party.
+- **A longer-than-usual awake stretch:** some babies may become harder to settle, but fighting a nap or waking early does not prove overtiredness.
+- **A shorter-than-usual awake stretch:** a baby may simply not be ready to sleep yet, though happy cot time or a long settle does not prove one cause.
 
 ## Read your baby, not just the chart
 
@@ -45,7 +45,7 @@ Wake windows are a guide; your baby's **sleepy cues** are the live signal. Aim t
 - **Early cues (go now):** glazed stare, looking away, slowing down, a first yawn, red eyebrows, pulling at ears.
 - **Late cues (slightly overtired):** fussing, arching, frantic movement, hard crying.
 
-If you consistently see late cues, nudge the window 10–15 minutes earlier. If your baby is happily playing well past the "right" time and then settles easily, their window is simply a little longer than the chart — and that's completely normal.
+If you repeatedly see the same pattern, try a small timing change and observe rather than chasing the chart. If the whole process is increasing anxiety, use our [low-pressure wake-window reset](/blog/baby-wake-windows-without-stress.html): skip catch-up logging and record only the next useful moment.
 
 ## Every baby's window is a little different
 
@@ -62,9 +62,9 @@ The time your baby is awake between sleeps, including feeds and the wind-down to
 Yes — count from the moment your baby wakes to the moment they're asleep again.
 
 **My baby's windows don't match the chart. Is something wrong?**
-Almost certainly not. Charts are averages. If your baby settles easily and wakes happy, their window is right *for them*.
+Charts are broad orientation, not a test. Variation is expected, but speak with a health professional if sleep, feeding, breathing, comfort or development worries you.
 
-**How do I fix an overtired baby?**
-Shorten the next wake window slightly, dim and quieten the room, and bring bedtime a touch earlier for a few nights to clear the backlog of lost sleep.
+**What can I try after a difficult settle?**
+Start with comfort and safety. You might try a calmer environment or a small timing adjustment, then observe the next few sleeps rather than assuming one cause.
 
-Sleep should never be a battleground. Watch the window, follow the cues, and let your baby's own rhythm lead — that's the gentlest path to better naps and calmer nights.
+Sleep should never be a battleground. Use the window as one clue, follow the cues and let imperfect days stay imperfect.

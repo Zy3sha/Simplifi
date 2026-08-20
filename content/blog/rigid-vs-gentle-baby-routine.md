@@ -65,9 +65,9 @@ This is where [OBubba](https://obubba.com) comes in. We designed our [parenting 
 
 Most apps tell you what to do. They give you a generic schedule and tell you to follow it. **We don't.**
 
-OBubba **learns your baby's unique rhythm — gently.**
+OBubba organises the moments you choose to log and can surface recent rhythm as enough days are recorded.
 
-By using our [baby sleep tracker](https://obubba.com/baby-sleep-tracker.html) and [feed tracker](https://obubba.com/baby-feed-tracker.html), the app begins to understand your little one's natural patterns. Instead of a rigid "nap time," we help you identify the **ideal window** for sleep.
+By using our [baby sleep tracker](https://obubba.com/baby-sleep-tracker.html) and [feed tracker](https://obubba.com/baby-feed-tracker.html), families can review recent sleep and feeds together. Timing guides are starting points, not appointments or sleep guarantees.
 
 ![A parent sitting in a cozy chair, looking at a smartphone emitting a warm glow, feeling supported by the OBubba app.](https://cdn.marblism.com/WmzGcdcg6yn.webp)
 
@@ -75,7 +75,7 @@ By using our [baby sleep tracker](https://obubba.com/baby-sleep-tracker.html) an
 
 We avoid the term "sweet spot" — it's too prescriptive. Instead, we look for your baby's **natural rhythm**.
 
-By tracking wake windows and sleepy cues, OBubba helps you find that perfect sleep window where your baby is tired enough to fall asleep easily but not so overtired that they go into "meltdown mode."
+By tracking wake windows and sleepy cues, OBubba can help you compare timing with what happened next. It cannot identify a perfect window or guarantee an easier settle.
 
 It's about **optimal timing**, not a fixed timestamp.
 
@@ -87,11 +87,11 @@ In 2026, a routine is a tool for **parental sanity**. It allows you to plan your
 
 A gentle routine allows for:
 
-- **Better Sleep:** Consistent cues lead to easier transitions.
-- **Confidence:** You start to recognise the difference between a "hunger cry" and a "tired cry."
-- **Sanity:** You have a rough idea of how your day will look, which reduces the mental load.
+- **A familiar sequence:** repeated cues can make the next step easier for caregivers to remember.
+- **Shared context:** a recent feed, sleep or nappy is easier to hand over without guessing.
+- **Flexibility:** a rough shape can support planning without turning the day into a timetable.
 
-Our [baby routine tracker](https://obubba.com/baby-routine-tracker.html) is designed to be your companion, not your boss. If you have a busy day out or a visit to the **health visitor**, the app adapts. It doesn't judge you for a missed nap; it simply helps you find the next **ideal window** to get back on track.
+Our [baby routine tracker](https://obubba.com/baby-routine-tracker.html) is designed to be your companion, not your boss. After a busy day or a missed log, there is no need to reconstruct everything. Our [low-pressure tracking reset](/blog/baby-wake-windows-without-stress.html) starts with the next real moment.
 
 ## Practical Steps for a Gentle 2026 Routine
 
