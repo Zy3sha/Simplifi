@@ -3,7 +3,7 @@ title: Baby Care Handover Checklist for Two Carers
 slug: baby-care-handover-template-grandparents-nursery
 description: Copy a short baby handover template for feeds, nappies, sleep, medicine notes and one open question when another parent or carer takes over.
 date: 2026-05-13
-updated: 2026-08-15
+updated: 2026-08-20
 author: OBubba
 tags: baby care handover checklist, newborn handover template, two parent baby tracker, night shift handover, partner baby tracker, Bubba Care
 heroImage: /obubba-thinking.png
@@ -14,6 +14,8 @@ heroImage: /obubba-thinking.png
 A useful baby handover tells the next carer what happened recently, what is still unresolved and where they should look for professional instructions. It does not need to become a complete diary.
 
 Start with the last feed, the last nappy when you are watching output, recent sleep context, medicine details only when relevant, and one open question. If your baby seems unwell or you are worried, contact an appropriate health professional instead of relying on a handover note.
+
+The [practical baby tracker checklist for tired handovers](/blog/baby-tracker-app-checklist-for-new-parents.html) can also help you decide whether a shared record removes work or creates more of it.
 
 ## Copy the short baby handover template
 

@@ -3,7 +3,7 @@ title: Newborn Feeding and Nappy Log
 slug: newborn-feeding-and-nappy-log
 description: A calm guide to tracking newborn feeds, breastfeeding, bottles, wet nappies, dirty nappies, sleep and useful notes without turning parenting into admin.
 date: 2026-05-13
-updated: 2026-05-13
+updated: 2026-08-20
 author: OBubba
 tags: newborn feeding log, newborn nappy log, baby feed tracker, breastfeeding tracker, bottle tracker, newborn tracker, baby daily log
 heroImage: /sleep-baby.png
@@ -16,6 +16,8 @@ In the first weeks, parents are asked a lot of questions: how often is baby feed
 The problem is not that parents are careless. The problem is that newborn care happens in tiny pieces, often overnight, often while recovering, and often while everyone is learning.
 
 A newborn feeding and nappy log gives tired memory somewhere to land.
+
+When you compare apps, check [what a baby tracker should make easier at night](/blog/baby-tracker-app-checklist-for-new-parents.html) before committing to a long list of fields.
 
 ## Useful things to track
 

@@ -3,7 +3,7 @@ title: Best Baby Tracker App for New Parents
 slug: best-baby-tracker-app-for-new-parents
 description: A practical guide to choosing the best baby tracker app for breastfeeding, feeds, sleep, naps, preterm baby support, colic and reflux notes, milestones, reports and family handovers.
 date: 2026-04-30
-updated: 2026-04-30
+updated: 2026-08-20
 author: OBubba
 tags: baby tracker app, parenting app, newborn tracker, breastfeeding tracker, feeding tracker, baby sleep tracker, nap tracker, preterm baby tracker, colic baby support, reflux baby support, milestone tracker
 heroImage: /obubba-happy.png
@@ -14,6 +14,8 @@ heroImage: /obubba-happy.png
 New parents do not need another stressful dashboard. They need a calm place to put the tiny details that are easy to forget: when the last feed happened, how long the nap lasted, whether a nappy was wet, what medicine was given and which milestone is worth remembering.
 
 That is the reason OBubba exists. It is built as a baby tracker app and parenting app in one, so parents can track the day without feeling like they are doing admin for their own baby.
+
+If you are comparing options while tired, use this [3 a.m. baby tracker checklist](/blog/baby-tracker-app-checklist-for-new-parents.html) to test what the next feed, sleep, nappy or handover should actually feel like.
 
 ## What makes OBubba different
 
