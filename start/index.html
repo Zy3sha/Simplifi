@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="robots" content="noindex, follow"/>
+  <meta name="theme-color" content="#071b3a"/>
+  <title>Open OBubba</title>
+  <link rel="icon" type="image/png" href="/obubba-baby-tracker-app-icon-crowned-baby.png"/>
+  <style>
+    :root { color-scheme: light; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    * { box-sizing: border-box; }
+    body {
+      min-height: 100vh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      color: #fff8ed;
+      background: radial-gradient(circle at 50% 15%, #173e72 0, #071b3a 48%, #031126 100%);
+    }
+    main { width: min(100%, 520px); text-align: center; }
+    img { width: 104px; height: 104px; border-radius: 24px; box-shadow: 0 18px 55px rgba(0,0,0,.35); }
+    h1 { margin: 24px 0 10px; font-family: Georgia, serif; font-size: clamp(32px, 8vw, 48px); }
+    p { margin: 0 auto 26px; max-width: 38ch; color: #d8e5f4; font-size: 18px; line-height: 1.55; }
+    .actions { display: grid; gap: 12px; }
+    a {
+      display: block;
+      padding: 15px 20px;
+      border-radius: 999px;
+      color: #071b3a;
+      background: #ffc766;
+      font-weight: 750;
+      text-decoration: none;
+    }
+    a.secondary { color: #fff8ed; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); }
+    small { display: block; margin-top: 22px; color: #a9bdd5; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <main>
+    <img src="/obubba-baby-tracker-app-icon-crowned-baby.png" alt="OBubba app icon" width="104" height="104"/>
+    <h1>Start with the next real moment.</h1>
+    <p>Track feeds, sleep, nappies or diapers and everyday care with OBubba.</p>
+    <div class="actions">
+      <a id="ios" href="https://apps.apple.com/app/obubba-baby-sleep-tracker/id6760968757">Download for iPhone</a>
+      <a id="android" class="secondary" href="https://play.google.com/store/apps/details?id=com.obubba.app">Get it on Android</a>
+    </div>
+    <small>Only campaign labels are passed to Google Play. No baby or care information is included.</small>
+  </main>
+  <script>
+    (() => {
+      const allowed = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content'];
+      const incoming = new URLSearchParams(location.search);
+      const attribution = new URLSearchParams();
+      for (const key of allowed) {
+        const value = incoming.get(key);
+        if (value) attribution.set(key, value.slice(0, 120));
+      }
+
+      const android = document.getElementById('android');
+      const referrer = attribution.toString();
+      if (referrer) {
+        const play = new URL(android.href);
+        play.searchParams.set('referrer', referrer);
+        android.href = play.toString();
+      }
+
+      const agent = navigator.userAgent || '';
+      const destination = /Android/i.test(agent)
+        ? android.href
+        : /iPhone|iPad|iPod/i.test(agent)
+          ? document.getElementById('ios').href
+          : '';
+      if (destination) location.replace(destination);
+    })();
+  </script>
+</body>
+</html>
