@@ -3342,10 +3342,14 @@ If baby seems unwell or you are worried, contact the appropriate health professi
           </div>
           <p class="returning-family-note">These links only tell the installed OBubba app which log sheet to open. No baby or care details are placed in the link.</p>
         </div>` : ''}
-        <div class="hero-actions">
+        ${post.ctaLabel && post.ctaUrl ? `<div class="hero-actions">
+          <a class="button store" href="${escapeAttr(post.ctaUrl)}">${escapeHtml(post.ctaLabel)}</a>
+          <a class="button secondary store" href="${SITE.appStoreUrl}">Download for iPhone</a>
+          <a class="button secondary store" href="${escapeAttr(postPlayStoreUrl)}">Get it on Android</a>
+        </div>` : `<div class="hero-actions">
           <a class="button store" href="${SITE.appStoreUrl}">Download for iPhone</a>
           <a class="button secondary store" href="${escapeAttr(postPlayStoreUrl)}">Get it on Android</a>
-        </div>
+        </div>`}
       </div>
     </article>
   </main>`;
