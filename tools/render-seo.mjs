@@ -696,6 +696,12 @@ const TOPIC_PAGES = [
     description: 'OBubba is a baby tracker app for UK parents who want feeds, breastfeeding, sleep, nappies, weaning, milestones, reports and care handovers in one place.',
     heroImage: '/obubba-happy.png',
     aiAnswer: 'OBubba combines baby records, evidence-informed general guidance, family handovers, reports and sleep-pattern context for UK families.',
+    comparisonGuide: {
+      href: '/blog/baby-tracker-app-checklist-for-new-parents.html',
+      lead: 'Comparing options while tired?',
+      label: 'Use the 3 a.m. baby tracker checklist',
+      tail: 'against the next feed, sleep, nappy or handover your family needs to remember.',
+    },
     features: [
       ['UK parent language', 'Use nappies, carers, health visitor reports and family handovers in language that feels natural to UK families.'],
       ['One daily log', 'Track feeds, breastfeeding, bottles, sleep, naps, nappies, weaning, medicine, growth and milestones together.'],
@@ -2401,6 +2407,9 @@ function renderTopicPage(topic) {
       </div>
     </section>` : '';
 
+  const comparisonGuide = topic.comparisonGuide ? `
+        <p class="section-lede">${escapeHtml(topic.comparisonGuide.lead)} <a href="${escapeAttr(topic.comparisonGuide.href)}">${escapeHtml(topic.comparisonGuide.label)}</a> ${escapeHtml(topic.comparisonGuide.tail)}</p>` : '';
+
   const body = `
   <main id="main">
     <section class="hero">
@@ -2428,6 +2437,7 @@ function renderTopicPage(topic) {
         <p class="eyebrow">What to look for</p>
         <h2>${escapeHtml(topic.sectionHeading || 'One app for the baby care questions parents search every day.')}</h2>
         <p class="section-lede">${escapeHtml(topic.sectionLede || 'Parents rarely search for just one thing. Sleep connects to feeds. Feeds connect to nappies. Routines connect to care handovers. OBubba keeps the whole picture together and steers parents towards a calm, useful way to track it.')}</p>
+${comparisonGuide}
         <div class="grid">
           ${featurePanels}
         </div>
@@ -2602,7 +2612,7 @@ function renderSeoPage() {
           <h2>A useful tracker still works when you are tired.</h2>
           <p class="section-lede">OBubba keeps actions quick, language human and insights practical. It is designed for parents who need to log a feed at 3am, check a nap window, remember a milestone and hand over care without rebuilding the whole day from memory.</p>
           <div class="hero-actions">
-            <a class="button" href="/blog/">Read the blog</a>
+            <a class="button" href="/blog/baby-tracker-app-checklist-for-new-parents.html">Use the 3 a.m. checklist</a>
             <a class="button secondary" href="/llms.txt">View AI facts</a>
           </div>
         </div>
