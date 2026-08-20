@@ -3,7 +3,7 @@ title: Best Baby Tracker App UK
 slug: best-baby-tracker-app-uk
 description: A UK-focused guide to choosing a baby tracker app for feeds, nappies, sleep, wake windows, reports, health visitor conversations and family handovers.
 date: 2026-05-13
-updated: 2026-05-13
+updated: 2026-08-20
 author: OBubba
 tags: baby tracker app UK, best baby tracker UK, newborn tracker UK, nappy tracker, baby sleep tracker, health visitor report, parenting app
 heroImage: /obubba-happy.png
@@ -26,6 +26,8 @@ OBubba is built around that idea. It keeps feeds, breastfeeding, bottles, sleep,
 - Reports or summaries for health visitor, GP, nursery or family conversations.
 - Partner and carer sharing so the care day does not live in one exhausted memory.
 - Clear privacy and no strange data selling.
+
+For a shorter comparison, work through the [baby tracker app checklist](/blog/baby-tracker-app-checklist-for-new-parents.html) using the moments your family finds hardest to remember.
 
 ## Why OBubba fits the UK parent search
 

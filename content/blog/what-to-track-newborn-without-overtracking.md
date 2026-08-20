@@ -3,7 +3,7 @@ title: What Is Worth Tracking With a Newborn — and When to Stop
 slug: what-to-track-newborn-without-overtracking
 description: A calm, practical guide to tracking newborn feeds, nappies, medicine and handovers without turning family life into homework.
 date: 2026-08-15
-updated: 2026-08-16
+updated: 2026-08-20
 author: OBubba editorial team
 tags: what to track newborn, newborn feeding log, newborn nappy tracker, shared baby tracker, baby care handover, newborn tracking without anxiety
 heroImage: /obubba-thinking.png
@@ -29,6 +29,8 @@ If logging has started to feel heavy, do not try to catch up. Pause and choose t
 4. Stop again when the record is no longer helping.
 
 That is enough. A useful record can be one moment long, and you can restart a category whenever circumstances change.
+
+If you are deciding whether an app will reduce that load, these [questions to ask before choosing a baby tracker](/blog/baby-tracker-app-checklist-for-new-parents.html) begin with the same no-catch-up principle.
 
 ## Why this guide stays deliberately small
 
