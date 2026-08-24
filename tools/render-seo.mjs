@@ -2444,6 +2444,42 @@ function renderTopicPage(topic) {
       </div>
     </section>` : '';
 
+  const privacyEmbedTarget = 'https://obubba.com/blog/pregnancy-baby-app-privacy-checklist.html?utm_source=partner_embed&utm_medium=referral&utm_campaign=from_bump_to_baby_auto&utm_content=privacy_checklist_embed';
+  const privacyEmbedSnippet = `<a href="${privacyEmbedTarget}" target="_blank" rel="noopener"><img src="https://obubba.com/privacy-checklist-og.png" alt="Eight questions before you trust a pregnancy or baby app with the family record - free privacy checklist by OBubba" width="600" height="315" style="max-width:100%;height:auto;"></a><p><a href="${privacyEmbedTarget}" target="_blank" rel="noopener">Free pregnancy and baby app privacy checklist by OBubba</a></p>`;
+  const professionalEmbedTool = topic.slug === 'for-professionals' ? `
+    <style>
+    .privacy-embed-tool { padding: clamp(22px, 4vw, 34px); border: 1px solid var(--line); border-radius: 12px; background: white; box-shadow: var(--shadow); }
+    .privacy-embed-code { display: block; width: 100%; min-height: 150px; margin: 16px 0 12px; padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink); font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; resize: vertical; }
+    .privacy-embed-status { min-height: 24px; margin: 10px 0 0; color: var(--mint); font-size: 15px; font-weight: 800; }
+    </style>
+    <section class="section">
+      <div class="section-inner narrow privacy-embed-tool" aria-labelledby="privacy-embed-heading">
+        <p class="eyebrow">Free resource for your website</p>
+        <h2 id="privacy-embed-heading">Embed the checklist without implying an endorsement.</h2>
+        <p class="section-lede">The code uses the public checklist image and a fixed, privacy-safe referral link. It includes no visitor, family or baby data. Keep the OBubba credit and checklist wording unchanged; embedding the resource does not mean you recommend OBubba.</p>
+        <label for="privacy-embed-code"><strong>Website embed code</strong></label>
+        <textarea class="privacy-embed-code" id="privacy-embed-code" readonly spellcheck="false">${escapeHtml(privacyEmbedSnippet)}</textarea>
+        <button class="button" type="button" id="copy-privacy-embed">Copy embed code</button>
+        <p class="privacy-embed-status" id="privacy-embed-status" role="status" aria-live="polite"></p>
+      </div>
+    </section>
+    <script>
+    (() => {
+      const field = document.getElementById('privacy-embed-code');
+      const status = document.getElementById('privacy-embed-status');
+      document.getElementById('copy-privacy-embed').addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(field.value);
+          status.textContent = 'Embed code copied.';
+        } catch (_error) {
+          field.focus();
+          field.select();
+          status.textContent = 'Copy the selected embed code.';
+        }
+      });
+    })();
+    </script>` : '';
+
   const body = `
   <main id="main">
     <section class="hero">
@@ -2482,6 +2518,7 @@ ${guideSection}
 ${boundariesSection}
 ${screenshotSection}
 ${privacyResourceSection}
+${professionalEmbedTool}
     <section class="section">
       <div class="section-inner feature-split">
         <img src="/obubba-happy.png" alt="OBubba parenting app for ${escapeAttr(topic.keyword)}" width="430" height="430" loading="lazy"/>
@@ -3433,15 +3470,30 @@ If baby seems unwell or you are worried, contact the appropriate health professi
         });
         const rewriteSharedLandingCta = () => {
           const incoming = new URLSearchParams(window.location.search);
-          if (
-            incoming.get('utm_source') === 'parent_share'
-            && incoming.get('utm_medium') === 'copy_share'
+          const routes = [
+            {
+              source: 'parent_share',
+              medium: 'copy_share',
+              content: 'privacy_checklist_share',
+              store: '/start/?utm_source=parent_share&utm_medium=copy_share&utm_campaign=from_bump_to_baby_auto&utm_content=privacy_checklist_share_to_store',
+            },
+            {
+              source: 'partner_embed',
+              medium: 'referral',
+              content: 'privacy_checklist_embed',
+              store: '/start/?utm_source=partner_embed&utm_medium=referral&utm_campaign=from_bump_to_baby_auto&utm_content=privacy_checklist_embed_to_store',
+            },
+          ];
+          const route = routes.find((candidate) => (
+            incoming.get('utm_source') === candidate.source
+            && incoming.get('utm_medium') === candidate.medium
             && incoming.get('utm_campaign') === 'from_bump_to_baby_auto'
-            && incoming.get('utm_content') === 'privacy_checklist_share'
-          ) {
+            && incoming.get('utm_content') === candidate.content
+          ));
+          if (route) {
             const primary = document.querySelector('.cta-band a.button.store[href^="/start/"]');
             if (primary) {
-              primary.href = '/start/?utm_source=parent_share&utm_medium=copy_share&utm_campaign=from_bump_to_baby_auto&utm_content=privacy_checklist_share_to_store';
+              primary.href = route.store;
             }
           }
         };
