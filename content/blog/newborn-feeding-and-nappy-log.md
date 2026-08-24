@@ -3,7 +3,7 @@ title: Newborn Feeding and Nappy Log
 slug: newborn-feeding-and-nappy-log
 description: A calm guide to tracking newborn feeds, breastfeeding, bottles, wet nappies, dirty nappies, sleep and useful notes without turning parenting into admin.
 date: 2026-05-13
-updated: 2026-08-20
+updated: 2026-08-24
 author: OBubba
 tags: newborn feeding log, newborn nappy log, baby feed tracker, breastfeeding tracker, bottle tracker, newborn tracker, baby daily log
 heroImage: /sleep-baby.png
@@ -18,6 +18,14 @@ The problem is not that parents are careless. The problem is that newborn care h
 A newborn feeding and nappy log gives tired memory somewhere to land.
 
 When you compare apps, check [what a baby tracker should make easier at night](/blog/baby-tracker-app-checklist-for-new-parents.html) before committing to a long list of fields.
+
+## Your first useful baby log is not a perfect diary
+
+Start with the next real moment instead of trying to reconstruct the whole day. Log the next feed, nappy, sleep or wake that answers a question you genuinely have.
+
+After a few moments, the day begins to take shape. Six useful entries might be two feeds, two nappies, a sleep and a wake. There is no need to backfill everything or keep tracking when it stops helping.
+
+If more than one person is caring for your baby, use the same timeline so the next person can see what just happened without another message or hand-written note.
 
 ## Useful things to track
 
@@ -43,3 +51,5 @@ For feeding context, parents can read the NHS guidance on [responsive bottle fee
 ## How OBubba helps
 
 OBubba works as a newborn feeding and nappy log because it keeps breast feeds, bottles, nappies, naps, night wakes, notes and reports in one calm place. That makes it easier for partners, grandparents, carers and health professionals to understand what happened.
+
+[Log the next real moment with OBubba](/start/?utm_source=owned_search&utm_medium=seo&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260824_first_day_six_moments)

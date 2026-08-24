@@ -1284,10 +1284,11 @@ function readPosts() {
 function inlineMarkdown(text) {
   let html = escapeHtml(text);
   html = html.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+|\/[^)\s]+)\)/g, (_match, label, href) => {
-    const external = /^https?:\/\//i.test(href);
+    const normalizedHref = href.replaceAll('&amp;', '&');
+    const external = /^https?:\/\//i.test(normalizedHref);
     const rel = external ? ' rel="noopener noreferrer"' : '';
     const target = external ? ' target="_blank"' : '';
-    return `<a href="${escapeAttr(href)}"${target}${rel}>${label}</a>`;
+    return `<a href="${escapeAttr(normalizedHref)}"${target}${rel}>${label}</a>`;
   });
   html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
