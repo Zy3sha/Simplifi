@@ -4,6 +4,7 @@ const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'start', 'index.html'), 'utf8');
+const referral = fs.readFileSync(path.join(root, 'referral.html'), 'utf8');
 const privacy = fs.readFileSync(path.join(root, 'privacy.html'), 'utf8');
 const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)]
   .map((match) => match[1])
@@ -89,4 +90,26 @@ for (const disclosure of ['cookieless', 'baby, care, contact or account data', '
   if (!privacy.includes(disclosure)) throw new Error(`Privacy disclosure missing: ${disclosure}`);
 }
 
-console.log('Store router audit passed: safe campaign labels, cookieless measurement, mobile routing and privacy disclosure are present.');
+for (const referralRequirement of [
+  "analytics_storage: 'denied'",
+  "ad_storage: 'denied'",
+  'send_page_view: false',
+  "location.origin + location.pathname",
+  "gtag('event', 'referral_landing_view'",
+  "gtag('event', 'referral_store_click'",
+  "gtag('event', 'referral_code_copy'",
+  "ob_source: 'product_referral'",
+  "ob_medium: 'share_card'",
+  "ob_campaign: 'from_bump_to_baby_auto'",
+  "ob_content: 'referral_landing'",
+  "page_referrer: ''",
+]) {
+  if (!referral.includes(referralRequirement)) {
+    throw new Error(`Referral measurement requirement missing: ${referralRequirement}`);
+  }
+}
+if (/eventParams\(code\)|\b(?:friend_?code|referral_?code|code)\s*:\s*code\b/i.test(referral)) {
+  throw new Error('Referral code may not appear in a measurement call');
+}
+
+console.log('Store router audit passed: safe campaign labels, cookieless route/referral measurement, mobile routing and privacy disclosure are present.');
