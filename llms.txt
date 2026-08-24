@@ -216,6 +216,7 @@ OBubba is an all-in-one pregnancy and baby tracker. It helps families record fee
 
 ## Blog posts
 
+- [Pregnancy and Baby App Privacy Checklist — 8 Questions to Ask](https://obubba.com/blog/pregnancy-baby-app-privacy-checklist.html): A plain-language privacy checklist for pregnancy and baby apps: accounts, cloud storage, sharing, AI, analytics, location, export and deletion.
 - [Starting Solids: What Is Actually Worth Tracking?](https://obubba.com/blog/starting-solids-what-to-track.html): A tiny first-food journal can help you remember what your baby tried, how it was served and any reaction—without recording every spoonful.
 - [What Is Worth Tracking With a Newborn — and When to Stop](https://obubba.com/blog/what-to-track-newborn-without-overtracking.html): A calm, practical guide to tracking newborn feeds, nappies, medicine and handovers without turning family life into homework.
 - [Why Does My Baby Wake at 4am? A Calm Guide to Early Waking](https://obubba.com/blog/baby-waking-early-4am-morning.html): Why babies wake at 4-5am, what to check first, and gentle ways to read the pattern across naps, feeds, bedtime and early-morning light.
