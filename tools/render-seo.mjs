@@ -1107,6 +1107,7 @@ const SHARED_ASSETS = [
   'obubba-app-growth-development-screenshot.jpg',
   'sleep-baby.png',
   'og-image.png',
+  'privacy-checklist-og.png',
   'icon.png',
   'Parisienne-Regular.ttf',
 ];
@@ -2056,9 +2057,9 @@ function footer() {
   </footer>`;
 }
 
-function layout({ title, description, canonicalPath, bodyClass = '', heroImage = '/sleep-baby.png', ogType = 'website', schema = '', body }) {
+function layout({ title, description, canonicalPath, bodyClass = '', heroImage = '/sleep-baby.png', ogImage = SITE.ogImage, ogType = 'website', schema = '', body }) {
   const canonical = absoluteUrl(canonicalPath);
-  const image = absoluteUrl(SITE.ogImage);
+  const image = absoluteUrl(ogImage);
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -3449,6 +3450,7 @@ If baby seems unwell or you are worried, contact the appropriate health professi
     canonicalPath: post.urlPath,
     bodyClass: 'blog-post',
     heroImage: post.heroImage || '/obubba-thinking.png',
+    ogImage: post.ogImage,
     ogType: 'article',
     schema: jsonLd({
       '@context': 'https://schema.org',
