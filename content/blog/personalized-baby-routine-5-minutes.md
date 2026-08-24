@@ -1,9 +1,9 @@
 ---
-title: Personalized Baby Routine in 5 Minutes
+title: Personalized Baby Nap Schedule for Your Routine
 slug: personalized-baby-routine-5-minutes
-description: "A practical OBubba guide to creating a personalized baby routine in minutes using responsive cues, sleep tracking, feeds, nappies, breastfeeding, preterm notes, colic and reflux context, and gentle reminders."
+description: "Build a personalized baby nap schedule around sleepy cues, real naps and feeding—not a rigid clock. A flexible, safety-aware routine guide."
 date: 2026-05-01
-updated: 2026-05-01
+updated: 2026-08-24
 author: OBubba
 tags: personalized baby routine, personalised baby routine, baby routine app, baby schedule app, baby sleep tracker, baby feed tracker, breastfeeding tracker, preterm baby support, colic reflux baby support, OBubba
 heroImage: https://cdn.marblism.com/MXmM2rb_KkV.webp
@@ -11,7 +11,9 @@ heroImage: https://cdn.marblism.com/MXmM2rb_KkV.webp
 
 ![A peaceful baby nestled in a glowing frame, representing the calm of a personalized routine.](https://cdn.marblism.com/MXmM2rb_KkV.webp)
 
-Let's be honest for a second. If you have spent any time searching for baby routines, you have probably met a wall of schedules that look more like a NASA flight plan than life with a tiny human.
+To design a personalized baby nap schedule, start with one anchor such as morning wake or bedtime, note actual nap starts, nap ends and feeds for three or four days, then use age-appropriate wake windows only as flexible planning cues. Follow your baby's tired cues and current safer-sleep guidance rather than forcing exact clock times.
+
+If you have spent any time searching for baby routines, you have probably met a wall of schedules that look more like a NASA flight plan than life with a tiny human.
 
 Wake at 7:01 AM. Feed for exactly 14 minutes. Nappy change. Play with a wooden block. Nap at 9:15 AM.
 
@@ -27,7 +29,7 @@ The biggest mistake many new parents are encouraged to make is trying to force t
 
 Instead of telling you what your baby should be doing, OBubba helps you understand what your baby is already doing. Every baby has a unique rhythm. Some are long sleepers. Some are snackers. Some cluster feed. Some need a little more help after colic, reflux, illness, travel or a developmental leap.
 
-When you align your day with their natural flow, the fighting eases.
+When you can see that flow, the next nap can feel less arbitrary without turning the clock into a pass-or-fail test.
 
 ![A parent using the OBubba app to track their baby's rhythm effortlessly.](https://cdn.marblism.com/uYtlyIPGF49.webp)
 
