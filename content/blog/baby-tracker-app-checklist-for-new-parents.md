@@ -46,7 +46,7 @@ There is no need to recreate the whole day. A useful tracker should still help w
 - Calm language.
 - No shaming around sleep, feeding or routines.
 - Useful patterns, not overwhelming charts.
-- Privacy that is easy to understand.
+- Privacy that is easy to understand. Use this [eight-question pregnancy and baby app privacy checklist](/blog/pregnancy-baby-app-privacy-checklist.html) to compare accounts, cloud storage, sharing, AI, analytics, location, export and deletion.
 
 ## Questions to ask
 
