@@ -1,15 +1,25 @@
 ---
-title: Baby Sleep Schedule Guide
+title: "Baby Sleep Schedule by Age: A Gentle Guide"
 slug: baby-sleep-schedule-guide
-description: "A gentle, evidence-aware guide to baby sleep schedules, wake windows, safe sleep and how OBubba helps parents learn their baby's unique rhythm."
+description: "Baby sleep schedule guidance by age, with sleep-duration ranges, flexible wake windows, safer-sleep reminders and a calm way to spot your baby's rhythm."
 date: 2026-04-30
-updated: 2026-04-30
+updated: 2026-08-24
 author: OBubba
 tags: baby sleep schedule, baby sleep tracker, wake windows, newborn sleep, infant sleep, parenting app, OBubba
 heroImage: https://cdn.marblism.com/JaN0zQ_GmPL.webp
 ---
 
 ![A peaceful, sleeping baby in a glowing frame against a deep navy background, representing a calm nighttime atmosphere.](https://cdn.marblism.com/JaN0zQ_GmPL.webp)
+
+**A baby sleep schedule is best treated as a flexible pattern, not a timetable.** Newborn sleep is usually spread across short stretches; more predictable naps and nights often emerge gradually. Use the age-based ranges below as context, follow your baby's cues and keep safer-sleep guidance fixed even when timings change.
+
+### Baby sleep schedule at a glance
+
+- **0-3 months:** Sleep is spread across the day and night in short, changeable stretches. Feeding and safer sleep matter more than a clock-based routine.
+- **4-12 months:** Many babies sleep for 12-16 hours across 24 hours, including naps. A repeatable wind-down can help, but timings still vary.
+- **1-2 years:** Many toddlers sleep for 11-14 hours across 24 hours, including naps. Nap transitions can change the shape of the day.
+
+These are broad planning ranges from AASM guidance, not targets to force. If you are worried about your baby's feeding, breathing, weight gain, development or sleep, speak with your health visitor, doctor or paediatrician.
 
 You have probably been there. It is 3:00 AM. You are scrolling through a "perfect" baby sleep schedule on a forum, wondering why your little one did not get the memo.
 
