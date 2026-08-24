@@ -3325,6 +3325,84 @@ If baby seems unwell or you are worried, contact the appropriate health professi
       })();
       </script>` : '';
 
+  const privacyChecklistShareTool = post.slug === 'pregnancy-baby-app-privacy-checklist' ? `
+      <style>
+      .privacy-share-tool {
+        margin: 0 0 44px;
+        padding: clamp(22px, 4vw, 34px);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: white;
+        box-shadow: var(--shadow);
+      }
+      .privacy-share-tool h2 { margin-bottom: 10px; }
+      .privacy-share-tool > p:not(.eyebrow):not(.privacy-share-status) { color: var(--muted); font-size: 17px; line-height: 1.62; }
+      .privacy-share-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
+      .privacy-share-actions button { cursor: pointer; }
+      .privacy-share-status { min-height: 24px; margin: 10px 0 0; color: var(--mint); font-size: 15px; font-weight: 800; }
+      </style>
+      <section class="privacy-share-tool" aria-labelledby="privacy-share-heading">
+        <p class="eyebrow">Useful to another parent?</p>
+        <h2 id="privacy-share-heading">Share the checklist, not a sales claim.</h2>
+        <p>The shared link contains this public checklist and fixed campaign labels only. It includes no account, pregnancy, baby, care or contact details.</p>
+        <div class="privacy-share-actions">
+          <button class="button" type="button" id="share-privacy-checklist">Share this checklist</button>
+          <button class="button secondary" type="button" id="copy-privacy-checklist-link">Copy checklist link</button>
+        </div>
+        <p class="privacy-share-status" id="privacy-share-status" role="status" aria-live="polite"></p>
+      </section>
+      <script>
+      (() => {
+        const shareUrl = 'https://obubba.com/blog/pregnancy-baby-app-privacy-checklist.html?utm_source=parent_share&utm_medium=copy_share&utm_campaign=from_bump_to_baby_auto&utm_content=privacy_checklist_share';
+        const status = document.getElementById('privacy-share-status');
+        const setStatus = (message) => { status.textContent = message; };
+        const copyLink = async () => {
+          try {
+            await navigator.clipboard.writeText(shareUrl);
+            setStatus('Checklist link copied.');
+          } catch (_error) {
+            setStatus('Use your browser’s address sharing controls to copy this page.');
+          }
+        };
+        document.getElementById('copy-privacy-checklist-link').addEventListener('click', copyLink);
+        document.getElementById('share-privacy-checklist').addEventListener('click', async () => {
+          if (navigator.share) {
+            try {
+              await navigator.share({
+                title: 'Pregnancy and baby app privacy checklist',
+                text: 'Eight questions to ask before building a long pregnancy or baby record in an app.',
+                url: shareUrl,
+              });
+              setStatus('Share options opened.');
+              return;
+            } catch (error) {
+              if (error && error.name === 'AbortError') return;
+            }
+          }
+          await copyLink();
+        });
+        const rewriteSharedLandingCta = () => {
+          const incoming = new URLSearchParams(window.location.search);
+          if (
+            incoming.get('utm_source') === 'parent_share'
+            && incoming.get('utm_medium') === 'copy_share'
+            && incoming.get('utm_campaign') === 'from_bump_to_baby_auto'
+            && incoming.get('utm_content') === 'privacy_checklist_share'
+          ) {
+            const primary = document.querySelector('.cta-band a.button.store[href^="/start/"]');
+            if (primary) {
+              primary.href = '/start/?utm_source=parent_share&utm_medium=copy_share&utm_campaign=from_bump_to_baby_auto&utm_content=privacy_checklist_share_to_store';
+            }
+          }
+        };
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', rewriteSharedLandingCta, { once: true });
+        } else {
+          rewriteSharedLandingCta();
+        }
+      })();
+      </script>` : '';
+
   const body = `
   <main id="main">
     <header class="article-header">
@@ -3338,7 +3416,7 @@ If baby seems unwell or you are worried, contact the appropriate health professi
         ${tags ? `<div class="tags">${tags}</div>` : ''}
       </div>
     </header>
-    <article class="section rich-text article">${handoverTool ? `\n      ${handoverTool}` : ''}${minimumUsefulLogTool ? `\n      ${minimumUsefulLogTool}` : ''}
+    <article class="section rich-text article">${handoverTool ? `\n      ${handoverTool}` : ''}${minimumUsefulLogTool ? `\n      ${minimumUsefulLogTool}` : ''}${privacyChecklistShareTool ? `\n      ${privacyChecklistShareTool}` : ''}
       ${articleHtml}
       ${relatedGuides}
       <div class="cta-band" style="margin-top: 44px;">
