@@ -635,6 +635,11 @@ const TOPIC_PAGES = [
     ctaEyebrow: 'No endorsement expected',
     ctaHeading: 'Choose the part of OBubba that matters to your families.',
     ctaBody: 'Email the founder from your professional or organisation address with your role and the area you want to inspect. Do not include identifiable family or baby data.',
+    privacyResource: {
+      eyebrow: 'Free review resource',
+      heading: 'Give families eight privacy questions, not a product endorsement.',
+      body: 'The one-page checklist helps a parent compare accounts, storage, sharing, AI, analytics, location, export and deletion across any pregnancy or baby app. It can be printed or shared unchanged, and it does not ask the professional to recommend OBubba.',
+    },
   },
   {
     slug: 'import-baby-tracker-data',
@@ -687,6 +692,11 @@ const TOPIC_PAGES = [
     ctaHeading: 'Download OBubba, then preview your CSV before you commit.',
     ctaBody: 'Keep the original export. In OBubba, open Welcome or Account, choose Import Data, add the baby’s date of birth and inspect the detected entries and skipped rows first.',
     ctaLabel: 'Download OBubba for iPhone',
+    privacyResource: {
+      eyebrow: 'Before moving a family record',
+      heading: 'Check export and deletion before the history becomes hard to leave.',
+      body: 'Use the eight-question privacy checklist to compare where a baby record is stored, who can access it, whether it can be exported in a usable format and how the cloud copy is deleted.',
+    },
   },
   {
     slug: 'baby-tracker-app-uk',
@@ -898,6 +908,11 @@ const TOPIC_PAGES = [
       ['Is OBubba free?', 'OBubba is free to start, with premium features available for families who want deeper insights, reports and sharing.'],
       ['What should parents look for in a free baby tracker?', 'A useful free baby tracker should make core logging easy, keep data understandable and explain premium features clearly.'],
     ],
+    privacyResource: {
+      eyebrow: 'Free should still be clear',
+      heading: 'Compare the privacy model as carefully as the price.',
+      body: 'A free download does not answer where the family record goes. Use the eight-question checklist to compare accounts, cloud storage, sharing, AI, analytics, location, export and deletion before logging a long history.',
+    },
   },
   {
     slug: 'baby-tracker-with-reports',
@@ -2413,6 +2428,22 @@ function renderTopicPage(topic) {
   const comparisonGuide = topic.comparisonGuide ? `
         <p class="section-lede">${escapeHtml(topic.comparisonGuide.lead)} <a href="${escapeAttr(topic.comparisonGuide.href)}">${escapeHtml(topic.comparisonGuide.label)}</a> ${escapeHtml(topic.comparisonGuide.tail)}</p>` : '';
 
+  const privacyResourceSection = topic.privacyResource ? `
+    <section class="section alt privacy-resource">
+      <div class="section-inner feature-split">
+        <img src="/privacy-checklist-og.png" alt="OBubba pregnancy and baby app privacy checklist with eight questions" width="1200" height="630" loading="lazy"/>
+        <div>
+          <p class="eyebrow">${escapeHtml(topic.privacyResource.eyebrow)}</p>
+          <h2>${escapeHtml(topic.privacyResource.heading)}</h2>
+          <p class="section-lede">${escapeHtml(topic.privacyResource.body)}</p>
+          <div class="hero-actions">
+            <a class="button" href="/resources/pregnancy-baby-app-privacy-checklist.pdf" download>Print/save the A4 checklist</a>
+            <a class="button secondary" href="/blog/pregnancy-baby-app-privacy-checklist.html">Read the full privacy guide</a>
+          </div>
+        </div>
+      </div>
+    </section>` : '';
+
   const body = `
   <main id="main">
     <section class="hero">
@@ -2450,6 +2481,7 @@ ${calculatorSection}
 ${guideSection}
 ${boundariesSection}
 ${screenshotSection}
+${privacyResourceSection}
     <section class="section">
       <div class="section-inner feature-split">
         <img src="/obubba-happy.png" alt="OBubba parenting app for ${escapeAttr(topic.keyword)}" width="430" height="430" loading="lazy"/>
@@ -2704,6 +2736,21 @@ function renderSeoPage() {
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+    </section>
+
+    <section class="section alt privacy-resource">
+      <div class="section-inner feature-split">
+        <img src="/privacy-checklist-og.png" alt="OBubba pregnancy and baby app privacy checklist with eight questions" width="1200" height="630" loading="lazy"/>
+        <div>
+          <p class="eyebrow">Before choosing a long-term record</p>
+          <h2>Compare the privacy model, not just the feature list.</h2>
+          <p class="section-lede">Use eight plain-language questions to compare accounts, cloud storage, family sharing, AI, analytics, location, export and deletion across pregnancy and baby apps.</p>
+          <div class="hero-actions">
+            <a class="button" href="/resources/pregnancy-baby-app-privacy-checklist.pdf" download>Print/save the A4 checklist</a>
+            <a class="button secondary" href="/blog/pregnancy-baby-app-privacy-checklist.html">Read the full privacy guide</a>
+          </div>
         </div>
       </div>
     </section>
