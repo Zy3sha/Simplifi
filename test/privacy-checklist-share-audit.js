@@ -8,6 +8,8 @@ const page = fs.readFileSync(path.join(ROOT, 'blog', 'pregnancy-baby-app-privacy
 const source = fs.readFileSync(path.join(ROOT, 'tools', 'render-seo.mjs'), 'utf8');
 const previewPath = path.join(ROOT, 'privacy-checklist-og.png');
 const preview = fs.readFileSync(previewPath);
+const printablePath = path.join(ROOT, 'resources', 'pregnancy-baby-app-privacy-checklist.pdf');
+const printable = fs.readFileSync(printablePath);
 const failures = [];
 
 function pngDimensions(buffer) {
@@ -37,6 +39,9 @@ const checks = [
   ['dedicated Open Graph preview', page.includes('<meta property="og:image" content="https://obubba.com/privacy-checklist-og.png"')],
   ['dedicated Twitter preview', page.includes('<meta name="twitter:image" content="https://obubba.com/privacy-checklist-og.png"')],
   ['preview has social-card dimensions', previewDimensions?.width === 1200 && previewDimensions?.height === 630],
+  ['printable checklist is linked once', (page.match(/id="download-privacy-checklist"/g) || []).length === 1],
+  ['printable checklist uses download affordance', page.includes('href="/resources/pregnancy-baby-app-privacy-checklist.pdf" download')],
+  ['printable asset has PDF signature', printable.subarray(0, 5).toString('ascii') === '%PDF-'],
 ];
 
 for (const [label, passed] of checks) {

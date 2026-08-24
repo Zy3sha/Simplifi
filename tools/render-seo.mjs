@@ -1108,6 +1108,7 @@ const SHARED_ASSETS = [
   'sleep-baby.png',
   'og-image.png',
   'privacy-checklist-og.png',
+  'resources/pregnancy-baby-app-privacy-checklist.pdf',
   'icon.png',
   'Parisienne-Regular.ttf',
 ];
@@ -3349,6 +3350,7 @@ If baby seems unwell or you are worried, contact the appropriate health professi
         <div class="privacy-share-actions">
           <button class="button" type="button" id="share-privacy-checklist">Share this checklist</button>
           <button class="button secondary" type="button" id="copy-privacy-checklist-link">Copy checklist link</button>
+          <a class="button secondary" id="download-privacy-checklist" href="/resources/pregnancy-baby-app-privacy-checklist.pdf" download>Print/save A4 checklist</a>
         </div>
         <p class="privacy-share-status" id="privacy-share-status" role="status" aria-live="polite"></p>
       </section>
