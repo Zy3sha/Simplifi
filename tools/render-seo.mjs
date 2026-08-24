@@ -822,10 +822,17 @@ const TOPIC_PAGES = [
     ],
     guideTitle: 'How to connect a partner in OBubba',
     guideIntro: 'Both parents need the OBubba app for Partner Sync. The person who already has the baby record sends the invitation.',
+    recipientHelp: {
+      eyebrow: 'Already have a private sync code?',
+      heading: 'Join the baby record you were invited to.',
+      body: 'On a fresh install, choose Import your data / Connect, enter the private code you were sent, then tap Connect — live sync. If OBubba is already set up on your phone, use Account › Family & Sharing › Connect another device instead. Keep the code private.',
+      primaryLabel: 'Download for iPhone to enter the code',
+      secondaryLabel: 'Get Android to enter the code',
+    },
     guideSteps: [
       ['Open Family & Sharing', 'In OBubba, go to Account, then Family & Sharing, and choose Invite someone for the baby you want to share.'],
       ['Send the code privately', 'OBubba creates a per-baby sync code. Send it only to the trusted person who should join that baby’s logs.'],
-      ['Connect the other device', 'On the partner’s phone, open Connect another device and enter the sync code. A live join uses the shared record rather than creating a separate copy.'],
+      ['Connect the other device', 'On a fresh install, choose Import your data / Connect, enter the private code and tap Connect — live sync. If OBubba is already set up on that phone, use Account › Family & Sharing › Connect another device instead.'],
       ['Agree the minimum useful record', 'Choose the few moments both people genuinely need — perhaps the last feed, sleep, nappy and medicine time — and stop logging categories that create work without helping.'],
     ],
     boundariesTitle: 'What shared tracking should — and should not — do',
@@ -842,7 +849,7 @@ const TOPIC_PAGES = [
       ['Current OBubba App Store listing', 'https://apps.apple.com/app/obubba-baby-sleep-tracker/id6760968757', 'The public listing describes fast daily tracking and Bubba Care handovers for partners and carers.'],
     ],
     faqs: [
-      ['How do two parents share a baby tracker in OBubba?', 'One parent opens Account, then Family & Sharing, chooses Invite someone and sends the baby’s sync code privately. The partner enters that code through Connect another device in OBubba.'],
+      ['How do two parents share a baby tracker in OBubba?', 'One parent opens Account, then Family & Sharing, chooses Invite someone and sends the baby’s sync code privately. On a fresh install, the partner chooses Import your data / Connect and enters the code. If OBubba is already set up, the partner uses Connect another device instead.'],
       ['Can each parent add feeds, sleep and nappies?', 'Yes. After the partner joins, both phones use the same baby record, so either parent can add or review the shared logs.'],
       ['Is Partner Sync the same as Bubba Care?', 'No. Partner Sync joins another OBubba app user to the live baby record. Bubba Care is a parent-created private browser handover for a grandparent, childminder or other trusted carer.'],
       ['What if tracking starts to feel like homework?', 'Keep only the moments that answer a real question or support a handover. A smaller shared record can still be useful, and it is reasonable to simplify or stop when a category no longer helps.'],
@@ -2291,6 +2298,18 @@ function renderTopicPage(topic) {
   const secondaryCtaUrl = topic.secondaryCtaUrl || topicPlayStoreUrl;
   const secondaryCtaLabel = topic.secondaryCtaLabel || 'Get it on Android';
   const actionAriaLabel = topic.actionAriaLabel || (topic.primaryCtaUrl ? 'Professional OBubba resources' : 'Download OBubba');
+  const recipientHelpSection = topic.recipientHelp ? `
+    <section class="section alt recipient-help">
+      <div class="section-inner narrow ai-answer">
+        <p class="eyebrow">${escapeHtml(topic.recipientHelp.eyebrow)}</p>
+        <h2>${escapeHtml(topic.recipientHelp.heading)}</h2>
+        <p>${escapeHtml(topic.recipientHelp.body)}</p>
+        <div class="hero-actions" aria-label="Download OBubba to use a private sync code">
+          <a class="button store" href="${escapeAttr(topicAppStoreUrl)}">${escapeHtml(topic.recipientHelp.primaryLabel)}</a>
+          <a class="button secondary store" href="${escapeAttr(topicPlayStoreUrl)}">${escapeHtml(topic.recipientHelp.secondaryLabel)}</a>
+        </div>
+      </div>
+    </section>` : '';
   const featurePanels = topic.features.map(([heading, text]) => `
           <article class="panel">
             <div class="kicker">${escapeHtml(topic.keyword)}</div>
@@ -2521,6 +2540,8 @@ function renderTopicPage(topic) {
         </div>
       </div>
     </section>
+
+    ${recipientHelpSection}
 
     <section class="section">
       <div class="section-inner narrow ai-answer">
