@@ -10,6 +10,24 @@
   <link rel="canonical" href="https://obubba.com/review-obubba.html"/>
   <link rel="icon" type="image/png" href="/icon.png"/>
   <link rel="apple-touch-icon" sizes="180x180" href="/icon.png"/>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('consent', 'default', {
+      analytics_storage: 'denied',
+      ad_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied'
+    });
+    gtag('set', 'ads_data_redaction', true);
+    gtag('js', new Date());
+    gtag('config', 'G-Y7CHSL1YHZ', {
+      send_page_view: false,
+      allow_google_signals: false,
+      allow_ad_personalization_signals: false
+    });
+  </script>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-Y7CHSL1YHZ"></script>
   <meta property="og:type" content="website"/>
   <meta property="og:site_name" content="OBubba"/>
   <meta property="og:title" content="Your honest OBubba review can help another parent"/>
@@ -46,12 +64,37 @@
       <p class="intro">Tell people what OBubba has genuinely been like for your family. A short, specific review is useful whether your experience has been brilliant, mixed or still evolving.</p>
       <p class="promise"><strong>No reward. No preferred rating.</strong><br/>Your review should be your own real experience, in your own words.</p>
       <div class="stores" aria-label="Choose your app store">
-        <a class="store" href="https://apps.apple.com/app/id6760968757?action=write-review">Review on App Store</a>
-        <a class="store secondary" href="https://play.google.com/store/apps/details?id=com.obubba.app">Review on Google Play</a>
+        <a id="review-ios" class="store" href="https://apps.apple.com/app/id6760968757?action=write-review">Review on App Store</a>
+        <a id="review-android" class="store secondary" href="https://play.google.com/store/apps/details?id=com.obubba.app">Review on Google Play</a>
       </div>
       <p class="support">Need product help as well? Email <a href="mailto:hello@obubba.com?subject=OBubba%20support">hello@obubba.com</a>. Support is available whatever rating or review you choose.</p>
       <p class="small">OBubba cannot see whether an individual visitor submits a rating or review from this page.</p>
     </section>
   </main>
+  <script>
+    (function () {
+      var safePageLocation = location.origin + location.pathname;
+      var eventParams = function (store) {
+        return {
+          event_category: 'honest_review',
+          store: store || 'none',
+          ob_source: 'owned_web',
+          ob_medium: 'review_route',
+          ob_campaign: 'from_bump_to_baby_auto',
+          ob_content: 'auto_20260824_honest_review_owned_route',
+          page_location: safePageLocation,
+          page_referrer: '',
+          transport_type: 'beacon'
+        };
+      };
+      gtag('event', 'honest_review_route_view', eventParams('none'));
+      document.getElementById('review-ios').addEventListener('click', function () {
+        gtag('event', 'honest_review_store_click', eventParams('app_store'));
+      });
+      document.getElementById('review-android').addEventListener('click', function () {
+        gtag('event', 'honest_review_store_click', eventParams('google_play'));
+      });
+    })();
+  </script>
 </body>
 </html>

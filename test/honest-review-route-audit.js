@@ -5,6 +5,7 @@ const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
 const page = fs.readFileSync(path.join(ROOT, 'review-obubba.html'), 'utf8');
+const homepage = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
 const failures = [];
 
 const checks = [
@@ -18,6 +19,15 @@ const checks = [
   ['verified Google package', page.includes('https://play.google.com/store/apps/details?id=com.obubba.app')],
   ['no sentiment gate language', !/love it|needs work|five[- ]star|positive review/i.test(page)],
   ['no review outcome tracking claim', /cannot see whether an individual visitor submits/i.test(page)],
+  ['homepage invitation is neutral and self-selecting', homepage.includes('<a href="/review-obubba.html">Review OBubba honestly</a>')],
+  ['cookieless analytics storage denied', /analytics_storage:\s*'denied'/.test(page)],
+  ['advertising storage denied', /ad_storage:\s*'denied'/.test(page) && /ad_user_data:\s*'denied'/.test(page) && /ad_personalization:\s*'denied'/.test(page)],
+  ['automatic page view disabled', /send_page_view:\s*false/.test(page)],
+  ['query-free page location', page.includes('location.origin + location.pathname')],
+  ['blank referrer', /page_referrer:\s*''/.test(page)],
+  ['fixed route-view event', page.includes("gtag('event', 'honest_review_route_view'")],
+  ['fixed store-click event', page.includes("gtag('event', 'honest_review_store_click'")],
+  ['no review-submission event', !/review_(submitted|completed|rating)/i.test(page)],
 ];
 
 for (const [label, passed] of checks) {
