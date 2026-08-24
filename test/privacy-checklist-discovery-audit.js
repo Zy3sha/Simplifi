@@ -6,6 +6,7 @@ const path = require('node:path');
 const ROOT = path.resolve(__dirname, '..');
 const GUIDE = '/blog/pregnancy-baby-app-privacy-checklist.html';
 const PDF = '/resources/pregnancy-baby-app-privacy-checklist.pdf';
+const ABSOLUTE_PDF = `https://obubba.com${PDF}`;
 const targets = [
   ['professional review', 'for-professionals.html'],
   ['tracker selection', 'best-baby-tracker.html'],
@@ -24,6 +25,14 @@ for (const [label, file] of targets) {
 }
 
 const professional = fs.readFileSync(path.join(ROOT, 'for-professionals.html'), 'utf8');
+const sitemap = fs.readFileSync(path.join(ROOT, 'sitemap.xml'), 'utf8');
+const sitemapPdfEntries = (sitemap.match(new RegExp(`<loc>${ABSOLUTE_PDF}</loc>`, 'g')) || []).length;
+if (sitemapPdfEntries !== 1) {
+  failures.push(`sitemap: expected one printable PDF entry, found ${sitemapPdfEntries}`);
+}
+if (sitemap.includes('<loc>https://obubba.com/review-obubba.html</loc>')) {
+  failures.push('sitemap: noindex honest-review route must remain excluded');
+}
 if (!/does not ask the professional to recommend OBubba/i.test(professional)) {
   failures.push('professional review: endorsement boundary missing');
 }
