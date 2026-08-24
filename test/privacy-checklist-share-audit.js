@@ -28,10 +28,18 @@ const checks = [
   ['fixed campaign', page.includes('utm_campaign=from_bump_to_baby_auto')],
   ['fixed shared-content label', page.includes('utm_content=privacy_checklist_share')],
   ['shared landing gets distinct store label', page.includes('utm_content=privacy_checklist_share_to_store')],
-  ['incoming labels must all match', source.includes("incoming.get('utm_source') === 'parent_share'")
-    && source.includes("incoming.get('utm_medium') === 'copy_share'")
+  ['parent-share route is fixed', source.includes("source: 'parent_share'")
+    && source.includes("medium: 'copy_share'")
+    && source.includes("content: 'privacy_checklist_share'")
+    && source.includes('utm_content=privacy_checklist_share_to_store')],
+  ['partner-embed route is fixed', source.includes("source: 'partner_embed'")
+    && source.includes("medium: 'referral'")
+    && source.includes("content: 'privacy_checklist_embed'")
+    && source.includes('utm_content=privacy_checklist_embed_to_store')],
+  ['incoming campaign must match', source.includes("incoming.get('utm_source') === candidate.source")
+    && source.includes("incoming.get('utm_medium') === candidate.medium")
     && source.includes("incoming.get('utm_campaign') === 'from_bump_to_baby_auto'")
-    && source.includes("incoming.get('utm_content') === 'privacy_checklist_share'")],
+    && source.includes("incoming.get('utm_content') === candidate.content")],
   ['shared CTA rewrite waits for parsed CTA', page.includes("document.addEventListener('DOMContentLoaded', rewriteSharedLandingCta")],
   ['no private record fields', !/friend code|baby name|due date|email address|care log/i.test(page.match(/<section class="privacy-share-tool"[\s\S]*?<\/section>/)?.[0] || '')],
   ['privacy boundary visible', /includes no account, pregnancy, baby, care or contact details/i.test(page)],

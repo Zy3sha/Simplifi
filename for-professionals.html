@@ -906,6 +906,39 @@
         </div>
       </div>
     </section>
+
+    <style>
+    .privacy-embed-tool { padding: clamp(22px, 4vw, 34px); border: 1px solid var(--line); border-radius: 12px; background: white; box-shadow: var(--shadow); }
+    .privacy-embed-code { display: block; width: 100%; min-height: 150px; margin: 16px 0 12px; padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink); font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; resize: vertical; }
+    .privacy-embed-status { min-height: 24px; margin: 10px 0 0; color: var(--mint); font-size: 15px; font-weight: 800; }
+    </style>
+    <section class="section">
+      <div class="section-inner narrow privacy-embed-tool" aria-labelledby="privacy-embed-heading">
+        <p class="eyebrow">Free resource for your website</p>
+        <h2 id="privacy-embed-heading">Embed the checklist without implying an endorsement.</h2>
+        <p class="section-lede">The code uses the public checklist image and a fixed, privacy-safe referral link. It includes no visitor, family or baby data. Keep the OBubba credit and checklist wording unchanged; embedding the resource does not mean you recommend OBubba.</p>
+        <label for="privacy-embed-code"><strong>Website embed code</strong></label>
+        <textarea class="privacy-embed-code" id="privacy-embed-code" readonly spellcheck="false">&lt;a href=&quot;https://obubba.com/blog/pregnancy-baby-app-privacy-checklist.html?utm_source=partner_embed&amp;utm_medium=referral&amp;utm_campaign=from_bump_to_baby_auto&amp;utm_content=privacy_checklist_embed&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot;&gt;&lt;img src=&quot;https://obubba.com/privacy-checklist-og.png&quot; alt=&quot;Eight questions before you trust a pregnancy or baby app with the family record - free privacy checklist by OBubba&quot; width=&quot;600&quot; height=&quot;315&quot; style=&quot;max-width:100%;height:auto;&quot;&gt;&lt;/a&gt;&lt;p&gt;&lt;a href=&quot;https://obubba.com/blog/pregnancy-baby-app-privacy-checklist.html?utm_source=partner_embed&amp;utm_medium=referral&amp;utm_campaign=from_bump_to_baby_auto&amp;utm_content=privacy_checklist_embed&quot; target=&quot;_blank&quot; rel=&quot;noopener&quot;&gt;Free pregnancy and baby app privacy checklist by OBubba&lt;/a&gt;&lt;/p&gt;</textarea>
+        <button class="button" type="button" id="copy-privacy-embed">Copy embed code</button>
+        <p class="privacy-embed-status" id="privacy-embed-status" role="status" aria-live="polite"></p>
+      </div>
+    </section>
+    <script>
+    (() => {
+      const field = document.getElementById('privacy-embed-code');
+      const status = document.getElementById('privacy-embed-status');
+      document.getElementById('copy-privacy-embed').addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(field.value);
+          status.textContent = 'Embed code copied.';
+        } catch (_error) {
+          field.focus();
+          field.select();
+          status.textContent = 'Copy the selected embed code.';
+        }
+      });
+    })();
+    </script>
     <section class="section">
       <div class="section-inner feature-split">
         <img src="/obubba-happy.png" alt="OBubba parenting app for baby tracker for professionals" width="430" height="430" loading="lazy"/>

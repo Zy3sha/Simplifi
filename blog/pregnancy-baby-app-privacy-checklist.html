@@ -796,15 +796,30 @@
         });
         const rewriteSharedLandingCta = () => {
           const incoming = new URLSearchParams(window.location.search);
-          if (
-            incoming.get('utm_source') === 'parent_share'
-            && incoming.get('utm_medium') === 'copy_share'
+          const routes = [
+            {
+              source: 'parent_share',
+              medium: 'copy_share',
+              content: 'privacy_checklist_share',
+              store: '/start/?utm_source=parent_share&utm_medium=copy_share&utm_campaign=from_bump_to_baby_auto&utm_content=privacy_checklist_share_to_store',
+            },
+            {
+              source: 'partner_embed',
+              medium: 'referral',
+              content: 'privacy_checklist_embed',
+              store: '/start/?utm_source=partner_embed&utm_medium=referral&utm_campaign=from_bump_to_baby_auto&utm_content=privacy_checklist_embed_to_store',
+            },
+          ];
+          const route = routes.find((candidate) => (
+            incoming.get('utm_source') === candidate.source
+            && incoming.get('utm_medium') === candidate.medium
             && incoming.get('utm_campaign') === 'from_bump_to_baby_auto'
-            && incoming.get('utm_content') === 'privacy_checklist_share'
-          ) {
+            && incoming.get('utm_content') === candidate.content
+          ));
+          if (route) {
             const primary = document.querySelector('.cta-band a.button.store[href^="/start/"]');
             if (primary) {
-              primary.href = '/start/?utm_source=parent_share&utm_medium=copy_share&utm_campaign=from_bump_to_baby_auto&utm_content=privacy_checklist_share_to_store';
+              primary.href = route.store;
             }
           }
         };
