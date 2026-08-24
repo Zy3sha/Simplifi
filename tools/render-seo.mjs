@@ -3634,6 +3634,7 @@ function renderSitemap(posts) {
     { loc: '/blog/', lastmod: posts[0]?.updated || posts[0]?.date || today, priority: '0.8' },
     { loc: '/privacy.html', lastmod: '2026-08-12', priority: '0.3' },
     { loc: '/terms.html', lastmod: '2026-08-12', priority: '0.3' },
+    { loc: '/resources/pregnancy-baby-app-privacy-checklist.pdf', lastmod: '2026-08-24', priority: '0.6' },
     ...posts.map((post) => ({ loc: post.urlPath, lastmod: post.updated || post.date, priority: '0.75' })),
   ];
 
