@@ -619,21 +619,53 @@ const TOPIC_PAGES = [
   },
   {
     slug: 'baby-memory-book',
+    contentId: 'auto_20260824_baby_memory_app_search_refresh',
     keyword: 'baby memory book app',
-    title: 'Baby Memory Book App - OBubba',
-    h1: 'A baby memory book beside the everyday care timeline.',
-    description: 'OBubba helps parents save baby memories, photos, captions, milestones and everyday care moments in one parenting app.',
+    title: 'Baby Memory App for Real Milestones & Growth | OBubba',
+    h1: 'A baby memory app written from the moments you really logged.',
+    description: 'OBubba automatically gathers dated milestones, first teeth, growth checks and sealed-letter moments into one shareable baby keepsake timeline.',
     heroImage: '/obubba-celebration.png',
-    aiAnswer: 'OBubba keeps photos and memory-book moments beside milestones, growth and the everyday care story.',
+    heroEyebrow: 'A keepsake built from real days—not invented highlights',
+    answerHeading: 'What does OBubba put in the baby memory book?',
+    aiAnswer: 'OBubba automatically builds a chronological keepsake from genuinely logged, dated events: achieved milestones, the first recorded tooth, growth checks and the dates when letters were sealed for later. It does not invent missing moments, and sealed letter text stays hidden until its reveal date. The finished story can be shared as text.',
+    sectionHeading: 'Log the day. Let the keepsake gather itself.',
+    sectionLede: 'The Memory Book is not another diary to keep up with. When a qualifying event has a real date in OBubba, it can appear in the story automatically.',
     features: [
-      ['Memory book moments', 'Save photos, captions and tiny wins without separating them from the baby care timeline.'],
-      ['Milestone context', 'Connect memories with milestones, growth notes, feeds, sleep and the real rhythm of family life.'],
-      ['Family sharing', 'Create moments and summaries that are easy to share with grandparents and loved ones.'],
+      ['Only logged moments', 'The story uses achieved milestones with dates, the first dated tooth, dated growth checks and sealed-letter dates.'],
+      ['Chronological keepsake', 'Real entries are ordered by date so the story grows from the family record without fabricated events.'],
+      ['Share your story', 'Turn the assembled timeline into a plain-text story that can be shared when you choose.'],
     ],
+    guideTitle: 'How to begin a real memory book',
+    guideEyebrow: 'One dated moment is enough to start',
+    guideIntro: 'You do not need to reconstruct every day. Record the next genuine moment and let the timeline build over time.',
+    guideSteps: [
+      ['Mark a milestone when it happens', 'Only achieved milestones with a recorded date enter the keepsake.'],
+      ['Keep a real growth check', 'A dated weight or length measurement can become part of the chronological story.'],
+      ['Record the first tooth', 'The earliest dated tooth record appears as the first-tooth moment.'],
+      ['Seal a letter for later', 'The seal date can appear in the story, while the letter text remains hidden until its reveal date.'],
+    ],
+    boundariesTitle: 'A truthful keepsake has useful limits',
+    boundaries: [
+      'OBubba does not add a moment unless it comes from a qualifying record the family created.',
+      'The current Memory Book is built from milestones, the first tooth, growth checks and sealed-letter dates; this page does not claim photo or caption storage.',
+      'Sealed letter text is not exposed early in the Memory Book.',
+      'Growth and milestone records are family keepsakes and context, not a developmental or medical assessment.',
+    ],
+    relatedEyebrow: 'Memory without extra homework',
+    relatedHeading: 'The everyday record can become the story you keep.',
+    relatedBody: 'OBubba keeps the baby-care timeline and the keepsake connected. The Memory Book gathers qualifying moments automatically, while sharing remains a deliberate action by the parent.',
     faqs: [
-      ['Can OBubba work as a baby memory book?', 'Yes. OBubba can help parents save baby memories, photos, captions and milestones alongside care tracking.'],
-      ['Why keep memories inside a tracker?', 'The everyday care timeline gives memories context, so parents can remember what life felt like around each milestone.'],
+      ['Can OBubba work as a baby memory book?', 'Yes. OBubba automatically gathers dated, achieved milestones, the first recorded tooth, growth checks and sealed-letter moments into a chronological keepsake.'],
+      ['Does OBubba invent missing memories?', 'No. The Memory Book only uses qualifying moments that were genuinely logged and dated.'],
+      ['Can I share the memory book?', 'Yes. When the story contains entries, OBubba can share a plain-text version when the parent chooses.'],
+      ['Does the memory book reveal sealed letters early?', 'No. A sealed-letter date can appear as a teaser, but the letter text stays hidden until its reveal date.'],
     ],
+    ctaEyebrow: 'Start with one real moment',
+    ctaHeading: 'Let the next milestone become part of the story.',
+    ctaBody: 'Download OBubba and record the real baby-care moments you want the family timeline to remember.',
+    ctaLabel: 'Start the memory book',
+    primaryCtaLabel: 'Start a real memory book on iPhone',
+    secondaryCtaLabel: 'Start a real memory book on Android',
   },
   {
     slug: 'baby-sleep-consultant-app',
@@ -2382,7 +2414,7 @@ function topicSchema(topic) {
 
 function renderTopicPage(topic) {
   const topicAppStoreUrl = topic.appStoreUrl || SITE.appStoreUrl;
-  const topicPlayStoreUrl = topic.playStoreUrl || attributedPlayStoreUrl(`auto_20260816_owned_${topic.slug}`);
+  const topicPlayStoreUrl = topic.playStoreUrl || attributedPlayStoreUrl(topic.contentId || `auto_20260816_owned_${topic.slug}`);
   const primaryCtaUrl = topic.primaryCtaUrl || topicAppStoreUrl;
   const primaryCtaLabel = topic.primaryCtaLabel || 'Download for iPhone';
   const secondaryCtaUrl = topic.secondaryCtaUrl || topicPlayStoreUrl;
