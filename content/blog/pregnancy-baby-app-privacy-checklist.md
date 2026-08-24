@@ -7,6 +7,9 @@ updated: 2026-08-24
 author: OBubba editorial team
 tags: pregnancy app privacy, baby tracker privacy, baby app data, private baby tracker, baby tracking app security, parenting app privacy checklist
 heroImage: /obubba-thinking.png
+contentId: auto_20260824_pregnancy_baby_app_privacy_checklist
+ctaLabel: Check OBubba against the same questions
+ctaUrl: /start/?utm_source=owned_search&utm_medium=seo&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260824_pregnancy_baby_app_privacy_checklist
 ---
 
 ## The quick answer: read what happens to the record, not just the word “private”
