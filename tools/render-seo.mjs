@@ -1484,6 +1484,16 @@ function readPosts() {
       const source = fs.readFileSync(path.join(dir, file), 'utf8');
       return parseFrontMatter(source, file.replace(/\.md$/, ''));
     })
+    // Honour the publishing schedule. content/blog is a dated content calendar
+    // running months ahead; without this filter every future-dated post rendered,
+    // was linked from the index and listed in the sitemap immediately.
+    // Override to preview the whole calendar: BLOG_INCLUDE_SCHEDULED=1
+    .filter((post) => {
+      if (process.env.BLOG_INCLUDE_SCHEDULED === '1') return true;
+      if (!post.date) return true; // undated posts are evergreen
+      const today = new Date().toISOString().slice(0, 10);
+      return String(post.date).slice(0, 10) <= today;
+    })
     .sort((a, b) => String(b.date).localeCompare(String(a.date)));
 }
 
