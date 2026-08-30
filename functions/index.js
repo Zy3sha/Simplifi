@@ -377,6 +377,13 @@ const STORE_PRODUCT_IDS = new Set([
   "com.obubba.premium.monthly.v2",
   "com.obubba.premium.annual.v2",
   "com.obubba.premium.lifetime.v2",
+  // iOS registers lifetime as `.forever` (App Store Connect never had `.lifetime`);
+  // the client sells `.forever`/`.forever.v2` on iOS (VERIFIED from prod purchase
+  // events). WITHOUT these here, normaliseStoreProductId returns "" and
+  // mirrorStoreEntitlement throws "Invalid store product" on EVERY iOS lifetime
+  // purchase — the main iOS paid product — so it was never recorded or bridged.
+  "com.obubba.premium.forever",
+  "com.obubba.premium.forever.v2",
 ]);
 const STORE_REPORT_STALE_MS = 45 * 24 * 60 * 60 * 1000;
 
@@ -392,7 +399,9 @@ function normaliseStoreProductId(value) {
 
 function storePeriodFromProductId(productId) {
   const id = String(productId || "").toLowerCase();
-  if (id.includes("lifetime")) return "lifetime";
+  // `forever` is the iOS lifetime id quirk — must classify as lifetime too, or
+  // storeKindFromProductId mislabels an iOS lifetime purchase as a subscription.
+  if (id.includes("lifetime") || id.includes("forever")) return "lifetime";
   if (id.includes("annual") || id.includes("year")) return "annual";
   if (id.includes("monthly") || id.includes("month")) return "monthly";
   return "";
@@ -709,7 +718,10 @@ exports.usernameStatus = onCall(async (request) => {
 // permission-denied (visible to the user as 'Sync paused'). Verifying the
 // caller's native ID token here proves the JS bridge legitimately holds that
 // UID before we hand back a custom token to signInWithCustomToken with.
-exports.exchangeNativeAuthToken = onCall(async (request) => {
+// minInstances: keep ONE warm instance so sign-in / launch never pays a cold start
+// (2-5s on Gen2). This is the auth path — a cold "couldn't reach the server" here is
+// a first-impression churn driver. ~a few $/mo per warmed fn; revert to remove.
+exports.exchangeNativeAuthToken = onCall({ minInstances: 1 }, async (request) => {
   try {
     const idToken = String((request.data && request.data.idToken) || "").trim();
     if (!idToken) throw new HttpsError("invalid-argument", "missing_token");
@@ -726,7 +738,7 @@ exports.exchangeNativeAuthToken = onCall(async (request) => {
   }
 });
 
-exports.accountLogin = onCall(async (request) => {
+exports.accountLogin = onCall({ minInstances: 1 }, async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required");
   const username = normaliseUsername(request.data && request.data.username);
   const pin = String((request.data && request.data.pin) || "");
@@ -1367,6 +1379,72 @@ exports.claimTrial = onCall(async (request) => {
 // Native StoreKit / Google Play Billing remain the user-facing entitlement
 // authority. This server record is a reporting mirror so support/admin tooling
 // can count store premium users without clients writing arbitrary Firestore docs.
+// Bridge an ACTIVE store purchase into the username-keyed premium_entitlements doc.
+// WHY: store_entitlements/{uid} + entitlements/{uid} are keyed to the ANONYMOUS uid,
+// which changes on reinstall / new device / sign-out — so a paid user who logs in
+// elsewhere had no username-keyed record to restore from and showed "Free" (the
+// "paid but shows Free" complaint). premium_entitlements/{username} is the ONE
+// username-keyed entitlement the client is allowed to READ (refreshComplimentary),
+// and it's server-owned (rules block client writes), so the bridge has to live here.
+//
+// SAFE BY CONSTRUCTION (no renewal webhook required for correctness):
+//   • EXTEND-ONLY — never shortens a longer comp/goodwill/referral grant.
+//   • Never downgrades an existing lifetime; never auto-un-revokes an admin revoke.
+//   • Keys the expiry to the REAL store expiry, so a lapsed/cancelled sub falls off
+//     NATURALLY at period end (a renewal re-reports on next app open and extends).
+//   • Lifetime (iOS `.forever` / Android `.lifetime`) → permanent.
+// A server notification webhook would only make renewals instant instead of
+// next-open; it is a latency nicety, not needed for this to be correct.
+async function bridgeStorePremiumToUsername(username, { productId, platform, expiresAtMs, nowMs }) {
+  if (!usernameId(username)) return { bridged: false, why: "no-username" };
+  // Robust lifetime detection: storePeriodFromProductId only matches the substring
+  // "lifetime", so iOS's `.forever` product would misread as a subscription.
+  const isLifetime = /forever|lifetime/.test(String(productId || "").toLowerCase());
+  // Don't invent a window: a subscription report with no known expiry is skipped
+  // (the uid-keyed record still captured it; a later receipt check supplies expiry).
+  if (!isLifetime && !expiresAtMs) return { bridged: false, why: "no-expiry" };
+  const ref = db.collection("premium_entitlements").doc(username);
+  const snap = await ref.get();
+  const data = snap.exists ? (snap.data() || {}) : {};
+  const revoked = data.revoked === true || data.revoked === 1 || data.revoked === "true";
+  const curLifetime = data.lifetime === true || data.forever === true || data.premiumForever === true;
+  if (revoked) return { bridged: false, why: "revoked" };        // respect an intentional revoke
+  if (curLifetime) return { bridged: false, why: "already-lifetime" };
+  if (isLifetime) {
+    await ref.set({
+      active: true,
+      lifetime: true,
+      type: "store_lifetime",
+      plan: "store_lifetime",
+      access: "store_lifetime",
+      source: "store",
+      storeManaged: true,
+      storePlatform: platform,
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedAtMs: nowMs,
+    }, { merge: true });
+    return { bridged: true, lifetime: true };
+  }
+  const existingMs = timestampMs(data.premiumUntil || data.until || data.expiresAt) || 0;
+  if (expiresAtMs <= existingMs) return { bridged: false, why: "not-longer" }; // extend-only
+  const iso = new Date(expiresAtMs).toISOString();
+  await ref.set({
+    active: true,
+    type: "store_subscription",
+    plan: "store_subscription",
+    access: "store_subscription",
+    until: iso,
+    expiresAt: iso,
+    premiumUntil: iso,
+    source: "store",
+    storeManaged: true,
+    storePlatform: platform,
+    updatedAt: FieldValue.serverTimestamp(),
+    updatedAtMs: nowMs,
+  }, { merge: true });
+  return { bridged: true, untilIso: iso };
+}
+
 exports.mirrorStoreEntitlement = onCall(async (request) => {
   if (!request.auth) throw new HttpsError("unauthenticated", "Sign in required");
   const uid = request.auth.uid;
@@ -1450,6 +1528,21 @@ exports.mirrorStoreEntitlement = onCall(async (request) => {
     }, { merge: true });
   });
 
+  // Cross-device restore bridge: make an active purchase durable under the username
+  // so a reinstall / new device / sign-out can restore Premium (refreshComplimentary
+  // reads premium_entitlements/{username}). Fully guarded — a bridge failure must
+  // NEVER fail the purchase report the client is awaiting.
+  let usernameBridge = null;
+  if (active && usernameId(username)) {
+    try {
+      usernameBridge = await bridgeStorePremiumToUsername(username, {
+        productId, platform, expiresAtMs, nowMs,
+      });
+    } catch (err) {
+      logFunctionWarn("mirrorStoreEntitlement/bridge", err);
+    }
+  }
+
   return {
     ok: true,
     active,
@@ -1458,6 +1551,7 @@ exports.mirrorStoreEntitlement = onCall(async (request) => {
     period,
     kind,
     expiresAtMs: expiresAtMs || 0,
+    usernameBridge,
   };
 });
 
