@@ -1,0 +1,57 @@
+# Publishes blog posts on the day their front-matter `date` arrives.
+#
+# content/blog is a dated content calendar running months ahead. render-seo.mjs
+# only renders posts whose date has arrived, so the calendar advances by simply
+# re-running it each morning and committing whatever changed. Without this job
+# the calendar stalls the moment nobody runs the renderer by hand — which is
+# exactly how 269 finished articles ended up sitting undeployed.
+#
+# The push lands on main, Pages redeploys, and the existing
+# indexnow-after-pages workflow submits the new URLs automatically.
+name: Publish scheduled blog posts
+
+on:
+  schedule:
+    # 06:17 UTC daily. Deliberately off the hour — cron at :00 is the busiest
+    # slot on GitHub's shared runners and gets queued.
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-scheduled-blog
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Render posts whose date has arrived
+        run: node tools/render-seo.mjs
+
+      - name: Commit and push anything newly due
+        run: |
+          set -euo pipefail
+          # Stage first: a newly due post is an UNTRACKED file, so a plain
+          # `git diff` would not see it.
+          git add blog sitemap.xml
+          if git diff --cached --quiet; then
+            echo "No posts due today — nothing to publish."
+            exit 0
+          fi
+          echo "Publishing:"
+          git diff --cached --name-only --diff-filter=A | sed 's/^/  + /'
+          git config user.name  'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m "blog: publish scheduled post(s) due $(date -u +%Y-%m-%d)"
+          git push
