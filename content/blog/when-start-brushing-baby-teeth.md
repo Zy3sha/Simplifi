@@ -5,8 +5,9 @@ description: "Start brushing when the first tooth appears. Learn the right fluor
 date: 2026-09-01
 updated: 2026-09-01
 author: OBubba
-tags: when to start brushing baby teeth, how to brush baby teeth, baby toothpaste fluoride, first tooth care, baby toothbrush, first dentist visit baby, baby oral care routine
+tags: when to start brushing baby teeth, how to brush baby teeth, baby toothpaste fluoride, first tooth care, baby toothbrush
 heroImage: /obubba-baby-first-tooth-brushing.jpg
+related: baby-teething-and-sleep-bedtime-help, baby-milestones-by-age-first-year, starting-solids-what-to-track, baby-vaccination-appointment-checklist-aftercare, baby-care-handover-template-grandparents-nursery, what-to-track-newborn-without-overtracking
 ---
 
 The first tooth is barely more than a white edge in the gum. Surely it is too small to need a toothbrush — and what are you meant to do when your baby wants to chew the brush instead?

@@ -38,7 +38,18 @@ const topicSection = renderer.split('function siteCss')[0];
 const topics = [...topicSection.matchAll(/^    slug: '([^']+)',$/gm)].map((match) => match[1]);
 const posts = fs.readdirSync(path.join(ROOT, 'content', 'blog'))
   .filter((name) => name.endsWith('.md'))
-  .map((name) => name.slice(0, -3));
+  .map((name) => ({
+    name,
+    source: fs.readFileSync(path.join(ROOT, 'content', 'blog', name), 'utf8'),
+  }))
+  // Match render-seo.mjs: scheduled sources are not acquisition pages until
+  // their publication date arrives. Preview mode deliberately audits all of them.
+  .filter(({ source }) => {
+    if (process.env.BLOG_INCLUDE_SCHEDULED === '1') return true;
+    const date = source.match(/^date:\s*["']?([^\s"']+)/m)?.[1];
+    return !date || date <= new Date().toISOString().slice(0, 10);
+  })
+  .map(({ name }) => name.slice(0, -3));
 
 const pages = [
   'best-baby-tracker.html',

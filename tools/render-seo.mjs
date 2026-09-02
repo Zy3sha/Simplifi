@@ -1548,11 +1548,12 @@ function markdownToHtml(markdown) {
       continue;
     }
 
-    const image = line.match(/^!\[([^\]]*)\]\((https?:\/\/[^)\s]+|\/[^)\s]+)\)$/);
+    const image = line.match(/^!\[([^\]]*)\]\((https?:\/\/[^)\s]+|\/[^)\s]+)(?:\s+(?:"([^"]*)"|'([^']*)'))?\)$/);
     if (image) {
       flushParagraph();
       flushList();
-      html.push(`<figure><img src="${escapeAttr(image[2])}" alt="${escapeAttr(image[1])}" loading="lazy"/></figure>`);
+      const caption = image[3] || image[4] || '';
+      html.push(`<figure><img src="${escapeAttr(image[2])}" alt="${escapeAttr(image[1])}" loading="lazy"/>${caption ? `<figcaption>${escapeHtml(caption)}</figcaption>` : ''}</figure>`);
       continue;
     }
 
@@ -2119,6 +2120,12 @@ function siteCss() {
     border: 1px solid var(--line);
     background: white;
     box-shadow: 0 16px 42px rgba(55, 38, 56, 0.1);
+  }
+  .rich-text figure figcaption {
+    margin: 10px 6px 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.55;
   }
   .tags {
     display: flex;
