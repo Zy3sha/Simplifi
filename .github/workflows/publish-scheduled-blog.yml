@@ -44,7 +44,7 @@ jobs:
           set -euo pipefail
           # Stage first: a newly due post is an UNTRACKED file, so a plain
           # `git diff` would not see it.
-          git add blog sitemap.xml
+          git add blog sitemap.xml feed.xml llms.txt
           if git diff --cached --quiet; then
             echo "No posts due today — nothing to publish."
             exit 0
