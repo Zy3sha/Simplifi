@@ -5,8 +5,9 @@ description: "Not sure how to write a letter to your baby? Use 12 warm, specific
 date: 2026-09-03
 updated: 2026-09-03
 author: OBubba
-tags: letter to my baby, what to write in baby time capsule, letter to future child, baby keepsake ideas, first birthday letter, new parent journal prompts, time capsule app
+tags: letter to my baby, what to write in baby time capsule, letter to future child, first birthday letter, time capsule app
 heroImage: /obubba-letter-to-baby-time-capsule.jpg
+related: baby-memory-book-without-falling-behind, baby-milestones-by-age-first-year, pregnancy-baby-app-privacy-checklist, share-baby-tracker-with-partner-without-keeping-score, what-to-track-newborn-without-overtracking, baby-care-handover-template-grandparents-nursery
 ---
 
 You want to write something your child can read one day. Then the blank page starts asking impossible questions. Should it be profound? Should you summarise the whole year? What if the beautiful words arrive only after the baby wakes?
@@ -155,7 +156,7 @@ There are important boundaries worth knowing:
 - letters are saved locally and, for a connected child profile, backed by the child's cloud data
 - the app treats letters as append-only and merges copies so a concurrently added co-parent letter is not overwritten
 
-While the text stays hidden, the child's **Grow → Memory Book** can include a dated “A letter sealed for later” teaser and count the sealed letter. It does not expose the contents in the timeline or shared Memory Book text.
+While the text stays hidden, the child's **Grow → Memory Book** can include a dated “A letter sealed for later” teaser and count the sealed letter. It does not expose the contents in the timeline or shared Memory Book text. If you want a lighter weekly keepsake habit too, use this [low-pressure baby Memory Book system](/blog/baby-memory-book-without-falling-behind.html).
 
 The pregnancy experience also offers a **Write to baby** action. It saves into the same Time Capsule format and uses the next birthday when a date of birth is available, or a one-year fallback when it is not.
 
@@ -170,7 +171,7 @@ Read the letter once and ask:
 - Is the date or age clear?
 - Does it contain at least one detail only our family would know?
 - Have I written from my experience rather than blaming my child?
-- Is there anything too private to store or eventually reveal?
+- Is there anything too private to store or eventually reveal? Our [pregnancy and baby app privacy checklist](/blog/pregnancy-baby-app-privacy-checklist.html) can help you make that decision.
 - Am I comfortable with other authorised carers on this child profile sharing its data context?
 - Have I kept another copy if these words are irreplaceable?
 
