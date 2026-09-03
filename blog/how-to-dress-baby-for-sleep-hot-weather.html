@@ -559,6 +559,12 @@
     background: white;
     box-shadow: 0 16px 42px rgba(55, 38, 56, 0.1);
   }
+  .rich-text figure figcaption {
+    margin: 10px 6px 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.55;
+  }
   .tags {
     display: flex;
     flex-wrap: wrap;
@@ -780,7 +786,7 @@
 <p>Do not wrap an unwell baby in extra clothes to “sweat out” a fever, and do not undress or sponge them down as a fever treatment. Follow NHS or clinician advice for the illness.</p>
 <h2>How OBubba&#39;s current Flutter Safe Sleep guide works</h2>
 <p>Open <strong>Care → Safe Sleep</strong> in the current OBubba app. The <strong>Tonight&#39;s sleepwear</strong> section asks for the indoor room temperature in °C or °F and offers context choices: Usual night, Warm night, Heatwave, Window open or Cold snap.</p>
-<p>![OBubba&#39;s native Flutter Safe Sleep screen showing its room-temperature field and night-context choices.](/obubba-safe-sleep-room-temperature-app.jpg &quot;Current OBubba Flutter Safe Sleep guide with example profile data. Local weather is context only; enter the indoor room temperature and follow the guidance for your own sleeping bag.&quot;)</p>
+<figure><img src="/obubba-safe-sleep-room-temperature-app.jpg" alt="OBubba&#39;s native Flutter Safe Sleep screen showing its room-temperature field and night-context choices." loading="lazy"/><figcaption>Current OBubba Flutter Safe Sleep guide with example profile data. Local weather is context only; enter the indoor room temperature and follow the guidance for your own sleeping bag.</figcaption></figure>
 <p>Enter the room reading and OBubba returns a colour-coded starting point for:</p>
 <ul><li>the temperature band</li><li>a sleeping-bag TOG range</li><li>fitted clothing layers</li><li>the main thing to check that night</li></ul>
 <p>Your last room temperature, unit and context are stored on the device so the setup survives leaving the screen. The <strong>Check tonight&#39;s weather</strong> button can add a warm-, mild- or cold-night nudge, but the app deliberately does <strong>not</strong> copy the outdoor temperature into the indoor field. The room reading still drives the sleepwear suggestion.</p>
@@ -794,7 +800,7 @@
       <section class="related-guides" aria-label="Related baby tracking guides">
         <h2>Related baby tracking guides</h2>
         <p>Keep exploring the OBubba guides parents use around feeds, sleep, nappies, routines and care handovers.</p>
-        <div class="tags"><a class="tag" href="/blog/baby-memory-book-without-falling-behind.html">How to Make a Baby Memory Book Without Falling Behind</a><a class="tag" href="/blog/when-start-brushing-baby-teeth.html">When Should You Start Brushing Baby’s Teeth?</a><a class="tag" href="/blog/baby-milestones-by-age-first-year.html">Baby Milestones by Age: A Calm First-Year Guide</a><a class="tag" href="/blog/how-much-tummy-time-does-a-baby-need.html">How Much Tummy Time Does a Baby Need? A No-Tears Guide</a><a class="tag" href="/blog/share-baby-tracker-with-partner-without-keeping-score.html">How to Share a Baby Tracker Without Keeping Score</a><a class="tag" href="/blog/how-often-should-you-weigh-your-baby.html">How Often Should You Weigh Your Baby? A Calm Growth Guide</a></div>
+        <div class="tags"><a class="tag" href="/blog/what-to-write-letter-to-baby-time-capsule.html">What to Write in a Letter to Your Baby: 12 Time-Capsule Prompts</a><a class="tag" href="/blog/baby-memory-book-without-falling-behind.html">How to Make a Baby Memory Book Without Falling Behind</a><a class="tag" href="/blog/when-start-brushing-baby-teeth.html">When Should You Start Brushing Baby’s Teeth?</a><a class="tag" href="/blog/baby-milestones-by-age-first-year.html">Baby Milestones by Age: A Calm First-Year Guide</a><a class="tag" href="/blog/how-much-tummy-time-does-a-baby-need.html">How Much Tummy Time Does a Baby Need? A No-Tears Guide</a><a class="tag" href="/blog/share-baby-tracker-with-partner-without-keeping-score.html">How to Share a Baby Tracker Without Keeping Score</a></div>
       </section>
       <div class="cta-band" style="margin-top: 44px;">
         <h2>Ready to try OBubba?</h2>

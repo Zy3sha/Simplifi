@@ -559,6 +559,12 @@
     background: white;
     box-shadow: 0 16px 42px rgba(55, 38, 56, 0.1);
   }
+  .rich-text figure figcaption {
+    margin: 10px 6px 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.55;
+  }
   .tags {
     display: flex;
     flex-wrap: wrap;
@@ -771,7 +777,7 @@
 <h2>How the current OBubba Flutter app supports a clear record</h2>
 <p>In OBubba, open <strong>Track → Log details → Health → Medicines</strong>. The native medicine sheet records:</p>
 <ul><li>medicine name</li><li>dose as entered by the parent or carer</li><li>temperature, if relevant</li><li>actual time</li><li>optional notes</li></ul>
-<p>![OBubba&#39;s native Flutter medicine log, with fields for medicine name, dose, temperature, time and notes.](/obubba-medicine-log-app.jpg &quot;Current OBubba Flutter medicine log. The app records what a carer enters; it does not calculate the correct dose.&quot;)</p>
+<figure><img src="/obubba-medicine-log-app.jpg" alt="OBubba&#39;s native Flutter medicine log, with fields for medicine name, dose, temperature, time and notes." loading="lazy"/><figcaption>Current OBubba Flutter medicine log. The app records what a carer enters; it does not calculate the correct dose.</figcaption></figure>
 <p>Frequently used medicines can be saved for faster logging. The quick-log view can show the last recorded time and how many entries exist that week, helping a tired parent spot recent activity before adding another entry. Typed and one-tap entries use the same timing checks, and OBubba protects against a rapid double-tap creating two identical logs.</p>
 <p>The shared child timeline keeps medicine entries beside sleep, feeds, nappies and temperature. With <strong>Partner Sync</strong>, parents using the same shared child can see the recorded medicine name, dose, notes and time rather than reconstructing the night from messages the next morning. Voice logging can also capture medicine details when typing is awkward, but the saved entry should still be checked for accuracy.</p>
 <p>For recognised paracetamol and ibuprofen names, OBubba may flag entries that appear unusually close together or have reached a general 24-hour count. That is a cautious timing prompt only. It is <strong>not</strong> a dose calculator, a prescription or permission to give medicine.</p>
@@ -791,7 +797,7 @@
       <section class="related-guides" aria-label="Related baby tracking guides">
         <h2>Related baby tracking guides</h2>
         <p>Keep exploring the OBubba guides parents use around feeds, sleep, nappies, routines and care handovers.</p>
-        <div class="tags"><a class="tag" href="/blog/baby-memory-book-without-falling-behind.html">How to Make a Baby Memory Book Without Falling Behind</a><a class="tag" href="/blog/when-start-brushing-baby-teeth.html">When Should You Start Brushing Baby’s Teeth?</a><a class="tag" href="/blog/baby-milestones-by-age-first-year.html">Baby Milestones by Age: A Calm First-Year Guide</a><a class="tag" href="/blog/how-much-tummy-time-does-a-baby-need.html">How Much Tummy Time Does a Baby Need? A No-Tears Guide</a><a class="tag" href="/blog/share-baby-tracker-with-partner-without-keeping-score.html">How to Share a Baby Tracker Without Keeping Score</a><a class="tag" href="/blog/how-often-should-you-weigh-your-baby.html">How Often Should You Weigh Your Baby? A Calm Growth Guide</a></div>
+        <div class="tags"><a class="tag" href="/blog/what-to-write-letter-to-baby-time-capsule.html">What to Write in a Letter to Your Baby: 12 Time-Capsule Prompts</a><a class="tag" href="/blog/baby-memory-book-without-falling-behind.html">How to Make a Baby Memory Book Without Falling Behind</a><a class="tag" href="/blog/when-start-brushing-baby-teeth.html">When Should You Start Brushing Baby’s Teeth?</a><a class="tag" href="/blog/baby-milestones-by-age-first-year.html">Baby Milestones by Age: A Calm First-Year Guide</a><a class="tag" href="/blog/how-much-tummy-time-does-a-baby-need.html">How Much Tummy Time Does a Baby Need? A No-Tears Guide</a><a class="tag" href="/blog/share-baby-tracker-with-partner-without-keeping-score.html">How to Share a Baby Tracker Without Keeping Score</a></div>
       </section>
       <div class="cta-band" style="margin-top: 44px;">
         <h2>Ready to try OBubba?</h2>

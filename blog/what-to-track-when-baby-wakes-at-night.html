@@ -559,6 +559,12 @@
     background: white;
     box-shadow: 0 16px 42px rgba(55, 38, 56, 0.1);
   }
+  .rich-text figure figcaption {
+    margin: 10px 6px 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.55;
+  }
   .tags {
     display: flex;
     flex-wrap: wrap;
@@ -784,7 +790,7 @@
 <p>A sleep log can make a professional conversation clearer, but it cannot diagnose reflux, allergy, sleep apnoea, infection, pain or a feeding problem. Bring a short summary and the original nights rather than an app-generated conclusion.</p>
 <h2>How OBubba&#39;s current Flutter night-wake flow works</h2>
 <p>Start <strong>Bedtime</strong> on the Track clock when the baby goes down. While the night is running, the centre button reads <strong>Pause</strong>. Tap it when the baby properly wakes: OBubba creates an open night-wake event and freezes the sleep timer without ending the night.</p>
-<p>![OBubba&#39;s native Flutter Track clock during a running night sleep, with the central Pause control.](/obubba-night-wake-pause-app.jpg &quot;Current OBubba Flutter Track screen with example profile data. Pause marks a night wake; Wake ends the sleep for the day, so the two events stay distinct.&quot;)</p>
+<figure><img src="/obubba-night-wake-pause-app.jpg" alt="OBubba&#39;s native Flutter Track clock during a running night sleep, with the central Pause control." loading="lazy"/><figcaption>Current OBubba Flutter Track screen with example profile data. Pause marks a night wake; Wake ends the sleep for the day, so the two events stay distinct.</figcaption></figure>
 <p>Respond to the baby without filling in a form. When they settle, tap <strong>Resume sleep</strong>. OBubba asks how they went back to sleep: Self-settled, Fed, Rocked, Held, Patted or Dummy. More than one hands-on method can be selected, while Self-settled remains separate. The pause-to-resume interval becomes the awake duration.</p>
 <p>If <strong>Fed</strong> is selected, OBubba can record bottle, breast or combination details and creates one feed linked to that wake. The linked structure matters: the night-feed analysis sees the intake, while the wake count still sees one event rather than “wake + feed” as two wakings.</p>
 <p>The open pause is stored in the child&#39;s data, so it can survive leaving the screen and can be visible to a synced partner. If two carers act on the same pause, the implementation includes guards against creating duplicate open wakes or duplicate linked feeds.</p>
@@ -800,7 +806,7 @@
       <section class="related-guides" aria-label="Related baby tracking guides">
         <h2>Related baby tracking guides</h2>
         <p>Keep exploring the OBubba guides parents use around feeds, sleep, nappies, routines and care handovers.</p>
-        <div class="tags"><a class="tag" href="/blog/baby-memory-book-without-falling-behind.html">How to Make a Baby Memory Book Without Falling Behind</a><a class="tag" href="/blog/when-start-brushing-baby-teeth.html">When Should You Start Brushing Baby’s Teeth?</a><a class="tag" href="/blog/baby-milestones-by-age-first-year.html">Baby Milestones by Age: A Calm First-Year Guide</a><a class="tag" href="/blog/how-much-tummy-time-does-a-baby-need.html">How Much Tummy Time Does a Baby Need? A No-Tears Guide</a><a class="tag" href="/blog/share-baby-tracker-with-partner-without-keeping-score.html">How to Share a Baby Tracker Without Keeping Score</a><a class="tag" href="/blog/how-often-should-you-weigh-your-baby.html">How Often Should You Weigh Your Baby? A Calm Growth Guide</a></div>
+        <div class="tags"><a class="tag" href="/blog/what-to-write-letter-to-baby-time-capsule.html">What to Write in a Letter to Your Baby: 12 Time-Capsule Prompts</a><a class="tag" href="/blog/baby-memory-book-without-falling-behind.html">How to Make a Baby Memory Book Without Falling Behind</a><a class="tag" href="/blog/when-start-brushing-baby-teeth.html">When Should You Start Brushing Baby’s Teeth?</a><a class="tag" href="/blog/baby-milestones-by-age-first-year.html">Baby Milestones by Age: A Calm First-Year Guide</a><a class="tag" href="/blog/how-much-tummy-time-does-a-baby-need.html">How Much Tummy Time Does a Baby Need? A No-Tears Guide</a><a class="tag" href="/blog/share-baby-tracker-with-partner-without-keeping-score.html">How to Share a Baby Tracker Without Keeping Score</a></div>
       </section>
       <div class="cta-band" style="margin-top: 44px;">
         <h2>Ready to try OBubba?</h2>

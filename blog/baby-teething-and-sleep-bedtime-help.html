@@ -559,6 +559,12 @@
     background: white;
     box-shadow: 0 16px 42px rgba(55, 38, 56, 0.1);
   }
+  .rich-text figure figcaption {
+    margin: 10px 6px 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.55;
+  }
   .tags {
     display: flex;
     flex-wrap: wrap;
@@ -779,7 +785,7 @@
 <h2>How the current OBubba Flutter app handles teething</h2>
 <p>Open <strong>Grow → Teeth</strong> for your baby&#39;s current smile map. Each of the 20 tooth positions is tappable, and the next likely group is highlighted from your baby&#39;s age with a deliberate reminder that ranges are not deadlines.</p>
 <p>The tooth logger stores the date, selected tooth, tender-day symptoms and a note. Symptoms include drooling, red cheeks, chewing, fussiness, disturbed sleep, swollen gums, going off food and temperature. A temperature entry is kept as an observation; OBubba does not label it as caused by teething.</p>
-<p>![OBubba&#39;s native Flutter Teeth screen showing the interactive smile map and next likely tooth group.](/obubba-teeth-smile-map-app.jpg &quot;Current OBubba Flutter Teeth screen with example profile data. Tooth ranges are context, not deadlines or a diagnosis.&quot;)</p>
+<figure><img src="/obubba-teeth-smile-map-app.jpg" alt="OBubba&#39;s native Flutter Teeth screen showing the interactive smile map and next likely tooth group." loading="lazy"/><figcaption>Current OBubba Flutter Teeth screen with example profile data. Tooth ranges are context, not deadlines or a diagnosis.</figcaption></figure>
 <p>The same screen gives age-aware oral-care guidance and simple sore-gum comfort: chilled rather than frozen teethers, clean-finger massage and soft cool food only once weaning. After the first tooth appears, it prompts a tiny smear of fluoride toothpaste containing at least 1,000 ppm, brushing at bedtime and one other time, and arranging a dental visit.</p>
 <p>Recent tooth and symptom logs are also treated as <strong>context</strong> elsewhere in OBubba. The app can soften the projected day on a teething patch, keep an extra nap option available and mention teething among plausible reasons for disrupted nights. It does not claim a tooth caused a wake. Illness and teething days are kept from distorting the baby&#39;s clean sleep baseline, and sleep-coaching progression is held rather than pushed during an active rough patch.</p>
 <p>If enough bottle or breastfeeding history exists around a logged eruption, OBubba may also notice a meaningful daytime milk dip. Bottle volume and breastfeeding minutes remain separate measures; mixed or sparse data stays quiet. The prompt is to keep offering milk and watch wet nappies, not to diagnose dehydration.</p>
@@ -791,7 +797,7 @@
       <section class="related-guides" aria-label="Related baby tracking guides">
         <h2>Related baby tracking guides</h2>
         <p>Keep exploring the OBubba guides parents use around feeds, sleep, nappies, routines and care handovers.</p>
-        <div class="tags"><a class="tag" href="/blog/baby-memory-book-without-falling-behind.html">How to Make a Baby Memory Book Without Falling Behind</a><a class="tag" href="/blog/when-start-brushing-baby-teeth.html">When Should You Start Brushing Baby’s Teeth?</a><a class="tag" href="/blog/baby-milestones-by-age-first-year.html">Baby Milestones by Age: A Calm First-Year Guide</a><a class="tag" href="/blog/how-much-tummy-time-does-a-baby-need.html">How Much Tummy Time Does a Baby Need? A No-Tears Guide</a><a class="tag" href="/blog/share-baby-tracker-with-partner-without-keeping-score.html">How to Share a Baby Tracker Without Keeping Score</a><a class="tag" href="/blog/how-often-should-you-weigh-your-baby.html">How Often Should You Weigh Your Baby? A Calm Growth Guide</a></div>
+        <div class="tags"><a class="tag" href="/blog/what-to-write-letter-to-baby-time-capsule.html">What to Write in a Letter to Your Baby: 12 Time-Capsule Prompts</a><a class="tag" href="/blog/baby-memory-book-without-falling-behind.html">How to Make a Baby Memory Book Without Falling Behind</a><a class="tag" href="/blog/when-start-brushing-baby-teeth.html">When Should You Start Brushing Baby’s Teeth?</a><a class="tag" href="/blog/baby-milestones-by-age-first-year.html">Baby Milestones by Age: A Calm First-Year Guide</a><a class="tag" href="/blog/how-much-tummy-time-does-a-baby-need.html">How Much Tummy Time Does a Baby Need? A No-Tears Guide</a><a class="tag" href="/blog/share-baby-tracker-with-partner-without-keeping-score.html">How to Share a Baby Tracker Without Keeping Score</a></div>
       </section>
       <div class="cta-band" style="margin-top: 44px;">
         <h2>Ready to try OBubba?</h2>

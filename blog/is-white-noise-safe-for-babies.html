@@ -559,6 +559,12 @@
     background: white;
     box-shadow: 0 16px 42px rgba(55, 38, 56, 0.1);
   }
+  .rich-text figure figcaption {
+    margin: 10px 6px 0;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.55;
+  }
   .tags {
     display: flex;
     flex-wrap: wrap;
@@ -775,7 +781,7 @@
 <p>Also check whether the sound is masking the real problem. A baby who is hungry, unwell, too hot or cold, in pain or struggling to breathe needs assessment and care—not louder noise. Seek urgent medical help for breathing difficulty, blue or grey skin, unusual floppiness, a baby who is hard to wake or any symptom that seriously worries you. Ask a GP, health visitor or audiology professional about hearing concerns or repeated reactions to sound.</p>
 <h2>How OBubba&#39;s current Flutter Sound Machine works</h2>
 <p>Open <strong>Care → Sound Machine</strong> in the current OBubba app. It contains nine sounds generated in the app: white noise, pink noise, brown noise, ocean, womb, heartbeat, rain, fan and shush. You can tap a tile to start or pause a sound, then use playback controls and a volume slider.</p>
-<p>![OBubba&#39;s native Flutter Sound Machine showing the sound library.](/obubba-sound-machine-app.jpg &quot;Current OBubba Flutter Sound Machine with example profile data. Playback controls are not a calibrated sound-level meter; check placement and output where the baby sleeps.&quot;)</p>
+<figure><img src="/obubba-sound-machine-app.jpg" alt="OBubba&#39;s native Flutter Sound Machine showing the sound library." loading="lazy"/><figcaption>Current OBubba Flutter Sound Machine with example profile data. Playback controls are not a calibrated sound-level meter; check placement and output where the baby sleeps.</figcaption></figure>
 <p>The sound can continue when you leave the screen or lock the phone, so OBubba also provides a true auto-stop timer: <strong>15, 30, 45 or 60 minutes</strong>. A playing indicator appears on the Track tab, making it easier to notice that audio is still running and return to the controls.</p>
 <p>There is another practical safeguard in the current implementation: when headphones or a Bluetooth audio route is lost, OBubba pauses instead of deliberately carrying on through the phone speaker. Still check the device after any connection change; software behaviour does not replace listening from the cot position.</p>
 <p>The sounds are generated as seamless loops rather than bundled recordings, so they contain no spoken adverts or surprise track changes. OBubba&#39;s volume control remains just that—a playback control. It is <strong>not</strong> a decibel reading, hearing test, baby monitor or medical safety device.</p>
@@ -788,7 +794,7 @@
       <section class="related-guides" aria-label="Related baby tracking guides">
         <h2>Related baby tracking guides</h2>
         <p>Keep exploring the OBubba guides parents use around feeds, sleep, nappies, routines and care handovers.</p>
-        <div class="tags"><a class="tag" href="/blog/baby-memory-book-without-falling-behind.html">How to Make a Baby Memory Book Without Falling Behind</a><a class="tag" href="/blog/when-start-brushing-baby-teeth.html">When Should You Start Brushing Baby’s Teeth?</a><a class="tag" href="/blog/baby-milestones-by-age-first-year.html">Baby Milestones by Age: A Calm First-Year Guide</a><a class="tag" href="/blog/how-much-tummy-time-does-a-baby-need.html">How Much Tummy Time Does a Baby Need? A No-Tears Guide</a><a class="tag" href="/blog/share-baby-tracker-with-partner-without-keeping-score.html">How to Share a Baby Tracker Without Keeping Score</a><a class="tag" href="/blog/how-often-should-you-weigh-your-baby.html">How Often Should You Weigh Your Baby? A Calm Growth Guide</a></div>
+        <div class="tags"><a class="tag" href="/blog/what-to-write-letter-to-baby-time-capsule.html">What to Write in a Letter to Your Baby: 12 Time-Capsule Prompts</a><a class="tag" href="/blog/baby-memory-book-without-falling-behind.html">How to Make a Baby Memory Book Without Falling Behind</a><a class="tag" href="/blog/when-start-brushing-baby-teeth.html">When Should You Start Brushing Baby’s Teeth?</a><a class="tag" href="/blog/baby-milestones-by-age-first-year.html">Baby Milestones by Age: A Calm First-Year Guide</a><a class="tag" href="/blog/how-much-tummy-time-does-a-baby-need.html">How Much Tummy Time Does a Baby Need? A No-Tears Guide</a><a class="tag" href="/blog/share-baby-tracker-with-partner-without-keeping-score.html">How to Share a Baby Tracker Without Keeping Score</a></div>
       </section>
       <div class="cta-band" style="margin-top: 44px;">
         <h2>Ready to try OBubba?</h2>
