@@ -5,8 +5,9 @@ description: "When baby crying feels unbearable, use this safe reset plan: check
 date: 2026-09-04
 updated: 2026-09-04
 author: OBubba
-tags: baby will not stop crying, overwhelmed by baby crying, crying baby safe reset, how to cope with crying baby, never shake a baby, new parent support, baby crying help
+tags: baby will not stop crying, overwhelmed by baby crying, crying baby safe reset, how to cope with crying baby, never shake a baby
 heroImage: /obubba-overwhelmed-baby-crying-safe-reset.jpg
+related: why-is-my-baby-crying-calm-checklist, baby-reflux-colic-diary-what-to-track, cant-sleep-when-baby-sleeps, share-baby-tracker-with-partner-without-keeping-score, baby-care-handover-template-grandparents-nursery, newborn-feeding-guide-reflux-safety
 ---
 
 You have fed, burped, changed, rocked and walked. The crying continues. Your shoulders are at your ears, your thoughts are racing and you can feel that you are no longer responding calmly.
@@ -34,6 +35,8 @@ Try one soothing action at a time: hold your baby close, move or sway gently, sp
 
 Avoid cycling frantically through ten techniques. That raises the intensity for both of you and makes it harder to notice whether anything changed.
 
+If you are calm enough to work through possible causes, use the broader [one-check-at-a-time crying checklist](/blog/why-is-my-baby-crying-calm-checklist.html). The rest of this guide is for the moment when the adult needs an immediate safety reset.
+
 ## Know when crying needs medical help
 
 Constant crying, a cry that does not sound normal for your baby or crying alongside signs of illness needs professional advice. Contact your GP or NHS 111 if your baby seems unwell, has a high temperature, is not interested in feeding or you are worried.
@@ -46,8 +49,8 @@ Call 999 for emergency symptoms including:
 - a seizure
 - repeated projectile vomiting
 - a rash that does not fade when pressed
-- a high or low temperature with serious concern
-- no wet nappy in the previous eight hours alongside concern about illness
+- a high or low temperature
+- no wet nappy in the previous eight hours
 
 The current NHS list is set out in [Soothing a crying baby](https://www.nhs.uk/baby/caring-for-a-newborn/soothing-a-crying-baby/). Trust your instincts: you know what is different for your baby.
 
@@ -126,7 +129,7 @@ Write the plan somewhere both carers can find it:
 4. Our words for an immediate handover are: “I need you now.”
 5. The professional support number is: ______
 
-Agree that an “I need you now” handover is accepted without debate. The explanation can wait until the baby is safe and both adults are regulated.
+Agree that an “I need you now” handover is accepted without debate. The explanation can wait until the baby is safe and both adults are regulated. Our [baby care handover template](/blog/baby-care-handover-template-grandparents-nursery.html) can help you write the calmer, practical details later.
 
 If there is a predictable difficult period, arrange food, water and a handover before it starts. Keep the cot clear and available. Let relatives or babysitters know the same rule: put the baby down safely, step away briefly, call for support and never shake.
 
@@ -182,6 +185,7 @@ Put the baby somewhere safe and call 999 immediately. Be honest about what happe
 ## Sources and further support
 
 - [NHS: Soothing a crying baby](https://www.nhs.uk/baby/caring-for-a-newborn/soothing-a-crying-baby/)
+- [NHS Best Start in Life: Safer sleep](https://www.nhs.uk/best-start-in-life/baby/baby-basics/newborn-and-baby-sleeping-advice-for-parents/safe-sleep-advice-for-babies/)
 - [NHS Best Start in Life: Understanding your baby](https://www.nhs.uk/best-start-in-life/baby/baby-basics/bonding-with-your-baby/understanding-your-baby/)
 - [ICON: Advice for parents](https://iconcope.org/advice-for/parents/)
 - [ICON: About the crying support programme](https://iconcope.org/about/)
