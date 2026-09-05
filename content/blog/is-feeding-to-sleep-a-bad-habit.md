@@ -210,7 +210,11 @@ This is a closed-loop plan rather than a four-night countdown. The Coach conside
 
 OBubba cannot see latch quality, measure milk transfer, determine whether a baby is hungry, assess growth or verify that the sleep space is safe. The usefulness of its pattern depends on accurate records and never replaces personalised feeding or medical advice.
 
-**[Try OBubba free →](/free-baby-tracker-app.html)** — track feeds and meaningful wakes together, then get a gradual plan that knows the difference between a bedtime cue and milk your baby still needs.
+Recording feeds, sleep, meaningful wakes and how a wake was settled in **Track** is free. The personalised association **Guidance** and **Care → Sleep Consultant** plan are Premium features. OBubba unlocks Premium during pregnancy and through the first two corrected-age months; plan options follow after that early-free period.
+
+**[Keep hunger and settling in the same picture →](/app.html?utm_source=feeding_to_sleep_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260925_feeding_to_sleep)**
+
+Track feeds and meaningful wakes together, then use a gradual plan that knows the difference between a bedtime cue and milk your baby still needs.
 
 ## Frequently asked questions
 
