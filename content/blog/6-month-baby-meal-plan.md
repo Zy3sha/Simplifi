@@ -9,7 +9,7 @@ tags: 6 month baby meal plan, baby meal plan 6 months, 7 day weaning meal plan, 
 heroImage: /obubba-6-month-baby-meal-plan.jpg
 ---
 
-A meal plan can make starting solids feel possible—but most plans ask too much of a brand-new eater. A six-month-old does not need three polished meals, snacks and a colour-coded freezer on day one.
+A meal plan can make starting solids feel possible, but most plans ask too much of a brand-new eater. A six-month-old does not need three polished meals, snacks and a colour-coded freezer on day one.
 
 If your baby is around six months and showing all three readiness signs, begin with **one small, calm food opportunity each day**. Offer a few teaspoons, a few soft pieces or both. Keep normal breastfeeds or first infant formula feeds responsive, because milk is still doing most of the nutritional work at the beginning.
 
@@ -38,7 +38,7 @@ This version assumes baby has just started. Pick a time when they are alert, you
 | **1** | Soft broccoli floret with sweet-potato mash | Steam the broccoli until squashable, leaving a long stalk to hold. Offer a little mash on a preloaded spoon. This introduces savoury and less-sweet flavours. |
 | **2** | Red-lentil and sweet-potato mash | Cook lentils until completely soft and combine with sweet potato. Lentils add iron and protein; keep the texture thick enough to stay on a spoon. |
 | **3** | Egg and avocado | Offer a small amount of mashed egg or a soft omelette strip with ripe avocado. Egg is a common allergen, so make it the only new allergen in this meal. |
-| **4** | Repeat tolerated egg with broccoli | Repetition matters. If egg was tolerated, offer it again with a familiar vegetable. If there was a possible reaction, do not re-offer it—seek advice. |
+| **4** | Repeat tolerated egg with broccoli | Repetition matters. If egg was tolerated, offer it again with a familiar vegetable. If there was a possible reaction, do not re-offer it; seek advice. |
 | **5** | Smooth peanut butter thinned into familiar sweet-potato or pear mash | Start with a very small amount. Thin it thoroughly; never give whole nuts or a sticky spoonful of nut butter. Peanut is today's only new allergen. |
 | **6** | Tender chicken and courgette | Cook chicken through and shred or mince it finely into a moist mash. Steam courgette until very soft. This adds another iron-rich savoury option. |
 | **7** | Plain full-fat yoghurt with mashed pear | Use pasteurised, unsweetened yoghurt. Cow's milk is today's new allergen; it can be used in food from around six months but not as the main drink before one year. |
@@ -65,7 +65,7 @@ Similarly, avoid measuring success by how clean the bowl looks. An adult may loa
 
 ## Where meals fit around milk and naps
 
-There is no universal six-month timetable. A useful food window is often after baby has woken, had time to become alert and taken enough milk not to be frantic—but before the next nap makes them tired. A baby who normally sleeps at noon does not need “lunch at 12” simply because an adult meal plan says so.
+There is no universal six-month timetable. A useful food window is often after baby has woken, had time to become alert and taken enough milk not to be frantic, but before the next nap makes them tired. A baby who normally sleeps at noon does not need “lunch at 12” simply because an adult meal plan says so.
 
 Try one window for several days before moving everything around. If baby rubs their eyes, arches away or becomes upset, finish the meal and protect the nap; tiredness is not a feeding problem to solve with persistence. If they wake unusually at night, do not automatically add a larger evening meal. The NHS states that starting solids does not make a baby more likely to sleep through. Look at milk intake, naps, comfort and illness as well as food.
 
@@ -101,13 +101,13 @@ This is not nutritionally “perfect” in isolation. It illustrates a useful rh
 
 ## How to introduce allergens inside a meal plan
 
-Planning helps only when it makes reactions easier—not harder—to interpret. The [NHS advises introducing foods that can trigger allergy one at a time and in very small amounts](https://www.nhs.uk/best-start-in-life/baby/weaning/safe-weaning/food-allergies/), so you can spot a reaction.
+Planning helps only when it makes reactions easier, not harder, to interpret. The [NHS advises introducing foods that can trigger allergy one at a time and in very small amounts](https://www.nhs.uk/best-start-in-life/baby/weaning/safe-weaning/food-allergies/), so you can spot a reaction.
 
 Common allergens include egg, peanut and tree nuts, cow's milk, wheat and other gluten-containing cereals, fish, shellfish, sesame and soya. Offer them in a safe form earlier in the day, when baby is well and you can observe them. Once introduced and tolerated, keep offering them as part of the usual diet.
 
 Do not introduce peanut for the first time in porridge if wheat or gluten is also new. Thin peanut into a food baby already knows. Do not introduce dairy, fish and wheat together in a first fish pie. A plan should separate unknowns until they are known.
 
-Possible allergy symptoms include hives, swelling, vomiting, cough or wheeze. A swollen tongue or throat, breathing difficulty, sudden floppiness or collapse can be anaphylaxis: call 999. For a possible non-emergency reaction, stop the food and seek medical advice rather than testing it again yourself. Our [baby-allergen introduction guide](/blog/how-to-introduce-baby-allergens-without-losing-track.html) explains what to record.
+Possible allergy symptoms include hives, swelling, vomiting, cough or wheeze. Sudden swelling of the lips, mouth, throat or tongue, breathing difficulty, sudden floppiness or collapse can be a severe reaction: call 999. For a possible non-emergency reaction, stop the food and seek medical advice rather than testing it again yourself. Our [baby-allergen introduction guide](/blog/how-to-introduce-baby-allergens-without-losing-track.html) explains what to record.
 
 ## Build each meal from three simple questions
 
@@ -170,11 +170,11 @@ Read the [NHS foods-to-avoid guidance](https://www.nhs.uk/baby/weaning-and-feedi
 
 ## Vitamins at six months
 
-NHS guidance recommends vitamin D from birth for breastfed babies and babies having less than 500ml of formula a day. From six to 12 months, breastfed babies or babies having less than 500ml of formula a day should also receive vitamins A and C. Babies having 500ml or more of formula generally do not need these supplements because formula is fortified.
+[NHS vitamin guidance](https://www.nhs.uk/best-start-in-life/baby/baby-vitamins/) recommends vitamin D from birth for breastfed babies and babies having less than 500ml of formula a day. From six months, daily vitamins A, C and D are recommended unless baby is having 500ml or more of first infant formula each day, because formula is already fortified.
 
 Ask your health visitor, pharmacist or GP which product and dose are suitable, especially if your baby was premature, has a medical condition or uses specialist formula. A meal plan should not be used to guess supplement needs.
 
-## How OBubba builds a plan from the baby—not a generic calendar
+## How OBubba builds a plan from the baby, not a generic calendar
 
 The current OBubba Flutter app has a real weekly weaning planner and recipe engine. It does not simply show the same seven-day PDF to every family. It considers corrected age and the solid foods already logged, then ranks recipes to fill gaps: iron-rich meals, foods not yet tried and allergens that may still need introduction.
 
@@ -184,9 +184,11 @@ The generated plan contains six meals and persists for the week, so tried ticks 
 
 OBubba also derives a shopping list from the chosen recipes, remembers what is already in the basket and lets the parent copy the list. The progress view brings texture stage, iron-rich meals and unique foods into the same place, while meal logs connect with milk, nappies, growth and sleep.
 
+The saved six-meal weekly plan and its shopping list are available in the free app. Free accounts see a smaller set of ranked cookbook ideas, while Premium unlocks the full 77-recipe garden.
+
 That is decision support, not a diet prescription. The app cannot see whether a piece is soft enough, diagnose an allergy or decide that poor growth is harmless. It should reduce memory work so the parent has more attention for the baby at the table.
 
-[Explore OBubba's free baby tracker](/free-baby-tracker-app.html) and turn “what on earth do I offer next?” into one manageable choice.
+[Build one manageable weaning week in OBubba](/app.html?utm_source=six_month_meal_plan_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261010_six_month_meal_plan).
 
 ## A useful plan bends
 
@@ -200,6 +202,6 @@ A good six-month meal plan should make the week calmer, not make you feel behind
 - soft shape and upright supervision matter at every meal
 - baby's “finished” cues end the meal
 
-If Thursday's plan becomes Sunday's lunch, nothing is broken. If baby wants milk and ignores the lentils, offer milk. The purpose of planning is to remove one decision—not to remove responsiveness.
+If Thursday's plan becomes Sunday's lunch, nothing is broken. If baby wants milk and ignores the lentils, offer milk. The purpose of planning is to remove one decision, not to remove responsiveness.
 
 *This article provides general information for UK families and does not replace advice from your health visitor, GP or dietitian. Seek individual guidance for prematurity, poor growth, swallowing problems, eczema, known allergy, a restricted diet or persistent feeding distress. Call 999 for breathing difficulty, tongue or throat swelling, sudden floppiness or collapse.*
