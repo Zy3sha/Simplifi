@@ -13,7 +13,7 @@ You have finally settled the baby. One hand is supporting their head, the other 
 
 This is where a baby tracker should get quieter.
 
-**Use the OBubba home-screen widget when you need a quick glance or one-tap care action. On a compatible iPhone, use the Live Activity to watch a running nap, sleep or feed timer from the Lock Screen or Dynamic Island. When both hands are busy, Siri can start or stop a nap timer and tell you the next predicted nap without opening OBubba.**
+**Use the OBubba home-screen widget when you need a quick glance or one-tap care action. On a compatible iPhone, use the Live Activity to watch a running nap, sleep or feed timer from the Lock Screen or Dynamic Island. When both hands are busy, Siri can start a nap or bedtime timer, stop a running nap or sleep timer, and tell you the next predicted nap without opening OBubba.**
 
 These shortcuts reduce friction; they do not remove the need to check an important time, medicine record or ambiguous entry inside the app.
 
@@ -25,7 +25,7 @@ These shortcuts reduce friction; they do not remove the need to check an importa
 | See the next predicted nap or bedtime | Home-screen widget, or ask Siri on iPhone |
 | Log a feed or nappy quickly | Home-screen widget |
 | Watch a running nap, bedtime or feed timer | OBubba app, or Live Activity on a compatible iPhone |
-| Start or stop a nap with both hands full | Siri on iPhone |
+| Start a nap or bedtime timer, or stop a running nap or sleep timer, with both hands full | Siri on iPhone |
 | Add a completed feed, nappy and nap together | [Quick Log](/blog/hands-free-baby-tracking-voice-log.html) inside OBubba |
 | Correct a time, add details or record medicine | Open OBubba and review the full form |
 
@@ -91,7 +91,7 @@ OBubba exposes a small set of focused iPhone shortcuts. Natural phrasing can var
 | “Siri, when's the next nap in OBubba?” | Speaks the current next-nap or bedtime answer |
 | “Siri, log a feed in OBubba.” | Opens OBubba at the feed action so you can add the details |
 | “Siri, log a nappy in OBubba.” | Opens OBubba at the nappy action |
-| “Siri, start a sleep timer in OBubba.” | Opens OBubba at the sleep action |
+| “Siri, start a sleep timer in OBubba.” | Starts a timestamped bedtime timer without opening the app |
 
 Start and stop are deliberately timestamped at the moment you speak. The action is stored in a durable queue shared with the app, then Flutter drains it through the ordinary tracking repository. If OBubba was not on screen, it can still preserve when the request happened rather than substituting the later time when you next open the app.
 
@@ -183,7 +183,7 @@ Android launchers vary, so the exact menu design may differ by phone manufacture
 
 The Live Activity starts with a supported timer when iOS permits Live Activities for OBubba. If it does not appear, check the app's notification and Live Activity settings, then try starting a fresh timer in OBubba.
 
-OBubba's App Intents make supported actions discoverable to Siri and the Shortcuts app. You can try the phrases above or look for OBubba actions in Shortcuts. Some requests open the app because they need details; start nap, stop timer and next nap are designed to answer without that extra screen.
+OBubba's App Intents make supported actions discoverable to Siri and the Shortcuts app. You can try the phrases above or look for OBubba actions in Shortcuts. Some requests open the app because they need details; start nap, start bedtime, stop timer and next nap are designed to work without that extra screen.
 
 ## A calmer night setup
 
@@ -197,7 +197,7 @@ Before bedtime, take two minutes:
 
 The goal is not to track more. It is to stop the useful parts of tracking from interrupting care.
 
-**[Try OBubba free →](/app.html)** — keep the current timer, next sleep and common care actions close without turning every wake into a phone session.
+**[Try OBubba free →](/app.html?utm_source=widgets_siri_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260914_widgets_siri)** — keep the current timer, next sleep and common care actions close without turning every wake into a phone session.
 
 ## Quick answers
 
@@ -236,8 +236,7 @@ The shortcut uses OBubba's latest shared snapshot. Open the app once to refresh 
 
 ## Sources and further reading
 
-- [Apple: Add, edit and remove widgets on iPhone](https://support.apple.com/en-lamr/guide/iphone/-iphb8f1bf206/ios)
-- [Apple: View Live Activities in the Dynamic Island on iPhone](https://support.apple.com/guide/iphone/view-live-activities-in-the-dynamic-island-iph28f50d10d/26/ios/26)
+- [Apple: Add and edit widgets on iPhone](https://support.apple.com/en-us/118610)
+- [Apple: View Live Activities in the Dynamic Island on iPhone](https://support.apple.com/guide/iphone/iph28f50d10d/ios)
 - [Apple: Use Siri with apps on iPhone](https://support.apple.com/guide/iphone/use-siri-with-apps-iph0193a9d54/26/ios/26)
-- [Android Help: Add apps, shortcuts and widgets to Home screens](https://support.google.com/android/answer/9450271?hl=en-en)
-
+- [Android Help: Add apps, shortcuts and widgets to Home screens](https://support.google.com/android/answer/9450271?hl=en)
