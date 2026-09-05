@@ -36,8 +36,8 @@ test('scheduled water-and-solids article pins current product limits', () => {
 });
 
 test('scheduled water-and-solids article states entitlement and one attributable CTA', () => {
-  assert.match(article, /34-food reference, the pre-weaning guide and Track logging are free/);
-  assert.match(article, /Premium expands the personalised recipe garden and weaning plan/);
+  assert.match(article, /34-food reference, the pre-weaning guide, Track logging and the six-meal weekly plan are free/);
+  assert.match(article, /Premium expands the personalised recipe selection and full recipe garden/);
   assert.match(article, /through your baby's first two corrected-age months/);
   assert.match(article, /Keep milk, meals and nappies in one useful picture/);
   const url = '/app.html?utm_source=water_solids_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261002_water_solids';

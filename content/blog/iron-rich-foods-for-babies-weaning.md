@@ -153,9 +153,9 @@ Serve fruit in an age-appropriate form: berries sliced or mashed, hard fruit coo
 
 Do not drop, delay or ration normal breastfeeds or formula feeds to “make room” for iron. Milk remains central during the first year, and the NHS does not ask parents starting solids to run a precise milk-versus-iron timetable.
 
-As appetite develops, meals and milk naturally find a rhythm. A relaxed practical approach is to offer solids when your baby is awake and receptive—not extremely hungry or completely full—and continue responsive milk feeds.
+As appetite develops, meals and milk naturally find a rhythm. A relaxed practical approach is to offer solids when your baby is awake and receptive, not extremely hungry or completely full, and continue responsive milk feeds.
 
-First infant formula is fortified with iron. Breast milk contains iron in a form the baby can use efficiently, but its volume and nutrient transfer cannot be calculated from time at the breast. Neither fact removes the need to introduce a varied diet containing iron from around six months.
+Do not change responsive milk feeds to chase iron absorption. NHS guidance says milk remains the main drink while iron-containing foods join the diet from around six months.
 
 Cow's milk can be used in cooking from around six months but should not replace breast milk or first infant formula as the main drink before 12 months.
 
@@ -222,7 +222,7 @@ Nutrient-rich food is not useful if it is presented as a choking hazard.
 
 Gagging can be noisy and is part of learning; choking may be quiet because the airway is blocked. Read the [gagging versus choking guide](/blog/gagging-vs-choking-baby-weaning.html) and learn infant first aid before you need it.
 
-Common iron-rich foods—egg, fish, wheat cereal, soya and sesame in houmous—may also be allergens. Introduce new allergens one at a time in small amounts. If tolerated, keep offering them as part of the usual diet. Stop and seek appropriate advice if a reaction occurs.
+Common iron-rich foods such as egg, fish, wheat cereal, soya and sesame in houmous may also be allergens. Introduce new allergens one at a time in small amounts. If tolerated, keep offering them as part of the usual diet. Stop and seek appropriate advice if a reaction occurs.
 
 ## What if my baby refuses every iron-rich food?
 
@@ -258,7 +258,7 @@ Ask for professional advice if your baby:
 
 Do not wait for an app insight if your baby seems seriously unwell. Use NHS 111, your GP or emergency services according to the severity of the symptoms.
 
-![Current OBubba Flutter Weaning Progress screen showing five iron-rich meals, nine unique foods and a personalised six-meal weekly plan](/obubba-weaning-progress-app.jpg "The current OBubba Flutter app counts logged iron-rich meals and uses the wider food history to shape recipe ideas and a weekly plan. It is a memory aid, not a measure of iron status.")
+![Current OBubba Flutter Weaning Progress screen using fictional example data to show five iron-rich meals, nine unique foods and a personalised six-meal weekly plan](/obubba-weaning-progress-app.jpg "The current OBubba Flutter app shown with fictional example data. It counts logged iron-rich meals and uses the wider food history to shape recipe ideas and a weekly plan. It is a memory aid, not a measure of iron status.")
 
 ## How the current OBubba Flutter app helps
 
@@ -269,17 +269,19 @@ The current app can:
 - search 34 first-food ideas by food, nutrient or allergen
 - show age guidance and a safer serving suggestion for each food
 - recognise logged iron-rich meals using food-name boundaries, so “goat” does not falsely count as “oat” and “jellybean” does not count as “bean”
-- surface a gentle iron-gap prompt only after several solids meals have been logged without a recognised iron source
+- surface a gentle iron-gap prompt from 26 weeks only after at least three recent solids meals and no recognised iron source in roughly the last 21 days
 - count iron-rich meals and unique foods in Weaning Progress
 - rank recipe ideas around developmental stage, iron, untried foods and new allergens
-- exclude any allergen with a recorded reaction from future suggestions
+- exclude any allergen with a recorded reaction from future recipe suggestions
 - build a saved six-meal weekly plan and derive a tickable shopping list from its ingredients
 
-The intelligence stays deliberately bounded. A logged “beef stew” can count as an iron-rich meal, but OBubba does not know how much beef was swallowed, how much iron was absorbed or what a blood test would show. Missing logs are missing information—not proof that a baby ate no iron.
+The intelligence stays deliberately bounded. A logged “beef stew” can count as an iron-rich meal, but OBubba does not know how much beef was swallowed, how much iron was absorbed or what a blood test would show. Missing logs are missing information, not proof that a baby ate no iron.
 
 That is the product's useful role: carrying the mental load of variety and remembering what was tried, while leaving appetite to the baby and medical assessment to qualified professionals.
 
-**[Try OBubba free →](/free-baby-tracker-app.html)** — keep first foods, allergens, milk feeds, nappies, growth and sleep in one calm record, then let the app suggest what could fill the next genuine gap.
+The 34-food reference, solids logging, Weaning Progress and the six-meal weekly plan are free. Premium expands the personalised recipe selection and full recipe garden. The whole app is unlocked during pregnancy and through your baby's first two corrected-age months.
+
+**[Let the app remember which food comes next →](/app.html?utm_source=iron_foods_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261003_iron_foods)** Keep first foods, allergens, milk feeds, nappies, growth and sleep in one calm record, then let the app suggest what could fill the next genuine gap.
 
 ## A calmer way to think about this week
 
@@ -291,6 +293,6 @@ Instead of asking, “Did my baby hit the iron target today?”, try three small
 
 That is enough to build a pattern. Some meals will be eaten. Some will decorate the bib. Some foods will disappear for a month and return as favourites.
 
-Iron matters, but the goal is not a perfect plate. It is a growing rotation of safe, varied foods beside responsive milk feeds—and a parent who can see the bigger picture without needing to remember every spoonful.
+Iron matters, but the goal is not a perfect plate. It is a growing rotation of safe, varied foods beside responsive milk feeds, with a parent who can see the bigger picture without needing to remember every spoonful.
 
 *This article provides general information, not medical advice. Follow your baby's individual feeding plan and seek advice from your health visitor, GP or paediatric dietitian for concerns about prematurity, restricted diets, feeding, growth, iron deficiency or supplements.*
