@@ -1527,6 +1527,9 @@ function readPosts() {
     // was linked from the index and listed in the sitemap immediately.
     // Override to preview the whole calendar: BLOG_INCLUDE_SCHEDULED=1
     .filter((post) => {
+      // Editorial safety stop: paused and draft sources must never enter the
+      // generated site, including scheduled-calendar preview builds.
+      if (post.status === 'paused' || post.status === 'draft') return false;
       if (process.env.BLOG_INCLUDE_SCHEDULED === '1') return true;
       if (!post.date) return true; // undated posts are evergreen
       const today = new Date().toISOString().slice(0, 10);

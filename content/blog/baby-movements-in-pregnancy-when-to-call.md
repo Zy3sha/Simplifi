@@ -4,6 +4,8 @@ slug: baby-movements-in-pregnancy-when-to-call
 description: "When should you feel baby move, and how many movements are normal? Learn the pattern that matters, when to call and why an app cannot reassure you."
 date: 2026-10-15
 updated: 2026-10-15
+status: paused
+pauseReason: "Current kick-counter guidance conflicts with immediate-call movement guidance; do not publish until product safety copy is reconciled."
 author: OBubba
 tags: baby movements in pregnancy, reduced fetal movements, baby moving less, when should baby move, kick counter app, counting baby kicks, pregnancy tracker, OBubba pregnancy
 heroImage: /obubba-baby-movements-pregnancy.jpg
