@@ -87,6 +87,8 @@ Try this for three or four days:
 
 OBubba's own contact-nap insight uses this one-nap foothold. It only appears after enough nap-location data suggests holding or movement is the usual pattern, and it explicitly says contact naps are fine. The suggestion is an optional experiment, not a warning.
 
+Basic nap timing and location logging remain available without Premium. Pattern guidance such as the contact-nap insight is a Premium feature. OBubba unlocks Premium during pregnancy and through the first two corrected-age months; plan options follow after that early-free period.
+
 ## Why does my baby wake during the cot transfer?
 
 A transfer changes several sensations at once: warmth, pressure, smell, movement, sound and body position. A baby who was settled against you may notice the contrast before you have even moved your hands away.
@@ -175,7 +177,7 @@ Count it as a real nap. Decide whether to rescue it based on your baby's mood an
 
 There is no magic number. Pause long enough to see whether a small stir settles, then respond. If your baby is becoming increasingly upset or the attempt is clearly failing, pick them up and protect the nap.
 
-**[Try OBubba free →](/app.html)** — time the nap, record where it began and ended, and let several real days reveal whether timing or location is actually changing your baby's nights.
+**[Try OBubba free →](/app.html?utm_source=contact_naps_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260916_contact_naps)** — time the nap, record where it began and ended, and let several real days reveal whether timing or location is actually changing your baby's nights.
 
 ## Related guides
 
