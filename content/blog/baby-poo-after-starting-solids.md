@@ -37,7 +37,7 @@ This guide explains the ordinary changes, the warning signs and what is genuinel
 | White, grey or chalky-pale poo | Can signal a problem with bile flow or the liver | Contact your GP promptly; do not wait for several more nappies |
 | Black, tar-like poo after the first newborn days | May represent digested blood | Seek urgent medical advice |
 
-A food can tint a nappy—beetroot can look red and dark berries can look almost black—but do not use a recent meal to dismiss a warning colour when you are unsure. Photograph the nappy for a clinician if appropriate, record what baby ate and ask for advice.
+A food can tint a nappy. Beetroot can look red and dark berries can look almost black. But do not use a recent meal to dismiss a warning colour when you are unsure. Photograph the nappy for a clinician if appropriate, record what baby ate and ask for advice.
 
 ## Why does poo change when solids begin?
 
@@ -104,7 +104,7 @@ Do not rely on a photo's automatic colour correction. Look in natural light if p
 
 ### White, grey or chalky pale
 
-Very pale poo is not an ordinary weaning colour. It may mean bile is not reaching the gut normally. Great Ormond Street Hospital notes that liver-related jaundice can involve [pale, chalky stool and dark urine](https://www.gosh.nhs.uk/conditions-and-treatments/conditions-we-treat/neonatal-jaundice/).
+Very pale poo is not an ordinary weaning colour. It may mean bile is not reaching the gut normally. The NHS lists pale, creamy poo as a reason to [ask for an urgent GP or midwife appointment or call NHS 111](https://www.nhs.uk/conditions/jaundice-in-babies/).
 
 Contact your GP promptly if a stool is white, grey or chalky pale. Do not wait for the app to detect a trend or for another meal to “add colour”.
 
@@ -180,7 +180,7 @@ For a concerning colour, a well-lit photograph may help a health professional. S
 
 ## How the current OBubba Flutter app handles nappy changes
 
-OBubba's real nappy log starts with wet, poo or dirty, then opens optional detail only when it is useful. Parents can record texture—such as paste-like, watery, formed, pellet-like or blood-streaked—and colour including yellow, brown, orange, green, dark, pale and red.
+OBubba's real nappy log starts with wet, poo or dirty, then opens optional detail only when it is useful. Parents can record textures such as paste-like, watery, formed, pellet-like or Bloody/streaked, and colours including yellow, brown, orange, green, dark, pale and red.
 
 ![The current OBubba Flutter nappy log showing a paste-like brown poo, texture choices and warning markers on blood-streaked, pale, red and dark options](/obubba-poo-colour-texture-log-app.jpg "The real OBubba nappy-detail screen records broad colour and texture patterns while visibly marking choices that need more caution.")
 
@@ -188,9 +188,9 @@ The interface deliberately marks blood-streaked texture and dark, pale or red co
 
 Behind the screen, OBubba can surface health-safety nudges for pale, red or blood-streaked records. It also keeps wet and dirty nappies alongside milk, solids and illness notes, helping a parent see whether watery poo coincides with fewer wet nappies or whether pellets began after a feeding change.
 
-That is support for noticing and communicating—not diagnosis. The app cannot tell whether a colour is blood, assess dehydration, interpret a photograph or decide that a baby is safe. When a warning sign appears, contact a clinician rather than waiting for more data.
+That is support for noticing and communicating, not diagnosis. The app cannot tell whether a colour is blood, assess dehydration, interpret a photograph or decide that a baby is safe. When a warning sign appears, contact a clinician rather than waiting for more data.
 
-[Explore OBubba's free baby tracker](/free-baby-tracker-app.html) for shared nappy, feed, sleep and weaning records.
+[Keep feeds, nappies and weaning changes together in OBubba](/app.html?utm_source=poo_solids_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261008_poo_solids).
 
 ## A calm nappy decision tree
 
