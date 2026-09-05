@@ -165,13 +165,13 @@ For a short appointment, the best workflow is:
 4. check the original entries for any unusual day
 5. take the Red Book as the clinical record
 
-**[Try OBubba free →](/app.html)** — keep feeds, nappies, sleep, temperature, growth and questions together, then turn the useful parts into a calm appointment summary.
+**[Try OBubba free →](/app.html?utm_source=health_visitor_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260910_health_visitor)** — keep feeds, nappies, sleep, temperature, growth and questions together, then turn the useful parts into a calm appointment summary.
 
 ## When a routine appointment should not wait
 
 Do not wait for a scheduled review or spend time perfecting a report if your baby may be seriously ill.
 
-The NHS advises getting medical help as soon as possible for warning signs including difficulty breathing, a baby who is hard to wake, blue, pale, blotchy or grey skin, constant unusual crying, green vomit, feeding that is not normal and worrying, or nappies that are drier than usual. Call 999 if a child stops breathing, will not wake, has a non-fading red or purple rash, has a first febrile seizure, has a severe allergic reaction or another listed emergency.
+Current NHS guidance says to call 999 or go to A&E for signs including serious breathing difficulty, blue, grey, pale or blotchy skin, a rash that does not fade when pressed, a baby who is difficult to wake, a seizure, no pee for 12 hours, a temperature of 38°C or higher under 3 months, 39°C or higher at 3 to 6 months, or a temperature below 36°C. Call NHS 111 if you are worried about any symptom or do not know what to do.
 
 Trust your instincts. A tracker is for recall and patterns; it is never a reason to postpone care.
 
@@ -214,7 +214,7 @@ Write all ten, circle the top three and ask what follow-up route to use for the 
 
 - [NHS: Your baby's health and development reviews](https://www.nhs.uk/baby/babys-development/height-weight-and-reviews/baby-reviews/)
 - [NHS Best Start in Life: Vaccinations and newborn screening tests](https://www.nhs.uk/best-start-in-life/baby/baby-basics/caring-for-your-baby/vaccinations-and-newborn-screening-tests/)
-- [NHS: Is your baby or toddler seriously ill?](https://www.nhs.uk/baby/health/is-your-baby-or-toddler-seriously-ill/)
+- [NHS: When to get urgent medical help for babies and children under 5](https://www.nhs.uk/baby/health/when-to-get-urgent-medical-help-for-babies-and-children-under-5/)
 - [NHS: Vaccination tips for parents](https://www.nhs.uk/vaccinations/vaccination-tips-for-parents/)
 
 *OBubba supports organisation, parent-entered tracking and health conversations. It is not a medical record or medical device, cannot verify observations, diagnose illness or replace the Red Book, health visitor, GP, paediatric team, NHS 111 or emergency services.*
