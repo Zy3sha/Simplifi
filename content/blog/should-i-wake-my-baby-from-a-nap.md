@@ -183,7 +183,11 @@ For a toddler on one nap, the consultation may suggest gently waking when the si
 
 OBubba cannot assess feeding effectiveness, weight gain, jaundice, tired cues or whether a baby is clinically difficult to rouse. A professional feeding plan always outranks the app. What it can do is keep actual nap times, bedtime settling and night waking together so parents can test whether the suspected relationship exists in their own family.
 
-**[Try OBubba free →](/free-baby-tracker-app.html)** — use the live nap clock to record what happened, then let several days of evidence guide the next small experiment.
+Using the live nap clock and recording when your baby actually wakes are free in **Track**. Personalised sleep correlations, **Tomorrow's plan**, **Guidance** and **Care → Sleep Consultant** are Premium features. OBubba unlocks Premium during pregnancy and through the first two corrected-age months; plan options follow after that early-free period.
+
+**[See whether the nap is really the problem →](/app.html?utm_source=wake_baby_from_nap_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260927_wake_nap)**
+
+Record what happened instead of waking by a generic timer. Several complete days can show whether the nap is actually crowding bedtime or simply giving your baby the sleep they need.
 
 ## Keep every nap safer
 
