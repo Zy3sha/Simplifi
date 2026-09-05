@@ -3,7 +3,7 @@ title: "Baby Sleep Schedule by Age: A Gentle Guide"
 slug: baby-sleep-schedule-guide
 description: "Baby sleep schedule guidance by age, with sleep-duration ranges, flexible wake windows, safer-sleep reminders and a calm way to spot your baby's rhythm."
 date: 2026-04-30
-updated: 2026-08-24
+updated: 2026-09-05
 author: OBubba
 tags: baby sleep schedule, baby sleep tracker, wake windows, newborn sleep, infant sleep, parenting app, OBubba
 heroImage: https://cdn.marblism.com/JaN0zQ_GmPL.webp
@@ -20,6 +20,25 @@ heroImage: https://cdn.marblism.com/JaN0zQ_GmPL.webp
 - **1-2 years:** Many toddlers sleep for 11-14 hours across 24 hours, including naps. Nap transitions can change the shape of the day.
 
 These are broad planning ranges from AASM guidance, not targets to force. If you are worried about your baby's feeding, breathing, weight gain, development or sleep, speak with your health visitor, doctor or paediatrician.
+
+## How to build a flexible baby sleep schedule
+
+You do not need to choose between a strict timetable and having no plan at all. A useful schedule is a **working shape for the day** that changes when your baby does.
+
+1. **Start with the wake-up that actually happened.** An early morning, a long nap or a short nap can move the rest of the day.
+2. **Keep feeds, health needs and safer sleep ahead of the clock.** Do not delay a needed feed or responsive comfort to protect a schedule.
+3. **Use age as context, not a deadline.** The NHS says every baby is different and that sleep patterns change as babies grow. AASM ranges describe total sleep across 24 hours, including naps, rather than prescribing exact nap times.
+4. **Watch recent awake time and your baby's cues together.** Neither one can guarantee that a nap will happen, but both can help you choose when to begin a calm wind-down.
+5. **Review several ordinary days before changing the plan.** Keep the smallest useful record, then adjust one thing at a time instead of rebuilding every nap and bedtime after one difficult day.
+
+### What to focus on by age
+
+- **0-3 months:** Responsive feeds, safer sleep and a gentle difference between daytime and night-time. Expect sleep to come in short and long bursts rather than fixed naps.
+- **3-6 months:** A simple repeatable wind-down and the first broad patterns that appear in real days. Some babies begin to sleep for longer stretches, but not all do.
+- **6-12 months:** The whole 24-hour picture, including naps, night sleep, feeds and the way today's completed naps move bedtime.
+- **12-24 months:** A familiar nap and bedtime routine that can flex as daytime sleep changes. Keep looking at total sleep and how your child is coping, not the clock alone.
+
+If you want more detail on the awake periods between naps, use the [wake windows by age chart](/blog/wake-windows-by-age.html). For a practical review of the day, write down wake-up, naps, feeds, bedtime and night wakes for three to seven days. The aim is not to make every day match. It is to make the next decision less guessy.
 
 You have probably been there. It is 3:00 AM. You are scrolling through a "perfect" baby sleep schedule on a forum, wondering why your little one did not get the memo.
 
@@ -121,6 +140,6 @@ Your baby's sleep will change. There will be teething, regressions and growth sp
 
 You do not have to navigate these early stages alone. Whether you are trying to figure out a **baby sleep schedule** for the first time or you are deep in the four-month sleep regression, we are here to help.
 
-[Download the OBubba app](https://obubba.com) and start learning your baby's rhythm, together.
+[Start learning your baby's rhythm with OBubba](/start/?utm_source=owned_search&utm_medium=seo&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260905_baby_sleep_schedule_relevance) and keep sleep, feeds and night wakes in one shared picture.
 
 **Made by a tired mum who finally got some sleep.**

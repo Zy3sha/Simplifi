@@ -47,6 +47,8 @@ Wake windows are a guide; your baby's **sleepy cues** are the live signal. Aim t
 
 If you repeatedly see the same pattern, try a small timing change and observe rather than chasing the chart. If the whole process is increasing anxiety, use our [low-pressure wake-window reset](/blog/baby-wake-windows-without-stress.html): skip catch-up logging and record only the next useful moment.
 
+For the wider 24-hour picture, our [flexible baby sleep schedule guide](/blog/baby-sleep-schedule-guide.html) shows how to combine age, completed naps, feeds and the wake-up that actually happened without turning the day into a rigid timetable.
+
 ## Every baby's window is a little different
 
 Two babies the same age can have wake windows 30–45 minutes apart, and the same baby's window shifts around growth spurts, [developmental leaps and sleep regressions](/blog/4-month-sleep-regression.html), teething, and illness. This is exactly why a printed chart can only get you so far.
