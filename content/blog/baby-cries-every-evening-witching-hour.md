@@ -185,7 +185,9 @@ The safety card is always visible. It tells an overwhelmed parent to put baby sa
 
 OBubba cannot hear the cry, examine your baby or diagnose colic, reflux, allergy or illness. “Most likely” is a data-grounded starting point, not medical clearance.
 
-**[Try OBubba free →](/app.html)** — crying intensity, feeds, naps, nappies, personalised soothing history and an always-visible safety reset in one calm family record.
+Crying logs and the Crying Helper, including the safety reset and your family's soothing history, remain available without Premium. The deeper Guidance panel where OBubba surfaces personalised multi-day patterns is a Premium feature. OBubba unlocks Premium during pregnancy and through the first two corrected-age months; plan options follow after that early-free period.
+
+**[Try OBubba free →](/app.html?utm_source=evening_crying_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260920_evening_crying)** — crying intensity, feeds, naps, nappies, soothing history and a safety reset in one calm family record.
 
 ## If you feel the anger rising
 
@@ -243,4 +245,3 @@ Sometimes comfort does not stop crying immediately. Your holding, voice and pres
 ### Can I put my baby down and walk away?
 
 Yes, when crying is overwhelming: place baby safely on their back in their clear cot, step away briefly and return when calmer. Never leave them somewhere unsafe and never shake them.
-
