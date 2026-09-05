@@ -1,7 +1,7 @@
 ---
-title: "Why Does My Baby Wake at 4am? A Calm Guide to Early Waking"
+title: "Baby Waking at 4am? What to Check First"
 slug: baby-waking-early-4am-morning
-description: "Why babies wake at 4-5am, what to check first, and gentle ways to read the pattern across naps, feeds, bedtime and early-morning light."
+description: "Baby waking at 4am and not resettling? Check feeds, naps, bedtime and early-morning light, with gentle practical steps for reading the pattern."
 date: 2026-08-12
 updated: 2026-08-12
 author: OBubba
