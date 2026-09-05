@@ -12,6 +12,11 @@ const SITE = {
   description: 'OBubba is a mum-built baby tracker and parent support app for feeds, breastfeeding, sleep, naps, nappies, weaning, growth, milestones, preterm baby support, colic and reflux notes, memory book moments, partner sync, Bubba Care handovers and calmer family routines.',
   appStoreUrl: 'https://apps.apple.com/app/obubba-baby-sleep-tracker/id6760968757',
   playStoreUrl: 'https://play.google.com/store/apps/details?id=com.obubba.app',
+  socialUrls: [
+    'https://www.instagram.com/obubba_app/',
+    'https://www.tiktok.com/@obubba_app',
+    'https://www.facebook.com/people/OBubba/61583683947795/',
+  ],
   ogImage: '/og-image.png',
 };
 
@@ -2350,7 +2355,7 @@ function seoSchema() {
           contactType: 'customer support',
           availableLanguage: ['en-GB', 'en'],
         },
-        sameAs: [SITE.appStoreUrl, SITE.playStoreUrl],
+        sameAs: [SITE.appStoreUrl, SITE.playStoreUrl, ...SITE.socialUrls],
       },
       {
         '@type': 'WebSite',
