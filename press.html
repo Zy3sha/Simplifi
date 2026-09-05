@@ -33,15 +33,37 @@
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
-    "@type": "Organization",
-    "name": "OBubba",
-    "url": "https://obubba.com/",
-    "logo": "https://obubba.com/obubba-baby-tracker-app-icon-crowned-baby.png",
-    "founder": {"@type": "Person", "name": "Zyesha Reynolds"},
-    "email": "hello@obubba.com",
-    "sameAs": [
-      "https://apps.apple.com/app/obubba-baby-sleep-tracker/id6760968757",
-      "https://play.google.com/store/apps/details?id=com.obubba.app"
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://obubba.com/#organization",
+        "name": "OBubba",
+        "url": "https://obubba.com/",
+        "logo": "https://obubba.com/obubba-baby-tracker-app-icon-crowned-baby.png",
+        "founder": {"@id": "https://obubba.com/press.html#zyesha-reynolds"},
+        "email": "hello@obubba.com",
+        "sameAs": [
+          "https://apps.apple.com/app/obubba-baby-sleep-tracker/id6760968757",
+          "https://play.google.com/store/apps/details?id=com.obubba.app"
+        ]
+      },
+      {
+        "@type": "Person",
+        "@id": "https://obubba.com/press.html#zyesha-reynolds",
+        "name": "Zyesha Reynolds",
+        "jobTitle": "Founder of OBubba",
+        "worksFor": {"@id": "https://obubba.com/#organization"},
+        "subjectOf": {"@id": "https://newbornstages.com/when-someone-takes-over-the-baby-they-should-take-over-the-thinking-too/#article"}
+      },
+      {
+        "@type": "Article",
+        "@id": "https://newbornstages.com/when-someone-takes-over-the-baby-they-should-take-over-the-thinking-too/#article",
+        "url": "https://newbornstages.com/when-someone-takes-over-the-baby-they-should-take-over-the-thinking-too/",
+        "headline": "When Someone Takes Over the Baby, They Should Take Over the Thinking Too",
+        "datePublished": "2026-08-28",
+        "author": {"@id": "https://obubba.com/press.html#zyesha-reynolds"},
+        "publisher": {"@type": "Organization", "name": "Newborn Stages", "url": "https://newbornstages.com/"}
+      }
     ]
   }
   </script>

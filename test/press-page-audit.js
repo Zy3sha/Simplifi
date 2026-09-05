@@ -8,6 +8,11 @@ const press = fs.readFileSync(path.join(root, 'press.html'), 'utf8');
 const home = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const sitemap = fs.readFileSync(path.join(root, 'sitemap.xml'), 'utf8');
 const llms = fs.readFileSync(path.join(root, 'llms.txt'), 'utf8');
+const structuredDataBlocks = [...press.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
+  .map((match) => JSON.parse(match[1]));
+const pressGraph = structuredDataBlocks.flatMap((block) => block['@graph'] || [block]);
+const founderEntity = pressGraph.find((entity) => entity['@id'] === 'https://obubba.com/press.html#zyesha-reynolds');
+const contributionEntity = pressGraph.find((entity) => entity['@id'] === 'https://newbornstages.com/when-someone-takes-over-the-baby-they-should-take-over-the-thinking-too/#article');
 
 const checks = [
   ['canonical press URL', press.includes('<link rel="canonical" href="https://obubba.com/press.html"/>')],
@@ -28,6 +33,8 @@ const checks = [
   ['contribution is not framed as endorsement', press.includes('a founder contribution, not an endorsement of OBubba by the publication')],
   ['founder contribution measurement', press.includes('data-press-action="founder_contribution_newborn_stages"')],
   ['safe external contribution link', press.includes('target="_blank" rel="noopener" data-press-action="founder_contribution_newborn_stages"')],
+  ['stable founder entity', founderEntity?.['@type'] === 'Person' && founderEntity?.name === 'Zyesha Reynolds' && founderEntity?.worksFor?.['@id'] === 'https://obubba.com/#organization'],
+  ['verified contribution entity', contributionEntity?.['@type'] === 'Article' && contributionEntity?.author?.['@id'] === 'https://obubba.com/press.html#zyesha-reynolds' && contributionEntity?.datePublished === '2026-08-28'],
   ['four asset measurements', ['icon', 'feeding', 'care', 'grow'].every((asset) => press.includes(`data-press-action="asset_download_${asset}"`))],
   ['no dynamic URL analytics payload', !/link_url\s*:|location\.(href|search)|URLSearchParams/.test(press)],
   ['press contact', press.includes('hello@obubba.com')],
