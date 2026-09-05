@@ -4,6 +4,8 @@ slug: contractions-when-to-start-timing-when-to-call
 description: "Learn how to time contractions, what the numbers mean and when to call your maternity unit—without letting a timer overrule your body or birth plan."
 date: 2026-10-16
 updated: 2026-10-16
+status: paused
+pauseReason: "Current contraction-timer guidance can advise continued timing at a regular five-minute pattern; do not publish until call guidance is reconciled."
 author: OBubba
 tags: how to time contractions, when to call maternity unit, contractions 5 minutes apart, early labour, Braxton Hicks vs contractions, contraction timer app, signs of labour, OBubba pregnancy
 heroImage: /obubba-contractions-when-to-call.jpg
