@@ -185,11 +185,13 @@ In the current Flutter app, open **Track → Feed → Solids** and type what you
 
 The **Care → Weaning** area turns those entries into a food journal, allergen journey, texture progress, unique-food count, iron-rich meal count and recipe ideas. Its first-food suggestions prioritise variety and foods not yet logged, while foods linked to a recorded reaction are filtered out rather than casually suggested again.
 
-OBubba also looks for a recent cluster of refusal notes. If the wording points mainly to lumps or gagging, it can surface a texture-focused nudge; if the refused foods are mostly unfamiliar, it can recommend another low-pressure exposure; otherwise it treats the run as a general appetite pattern. That distinction comes from the real log, not a generic daily notification.
+OBubba also looks for a recent cluster of refusal notes. It waits for three consecutive refused meals logged within about seven days, with the latest no more than four days ago. If the wording points mainly to lumps or gagging, it can surface a texture-focused nudge; if the refused foods are mostly unfamiliar, it can recommend another low-pressure exposure; otherwise it treats the run as a general appetite pattern. That distinction comes from the real log, not a generic daily notification.
 
 The app does not watch your baby swallow, measure nutrients absorbed or diagnose why a meal was refused. It helps you remember what happened, spot a repeatable pattern and arrive at a health-visitor or GP conversation with better evidence.
 
-**[Try OBubba free →](/app.html)** — milk feeds, solids, textures, allergens, nappies, sleep and gentle pattern support in one shared family timeline.
+Solids logging, the food journal, allergen journey and progress summary remain available without Premium. The full recipe collection and deeper personalised pattern guidance are Premium features. OBubba unlocks Premium during pregnancy and through the first two corrected-age months; plan options follow after that early-free period.
+
+**[Try OBubba free →](/app.html?utm_source=refusing_solids_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260918_refusing_solids)** — milk feeds, solids, textures, allergens, nappies, sleep and gentle pattern support in one shared family timeline.
 
 ## When to ask for help
 
@@ -228,4 +230,3 @@ Sore gums can temporarily reduce appetite or make some textures less comfortable
 ### When does normal fussiness become a feeding problem?
 
 The threshold is not a particular number of rejected peas. Seek help when the range keeps narrowing, distress is frequent, swallowing looks difficult, intake or hydration is concerning, growth is affected or family meals have become consistently unmanageable. Early advice is appropriate—you do not need to wait for a crisis.
-
