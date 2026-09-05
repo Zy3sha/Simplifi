@@ -1,7 +1,7 @@
 ---
 title: "What Should Baby Wear to Sleep? TOG & Temperature"
 slug: what-should-baby-wear-to-sleep
-description: "Choose safer baby sleepwear using room temperature, TOG and a chest check—plus what to do on hot nights, cold nights and when baby feels sweaty."
+description: "Choose safer baby sleepwear using room temperature, TOG and a chest check, plus what to do on hot nights, cold nights and when baby feels sweaty."
 date: 2026-10-04
 updated: 2026-10-04
 author: OBubba
@@ -9,7 +9,7 @@ tags: what should baby wear to sleep, baby room temperature sleep, baby sleeping
 heroImage: /obubba-what-baby-wear-to-sleep.jpg
 ---
 
-The weather app says 8°C. The nursery thermometer says 19°C. Your baby’s hands feel cool, the sleeping bag label says 2.5 TOG, and you are standing beside the cot wondering whether one more layer would be sensible—or too much.
+The weather app says 8°C. The nursery thermometer says 19°C. Your baby’s hands feel cool, the sleeping bag label says 2.5 TOG, and you are standing beside the cot wondering whether one more layer would be sensible or too much.
 
 The answer starts with the **room**, not the season. For a room between **16°C and 20°C**, a lightweight, well-fitting baby sleeping bag or light bedding is usually comfortable. Choose the clothing underneath according to the room temperature and the sleeping bag manufacturer’s instructions, then check your baby's chest or the back of their neck.
 
@@ -31,7 +31,7 @@ The [NHS safer-sleep guide](https://www.nhs.uk/best-start-in-life/baby/baby-basi
 
 Do not treat the table as an equation that overrides your baby. TOG describes thermal insulation, not whether one particular baby is comfortable. Fabric, clothing, illness, sleep space and individual warmth all matter.
 
-## Use the room temperature—not the weather forecast
+## Use the room temperature, not the weather forecast
 
 A cold night outside does not automatically mean a cold nursery. Central heating, insulation, closed doors, sunlight from the afternoon and another person in the room can all change the indoor temperature.
 
@@ -84,7 +84,7 @@ If your baby is too small for the bag to fit safely, use appropriate light beddi
 
 Hands and feet are often cooler than the centre of a baby's body. They are not a reliable reason to add another layer.
 
-Feel your baby’s **chest or the back of their neck**. You are looking for comfortably warm skin—not hot, clammy or sweaty.
+Feel your baby’s **chest or the back of their neck**. You are looking for comfortably warm skin, not hot, clammy or sweaty.
 
 ### Signs your baby may be too warm
 
@@ -228,7 +228,7 @@ A thermometer across the room may read 19°C while the cot beside a radiator is 
 
 No monitor, wearable or app replaces a clear, firm, flat sleep space and regular checks by a caregiver.
 
-![Current OBubba Flutter Safe Sleep screen showing a room-temperature input, Celsius and Fahrenheit controls and a weather-context button](/obubba-safe-sleep-room-temperature-app.jpg "The current OBubba Flutter Safe Sleep tool asks for the indoor room temperature before suggesting a TOG and fitted layers. Outdoor weather is shown only as context and never silently substituted for the nursery reading.")
+![Current OBubba Flutter Safe Sleep screen using a fictional baby profile and an empty example room-temperature field](/obubba-safe-sleep-room-temperature-app.jpg "The current OBubba Flutter Safe Sleep tool shown with a fictional baby profile. It asks for the indoor room temperature before suggesting a TOG and fitted layers. Outdoor weather is shown only as context and never silently substituted for the nursery reading.")
 
 ## How the current OBubba Flutter app helps
 
@@ -251,7 +251,9 @@ The tool also does not claim to sense your baby's body temperature, know a sleep
 
 That combination is the useful part: fewer frantic searches across contradictory TOG charts, without pretending an app can make the final safety check.
 
-**[Try OBubba free →](/free-baby-tracker-app.html)** — keep tonight’s sleep guidance beside naps, feeds, health notes and the wider routine, with the actual room temperature—not the season—driving the starting suggestion.
+The Safe Sleep guide and its room-temperature tool are free. Premium adds deeper personalised sleep analysis and planning after the early-free period. The whole app is unlocked during pregnancy and through your baby's first two corrected-age months.
+
+**[Dress for the room, not the season →](/app.html?utm_source=baby_sleepwear_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261004_baby_sleepwear)** Keep tonight’s sleep guidance beside naps, feeds, health notes and the wider routine, with the actual room temperature, not the season, driving the starting suggestion.
 
 ## A two-minute bedtime clothing check
 
