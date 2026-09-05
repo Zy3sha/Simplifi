@@ -3,6 +3,7 @@ const path = require('node:path');
 
 const ROOT = path.resolve(__dirname, '..');
 const homepage = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+const partnerArticle = fs.readFileSync(path.join(ROOT, 'blog', 'share-baby-tracker-with-partner-without-keeping-score.html'), 'utf8');
 
 const expected = [
   'Show me how to share the baby record',
@@ -20,4 +21,15 @@ if (/shared_care_guide_click[\s\S]{0,500}(sync.?code|family.?id|user.?id|email)/
   throw new Error('Shared-care discovery analytics appears to include sensitive or identifying data');
 }
 
-console.log('Shared-care discovery audit passed: the homepage CTA and fixed privacy-safe event are present.');
+const articleExpected = [
+  'See how to set up one shared baby record',
+  '/partner-baby-tracker-app.html?utm_source=partner_article&amp;utm_medium=owned_search',
+  'utm_campaign=from_bump_to_baby_auto',
+  'utm_content=auto_20260905_partner_article_setup',
+];
+
+for (const value of articleExpected) {
+  if (!partnerArticle.includes(value)) throw new Error(`Missing partner-article discovery marker: ${value}`);
+}
+
+console.log('Shared-care discovery audit passed: homepage and partner-article routes reach the current public setup guide.');

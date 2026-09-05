@@ -145,7 +145,7 @@ It cannot know whether the work in your home is fair. It cannot see the jobs tha
 
 Use the app to replace “When did they last feed?” It should not replace “How are you doing?”
 
-**[Try OBubba free →](/app.html)** — one shared baby record for the practical handover, with the people and access kept in your hands.
+**[See how to set up one shared baby record →](/partner-baby-tracker-app.html?utm_source=partner_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260905_partner_article_setup)** — follow the current Partner Sync steps, with the people and access kept in your hands.
 
 ## If tracking is making things worse
 
