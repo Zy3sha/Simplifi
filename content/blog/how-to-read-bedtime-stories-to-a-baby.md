@@ -190,7 +190,7 @@ The stories themselves are content, not baby data. OBubba does not infer whether
 
 This library is also different from OBubba’s **Tonight’s Story** sleep feature. Bedtime Stories are tales to read aloud. Tonight’s Story is a separate summary of logged sleep patterns and evening guidance. Neither can observe your baby or guarantee sleep.
 
-**[Try OBubba free →](/app.html)** — bedtime stories, a repeatable routine, sleep and feed tracking, weaning, play ideas and family memories in one calmer app.
+**[Make story time easy to return to →](/app.html?utm_source=bedtime_story_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260906_bedtime_story)** Bedtime stories, a repeatable routine, sleep and feed tracking, weaning, play ideas and family memories in one calmer app.
 
 ## Quick answers
 
