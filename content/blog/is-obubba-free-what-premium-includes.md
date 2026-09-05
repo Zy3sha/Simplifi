@@ -13,7 +13,7 @@ Downloading a baby tracker should not begin with a puzzle: what works now, what 
 
 Here is the straight answer.
 
-**OBubba is free to download, and core tracking stays free.** You can keep a timeline for one baby, record everyday care and use the basic app without paying. Premium is for the deeper layer: exact sleep timing, personalised plans and guidance, Luna, sleep coaching, selected deep-dives, extra recipe choice and additional babies.
+**OBubba is free to download, and core tracking stays free.** You can record everyday care and use the basic app without paying. Premium is for the deeper layer: exact sleep timing, personalised plans and guidance, Luna, sleep coaching, selected deep-dives and extra recipe choice.
 
 There are two unusually generous parts of the current Flutter app too:
 
@@ -84,7 +84,7 @@ Premium is not “the same log without adverts”. It unlocks the interpretation
 | Sleep Consultant | A personalised 14-day sleep-plan flow becomes available |
 | Night Weaning | The readiness-aware, seven-night plan opens when the family chooses that path |
 | Weaning recipes | The weekly personalised recipe set expands beyond the two free suggestions |
-| More babies | The first child is free; adding a second or later profile requires Premium |
+| Premium on another baby | A baby can be added as Free from the Track baby switcher; deeper guidance on that baby needs its own valid Premium access |
 
 The distinction matters. **Free remembers what happened. Premium spends more of the app’s work on what may help next.**
 
@@ -119,7 +119,7 @@ The genuine Flutter paywall has three plan shapes: monthly, yearly and lifetime.
 
 These are the app’s current public preview values, not a promise that every storefront or future version has the same price. The production paywall reads the product and currency from Apple or Google. Check the confirmation sheet on your own device before buying; that is the price you are agreeing to.
 
-The [UK App Store listing](https://apps.apple.com/gb/app/obubba-baby-tracker/id6760968757) currently labels OBubba **Free · In-App Purchases**. [Google Play](https://play.google.com/store/apps/details?id=com.obubba.app) likewise lists in-app purchases and describes free core tracking. Currency, tax and product availability can vary by country and platform.
+The [App Store listing](https://apps.apple.com/app/id6760968757) currently labels OBubba **Free · In-App Purchases**. [Google Play](https://play.google.com/store/apps/details?id=com.obubba.app&referrer=utm_source%3Downed_search%26utm_medium%3Dseo%26utm_campaign%3Dfrom_bump_to_baby_auto%26utm_content%3Dis_obubba_free) likewise lists in-app purchases and describes free core tracking. Currency, tax and product availability can vary by country and platform.
 
 Monthly and yearly subscriptions renew unless cancelled through the store. Lifetime is one payment. The paywall includes **Restore purchases**, Terms and Privacy links; restoring checks for an existing entitlement and does not create a new charge.
 
@@ -164,7 +164,7 @@ You can continue to:
 
 - add and review ordinary logs
 - run the core timers
-- keep one baby’s record
+- keep each Free baby’s record
 - use the free Care and Grow tools
 - decide later whether the deeper layer is worth returning to
 
@@ -172,7 +172,7 @@ If you previously paid, use **Restore purchases** rather than buying again. If y
 
 ## The honest bottom line
 
-OBubba is not “free” only until you have entered enough precious data to feel trapped. The current app keeps the basic job—remembering the baby day—available for one child without payment.
+OBubba is not “free” only until you have entered enough precious data to feel trapped. The current app keeps the basic job—remembering the baby day—available without payment.
 
 Premium is most valuable when three things are true:
 
@@ -182,13 +182,13 @@ Premium is most valuable when three things are true:
 
 If that is not true yet, keep using the free tracker. The upgrade should earn its place.
 
-**[Try OBubba free →](/app.html)** — begin with one baby, one honest log and no obligation to master the whole app tonight.
+**[Try OBubba free →](/app.html?utm_source=obubba_free_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20270512_obubba_free)** — begin with one baby, one honest log and no obligation to master the whole app tonight.
 
 ## Quick answers
 
 ### Is OBubba free forever?
 
-Core tracking for one baby stays free in the current app. Premium features require an active trial, early-phase entitlement, subscription, lifetime purchase or another valid grant.
+Core tracking stays free in the current app. Premium features require an active trial, early-phase entitlement, subscription, lifetime purchase or another valid grant.
 
 ### Does OBubba require a card for the free newborn period?
 
@@ -208,7 +208,7 @@ The current conversational Luna screen is Premium-gated. Fixed app Guides remain
 
 ### Can I track twins for free?
 
-The first baby is free. Adding a second or later child profile is one of the current Premium gates.
+In the current build, open the baby switcher from Track and choose **Add another baby**. If your account does not have Premium, you can choose **Add as Free** and keep full tracking on that baby; the deeper Premium guidance stays off unless that baby has valid Premium access.
 
 ### Will cancelling delete my data?
 
@@ -217,7 +217,7 @@ No. Cancelling a store subscription stops future renewal; it is not a delete-dat
 ## Product verification
 
 - Current Flutter surfaces reviewed: the shared paywall, Premium provider, Track gates, Care catalogue, Weaning screen, Luna lock and multi-baby route.
-- 45 focused Flutter tests passed on 12 May 2027, covering trial state, paid status, current product tiers, paywall rendering, store recovery and primary Care UI.
+- A pre-publication source audit on 5 September 2026 checked the current entitlement provider, paywall, store-product IDs and both add-baby routes. Because this article is scheduled for May 2027, the product and live storefront prices must be checked again before publication.
 - The paywall image above is a genuine repository debug-harness capture on an iPhone simulator using fictional profile data. Production prices come from the device storefront.
 
 *Commercial features and prices can change. Check the installed app and the Apple or Google purchase confirmation for the current offer. OBubba is a tracking, planning and educational tool; it does not observe your baby, diagnose a condition or replace advice from a midwife, health visitor, GP or another qualified professional.*
