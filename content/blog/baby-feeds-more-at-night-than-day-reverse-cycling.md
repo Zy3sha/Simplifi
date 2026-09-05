@@ -161,13 +161,13 @@ Measured bottles are only part of intake. If breastfeeds by day are not measured
 
 That is why a trustworthy tracker should say “we do not know” rather than calculate a precise-looking deficit from partial data.
 
-![The current OBubba Flutter Feeding Check-in showing that breastfeeds and measured bottle milk both count and that the app will not judge combination feeding from bottle volume alone](/obubba-screen-feeding.jpg "Current OBubba Flutter Feeding Check-in. It separates breast time, bottle volume, wet nappies, night feeds and growth before suggesting feeding or routine changes.")
+![The current OBubba Flutter feeding view showing breastfeeds and measured bottle milk as different kinds of evidence](/obubba-screen-feeding.jpg "Current OBubba Flutter feeding view. Breastfeeds count as feeds without being converted into invented millilitres, and bottle or expressed-milk totals remain explicitly measured intake only.")
 
 ## How the current OBubba Flutter app detects the pattern
 
 OBubba does not label every night-fed baby as reverse cycling. The current Flutter feeding engine uses a deliberately narrow measured-volume signal:
 
-- the baby must be at least **16 weeks old**
+- the baby must be at least **16 weeks corrected age** when corrected age applies
 - the recent record needs at least **two measured daytime milk feeds and two measured night milk feeds**
 - the average measured night feed must be more than **30% larger** than the daytime average
 - the night-feed average must also exceed **100ml**, avoiding a warning from a cluster of tiny comfort feeds
@@ -176,11 +176,15 @@ OBubba does not label every night-fed baby as reverse cycling. The current Flutt
 
 When the signal is strong enough, OBubba says the baby is taking bigger feeds overnight and suggests offering a little more milk and an extra opportunity by day. It does **not** instruct the parent to stop a night feed suddenly.
 
-The Feeding Check-in applies the same restraint more visibly. On a combination-feeding day it states that bottle millilitres are only the measured part, counts both breastfeeds and bottle milk, and keeps wet nappies, night feeds and growth in the review before suggesting top-ups or routine changes.
+The current Feeding deep-dive shows today's breast, bottle and solids feed counts, measured milk and the last recorded feed. On Track, the separate daily milk card says clearly when its total covers bottle and expressed milk only because breastfeeding is not measured in millilitres. Wet nappies stay visible in their own Track card, while growth remains in Grow. Those surfaces give parents useful context, but the narrow reverse-cycling detector itself does not pretend that nappy or growth records prove why night feeding changed.
 
 These thresholds are product guardrails, not medical definitions of reverse cycling. OBubba cannot see swallowing, assess latch, diagnose a feeding aversion or know whether weight gain is appropriate. Its job is to surface a possible pattern without converting incomplete data into a confident claim.
 
-**[Try OBubba free →](/free-baby-tracker-app.html)** — log feeds once across day and night, share the same timeline with carers, and let the app distinguish a repeated measured pattern from one exhausting evening.
+Logging breast, bottle and night feeds in **Track** is free. Personalised feeding-pattern insights and the **Care → Feeding** deep-dive are Premium features. OBubba unlocks Premium during pregnancy and through the first two corrected-age months; plan options follow after that early-free period.
+
+**[See whether night is carrying the feeding day →](/app.html?utm_source=reverse_cycling_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260928_reverse_cycling)**
+
+Keep day and night feeds on one timeline, including which feeds were measured and which were breastfeeds. OBubba can then distinguish a repeated measured pattern from one exhausting evening without inventing missing intake.
 
 ## When to get feeding or medical help
 
