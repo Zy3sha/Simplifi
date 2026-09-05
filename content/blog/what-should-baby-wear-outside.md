@@ -1,7 +1,7 @@
 ---
 title: "What Should Baby Wear Outside? Weather & Layers"
 slug: what-should-baby-wear-outside
-description: "Dress your baby for a walk using the feels-like temperature, light removable layers and a chest check—plus safer advice for prams, carriers and car seats."
+description: "Dress your baby for a walk using the feels-like temperature, light removable layers and a chest check, plus safer advice for prams, carriers and car seats."
 date: 2026-10-05
 updated: 2026-10-05
 author: OBubba
@@ -9,7 +9,7 @@ tags: what should baby wear outside, dress baby for weather, baby clothes by tem
 heroImage: /obubba-what-baby-wear-outside.jpg
 ---
 
-The forecast says 12°C, but the wind makes it feel colder. Your baby will be still in the pram while you are walking. Do they need a vest, sleepsuit, cardigan, coat and blanket—or is that far too much once you step into a warm café?
+The forecast says 12°C, but the wind makes it feel colder. Your baby will be still in the pram while you are walking. Do they need a vest, sleepsuit, cardigan, coat and blanket, or is that far too much once you step into a warm café?
 
 The most useful answer is not a rigid outfit chart. Start with the **feels-like temperature**, choose several light layers you can remove, account for the pram, carrier or car seat, and check your baby's chest or the back of their neck during the outing.
 
@@ -21,7 +21,7 @@ Use this as a packing guide for a healthy baby, not a prescription. The examples
 
 | Feels-like temperature | Sensible starting point | Useful extra to carry |
 |---|---|---|
-| 28°C and above | One very light, breathable layer—or just a nappy in a shaded, private place | Wide-brim sun hat, shade and plenty of feeds |
+| 28°C and above | One very light, breathable layer or just a nappy in a shaded, private place | Wide-brim sun hat, shade and plenty of feeds |
 | 24–27°C | A lightweight cotton vest, romper or loose single layer | Spare dry layer for air-conditioned spaces |
 | 20–23°C | Light outfit; a short-sleeve vest plus thin trousers or a romper may be enough | Thin cardigan for breeze or shade |
 | 16–19°C | Vest plus outfit, with a light removable outer layer | Cardigan or light jacket |
@@ -48,7 +48,7 @@ Do not keep adding layers because your baby's hands feel cool. Hands and feet ar
 
 ## How to tell if your baby is too hot or cold
 
-Feel your baby's **chest, tummy or the back of their neck**. You want comfortably warm skin—not sweaty, hot, clammy or notably cold.
+Feel your baby's **chest, tummy or the back of their neck**. You want comfortably warm skin, not sweaty, hot, clammy or notably cold.
 
 ### Signs your baby may be too warm
 
@@ -68,7 +68,7 @@ If a baby is unusually cold, floppy, difficult to wake, breathing abnormally, fe
 
 ## What should a baby wear in a pram?
 
-A baby lying still does not generate the same warmth as an adult walking briskly. A pram can also shelter them from wind—but the hood, footmuff and covers can create a warmer pocket of air than the forecast suggests.
+A baby lying still does not generate the same warmth as an adult walking briskly. A pram can also shelter them from wind, but the hood, footmuff and covers can create a warmer pocket of air than the forecast suggests.
 
 Start with light removable layers and check inside the pram rather than judging from your own temperature. On a cold day, a fitted outfit and outer layer may be combined with an appropriate footmuff or blanket. Keep the face completely clear and remove the extra warmth when you enter a shop, bus, train or warm home.
 
@@ -139,7 +139,7 @@ Cold-weather details that matter:
 - scarves, loose cords and anything near the face create avoidable hazards
 - check the torso after the first ten minutes rather than assuming the starting outfit was perfect
 
-Remove the hat, coat, pramsuit, footmuff or thick blanket once you move into a heated space. The NHS specifically advises removing extra clothing indoors and in a warm car, bus or train—even if that means waking the baby.
+Remove the hat, coat, pramsuit, footmuff or thick blanket once you move into a heated space. The NHS specifically advises removing extra clothing indoors and in a warm car, bus or train, even if that means waking the baby.
 
 ## Sunny, windy and rainy days change the answer
 
@@ -203,7 +203,7 @@ Bulky padding can stop the harness fitting correctly. Buckle over thin layers an
 
 The outfit that was right on a windy pavement can be far too warm in a café or car.
 
-![Current OBubba Flutter Outdoor Outfit calculator showing the weather input, outing context and layer choices](/obubba-outdoor-outfit-calculator-app.jpg "The current OBubba Flutter calculator checks the selected base, main outfit and outer layer against the outdoor temperature and how the baby is travelling.")
+![Current OBubba Flutter Outdoor Outfit calculator using fictional example temperature, context and layer selections](/obubba-outdoor-outfit-calculator-app.jpg "The current OBubba Flutter calculator shown with fictional example selections. It checks the selected base, main outfit and outer layer against the outdoor temperature and how the baby is travelling.")
 
 ## How the current OBubba Flutter app helps
 
@@ -213,7 +213,8 @@ The current Flutter implementation:
 
 - fetches a fresh local weather reading only when the parent taps **Use local weather**
 - also accepts a manual outdoor temperature in Celsius or Fahrenheit
-- uses the feels-like reading for its quick weather guidance
+- shows both current and feels-like readings after a requested weather check; the quick weather sheet uses feels-like for its outerwear band
+- fills the detailed calculator with the actual local air temperature, then adjusts the layer grading for the selected context
 - distinguishes normal, sunny, windy, pram, carrier and car-seat contexts
 - lets the parent select the actual base layer, main outfit and outer layer
 - grades that combination as balanced, a little light, too light, probably warm or too warm
@@ -222,9 +223,11 @@ The current Flutter implementation:
 
 That is more useful than a static “12°C outfit” picture because the same clothes behave differently in a carrier, exposed wind and a sheltered pram.
 
-The app still cannot feel your baby's skin, see whether a hood covers the face, know how thick a particular coat is or confirm that a harness fits. It does not replace the weather warning, product manual, UV advice or a parent's direct check. Its job is to make a sensible starting choice easier—and surface the safety detail that is easy to miss while getting out of the door.
+The app still cannot feel your baby's skin, see whether a hood covers the face, know how thick a particular coat is or confirm that a harness fits. It does not replace the weather warning, product manual, UV advice or a parent's direct check. Its job is to make a sensible starting choice easier and surface the safety detail that is easy to miss while getting out of the door.
 
-**[Try OBubba free →](/free-baby-tracker-app.html)** — use the outdoor outfit check alongside sleep, feeds, nappies, weaning, health notes and the rest of your baby's day.
+The Outdoor outfit check is free. Premium adds deeper personalised sleep analysis and planning after the early-free period. The whole app is unlocked during pregnancy and through your baby's first two corrected-age months.
+
+**[Check the outfit before you leave →](/app.html?utm_source=baby_outdoor_wear_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261005_baby_outdoor_wear)** Use the outdoor outfit check alongside sleep, feeds, nappies, weaning, health notes and the rest of your baby's day.
 
 ## A 60-second leaving-the-house check
 
