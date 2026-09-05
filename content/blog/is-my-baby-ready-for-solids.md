@@ -34,7 +34,7 @@ The [NHS recommends introducing solid foods from around six months](https://www.
 
 ## Sign 1: baby can stay sitting and hold their head steady
 
-Safe eating begins with posture. Your baby needs to remain upright enough to control their head and engage with food. In a highchair, their trunk should be supported, the harness secured and their head steady—not tipped back, dropping forwards or repeatedly falling to one side.
+Safe eating begins with posture. Your baby needs to remain upright enough to control their head and engage with food. In a highchair, their trunk should be supported, the harness secured and their head steady, not tipped back, dropping forwards or repeatedly falling to one side.
 
 This does not mean every baby must be able to sit alone on the floor for a long time. The NHS wording is that baby can **stay in a sitting position and hold their head steady**. Appropriate highchair support can help, but it should not be doing all the work for a baby who is still floppy or unstable.
 
@@ -53,7 +53,7 @@ This sign is a sequence, not simply enthusiasm. Baby should be able to notice fo
 
 A baby may stare intently at your plate weeks before they can complete the sequence. They may also grab a napkin, your glasses and the table edge with equal excitement. Interest is encouraging; coordinated action is the developmental sign.
 
-Offer an age-appropriate opportunity only when the other readiness signs are also present. A large, soft piece of food that is easy to hold can make the movement visible. The adult remains close, upright positioning stays non-negotiable and the baby—not an adult pushing food into the mouth—controls the reach.
+Offer an age-appropriate opportunity only when the other readiness signs are also present. A large, soft piece of food that is easy to hold can make the movement visible. The adult remains close, upright positioning stays non-negotiable and the baby, not an adult pushing food into the mouth, controls the reach.
 
 ## Sign 3: baby swallows instead of pushing food back out
 
@@ -107,7 +107,7 @@ You do not need a cupboard full of special products or a perfect menu. Choose a 
 2. **Seat baby upright.** Use a stable highchair and its harness. Stay within arm's reach.
 3. **Offer one small opportunity.** Try a little smooth mashed food on a spoon, a large soft finger-food piece, or both. Baby can lead the pace.
 4. **Expect exploration.** Touching, smelling, licking, dropping and spitting are all information-gathering.
-5. **Stop when baby says stop.** Turning away, closing the mouth, pushing away or becoming upset are cues to finish—not reasons to distract or pressure.
+5. **Stop when baby says stop.** Turning away, closing the mouth, pushing away or becoming upset are cues to finish, not reasons to distract or pressure.
 6. **Continue normal milk feeds.** The goal is familiarity, not replacing a bottle or breastfeed on day one.
 
 Once a day is enough at first. Gradually expand the range and texture as confidence grows. The choice between baby-led weaning and spoon-feeding is not a contest; our [baby-led versus spoon-feeding comparison](/blog/baby-led-weaning-vs-spoon-feeding.html) explains how both can be responsive.
@@ -136,7 +136,7 @@ Keep breast milk or first infant formula as the main drink until 12 months. Cow'
 
 ## Allergens: readiness is the starting line, not a reason to panic
 
-Once your baby is around six months and ready for solids, common allergenic foods can be introduced one at a time in suitable forms and small amounts. Examples include well-cooked egg and smooth peanut butter thinned into another food—never whole nuts or a sticky spoonful of nut butter.
+Once your baby is around six months and ready for solids, common allergenic foods can be introduced one at a time in suitable forms and small amounts. Examples include well-cooked egg and smooth peanut butter thinned into another food, never whole nuts or a sticky spoonful of nut butter.
 
 Choose daytime when you can observe, keep the rest of the meal familiar and record what was offered. Once tolerated, include the food regularly as part of the diet. Babies with severe eczema, an existing food allergy or another clinical concern may need an individual plan; speak to a health professional before introduction. Our [allergen introduction tracker guide](/blog/how-to-introduce-baby-allergens-without-losing-track.html) gives a practical process and reaction warning signs.
 
@@ -161,15 +161,17 @@ If your baby repeatedly coughs or chokes, seems in pain, vomits persistently, ca
 
 ## How OBubba turns the signs into a usable plan
 
-The current OBubba Flutter app does not just say “start at six months”. Its **Before first tastes** screen combines the baby's age with a persistent three-sign checklist: sits steady, reaches, and swallows. Parents can mark a sign when they see it consistently, rather than trying to remember which skill appeared during a busy week.
+The current OBubba Flutter app does not just say “start at six months”. Its free **Before first tastes** screen combines the baby's corrected age with a three-sign checklist: sits steady, reaches, and swallows. Parents can mark a sign when they see it consistently. Those observations are saved on the device for the selected child, rather than being inferred or medically assessed by the app.
 
-![The current OBubba Flutter app showing all three solids-readiness signs checked for a baby aged six months and one week](/obubba-solids-readiness-checklist-app.jpg "The real OBubba Before first tastes screen keeps the three readiness observations together and opens a practical weaning reference library.")
+![The current OBubba Flutter app showing fictional example readiness selections for a baby aged six months and one week](/obubba-solids-readiness-checklist-app.jpg "The current OBubba Before first tastes screen shown with a fictional age and fictional checklist selections. It keeps the three observations together and opens a practical weaning reference library.")
 
 The same screen keeps practical preparation nearby: when to start, what is not a sign, ways to wean, equipment, gagging versus choking, foods to avoid, allergens, iron, water, and the changing balance between milk and food. It also changes its age framing for the selected child, including a more cautious route when a baby is early or was born prematurely.
 
-That makes the checklist a bridge from “I think we may be close” to “I know what to prepare next”. It is still not a medical assessment and does not certify that swallowing is safe. The parent observes; a qualified professional handles clinical concerns.
+That makes the checklist a bridge from “I think we may be close” to “I know what to prepare next”. It is still not a medical assessment and does not certify that swallowing is safe. A parent or carer records what they observe; a qualified professional handles clinical concerns.
 
-OBubba's wider care tools let parents keep feeding, sleep and nappy information in one timeline rather than scattering the story across notes and screenshots. [Explore the free baby tracker](/free-baby-tracker-app.html).
+OBubba's wider care tools let parents keep feeding, sleep and nappy information in one timeline rather than scattering the story across notes and screenshots. Premium adds deeper personalised sleep analysis and planning after the early-free period. The whole app is unlocked during pregnancy and through your baby's first two corrected-age months.
+
+**[Keep the three readiness signs together →](/app.html?utm_source=solids_readiness_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261007_solids_readiness)**
 
 ## The two-minute decision
 
