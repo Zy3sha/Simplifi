@@ -13,6 +13,7 @@ assert.match(article, /After at least four soothing outcomes have been recorded/
 assert.match(article, /Crying logs and the Crying Helper[\s\S]*remain available without Premium/i);
 assert.match(article, /deeper Guidance panel[\s\S]*is a Premium feature/i);
 assert.match(article, /first two corrected-age months/i);
+assert.match(article, /Keep the evening pattern in one calm place/);
 assert.match(article, /utm_source=evening_crying_article/);
 assert.match(article, /utm_medium=owned_search/);
 assert.match(article, /utm_campaign=from_bump_to_baby_auto/);

@@ -187,7 +187,7 @@ OBubba cannot hear the cry, examine your baby or diagnose colic, reflux, allergy
 
 Crying logs and the Crying Helper, including the safety reset and your family's soothing history, remain available without Premium. The deeper Guidance panel where OBubba surfaces personalised multi-day patterns is a Premium feature. OBubba unlocks Premium during pregnancy and through the first two corrected-age months; plan options follow after that early-free period.
 
-**[Try OBubba free →](/app.html?utm_source=evening_crying_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260920_evening_crying)** — crying intensity, feeds, naps, nappies, soothing history and a safety reset in one calm family record.
+**[Keep the evening pattern in one calm place →](/app.html?utm_source=evening_crying_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260920_evening_crying)** — crying intensity, feeds, naps, nappies, soothing history and a safety reset in one family record.
 
 ## If you feel the anger rising
 
