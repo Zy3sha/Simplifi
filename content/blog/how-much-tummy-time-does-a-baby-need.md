@@ -46,6 +46,8 @@ The NHS aim is at least 30 minutes spread through the day for a baby who is not 
 
 Once a baby rolls, pivots or crawls, floor play often becomes self-directed. Keep offering safe space to move rather than repeatedly repositioning a happily mobile baby to satisfy an app total.
 
+If you would prefer to try movement or play with other families, our [guide to finding a baby class that suits your baby's age and your actual week](/blog/baby-classes-near-me-real-life-guide.html?utm_source=owned_search&utm_medium=internal_link&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260905_baby_classes_cluster_tummy) covers timing, trial sessions, free local options and permission to leave early.
+
 ## A realistic way to reach 30 minutes
 
 Think in ordinary moments instead of one workout. For example:
