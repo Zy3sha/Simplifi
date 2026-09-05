@@ -1024,5 +1024,42 @@
 	      </div>
     </div>
   </footer>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('consent', 'default', {
+      analytics_storage: 'denied',
+      ad_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied'
+    });
+    gtag('set', 'ads_data_redaction', true);
+    gtag('js', new Date());
+    gtag('config', 'G-Y7CHSL1YHZ', {
+      send_page_view: false,
+      allow_google_signals: false,
+      allow_ad_personalization_signals: false
+    });
+  </script>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-Y7CHSL1YHZ"></script>
+  <script>
+  (() => {
+    const content = "auto_20260905_partner_shared_record_intent";
+    document.querySelectorAll('a.store').forEach((link) => {
+      const destination = link.hostname === 'apps.apple.com' ? 'app_store' : link.hostname === 'play.google.com' ? 'google_play' : '';
+      if (!destination) return;
+      link.addEventListener('click', () => gtag('event', 'store_click', {
+        event_category: 'download',
+        store: destination,
+        ob_source: 'owned_search',
+        ob_medium: 'seo',
+        ob_campaign: 'from_bump_to_baby_auto',
+        ob_content: content,
+        page_location: location.origin + location.pathname,
+        transport_type: 'beacon'
+      }));
+    });
+  })();
+  </script>
 </body>
 </html>

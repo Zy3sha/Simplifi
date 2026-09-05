@@ -980,6 +980,7 @@ const TOPIC_PAGES = [
     ctaHeading: 'Start one shared record',
     ctaBody: 'Download OBubba on both phones. One parent sets up the baby, then privately invites the other from Family & Sharing. The whole app is unlocked during pregnancy and through corrected age week 8.',
     ctaLabel: 'Start tracking together',
+    ctaAnalyticsContent: 'auto_20260905_partner_shared_record_intent',
     playStoreUrl: 'https://play.google.com/store/apps/details?id=com.obubba.app&referrer=utm_source%3Downed_search%26utm_medium%3Dseo%26utm_campaign%3Dfrom_bump_to_baby_auto%26utm_content%3Dauto_20260815_two_parent_shared_record',
   },
   {
