@@ -65,6 +65,8 @@ These are clues, not guarantees. A fussy wake does not prove overtiredness, and 
 
 This is why generic advice often sends parents in circles. If you shorten every wake window after every short nap, an undertired baby may be put down earlier and earlier. If you keep stretching time awake because the baby “didn't sleep enough”, an overtired baby may become increasingly wired.
 
+For a young baby, especially under about five months, short and irregular naps are often part of normal sleep development. Keep responding to feeding and tired cues rather than treating every short nap as a timing problem. The small timing experiments below are more useful for an older baby with a repeated, comparable pattern.
+
 ### Clues the wake window was too short
 
 - settling took much longer than usual
@@ -183,7 +185,7 @@ In the current Flutter app, a nap is not reduced to “too short”. When you st
 
 OBubba compares the nap with the awake stretch before it and the baby's age-aware range. A short nap after too little awake time can nudge the next predicted nap **later**. A short nap after an overly long wake window can nudge it **earlier**. Wake mood, settling time and quality can refine that shift, so duration does not make the decision alone.
 
-The app is also deliberately cautious about confidence. A single short-nap insight is labelled **“this nap”**, while a multi-day catnapping pattern needs repeated evidence.
+The app is also deliberately cautious about confidence. A single short-nap insight is labelled **“this nap”**. A multi-day catnapping pattern needs at least three qualifying days among the last seven days examined. On each qualifying day, at least two completed naps must have been logged and every one must have been under 45 minutes. OBubba gives reassurance rather than a timing protocol when the baby is under about 22 weeks.
 
 If a predicted nap is not happening and its window has passed, the Track screen can show four live choices:
 
@@ -194,7 +196,9 @@ If a predicted nap is not happening and its window has passed, the Track screen 
 
 The on-device engine highlights the option that best fits the current day, but all four remain available because a parent can see and hold the baby. OBubba cannot know whether your baby's cry means pain, hunger or “I am completely done with this nap attempt”.
 
-**[Try OBubba free →](/app.html)** — live nap timing, wake mood, sleep quality, personalised next-nap predictions and bedtime protection in one calm daily view.
+Nap logging, including start and end time, wake mood, sleep quality, location and settling method, remains available without Premium. Personalised countdowns, deeper sleep insights and tomorrow planning are Premium features. OBubba unlocks Premium during pregnancy and through the first two corrected-age months; plan options follow after that early-free period.
+
+**[Try OBubba free →](/app.html?utm_source=short_naps_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260919_short_naps)** — keep the real nap history together, then let OBubba use it to build the next useful picture when personalised features are unlocked.
 
 ## What not to do after one short nap
 
@@ -244,4 +248,3 @@ There is no dependable birthday. Sleep organisation changes rapidly in the first
 ### Is a 30-minute last nap worth having?
 
 It can be an effective bridge when bedtime is still a long way off. If bedtime is close, quiet time and a modestly earlier night may protect sleep better than forcing a late catnap.
-
