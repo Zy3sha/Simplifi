@@ -192,7 +192,7 @@ That distinction changes several parts of the app:
 
 OBubba then checks whether dream feeds appear to help this baby. The current insight:
 
-- only runs from about **14 weeks**
+- only runs from **14 weeks corrected age**
 - looks across up to **21 recent nights**
 - requires at least **four nights with a dream feed and four without**
 - uses the app's deduplicated genuine-wake count, so a wake and its linked feed are not counted twice
@@ -202,7 +202,11 @@ If dream-feed nights have fewer wakes, the card shows both averages and the samp
 
 This is useful pattern detection, not causal proof. Families may choose dream feeds on already difficult days, or only on calm ones. OBubba cannot know whether the baby transferred milk effectively, whether the parent slept longer or whether teething changed the comparison. That is why the article's eight-night review includes parent sleep and feed quality alongside wake count.
 
-**[Try OBubba free →](/free-baby-tracker-app.html)** — record the dream feed without breaking the sleep arc, keep genuine wakes separate and find out whether it changes your family's night rather than trusting a universal promise.
+Dream-feed logging in **Track** is free. The personalised dream-feed comparison in **Guidance** is a Premium feature. OBubba unlocks Premium during pregnancy and through the first two corrected-age months; plan options follow after that early-free period.
+
+**[Find out whether the dream feed earns its place →](/app.html?utm_source=dream_feed_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260929_dream_feed)**
+
+Record the planned feed without ending the sleep timer, keep genuine wakes separate and compare repeated nights instead of trusting a universal promise.
 
 ## How and when to stop a dream feed
 
