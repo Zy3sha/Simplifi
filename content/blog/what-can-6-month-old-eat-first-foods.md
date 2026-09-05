@@ -15,7 +15,7 @@ The short answer is: **a six-month-old can eat soft vegetables and fruit, iron-r
 
 Start with a few teaspoons or pieces once a day, not three perfect meals. Include less-sweet vegetables and an iron-rich choice early, introduce common allergens one at a time in small amounts, and let your baby decide how much to eat.
 
-This list gives you 34 practical possibilities—not a 34-item target.
+This list gives you 34 practical possibilities, not a 34-item target.
 
 ## Before food one: check readiness and posture
 
@@ -118,7 +118,7 @@ This is an example, not a meal plan or a race. Use foods your family eats, repea
 | **2** | Repeat the vegetable, plus soft lentil mash | Repetition plus an iron-rich food. |
 | **3** | A small amount of egg in a suitable texture | Introduces one common allergen when you can observe baby. |
 | **4** | Oat porridge with soft pear | A thicker spoon texture and a familiar fruit; note that oats may contain gluten. |
-| **5** | Smooth peanut butter thinned into a familiar purée | Introduces peanut safely—not whole nuts or a sticky spoonful. |
+| **5** | Smooth peanut butter thinned into a familiar purée | Introduces peanut safely, not whole nuts or a sticky spoonful. |
 | **6** | Tender minced beef or chicken with soft courgette | Another iron-rich option and savoury flavour. |
 | **7** | Plain full-fat yoghurt with mashed strawberry | Introduces dairy if it has not already been offered. |
 
@@ -132,7 +132,7 @@ Common allergens include egg, peanut and tree nuts, cow's milk, wheat and other 
 
 If baby has diagnosed food allergy, eczema or a strong family history of allergy, speak to your GP or health visitor before introduction. Do not rub food on skin as an allergy “test”, and do not deliberately re-offer a food after a suspected reaction without professional advice.
 
-Mild reactions can include hives, facial swelling, vomiting, cough or worsening eczema. A swollen tongue or throat, breathing difficulty, sudden floppiness or collapse can indicate anaphylaxis: call 999. For non-emergency concerns, stop the new food and seek advice. Our [step-by-step allergen guide](/blog/how-to-introduce-baby-allergens-without-losing-track.html) explains what to record.
+Possible reactions can include hives, swelling, vomiting, cough, wheeze or worsening eczema. Swelling of the lips, face, tongue or throat, breathing difficulty, sudden floppiness or collapse can indicate a severe reaction: call 999. For symptoms that are not an emergency, stop the new food and seek medical advice. Our [step-by-step allergen guide](/blog/how-to-introduce-baby-allergens-without-losing-track.html) explains what to record.
 
 ## Choking hazards: change the shape, not just the menu
 
@@ -143,7 +143,7 @@ Use these practical checks:
 - cook hard vegetables and fruit until squashably soft
 - flatten blueberries; quarter grapes and cherry tomatoes lengthways
 - shred or mince tough meat and remove every fish bone
-- spread nut butter thinly or dilute it—never give a sticky spoonful
+- spread nut butter thinly or dilute it; never give a sticky spoonful
 - remove stones, hard pips, rind and tough skin
 - keep baby sitting upright, supervised and still while eating
 - learn infant first aid and know that gagging is different from choking
@@ -205,9 +205,9 @@ The real OBubba Flutter app includes a searchable **First foods** garden rather 
 
 Open a food to see preparation guidance, a key nutrient, allergen information and live safety cross-checks. OBubba can also use foods already logged and allergens already introduced to suggest a varied next taste, interleaving new allergens with gentler familiar options and prioritising iron-rich ideas. Foods linked to a recorded reaction are not suggested.
 
-That is planning support, not medical clearance. The app cannot assess swallowing, diagnose an allergy, verify that a piece is soft enough or replace your health visitor. Its job is to reduce the mental load: what was offered, what was tolerated, what needs care and what could come next—all alongside milk, water, nappies and sleep.
+That is planning support, not medical clearance. The app cannot assess swallowing, diagnose an allergy, verify that a piece is soft enough or replace your health visitor. Its job is to reduce the mental load: what was offered, what was tolerated, what needs care and what could come next, all alongside milk, water, nappies and sleep.
 
-[Explore the free OBubba baby tracker](/free-baby-tracker-app.html) and keep the useful pattern without turning every taste into homework.
+[Choose a safe next taste with OBubba](/app.html?utm_source=first_foods_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261009_first_foods) and keep the useful pattern without turning every taste into homework.
 
 ## The simplest useful rule
 
