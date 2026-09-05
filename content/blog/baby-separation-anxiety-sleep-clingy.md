@@ -188,7 +188,7 @@ The safeguards matter more than the label:
 
 OBubba can help you notice that clinginess, a changed night pattern and a developmental window overlap. It cannot see the baby, assess attachment, diagnose anxiety, confirm pain or promise the phase will end on a particular date.
 
-**[Try OBubba free →](/app.html)** — connect sleep, notes, teething, milestones and family context without turning a normal developmental wobble into a verdict.
+**[Try OBubba free →](/app.html?utm_source=separation_anxiety_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260911_separation_anxiety)** — connect sleep, notes, teething, milestones and family context without turning a normal developmental wobble into a verdict.
 
 ## When to ask for help
 
