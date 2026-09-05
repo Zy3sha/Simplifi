@@ -170,7 +170,7 @@ The comfort-dependency insight requires at least three recorded wakes in one nig
 
 The wording is deliberately non-judgemental: a dummy association is normal and only worth changing if the wakes bother your family. Genuine hunger and comfort cues always come first.
 
-For babies from roughly four months, OBubba may offer an association-building insight when the history supports it. If the dominant cue is a dummy and the baby is under roughly six months, the app keeps the dummy and recommends building the song, cot and routine around it. The structured **Swap the dummy** plan is not offered yet.
+For babies from roughly four months, OBubba may offer an association-building insight when the history supports it. If the dominant cue is a dummy and the baby is under roughly six months, the app keeps the dummy and recommends building the song, cot and routine around it. The structured **Swap the dummy** plan is not offered yet. This reflects current safer-sleep guidance that dummy use during sleep is associated with a lower risk of SIDS; it is not a promise that a dummy prevents SIDS.
 
 From roughly six months, when the app has enough evidence and the family chooses the plan, **Care → Sleep Consultant** can offer four rungs:
 
@@ -183,7 +183,11 @@ The sleep Coach checks readiness before a plan starts and pauses progression dur
 
 OBubba cannot verify safer-sleep conditions, determine why a baby is crying, assess feeding needs or know whether dummy withdrawal is appropriate for an individual child. Its pattern is only as reliable as the wakes and methods recorded.
 
-**[Try OBubba free →](/app.html)** — log the wakes that matter and use a sleep plan that keeps the dummy when it should, builds new cues first and never calls responsive comfort a failure.
+Recording sleep, meaningful wakes and the resettling method in **Track** is free. The personalised association insight and **Care → Sleep Consultant** plan are Premium features. OBubba unlocks Premium during pregnancy and through the first two corrected-age months; plan options follow after that early-free period.
+
+**[See which wakes really need you →](/app.html?utm_source=dummy_falls_out_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260923_dummy_falls_out)**
+
+Log the wakes that matter and use a sleep plan that keeps the dummy when it should, builds new cues first and never calls responsive comfort a failure.
 
 ## When the dummy is probably not the main issue
 
