@@ -24,5 +24,12 @@ if (!page.includes('auto_20260905_partner_shared_record_intent')) throw new Erro
 if (/auto_20260905_partner_shared_record_intent[\s\S]{0,700}(sync.?code|family.?id|user.?id|email)/i.test(page)) {
   throw new Error('Partner store-intent analytics appears to include sensitive or identifying data');
 }
+if (!page.includes('Send this guide to my partner')) throw new Error('Partner guide share action is missing');
+if (!page.includes('auto_20260905_partner_setup_guide_share')) throw new Error('Fixed guide-share attribution is missing');
+if (!page.includes("window.gtag('event', 'partner_guide_share'")) throw new Error('Successful guide-share event is missing');
+if (!page.includes('I will send the private sync code separately.')) throw new Error('Guide-share privacy boundary is missing');
+if (/navigator\.share\([\s\S]{0,500}(sync.?code\s*:|family.?id|user.?id|email)/i.test(page)) {
+  throw new Error('Partner guide share payload appears to include sensitive or identifying data');
+}
 
-console.log('Partner recipient-path audit passed: recipient paths, sync-code boundary and privacy-safe store intent are present.');
+console.log('Partner recipient-path audit passed: recipient paths, privacy-safe store intent and public guide sharing are present.');

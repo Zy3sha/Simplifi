@@ -958,6 +958,13 @@ const TOPIC_PAGES = [
       ['Connect the other device', 'On a fresh install, choose Import your data / Connect, enter the private code and tap Connect — live sync. If OBubba is already set up on that phone, use Account › Family & Sharing › Connect another device instead.'],
       ['Agree the minimum useful record', 'Choose the few moments both people genuinely need — perhaps the last feed, sleep, nappy and medicine time — and stop logging categories that create work without helping.'],
     ],
+    guideShare: {
+      heading: 'Send the setup guide before the code',
+      body: 'Share these public setup steps first, then send the private sync code separately and only to the person joining your baby record.',
+      label: 'Send this guide to my partner',
+      status: 'This shares the public setup guide only. It never includes your private sync code.',
+      url: 'https://obubba.com/partner-baby-tracker-app.html?utm_source=partner_share&utm_medium=referral&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260905_partner_setup_guide_share',
+    },
     boundariesTitle: 'What shared tracking should — and should not — do',
     boundaries: [
       'It should reduce repeated questions and make the next handover easier; it does not need to capture every possible detail.',
@@ -2636,6 +2643,60 @@ function renderTopicPage(topic) {
       </div>
     </section>` : '';
 
+  const guideShareSection = topic.guideShare ? `
+    <section class="section alt guide-share">
+      <div class="section-inner narrow ai-answer">
+        <p class="eyebrow">Make the invitation easier</p>
+        <h2>${escapeHtml(topic.guideShare.heading)}</h2>
+        <p>${escapeHtml(topic.guideShare.body)}</p>
+        <div class="hero-actions">
+          <button class="button secondary" id="partner-guide-share" type="button">${escapeHtml(topic.guideShare.label)}</button>
+        </div>
+        <p id="partner-guide-share-status" role="status" aria-live="polite">${escapeHtml(topic.guideShare.status)}</p>
+      </div>
+    </section>` : '';
+
+  const guideShareScript = topic.guideShare ? `
+  <script>
+  (() => {
+    const button = document.getElementById('partner-guide-share');
+    const status = document.getElementById('partner-guide-share-status');
+    const shareUrl = ${JSON.stringify(topic.guideShare.url)};
+    if (!button || !status) return;
+    const recordShare = (method) => {
+      if (typeof window.gtag === 'function') {
+        window.gtag('event', 'partner_guide_share', {
+          event_category: 'shared_care',
+          event_label: 'auto_20260905_partner_setup_guide_share',
+          share_method: method,
+          page_location: window.location.origin + window.location.pathname,
+          transport_type: 'beacon'
+        });
+      }
+    };
+    button.addEventListener('click', async () => {
+      try {
+        if (navigator.share) {
+          await navigator.share({
+            title: 'How to connect both parents in OBubba',
+            text: 'These are the public setup steps for joining the same baby record. I will send the private sync code separately.',
+            url: shareUrl
+          });
+          status.textContent = 'Guide shared. Send the private sync code separately and only to the person joining your baby record.';
+          recordShare('native_share');
+          return;
+        }
+        await navigator.clipboard.writeText(shareUrl);
+        status.textContent = 'Guide link copied. Send the private sync code separately and keep it private.';
+        recordShare('copy_link');
+      } catch (error) {
+        if (error && error.name === 'AbortError') return;
+        status.textContent = 'The share option was not available. Copy this page address instead; never include the private sync code in a public post.';
+      }
+    });
+  })();
+  </script>` : '';
+
   const boundariesSection = topic.boundaries?.length ? `
     <section class="section alt">
       <div class="section-inner narrow">
@@ -2807,6 +2868,7 @@ ${comparisonGuide}
     </section>
 ${calculatorSection}
 ${guideSection}
+${guideShareSection}
 ${boundariesSection}
 ${screenshotSection}
 ${privacyResourceSection}
@@ -2856,7 +2918,7 @@ ${genericTryFaq}
     heroImage: topic.heroImage,
     schema: topicSchema(topic),
     body,
-    bodyEnd: ctaAnalytics,
+    bodyEnd: `${ctaAnalytics}${guideShareScript}`,
   });
 }
 
