@@ -13,8 +13,14 @@ for (const file of files) {
   const text = fs.readFileSync(path.join(ROOT, file), 'utf8');
   for (const profile of profiles) {
     const count = text.split(profile).length - 1;
-    if (count !== 1) throw new Error(`${file}: expected one official profile ${profile}; found ${count}`);
+    if (count !== 2) throw new Error(`${file}: expected schema and visible links for ${profile}; found ${count}`);
   }
+}
+
+const homepage = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+const press = fs.readFileSync(path.join(ROOT, 'press.html'), 'utf8');
+for (const text of [homepage, press]) {
+  if (!text.includes('target="_blank" rel="noopener"')) throw new Error('Visible social links must open safely');
 }
 
 const renderer = fs.readFileSync(path.join(ROOT, 'tools/render-seo.mjs'), 'utf8');
@@ -23,4 +29,4 @@ for (const profile of profiles) {
 }
 if (!renderer.includes('...SITE.socialUrls')) throw new Error('Generated organization schema does not use the official social profile list');
 
-console.log('Official social entity audit passed: canonical website, press page and generator use the verified OBubba profiles.');
+console.log('Official social entity audit passed: canonical schema and visible website links use the verified OBubba profiles.');
