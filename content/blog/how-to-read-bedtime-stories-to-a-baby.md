@@ -170,7 +170,7 @@ The World Health Organization’s [under-five activity guidance](https://www.who
 
 ## How OBubba’s current Flutter bedtime-story library works
 
-In the current app, open **Track → Story**, **Care → Bedtime Stories**, or tap **Choose a bedtime story** inside the Bedtime Routine screen.
+In the current app, open **Care → Bedtime Stories**, or tap **Choose a bedtime story** inside the Bedtime Routine screen. The separate **Track → More logs → Bedtime Story** tile records a story-time moment; it does not open the library.
 
 The library contains **12 original, curated stories** about kindness, sharing, honesty, patience, courage, gratitude, perseverance, empathy, helping others, forgiveness, keeping promises and gentleness. They are stored in the app and work offline; the library does not generate a new story or send story content to an external service each time you read.
 
