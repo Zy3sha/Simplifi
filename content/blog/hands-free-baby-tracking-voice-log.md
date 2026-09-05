@@ -67,7 +67,7 @@ Short clauses and explicit units give speech recognition less room to guess.
 | Bedtime | “Bedtime at 7:45pm.” |
 | Night wake | “Woke at 3:20am.” |
 | Temperature | “Temperature 38 point 5 at 11am.” |
-| Medicine already given | “Gave [exact medicine name], [measured amount], at 11:10am.” |
+| Medicine already given | “Gave medicine [exact medicine name], [measured amount], at 11:10am.” |
 | Several events | “Fed 120 millilitres at 2:15am, then wet and dirty nappy at 3am.” |
 
 Names, accents and background noise can change the transcript. Treat these as sentence templates, not magic commands.
@@ -145,7 +145,7 @@ That sounds technical, but the parent-facing benefit is simple: tomorrow's night
 
 Quick Log attempts each valid entry and reports how many actually saved. If connectivity prevents every write, the app does not claim success. For several events, it can say that only part of the group logged so you know to check.
 
-**[Try OBubba free →](/app.html)** — log a whole middle-of-the-night sequence in one sentence, then inspect every entry before it joins the family timeline.
+**[Try OBubba free →](/app.html?utm_source=voice_log_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260912_voice_log)** — log a whole middle-of-the-night sequence in one sentence, then inspect every entry before it joins the family timeline.
 
 ## What Quick Log cannot know
 
