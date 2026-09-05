@@ -131,7 +131,7 @@ Change temperature once while keeping the teat, carer and timing steady. That tu
 
 ## A four-day practice plan before childcare
 
-Starting a few days before the bottle becomes essential gives everyone room to learn. If you have longer, spread the practice more gently.
+If bottle feeding becomes essential in four days, this plan keeps the practice calm and structured. It cannot guarantee acceptance by day four. If you have longer, begin a week or two beforehand and spread the practice more gently.
 
 ### Day 1: make the bottle neutral
 
@@ -196,13 +196,15 @@ In the current Flutter app, open **Track → Feed → Bottle** to record the tim
 
 Bottle feeds sit on the same timeline as breastfeeds, pumping sessions, wet nappies, sleep and growth. That matters for mixed feeding: OBubba deliberately suppresses a bottle-only low-intake judgement when a breastfeed is also logged that day, because the breast portion is unmeasured.
 
-For a baby with a genuine bottle-feeding history, the feeding engine can compare measured daytime intake with age and time of day. It waits until at least six waking hours have passed and only surfaces a low-intake note when there is enough bottle history to make the comparison meaningful. Wet-nappy safety checks remain separate.
+For a baby with a genuine bottle-feeding history, the feeding engine can compare measured daytime intake with age and time of day. It waits until at least six waking hours have passed and requires at least three measured bottle feeds across the prior week before treating bottle volume as a usable history. It also suppresses that bottle-only judgement when a breast or combined feed is logged that day, because the breast portion is unmeasured. Wet-nappy safety checks remain separate.
 
 The **Insights Overview** can show average milk feeds per day beside the latest growth entry, while reports help turn the week into a clearer health-visitor conversation.
 
 Ask **Bubba Coach** about bottle refusal and the app routes to its specific bottle-refusal guidance rather than a generic feeding answer. It suggests a calm, lightly hungry attempt, another familiar carer and short pressure-free practice. The Coach cannot inspect oral function, diagnose pain or know how much milk transferred unless you log it.
 
-**[Try OBubba free →](/app.html)** — bottle, breast, pumping, nappies, growth and shared-carer context in one feeding record that knows when not to judge from millilitres alone.
+Bottle, breast, pumping and nappy logs, along with the Insights Overview and reports, remain available without Premium. Bubba Coach and the personalised Guidance panel are Premium features. OBubba unlocks Premium during pregnancy and through the first two corrected-age months; plan options follow after that early-free period.
+
+**[Build a calmer feeding handover →](/app.html?utm_source=bottle_refusal_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260921_bottle_refusal)** — keep bottle, breast, pumping, nappies, growth and shared-carer context in one feeding record that knows when not to judge from millilitres alone.
 
 ## What not to do
 
@@ -263,4 +265,3 @@ Log the amount actually taken as the bottle feed. Put prepared/offered amounts a
 ### What if my baby takes bottles at nursery but not at home?
 
 That shows the skill exists and context matters. Ask nursery about position, timing, teat, movement and break cues. You do not need to reproduce every detail if home breastfeeding continues to work for your family.
-
