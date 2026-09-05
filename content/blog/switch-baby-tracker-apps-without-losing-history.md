@@ -102,7 +102,7 @@ OBubba asks for date of birth because CSV logs usually do not contain reliable p
 
 The import creates a new baby profile. If you already made a blank profile while exploring OBubba, expect the migrated history to appear under the newly created profile rather than being merged silently into existing logs.
 
-**[Try OBubba free →](/app.html)** — bring the history with you, preview what OBubba recognises and keep using the patterns you already worked to collect.
+**[Try OBubba free →](/app.html?utm_source=switch_tracker_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260913_switch_tracker)** — bring the history with you, preview what OBubba recognises and keep using the patterns you already worked to collect.
 
 ## What the real Flutter importer does with the file
 
