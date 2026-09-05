@@ -220,7 +220,11 @@ The insight reports its sample size—“from 2 nights”, for example—rather 
 
 OBubba cannot see tired cues, know when a baby is truly asleep, diagnose pain or illness, or verify that a cot is safe. Its conclusion is only as good as the sleep-onset and nap times recorded.
 
-**[Try OBubba free →](/free-baby-tracker-app.html)** — log the end of the final nap, the real put-down and when sleep begins, then let the app test the direction before you move bedtime the wrong way.
+Recording sleep, the end of the final nap and bedtime settling in **Track** is free. Personalised **Tomorrow's plan**, **Guidance** and **Care → Sleep Consultant** are Premium features. OBubba unlocks Premium during pregnancy and through the first two corrected-age months; plan options follow after that early-free period.
+
+**[Find the bedtime lever before changing everything →](/app.html?utm_source=fighting_bedtime_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260926_fighting_bedtime)**
+
+Log the final nap end, the real put-down and when sleep begins. OBubba can then compare the repeated pattern before you change bedtime in the wrong direction.
 
 ## Safer sleep still applies during a difficult settle
 
