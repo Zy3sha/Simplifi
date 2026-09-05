@@ -9,7 +9,7 @@ tags: postpartum rage, postpartum anger, angry after having a baby, postnatal de
 heroImage: /obubba-postpartum-rage-safe-pause.jpg
 ---
 
-You love your baby—and still feel fury when they wake again, milk spills or your partner asks the wrong question. Your body may go hot, your jaw locks and the noise feels physically unbearable. Afterwards comes shame: *What kind of parent feels like this?*
+You love your baby and still feel fury when they wake again, milk spills or your partner asks the wrong question. Your body may go hot, your jaw locks and the noise feels physically unbearable. Afterwards comes shame: *What kind of parent feels like this?*
 
 An angry moment does not mean you are a bad parent. Persistent or frightening anger after birth is often described as **postpartum rage**, although that phrase is not a standalone medical diagnosis. Irritability and anger can appear with postnatal depression, anxiety, trauma, sleep deprivation, pain, relationship strain or the relentless loss of control that early parenthood can bring.
 
@@ -22,11 +22,11 @@ If you think you might hurt yourself, your baby or somebody else, hand the baby 
 Use a short safety sequence. It is not a cure; it creates enough space to prevent an impulse becoming an action.
 
 1. **Stop the task.** Put down the bottle, step away from the highchair or end the argument. You do not need to finish while flooded.
-2. **Transfer the baby safely.** Hand them to a calm adult. If you are alone, place baby on their back in a clear, safe cot or Moses basket—even if they are crying.
+2. **Transfer the baby safely.** Hand them to a calm adult. If you are alone, place baby on their back in a clear, safe cot or Moses basket, even if they are crying.
 3. **Move out of reach for a few minutes.** Go into the next room, keeping close enough to monitor safety. Never shake, shout into baby's face, throw an object or drive while overwhelmed.
 4. **Bring your body down one notch.** Exhale longer than you inhale, press both feet into the floor, unclench your jaw and run cool water over your hands.
 5. **Contact a person, not just an app.** Say plainly: “I am too angry to hold the baby safely. I need you to take over/call me/come now.”
-6. **Escalate when safety is uncertain.** Call 999 for imminent danger. For an urgent mental-health crisis that is not an immediate emergency, call NHS 111 and use the mental-health option where offered, contact your crisis team, or attend A&E.
+6. **Escalate when safety is uncertain.** Call 999 for imminent danger. In England, for an urgent mental-health crisis that is not an immediate emergency, call NHS 111 and select the mental-health option. Elsewhere in the UK, use your local urgent mental-health service, contact your crisis team, or attend A&E.
 
 A crying baby is safer for a few minutes in a clear cot than in the arms of an adult who feels out of control. Once you are steadier, check baby's needs or let another adult do it. Our [safe reset plan for relentless crying](/blog/baby-wont-stop-crying-overwhelmed-safe-reset.html) separates the baby checklist from the adult emergency pause.
 
@@ -78,7 +78,7 @@ A baby interrupts eating, showering, sleep and thought. Crying, touch, alarms an
 
 ### Invisible labour and resentment
 
-Anger may be carrying useful information: one parent is permanently on call, decisions are not shared, or “help” still requires them to manage the helper. Name the work specifically—night feeds, sterilising, appointments, laundry, settling, meals—and assign ownership rather than waiting for spontaneous offers.
+Anger may be carrying useful information: one parent is permanently on call, decisions are not shared, or “help” still requires them to manage the helper. Name the work specifically: night feeds, sterilising, appointments, laundry, settling and meals. Assign ownership rather than waiting for spontaneous offers.
 
 ### Depression, anxiety, trauma or intrusive thoughts
 
@@ -118,7 +118,7 @@ Use concrete examples:
 
 Do not soften an answer because you fear judgement. The aim is an accurate safety assessment and the right support.
 
-### Keep a tiny trigger record—not a case against yourself
+### Keep a tiny trigger record, not a case against yourself
 
 For three to seven days, note only what helps a professional or partner see the pattern:
 
@@ -189,13 +189,13 @@ The current OBubba Flutter app includes a **Parent Room** because a feed-and-nap
 
 ![The real OBubba Flutter Parent Room showing a private parent check-in, postpartum recovery guidance and short grounding tools](/obubba-parent-room-app.jpg "OBubba's current Parent Room gives the parent a separate place to pause, check in and reach appropriate support without pretending an app replaces care.")
 
-The Parent Room includes a private two-minute wellbeing check-in using the recognised Edinburgh Postnatal Depression Scale (EPDS), a recovery guide and short grounding, quiet-minute and unclenching exercises. The check-in stays on the device and is explicitly labelled as screening—not diagnosis.
+The Parent Room includes a private two-minute wellbeing check-in using the recognised Edinburgh Postnatal Depression Scale (EPDS), a recovery guide and short grounding, quiet-minute and unclenching exercises. The check-in stays on the phone and is explicitly labelled as screening, not diagnosis.
 
-If answers indicate possible or likely difficulty, the app signposts support. A self-harm response is treated separately and surfaces tap-to-call or text maternal crisis contacts appropriate to the configured region. That is a bridge to a person, not an invitation to keep tapping until a crisis passes.
+If answers indicate possible or likely difficulty, the app signposts support. Any positive answer to the self-harm question is treated separately and brings up region-appropriate maternal support contacts. Contact cards with a phone number can be tapped to call or text where the listed service supports it. That is a bridge to a person, not an invitation to keep tapping until a crisis passes.
 
-The EPDS does **not** diagnose postpartum rage and should not become a gate you must pass before seeking help. Its value is helping a parent notice the wider week: enjoyment, anxiety, coping, sleep and thoughts of harm. OBubba's baby logs can also make one practical burden visible—who covered which night feeds and how fragmented sleep has been—without claiming that a chart explains the anger.
+The EPDS does **not** diagnose postpartum rage and should not become a gate you must pass before seeking help. Its value is helping a parent notice the wider week: enjoyment, anxiety, coping, sleep and thoughts of harm. OBubba's baby logs can also make one practical burden visible, including who covered which night feeds and how fragmented sleep has been, without claiming that a chart explains the anger.
 
-[Explore OBubba's free baby tracker](/free-baby-tracker-app.html), including the Parent Room, shared care and postpartum recovery tools.
+[Open a private two-minute parent check-in](/app.html?utm_source=postpartum_rage_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261011_postpartum_rage) in OBubba's free Parent Room.
 
 ## What to remember after the surge
 
@@ -212,4 +212,4 @@ The useful sequence is:
 
 You are not required to cope quietly to prove that you love your baby. Getting another adult involved and asking for treatment are ways of protecting that love.
 
-*This article provides general information for UK families and is not a diagnosis or crisis service. Speak to your GP, midwife or health visitor about recurring postpartum anger or other mental-health symptoms. Call NHS 111 for urgent advice when it is not an immediate emergency. Call 999 or go to A&E if you, your baby or somebody else may be in imminent danger.*
+*This article provides general information for UK families and is not a diagnosis or crisis service. Speak to your GP, midwife or health visitor about recurring postpartum anger or other mental-health symptoms. In England, call NHS 111 and select the mental-health option for urgent mental-health support that is not an immediate emergency. Elsewhere in the UK, use your local urgent mental-health service. Call 999 or go to A&E if you, your baby or somebody else may be in imminent danger.*
