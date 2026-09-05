@@ -3465,6 +3465,7 @@ If baby seems unwell or you are worried, contact the appropriate health professi
           <button class="button secondary" type="button" id="print-handover">Print</button>
         </div>
         <p class="handover-builder-link">Share the blank builder without care details: <a id="handover-builder-link" href="https://obubba.com/blog/baby-care-handover-template-grandparents-nursery.html?utm_source=handover_share&amp;utm_medium=copy_share&amp;utm_campaign=from_bump_to_baby_auto&amp;utm_content=five_line_handover_builder#five-line-handover">open the free five-line handover builder</a>.</p>
+        <p class="handover-builder-link">Work with families? <a href="/for-professionals.html?utm_source=owned_search&amp;utm_medium=seo&amp;utm_campaign=from_bump_to_baby_auto&amp;utm_content=auto_20260905_handover_embed_discovery#handover-embed-heading">Copy the privacy-bounded builder embed for your website</a>. Sharing the resource does not imply that you endorse OBubba.</p>
         <p class="handover-status" id="handover-status" role="status" aria-live="polite"></p>
       </section>
       <script>
