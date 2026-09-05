@@ -1029,6 +1029,7 @@ const TOPIC_PAGES = [
     ctaHeading: 'Make the next handover lighter',
     ctaBody: 'Download OBubba, open Bubba Care and create a private browser handover when someone trusted takes the next shift. The whole app is unlocked during pregnancy and through corrected age week 8; current plan options apply afterwards.',
     ctaLabel: 'Create the next handover',
+    ctaAnalyticsContent: 'auto_20260905_grandparent_handover_intent',
     playStoreUrl: 'https://play.google.com/store/apps/details?id=com.obubba.app&referrer=utm_source%3Downed_search%26utm_medium%3Dseo%26utm_campaign%3Dfrom_bump_to_baby_auto%26utm_content%3Dauto_20260815_grandparent_no_login',
   },
   {
@@ -2279,7 +2280,7 @@ function footer() {
   </footer>`;
 }
 
-function layout({ title, description, canonicalPath, bodyClass = '', heroImage = '/sleep-baby.png', ogImage = SITE.ogImage, ogType = 'website', schema = '', body }) {
+function layout({ title, description, canonicalPath, bodyClass = '', heroImage = '/sleep-baby.png', ogImage = SITE.ogImage, ogType = 'website', schema = '', body, bodyEnd = '' }) {
   const canonical = absoluteUrl(canonicalPath);
   const image = absoluteUrl(ogImage);
   return `<!DOCTYPE html>
@@ -2319,6 +2320,7 @@ ${GENERATED_BANNER}
 ${nav()}
 ${body}
 ${footer()}
+${bodyEnd}
 </body>
 </html>`;
 }
@@ -2469,6 +2471,44 @@ function renderTopicPage(topic) {
   const secondaryCtaUrl = topic.secondaryCtaUrl || topicPlayStoreUrl;
   const secondaryCtaLabel = topic.secondaryCtaLabel || 'Get it on Android';
   const actionAriaLabel = topic.actionAriaLabel || (topic.primaryCtaUrl ? 'Professional OBubba resources' : 'Download OBubba');
+  const ctaAnalytics = topic.ctaAnalyticsContent ? `
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('consent', 'default', {
+      analytics_storage: 'denied',
+      ad_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied'
+    });
+    gtag('set', 'ads_data_redaction', true);
+    gtag('js', new Date());
+    gtag('config', 'G-Y7CHSL1YHZ', {
+      send_page_view: false,
+      allow_google_signals: false,
+      allow_ad_personalization_signals: false
+    });
+  </script>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-Y7CHSL1YHZ"></script>
+  <script>
+  (() => {
+    const content = ${JSON.stringify(topic.ctaAnalyticsContent)};
+    document.querySelectorAll('a.store').forEach((link) => {
+      const destination = link.hostname === 'apps.apple.com' ? 'app_store' : link.hostname === 'play.google.com' ? 'google_play' : '';
+      if (!destination) return;
+      link.addEventListener('click', () => gtag('event', 'store_click', {
+        event_category: 'download',
+        store: destination,
+        ob_source: 'owned_search',
+        ob_medium: 'seo',
+        ob_campaign: 'from_bump_to_baby_auto',
+        ob_content: content,
+        page_location: location.origin + location.pathname,
+        transport_type: 'beacon'
+      }));
+    });
+  })();
+  </script>` : '';
   const recipientHelpSection = topic.recipientHelp ? `
     <section class="section alt recipient-help">
       <div class="section-inner narrow ai-answer">
@@ -2783,6 +2823,7 @@ ${genericTryFaq}
     heroImage: topic.heroImage,
     schema: topicSchema(topic),
     body,
+    bodyEnd: ctaAnalytics,
   });
 }
 
