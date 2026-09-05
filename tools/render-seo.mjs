@@ -1323,6 +1323,8 @@ const SHARED_ASSETS = [
   'obubba-app-baby-sleep-clock-screenshot.jpg',
   'obubba-app-ai-coach-screenshot.jpg',
   'obubba-app-growth-development-screenshot.jpg',
+  'obubba-what-baby-wear-to-sleep.jpg',
+  'obubba-safe-sleep-room-temperature-app.jpg',
   'sleep-baby.png',
   'og-image.png',
   'privacy-checklist-og.png',
