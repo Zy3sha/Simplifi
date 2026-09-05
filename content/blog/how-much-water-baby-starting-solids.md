@@ -9,7 +9,7 @@ tags: how much water should baby drink, baby water starting solids, water for 6 
 heroImage: /obubba-how-much-water-baby-solids.jpg
 ---
 
-The first purée is ready, the highchair is covered and a tiny cup is sitting beside the plate. How much water are you supposed to put in it—10ml, 60ml, a full cup? And how do you know whether your baby actually drank any rather than wearing it?
+The first purée is ready, the highchair is covered and a tiny cup is sitting beside the plate. How much water are you supposed to put in it: 10ml, 60ml, a full cup? And how do you know whether your baby actually drank any rather than wearing it?
 
 For a healthy baby starting solids at around six months, the practical goal is **cup practice and small sips with meals**, not reaching a universal millilitre target. The [NHS recommends introducing a cup from around six months and offering sips of water with meals](https://www.nhs.uk/baby/weaning-and-feeding/babys-first-solid-foods/). Breast milk or first infant formula should remain the main drink throughout the first year.
 
@@ -20,13 +20,13 @@ For a healthy baby starting solids at around six months, the practical goal is *
 | Baby's stage | Water approach | What still matters most |
 |---|---|---|
 | Fully breastfed and under six months, not on solids | No additional water is normally needed, including in hot weather; offer the breast more often | Responsive breastfeeds |
-| Formula-fed and under six months | Usual formula feeds; small amounts of cooled boiled water may be advised in very hot weather | Correctly prepared formula—never dilute it |
+| Formula-fed and under six months | Usual formula feeds; small amounts of cooled boiled water may be advised in very hot weather | Correctly prepared formula; never dilute it |
 | Starting solids at around six months | Offer a few sips of tap water with meals from an open or free-flow cup | Breast milk or first infant formula remains the main drink |
 | Eating two or three meals | Keep offering water at each meal; let skill and interest build | Milk feeds, varied food and the baby's overall wellbeing |
 | Hot weather, six months or older | Offer water more often as well as normal milk feeds | Shade, cool clothing and watching for dehydration |
 | Vomiting, diarrhoea or possible dehydration | Follow NHS 111, GP, pharmacist or clinician advice; an oral rehydration solution may be needed | Medical assessment and replacing fluids safely |
 
-These are starting principles, not a drinking schedule. A baby who takes one curious sip is learning. A baby who drinks more after a salty-free but dry meal may also be responding normally.
+These are starting principles, not a drinking schedule. A baby who takes one curious sip is learning. A baby who drinks more after a dry meal may also be responding normally.
 
 ## Why there is no single “right” number of millilitres
 
@@ -77,7 +77,7 @@ Choose a cup that is:
 
 You do not need a special branded “weaning water” cup. A tiny open cup works. A free-flow lid can be useful away from home, but it should let water flow without strong sucking.
 
-Avoid making a teat bottle the default water container. The goal is a new drinking skill, and prolonged bottle sucking—especially with sweet drinks—keeps liquid against the teeth.
+Avoid making a teat bottle the default water container. The goal is a new drinking skill. Prolonged bottle sucking, especially with sweet drinks, keeps liquid against the teeth.
 
 ## How to teach open-cup drinking without forcing it
 
@@ -139,7 +139,7 @@ As solids become established, babies may naturally adjust milk. Let that happen 
 
 Yes. Water is healthy, but more is not always better for an infant.
 
-A baby's stomach and kidneys are still developing. Large volumes can displace breast milk or formula, reducing energy and nutrient intake. Giving excessive plain water to a young baby can also disturb the body's salt balance. The answer is not to calculate a maximal safe amount at home; it is to follow the NHS pattern of small sips with meals and keep milk central.
+A baby's stomach is small. Large volumes can displace breast milk or formula, reducing energy and nutrient intake. The answer is not to calculate a maximum at home. Follow the NHS pattern of small sips with meals and keep milk central.
 
 Never:
 
@@ -154,15 +154,15 @@ If you think your baby has consumed an unusually large amount of water or seems 
 
 ## Tap, boiled, filtered or bottled water?
 
-For babies over six months in the UK, ordinary mains tap water does not normally need to be boiled before drinking. Let the cold tap run briefly if the water has been standing, and use the kitchen's mains-fed cold tap.
+For babies over six months in the UK, ordinary mains tap water does not normally need to be boiled before drinking.
 
-For babies under six months when extra water is advised, boil tap water and let it cool fully before offering it. Do not keep repeatedly reboiling the same water.
+For formula-fed babies under six months when extra water is advised during hot weather, the NHS says to use cooled boiled water and keep usual milk feeds going.
 
 Bottled water is not automatically safer. The [NHS notes that bottled water is not usually recommended for preparing formula](https://www.nhs.uk/baby/breastfeeding-and-bottle-feeding/bottle-feeding/formula-milk-questions/) because it is not sterile and may contain too much sodium or sulphate.
 
 When travelling, during a local water advisory or if you use a private supply, check the advice for that location. UK tap-water guidance cannot be carried unchanged to every country.
 
-## What should babies drink—and avoid?
+## What should babies drink and avoid?
 
 ### Best everyday choices
 
@@ -211,7 +211,7 @@ Disposable nappies can make small wees difficult to judge, and nappy frequency c
 
 The [NHS dehydration page](https://www.nhs.uk/conditions/dehydration/) lists signs including fewer wet nappies, dark yellow urine, a dry mouth, few or no tears, sunken eyes, drowsiness and unusual irritability. Babies and young children can become unwell quickly.
 
-Seek urgent advice from your GP or NHS 111 if you think your baby is dehydrated, is not feeding normally, cannot keep fluids down or has noticeably fewer wet nappies. Call 999 for a baby who will not wake, has serious breathing difficulty, becomes blue or grey, has a first seizure or has another life-threatening symptom.
+Seek urgent advice from your GP or NHS 111 if you think your baby is dehydrated, is not feeding normally, cannot keep fluids down or has noticeably fewer wet nappies. The [current NHS urgent-help guidance](https://www.nhs.uk/baby/health/when-to-get-urgent-medical-help-for-babies-and-children-under-5/) says to call 999 or go to A&E if a baby is difficult to wake, has difficulty breathing, becomes blue or grey, has not had a wee for 12 hours, has a seizure or has another listed emergency sign. Call NHS 111 if you are worried or do not know what to do.
 
 During vomiting or diarrhoea, continue breast milk or formula in small, frequent amounts as advised. Plain water may not replace the salts lost; a pharmacist or clinician may recommend an oral rehydration solution. Do not improvise one or use adult sports drinks.
 
@@ -236,7 +236,7 @@ If your baby drinks milk normally and is well, skill can build slowly. If they r
 
 ## How the current OBubba Flutter app supports this stage
 
-OBubba's **Care → Weaning & First Foods** area includes a “Before you start” guide that names an open or free-flow cup as an essential for sips of water with meals. The First Foods screen then offers 34 searchable ideas with age guidance, nutrients, allergens and safer serving instructions.
+OBubba's **Care → Weaning & First Foods** area includes a “Before you start” guide that names an open or free-flow cup for sips of water with meals. The First Foods screen then offers 34 searchable ideas with age guidance, nutrients, allergens and safer serving instructions.
 
 The tracking model deliberately keeps unlike quantities separate:
 
@@ -248,11 +248,13 @@ The tracking model deliberately keeps unlike quantities separate:
 - no nappy data produces no dehydration alarm
 - sparse logging is not treated as proof of low output
 
-That last safeguard matters. Two recorded nappies could mean the baby had only two, or that the parent stopped opening the app after lunch. OBubba checks recent logging consistency before surfacing a hydration warning and gives higher-priority health signs precedence.
+That last safeguard matters. Two recorded nappies could mean the baby had only two, or that the parent stopped opening the app after lunch. OBubba waits for a consistent recent nappy record and until later in the day before it can surface a low-wet-nappy warning. More immediate logged health signs take priority.
 
 OBubba does **not** claim that cup sips equal a hydration percentage. It cannot see what spilled, measure breast-milk transfer, assess a baby's mouth or responsiveness, or diagnose dehydration. The app's role is to keep milk, meals, nappies and growth in one timeline so a parent can notice what changed and explain it clearly to a health professional.
 
-**[Try OBubba free →](/free-baby-tracker-app.html)** — keep first foods beside milk feeds, nappies and growth, explore safer serving ideas and build a useful weaning record without turning every cup into a target.
+The 34-food reference, the pre-weaning guide and Track logging are free. Premium expands the personalised recipe garden and weaning plan. The whole app is unlocked during pregnancy and through your baby's first two corrected-age months.
+
+**[Keep milk, meals and nappies in one useful picture →](/app.html?utm_source=water_solids_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261002_water_solids)**
 
 ## A simple first-week cup plan
 
@@ -266,7 +268,7 @@ Repeat at the same meal. Let your baby put both hands on the cup while you guide
 
 ### Days 5–7
 
-Offer water with each meal your baby now eats. Keep milk feeds unchanged. Notice skill—not volume: better lip seal, a smaller spill, a deliberate pause or reaching for the cup.
+Offer water with each meal your baby now eats. Keep milk feeds unchanged. Notice skill, not volume: better lip seal, a smaller spill, a deliberate pause or reaching for the cup.
 
 At the end of the week, the win may be three swallowed sips and a soaked bib. That is still progress. The purpose is to make plain water and a cup ordinary parts of family meals while milk continues doing the nutritional heavy lifting.
 
