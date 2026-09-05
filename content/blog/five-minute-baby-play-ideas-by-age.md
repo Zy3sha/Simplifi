@@ -139,6 +139,8 @@ Your baby may be hungry, tired, overstimulated, absorbed by the light on the wal
 
 For the same reason, avoid buying a toy because it claims to accelerate development. The [NHS baby-play guide](https://www.nhs.uk/baby/babys-development/play-and-learning/baby-and-toddler-play-ideas/) emphasises that play need not be expensive and that your time and attention are more valuable than toys.
 
+If what you need is a reason to get out, meet another adult or try an activity with some company, use our [low-pressure guide to choosing a baby class that fits real life](/blog/baby-classes-near-me-real-life-guide.html?utm_source=owned_search&utm_medium=internal_link&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260905_baby_classes_cluster_play). One useful class is enough; it does not need to become another weekly target.
+
 ## A five-minute rhythm you can use at any age
 
 When your brain is too tired to invent a game, remember **notice, offer, pause, follow**:
