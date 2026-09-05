@@ -9,11 +9,11 @@ tags: baby awake for hours at night, split night baby, baby awake in middle of n
 heroImage: /obubba-baby-awake-for-hours-split-night.jpg
 ---
 
-Your baby sleeps for a solid first stretch, wakes at 1:40am—and is still awake at 3am. They may be upset, quietly staring into the dark or behaving as if it is lunchtime. Then they eventually fall asleep again and complete a second block of sleep.
+Your baby sleeps for a solid first stretch, wakes at 1:40am and is still awake at 3am. They may be upset, quietly staring into the dark or behaving as if it is lunchtime. Then they eventually fall asleep again and complete a second block of sleep.
 
 Parents often call this a **split night** because one night has broken into two sleeps with a long awake period between them. It is a useful description, not a medical diagnosis. One split night can follow hunger, discomfort, travel, illness or chance. A repeating pattern can also suggest that sleep timing needs a small adjustment.
 
-**Do not automatically cut naps or push bedtime later. First distinguish a true middle-of-the-night wake from a bedtime false start, check health and feeding, and compare the day that led into each long wake. High day sleep and low day sleep can both precede a split night—and they need opposite responses.**
+**Do not automatically cut naps or push bedtime later. First distinguish a true middle-of-the-night wake from a bedtime false start, check health and feeding, and compare the day that led into each long wake. High day sleep and low day sleep can both precede a split night, and they need opposite responses.**
 
 ## What counts as a split night?
 
@@ -44,7 +44,7 @@ The [NHS explains that babies have individual sleep patterns](https://www.nhs.uk
 
 For newborns, being awake overnight is not strong evidence of a schedule problem. Feeding and the developing difference between day and night dominate. Keep daytime light and ordinary, nights dim and quiet, feed responsively and follow any individual clinical plan. Do not cut a newborn's sleep to manufacture more “sleep pressure”.
 
-For older babies, a recurring long, alert wake can be worth investigating—especially when the pattern appears on otherwise healthy nights and follows similar nap or bedtime conditions.
+For older babies, a recurring long, alert wake can be worth investigating, especially when the pattern appears on otherwise healthy nights and follows similar nap or bedtime conditions.
 
 ## The most useful clue: happy awake or distressed awake?
 
@@ -74,7 +74,7 @@ A distressed long wake makes hunger, pain, illness, separation, temperature or o
 
 A baby can also start calm and become upset after being awake for an hour. Mood is one clue among several, not a pass–fail test.
 
-## Six possible reasons—and the evidence each needs
+## Six possible reasons and the evidence each needs
 
 ### 1. The baby had less sleep pressure at bedtime
 
@@ -117,7 +117,7 @@ Feed responsively rather than withholding milk to preserve an experiment. If mos
 
 A sudden new long wake should move health higher up the list. Check temperature, breathing, colour, feeding, vomiting, nappies and your baby's usual responsiveness.
 
-The [NHS serious-illness guidance](https://www.nhs.uk/baby/health/is-your-baby-or-toddler-seriously-ill/) lists warning signs including difficult breathing, blue or grey skin, being hard to wake, abnormal feeding, drier nappies, green vomit and an unusual inconsolable cry. Call 999 if your baby will not wake, stops breathing, has a first seizure or develops a red or purple rash that does not fade under a glass. Seek urgent advice for a baby under three months with a temperature of 38°C or above.
+The [current NHS urgent-help guidance](https://www.nhs.uk/baby/health/when-to-get-urgent-medical-help-for-babies-and-children-under-5/) says to call 999 or go to A&E for warning signs including difficulty breathing, blue or grey skin, being difficult to wake, no urine for 12 hours, a seizure or a rash that does not fade when pressed. It gives the same emergency direction for a temperature of 38°C or higher in a baby under three months, or 39°C or higher from three to six months. Call NHS 111 if you are worried or do not know what to do.
 
 [Regular loud snoring, gasping or pauses in breathing deserve medical assessment](https://www.cuh.nhs.uk/our-services/childrens-services-paediatrics/childrens-services-a-z/respiratory-paediatrics/childrens-sleep-service/); these are not schedule problems. Pause sleep experiments when your baby is unwell and follow your GP, health visitor or NHS 111 advice.
 
@@ -135,14 +135,14 @@ Keep night care low-key and the room appropriately dark. Correct the specific en
 
 ## The three-night split-night audit
 
-One night can be chance. Record three representative nights—or all nights over a week if the pattern is intermittent.
+One night can be chance. Record three representative nights, or all nights over a week if the pattern is intermittent.
 
 For each night, note:
 
 1. **Actual sleep onset**, not the start of the routine.
 2. **Long-wake start and end**, including whether the duration was measured or estimated.
 3. **Baby's mood**, such as content, hungry, uncomfortable or frantic.
-4. **What ended the wake**—feed, cuddle, medicine advised for a known issue, nappy, or simply time.
+4. **What ended the wake:** feed, cuddle, medicine advised for a known issue, nappy, or simply time.
 5. **Every nap**, with actual sleep rather than time offered in the cot.
 6. **Final wake window**, from the end of the last nap to sleep onset.
 7. **Daytime milk context**, especially missed or distracted feeds.
@@ -160,7 +160,7 @@ Then compare each split-night day with a settled day. Ask:
 
 The comparison protects you from the most common mistake: seeing a long wake after a long nap and assuming the nap caused it, without checking whether long naps also happened before good nights.
 
-## Choose the right direction—not a dramatic reset
+## Choose the right direction, not a dramatic reset
 
 | Repeated evidence | First experiment | Avoid |
 |---|---|---|
@@ -239,18 +239,21 @@ When a parent uses **Night wake**, the running night sleep pauses. On **Resume**
 
 The current safeguards include:
 
-- a split-night card needs a measured wake of at least 60 minutes
+- a one-night split read needs either an explicitly timed wake of at least 60 minutes or a credible gap of at least 60 minutes between two sleep arcs
 - when bedtime and wake position are available, the long wake must start more than 45 minutes after bedtime; a long wake near bedtime stays a false start
 - an open pause or forgotten timer is not trusted as a multi-hour wake
-- a long gap between two separately logged sleep arcs is not automatically promoted to a split-night verdict when the duration was synthesised rather than confirmed
+- an inferred gap is ignored when another wake or feed was already logged inside it, which prevents the same wake being counted twice
 - illness and other active disruptors can suppress schedule prescriptions
 - wakes after midnight are reconstructed into the night they belong to, so the analysis does not lose the first sleep block at the date boundary
+- the separate repeated-pattern insight needs at least two qualifying nights from up to seven observed nights and stays quiet below about 16 weeks
 
-Once the wake is credible, the app checks the bedtime day's sleep—not the following day's naps. If day sleep was high, it may suggest trimming a little. If day sleep was low, it explicitly says **do not cut it** and protects rest. If the total is unknown or in range, it stays even-handed. It also considers the final wake window, feed timing, daytime milk, logged tummy discomfort, teething and development.
+Once the wake is credible, the immediate night read checks the bedtime day's sleep, not the following day's naps. If day sleep was high, it may suggest trimming a little. If day sleep was low, it explicitly says **do not cut it** and protects rest. If the total is unknown or in range, it stays even-handed. Other OBubba views can place the final wake window, feeding, logged tummy discomfort, teething and development beside the sleep pattern as additional clues. They are not all inputs to the same split-night rule.
 
-The screenshot shows one real current app state: a measured 2h12 overnight wake appears as a split night, while teething and developmental context remain visible as separate clues. Those cards are hypotheses from logged data, not diagnoses. The parent can open each explanation and decide whether it fits the baby they are holding.
+The screenshot shows the current app using fictional example data: a measured 2h12 overnight wake appears as a split night, while teething and developmental context remain visible as separate clues. Those cards are hypotheses from logged data, not diagnoses. The parent can open each explanation and decide whether it fits the baby they are holding.
 
-**[Try OBubba free →](/free-baby-tracker-app.html)** — pause and resume a real night wake, keep both halves of the night together and get a direction based on the day that actually happened rather than a universal nap-cutting rule.
+Timing a night wake and seeing the immediate Track read are free. Deeper Guidance and **Care → Sleep Consultant** are Premium. The whole app is unlocked during pregnancy and through your baby's first two corrected-age months.
+
+**[Make one long wake useful tomorrow →](/app.html?utm_source=split_night_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261001_split_night)**
 
 ## A calm plan for the next 24 hours
 
@@ -266,6 +269,6 @@ If last night split in two:
 
 A split night feels enormous while you are living through it. In the log, it becomes a specific interval with a before and after. That makes the useful question smaller: was this hunger, discomfort, a temporary disruption or a repeatable mismatch between sleep opportunity and this baby's current rhythm?
 
-You do not need to solve the whole night at 2am. Keep it safe and responsive, then let daylight—and several honest days of evidence—choose the next move.
+You do not need to solve the whole night at 2am. Keep it safe and responsive, then let daylight and several honest days of evidence choose the next move.
 
 *This article provides general information, not medical advice. Follow your baby's individual feeding and care plan and speak with a qualified health professional whenever sleep changes accompany feeding, growth, breathing, pain, fever or illness concerns.*
