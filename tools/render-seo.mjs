@@ -588,9 +588,9 @@ const TOPIC_PAGES = [
   {
     slug: 'baby-nappy-tracker',
     keyword: 'baby nappy tracker',
-    title: 'Baby Nappy Tracker App for Feeds & Changes | OBubba',
+    title: 'Nappy App: Changes, Feeds & Sleep Together | OBubba',
     h1: 'Track wet and dirty nappies beside feeds and sleep.',
-    description: 'Use OBubba as a baby nappy tracker app for wet and dirty changes, feeds, sleep and calmer handovers—all in one shared baby timeline.',
+    description: 'Log wet and dirty nappies with feeds and sleep beside them. Share one clear baby-care picture with an invited partner or trusted carer.',
     heroImage: '/obubba-happy.png',
     heroEyebrow: 'A nappy app for the whole baby day',
     answerHeading: 'What should a baby nappy tracker app record?',
