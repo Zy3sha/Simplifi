@@ -1,9 +1,9 @@
 ---
-title: Best Baby Tracking App UK — What to Compare
+title: Best Baby Tracker App UK: 7 Things to Compare
 slug: best-baby-tracker-app-uk
-description: Compare UK baby tracking apps by feeds, nappies, sleep, sharing, reports and privacy. See where OBubba fits—and when a simpler timer may suit you.
+description: Choosing a baby tracker in the UK? Compare feeds, nappies, sleep, partner sharing, reports, privacy and price with a clear seven-point checklist.
 date: 2026-05-13
-updated: 2026-08-24
+updated: 2026-09-05
 author: OBubba
 tags: baby tracker app UK, best baby tracker UK, newborn tracker UK, nappy tracker, baby sleep tracker, health visitor report, parenting app
 heroImage: /obubba-happy.png
