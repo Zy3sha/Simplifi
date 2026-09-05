@@ -252,7 +252,7 @@ That last safeguard matters. Two recorded nappies could mean the baby had only t
 
 OBubba does **not** claim that cup sips equal a hydration percentage. It cannot see what spilled, measure breast-milk transfer, assess a baby's mouth or responsiveness, or diagnose dehydration. The app's role is to keep milk, meals, nappies and growth in one timeline so a parent can notice what changed and explain it clearly to a health professional.
 
-The 34-food reference, the pre-weaning guide and Track logging are free. Premium expands the personalised recipe garden and weaning plan. The whole app is unlocked during pregnancy and through your baby's first two corrected-age months.
+The 34-food reference, the pre-weaning guide, Track logging and the six-meal weekly plan are free. Premium expands the personalised recipe selection and full recipe garden. The whole app is unlocked during pregnancy and through your baby's first two corrected-age months.
 
 **[Keep milk, meals and nappies in one useful picture →](/app.html?utm_source=water_solids_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261002_water_solids)**
 
