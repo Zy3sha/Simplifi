@@ -13,7 +13,7 @@ Yesterday your baby was content on the play mat. Today they want to be held, pro
 
 It is understandable to wonder: **was the fussiness a sign that a new skill was coming?**
 
-Possibly—but fussiness cannot reliably predict a milestone, and a “leap week” should never be used to explain away illness. Babies do sometimes seem more unsettled while their bodies and attention are changing. They may practise movement in the cot, become more aware when you leave, tire themselves out or feel frustrated by the gap between what they want to do and what they can do. The timing, intensity and cause are individual.
+Possibly, but fussiness cannot reliably predict a milestone, and a “leap week” should never be used to explain away illness. Babies do sometimes seem more unsettled while their bodies and attention are changing. They may practise movement in the cot, become more aware when you leave, tire themselves out or feel frustrated by the gap between what they want to do and what they can do. The timing, intensity and cause are individual.
 
 The most useful response is not to identify the exact leap. It is to check that your baby is well, look at the whole day, offer calm opportunities to practise, and treat developmental ages as broad guides rather than appointments.
 
@@ -28,7 +28,7 @@ Development is context, not a diagnosis. Before deciding that a difficult day is
 - Have they been awake much longer than usual, or had an unusually stimulating day?
 - Does the cry sound different from their normal cry?
 
-The [NHS serious-illness checklist](https://www.nhs.uk/baby/health/is-your-baby-or-toddler-seriously-ill/) says to seek medical help promptly for signs including breathing difficulty, being hard to wake, constant inconsolable crying or a cry that sounds abnormal, not feeding normally when you are worried, and nappies that are drier than usual. It also advises parents to trust their instincts.
+The [NHS urgent-help guidance](https://www.nhs.uk/baby/health/when-to-get-urgent-medical-help-for-babies-and-children-under-5/) says to seek medical help promptly for signs including breathing difficulty, being hard to wake, a weak, high-pitched or continuous cry, not feeding normally when you are worried, and no wet nappies for 12 hours. It also advises parents to trust their instincts.
 
 Call 999 for an emergency such as a baby who stops breathing, will not wake, or has a red or purple rash that does not fade under a glass. Follow current NHS advice for fever, especially in a young baby. If something feels wrong, contact your GP, NHS 111 or an appropriate urgent service; do not wait for a predicted developmental window to end.
 
@@ -102,7 +102,7 @@ Move the toy slightly closer, steady the object, copy the sound, or place your o
 
 The [NHS Baby Moves guidance](https://www.nhs.uk/best-start-in-life/baby/baby-moves/) emphasises everyday floor movement, talking, singing and encouraging babies to reach, push and pull toys. It also suggests short, adapted tummy-time attempts when a baby dislikes the floor version. Developmental support can look very ordinary.
 
-## Match support to the attempt—not the calendar
+## Match support to the attempt, not the calendar
 
 You do not need to accelerate a milestone. Create a safe opportunity, follow baby's cue and repeat another day.
 
@@ -193,18 +193,18 @@ The real app brings several connected tools together:
 - **Grow Waves** shows a current, recent or upcoming developmental theme as a broad window. It explains what may be happening, what a parent might notice, a reassuring reframe, ways to support baby and one small thing to try. The app explicitly says the timing is “a window, not a fixed date” and that Waves are not a diagnosis or milestone test.
 - **Skill Forecast** looks ahead to a few possible milestones. At first it uses age-typical ranges; after milestones are logged, it can shape the forecast using the child's own story. Its on-screen promise is deliberately modest: “A forecast, not a deadline.”
 - **Corrected age** is used when the birth and due dates indicate that a baby was born at least three weeks early, so the developmental view is not anchored unfairly to birth date alone.
-- **Today's Play** connects development to a short, age-relevant activity—such as reaching, serve-and-return sounds or a simple object game—rather than asking parents to run a lesson plan.
+- **Today's Play** connects development to a short, age-relevant activity, such as reaching, serve-and-return sounds or a simple object game, rather than asking parents to run a lesson plan.
 - **Milestones** lets families keep a record and remember when something emerged, alongside growth, sleep, feeding and wellbeing context.
 
-An upcoming Wave can also be exported to a calendar, but it should be read as a gentle prompt to notice and support—not an appointment for fussiness or a promise of a skill. If baby is unwell, unusually distressed or losing skills, the correct next step is health advice, not a calendar check.
+An upcoming Wave can also be exported to a calendar, but it should be read as a gentle prompt to notice and support, not an appointment for fussiness or a promise of a skill. If baby is unwell, unusually distressed or losing skills, the correct next step is health advice, not a calendar check.
 
-[Explore OBubba's free baby tracker](/free-baby-tracker-app.html) to see Grow, sleep, feeding, weaning, shared care and parent-support tools in one calmer place.
+[See development as a window, not a deadline](/app.html?utm_source=new_skill_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261012_new_skill) in OBubba's free Grow area.
 
 ## The most useful answer
 
 Your baby may be fussier while a new skill is taking shape. They may also be tired, hungry, overstimulated, uncomfortable, ill or simply having a difficult day. A developmental story can make the moment feel less mysterious, but it cannot identify the cause.
 
-Check safety and health first. Comfort freely. Offer short, playful opportunities to move, look, listen and respond. Watch your own baby over time instead of waiting for an exact week on a chart. Use corrected age when appropriate, and bring concerns—especially any loss of skills—to a health professional.
+Check safety and health first. Comfort freely. Offer short, playful opportunities to move, look, listen and respond. Watch your own baby over time instead of waiting for an exact week on a chart. Use corrected age when appropriate, and bring concerns, especially any loss of skills, to a health professional.
 
 The goal is not to predict the day your baby changes. It is to make enough calm space to notice who they are becoming.
 
