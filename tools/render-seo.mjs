@@ -866,9 +866,9 @@ const TOPIC_PAGES = [
   {
     slug: 'baby-wake-window-tracker',
     keyword: 'wake window app',
-    title: 'Wake Window App for Baby Naps | OBubba',
+    title: 'Wake Window App: Personalised Nap Guidance | OBubba',
     h1: 'A wake window app built from your baby’s actual naps.',
-    description: 'Track naps, feeds and night sleep together. OBubba starts adding personalised timing guidance around day four; wake windows stay flexible guides.',
+    description: 'Log a nap and get a flexible next-sleep guide shaped by your baby’s recent naps, night sleep and feeds. Personalised guidance begins around day four.',
     heroImage: '/obubba-loading.png',
     answerHeading: 'What should a baby wake window app do?',
     aiAnswer: 'A useful wake window app should use your baby’s own recent naps, night sleep and feeds rather than treat one age chart as a timetable. In OBubba, personalised timing guidance begins around day four of logging and the picture gets clearer across the first fortnight. Suggested times remain flexible guides: follow tired cues and current safer-sleep guidance.',
