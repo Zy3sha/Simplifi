@@ -23,9 +23,9 @@ OBubba's **Family sharing** connects two or more phones to the same baby. Both c
 
 On the phone that already has the baby's history:
 
-1. Open **Account → Family sharing → Share with family**.
+1. Open **Account → Share with family**.
 2. Tap **Invite someone**.
-3. Send the displayed sync code privately to the other carer.
+3. Tap **Send invite**, or copy the displayed sync code and send it privately to the other carer.
 
 On the other phone:
 
@@ -71,6 +71,8 @@ Not every child-scoped control is cloud-backed. The current weekly weaning plan,
 The owner can see joined people under **People with access**, including a join date when it is available. The card changes from **Only you right now** to **Sharing enabled** when another participant is visible.
 
 Sharing one child does not make every person an account administrator. It gives them access to that child's shared care record so the household can work from one timeline.
+
+If the owner has active Premium for that shared baby, the invited carer can use Premium features while that baby is selected. It does not upgrade the carer's whole account or unlock Premium for their own unpaid babies. Core live sharing does not require both people to buy separate subscriptions.
 
 ## The five rules that prevent duplicate baby logs
 
@@ -186,7 +188,7 @@ OBubba deliberately places this control away from the ordinary invite action and
 
 ## What if we each already have a baby in OBubba?
 
-You can still connect to the shared baby. In **Account → Family sharing → Share with family**, choose **Connect another device** and enter the other parent's code.
+You can still connect to the shared baby. Open **Account → Share with family**, choose **Connect another device** and enter the other parent's code.
 
 The joined baby is added to the local baby switcher rather than forcing you to erase the profile already on your phone. Before logging, glance at the name in the Track header—especially when siblings have similar routines or both children woke overnight.
 
@@ -215,7 +217,7 @@ Try this tonight:
 
 The objective is not perfect data. It is a reliable shared memory that reduces repeated questions and lets the off-duty parent genuinely switch off.
 
-**[Try OBubba free →](/app.html)** — connect both phones to one live baby timeline, then make feeds, naps and nappies a shared record rather than a shared guessing game.
+**[Try OBubba free →](/app.html?utm_source=partner_sync_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260915_partner_sync)** — connect both phones to one live baby timeline, then make feeds, naps and nappies a shared record rather than a shared guessing game.
 
 ## Quick answers
 
@@ -230,6 +232,10 @@ It de-duplicates copies of the same synced entry by ID. It cannot safely assume 
 ### Can my partner see my other children?
 
 Not from one baby's code. Family sharing is per child; a person joining that code sees and adds logs for that baby only.
+
+### Does my partner need a second Premium subscription?
+
+Not for Premium features on a shared baby whose owner has active Premium. That entitlement follows the paid shared baby, not the invited person's whole account, so their own unpaid babies remain on their existing plan.
 
 ### Should I use the recovery code to connect my partner?
 
