@@ -1,7 +1,7 @@
 ---
 title: "How to Help a Baby With Jet Lag: A Gentle Plan"
 slug: how-to-help-baby-with-jet-lag
-description: "Help your baby adjust after a time-zone change with daylight, local meals, gentle nap choices and a familiar bedtime routine—plus a plan for flying home."
+description: "Help your baby adjust after a time-zone change with daylight, local meals, gentle nap choices and a familiar bedtime routine, plus a plan for flying home."
 date: 2026-10-06
 updated: 2026-10-06
 author: OBubba
@@ -79,7 +79,7 @@ On arrival, daylight and gentle activity later in the local day can help the bab
 
 ### Crossing only one or two hours
 
-For a longer stay, most families can move directly onto local time and let routine cues do the work. For a very short trip, partially keeping home time may be less disruptive—but only if it fits meals, daylight, accommodation and family plans.
+For a longer stay, most families can move directly onto local time and let routine cues do the work. For a very short trip, partially keeping home time may be less disruptive, but only if it fits meals, daylight, accommodation and family plans.
 
 Do not build a complicated schedule for a difference your baby has barely noticed.
 
@@ -138,7 +138,7 @@ The CDC says air travel is safe for most infants and children, but babies with c
 
 Light is the clearest external signal for the body clock. Open the curtains when you want local morning to begin and, if practical, spend some time outside.
 
-The goal is ordinary daylight—not staring into strong sun. Protect the baby from UV exposure and heat. Morning light can be combined with a feed, walk or breakfast so several daily anchors arrive together.
+The goal is ordinary daylight, not staring into strong sun. Protect the baby from UV exposure and heat. Morning light can be combined with a feed, walk or breakfast so several daily anchors arrive together.
 
 If your baby woke at 3am, you do not have to begin a bright, playful day then. Keep the environment dim and calm until a survivable local morning time. The first days may require compromise, such as starting at 5:30am rather than insisting on 7am.
 
@@ -156,11 +156,11 @@ During local daytime:
 
 At local night, keep necessary feeds quiet and low-lit. Feed, burp or hold as needed without adding bright screens or a long play session.
 
-Travel can also change nappies and digestion. Track the overall picture—feeds, wet nappies, stools and alertness—rather than worrying about one smaller meal.
+Travel can also change nappies and digestion. Track the overall picture of feeds, wet nappies, stools and alertness rather than worrying about one smaller meal.
 
 ## Should you wake a jet-lagged baby from a nap?
 
-Sometimes—but gently and selectively.
+Sometimes, but gently and selectively.
 
 A very long late-day sleep can preserve the home-time “night” and make local bedtime harder. However, preventing all daytime sleep can create an overtired baby who also cannot settle.
 
@@ -272,7 +272,7 @@ Never translate an adult dose or internet gummy recommendation into infant care.
 
 Fatigue and unfamiliar accommodation increase the need to inspect the cot and plan where everyone will sleep.
 
-![Current OBubba Flutter Timezone plan showing a five-hour eastward trip with before-travel, destination and coming-home steps](/obubba-baby-timezone-plan-app.jpg "The current OBubba Flutter Timezone plan turns a five-hour eastward offset into small pre-travel shifts, local light, meal and nap anchors, and a return-home plan.")
+![Current OBubba Flutter Timezone plan showing fictional example settings for a five-hour eastward trip](/obubba-baby-timezone-plan-app.jpg "The current OBubba Flutter Timezone plan shown with a fictional five-hour eastward offset. It turns the chosen offset into small pre-travel shifts, local light, meal and nap anchors, and a return-home plan.")
 
 ## How the current OBubba Flutter app helps
 
@@ -292,11 +292,11 @@ The current Flutter implementation:
 
 Its “days to fully adjust” figure is deliberately conservative planning maths: the offset divided into 30-minute daily steps. It is **not** a sensor reading, diagnosis or prediction of when a particular baby's circadian rhythm will settle. A five-hour offset therefore displays about ten days, even though one baby may feel much better sooner and another may take longer.
 
-The app also cannot know the flight itinerary, whether the baby slept onboard, how bright the morning was, whether a nap happened or whether illness is driving the waking. Parents should adapt the plan to the real child and seek clinical advice when symptoms are concerning.
+The app also cannot know the flight itinerary, whether the baby slept onboard, how bright the morning was, whether a nap happened or whether illness is driving the waking. It does not automatically observe or confirm that any suggested step happened. Parents should adapt the plan to the real child, keep milk feeds responsive and seek clinical advice when symptoms are concerning.
 
-The value is continuity: the direction, small shifts, destination anchors and return plan remain visible when a tired parent can no longer remember whether “east means earlier”.
+The value is continuity: the direction, small shifts, destination anchors and return plan remain visible when a tired parent can no longer remember whether “east means earlier”. The Travel planner is free. Premium adds deeper personalised sleep analysis and planning after the early-free period. The whole app is unlocked during pregnancy and through your baby's first two corrected-age months.
 
-**[Try OBubba free →](/free-baby-tracker-app.html)** — keep the time-zone plan beside naps, feeds, nappies, weaning and tonight's wider sleep context.
+**[Build a gentler timezone plan →](/app.html?utm_source=baby_jet_lag_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261006_baby_jet_lag)** Keep the time-zone plan beside naps, feeds, nappies, weaning and tonight's wider sleep context.
 
 ## A two-minute travel-sleep checklist
 
@@ -324,6 +324,6 @@ Baby jet lag is a body-clock mismatch, not a parenting failure. Use local daylig
 
 Do not use adult medication advice on a baby. Do not relax safer-sleep standards because the room is temporary. And remember to plan for the journey home.
 
-OBubba can keep the east/west direction and daily anchors clear. Your baby—not the estimate—is the measure of how quickly to move.
+OBubba can keep the east/west direction and daily anchors clear. Your baby, not the estimate, is the measure of how quickly to move.
 
 *This article offers general information for healthy babies and is not a substitute for advice from your GP, health visitor, paediatrician, neonatal team, travel clinic or another qualified professional. Seek advice before flying with a very young newborn or a baby with heart, lung or other medical conditions, and seek urgent help for breathing difficulty, unusual lethargy, dehydration or serious illness.*

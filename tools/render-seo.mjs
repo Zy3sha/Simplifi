@@ -1327,6 +1327,8 @@ const SHARED_ASSETS = [
   'obubba-safe-sleep-room-temperature-app.jpg',
   'obubba-what-baby-wear-outside.jpg',
   'obubba-outdoor-outfit-calculator-app.jpg',
+  'obubba-baby-jet-lag-travel-plan.jpg',
+  'obubba-baby-timezone-plan-app.jpg',
   'sleep-baby.png',
   'og-image.png',
   'privacy-checklist-og.png',
