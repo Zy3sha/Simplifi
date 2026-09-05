@@ -2704,6 +2704,8 @@ function renderTopicPage(topic) {
 
   const privacyEmbedTarget = 'https://obubba.com/blog/pregnancy-baby-app-privacy-checklist.html?utm_source=partner_embed&utm_medium=referral&utm_campaign=from_bump_to_baby_auto&utm_content=privacy_checklist_embed';
   const privacyEmbedSnippet = `<a href="${privacyEmbedTarget}" target="_blank" rel="noopener"><img src="https://obubba.com/privacy-checklist-og.png" alt="Eight questions before you trust a pregnancy or baby app with the family record - free privacy checklist by OBubba" width="600" height="315" style="max-width:100%;height:auto;"></a><p><a href="${privacyEmbedTarget}" target="_blank" rel="noopener">Free pregnancy and baby app privacy checklist by OBubba</a></p>`;
+  const handoverEmbedTarget = 'https://obubba.com/blog/baby-care-handover-template-grandparents-nursery.html?utm_source=partner_embed&utm_medium=referral&utm_campaign=from_bump_to_baby_auto&utm_content=baby_handover_builder_embed';
+  const handoverEmbedSnippet = `<aside style="max-width:600px;padding:24px;border:1px solid #d8e2ed;border-radius:16px;background:#fffaf3;color:#071b3a;font-family:Arial,sans-serif;"><h3 style="margin:0 0 10px;font-size:24px;">A five-line baby handover</h3><p style="margin:0 0 16px;line-height:1.6;">Copy a calm template for the last feed, nappy, recent sleep, medicine notes and one open question. Nothing typed into the builder is collected or saved by the page.</p><a href="${handoverEmbedTarget}" target="_blank" rel="noopener" style="font-weight:700;color:#075f5b;">Open the free handover builder by OBubba</a></aside>`;
   const professionalEmbedTool = topic.slug === 'for-professionals' ? `
     <style>
     .privacy-embed-tool { padding: clamp(22px, 4vw, 34px); border: 1px solid var(--line); border-radius: 12px; background: white; box-shadow: var(--shadow); }
@@ -2733,6 +2735,35 @@ function renderTopicPage(topic) {
           field.focus();
           field.select();
           status.textContent = 'Copy the selected embed code.';
+        }
+      });
+    })();
+    </script>` : '';
+
+  const handoverEmbedTool = topic.slug === 'for-professionals' ? `
+    <section class="section alt">
+      <div class="section-inner narrow privacy-embed-tool" aria-labelledby="handover-embed-heading">
+        <p class="eyebrow">Free family handover resource</p>
+        <h2 id="handover-embed-heading">Help families pass on the next shift, not their whole history.</h2>
+        <p class="section-lede">This five-line builder helps a parent brief a partner, grandparent or trusted carer without creating an account or sending care details to OBubba. The embed is a neutral resource link, not a recommendation or clinical tool.</p>
+        <label for="handover-embed-code"><strong>Website embed code</strong></label>
+        <textarea class="privacy-embed-code" id="handover-embed-code" readonly spellcheck="false">${escapeHtml(handoverEmbedSnippet)}</textarea>
+        <button class="button" type="button" id="copy-handover-embed">Copy handover embed</button>
+        <p class="privacy-embed-status" id="handover-embed-status" role="status" aria-live="polite"></p>
+      </div>
+    </section>
+    <script>
+    (() => {
+      const field = document.getElementById('handover-embed-code');
+      const status = document.getElementById('handover-embed-status');
+      document.getElementById('copy-handover-embed').addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(field.value);
+          status.textContent = 'Handover embed copied.';
+        } catch (_error) {
+          field.focus();
+          field.select();
+          status.textContent = 'Copy the selected handover embed code.';
         }
       });
     })();
@@ -2779,6 +2810,7 @@ ${boundariesSection}
 ${screenshotSection}
 ${privacyResourceSection}
 ${professionalEmbedTool}
+${handoverEmbedTool}
     <section class="section">
       <div class="section-inner feature-split">
         <img src="/obubba-happy.png" alt="OBubba parenting app for ${escapeAttr(topic.keyword)}" width="430" height="430" loading="lazy"/>
