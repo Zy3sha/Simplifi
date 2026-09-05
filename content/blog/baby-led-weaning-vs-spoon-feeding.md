@@ -53,7 +53,7 @@ If your baby was born prematurely, use advice from your neonatal team, health vi
 
 Method matters less than the interaction around it.
 
-The World Health Organization describes [responsive complementary feeding](https://www.who.int/health-topics/complementary-feeding) as paying attention to hunger and fullness cues while actively supporting the baby to eat. That means the parent decides **what, when and where** to offer; the baby communicates **whether and how much** to eat.
+The World Health Organization describes [responsive complementary feeding](https://www.who.int/health-topics/complementary-feeding) as giving food in line with a child’s appetite and fullness signals while actively supporting them to eat. In practice, offer suitable food, watch how your baby responds, help without rushing and stop when they clearly show they have had enough.
 
 ### With finger foods
 
