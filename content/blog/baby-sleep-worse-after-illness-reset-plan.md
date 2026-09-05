@@ -157,11 +157,13 @@ This distinction matters:
 - **Well, but wakes linger:** gently reduce one temporary support.
 - **Back to baseline:** hold steady instead of introducing another change immediately.
 
-Open **Track** to record sleep, feeds, nappies, temperature and medicines. **Tonight's Guidance**, **Insights** and the sleep Coach can then use the same timeline rather than asking a parent to retell the week from memory.
+The core **Track** logs for sleep, feeds, nappies, temperature and medicines are free. Personalised **Tonight's Guidance**, **Insights** and the sleep Coach are Premium features that can use the same timeline rather than asking a parent to retell the week from memory. OBubba unlocks Premium during pregnancy and through the first two corrected-age months; plan options follow after that early-free period.
 
 OBubba cannot hear breathing, see skin colour, measure hydration, verify a thermometer reading or decide that a baby is medically well. The app record is context for parents and professionals—not clearance to begin or resume sleep training.
 
-**[Try OBubba free →](/app.html)** — keep the illness night, the recovery nights and your baby's real baseline in one calm timeline that knows when to hold back.
+**[Track recovery without starting over →](/app.html?utm_source=post_illness_sleep_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260922_post_illness_sleep)**
+
+Keep the illness night, the recovery nights and your baby's real baseline in one calm timeline that knows when to hold back.
 
 ## When to seek medical help
 
