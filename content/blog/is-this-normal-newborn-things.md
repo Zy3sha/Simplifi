@@ -1,7 +1,7 @@
 ---
 title: "Is This Normal? 12 Newborn Things That Surprise Parents"
 slug: is-this-normal-newborn-things
-description: "Newborn grunting, sneezing, hiccups, peeling skin and endless crying can look alarming. Learn what can be common—and when to seek help."
+description: "Newborn grunting, sneezing, hiccups, peeling skin and endless crying can look alarming. Learn what can be common and when to seek help."
 date: 2026-10-14
 updated: 2026-10-14
 author: OBubba
@@ -17,7 +17,7 @@ Many of these surprises can be part of adapting to life outside the womb. But �
 
 The most useful question is not simply, “Is this normal?” It is:
 
-> **Is this a brief, familiar newborn behaviour in a baby who is breathing comfortably, waking, feeding and producing nappies—or is there a change in breathing, colour, responsiveness, feeding or temperature that needs help?**
+> **Is this a brief, familiar newborn behaviour in a baby who is breathing comfortably, waking, feeding and producing nappies, or is there a change in breathing, colour, responsiveness, feeding or temperature that needs help?**
 
 This guide gives you that boundary. If your baby seems seriously unwell, call 999. For urgent concerns that are not immediately life-threatening, contact your midwife, health visitor, GP or NHS 111. Babies under six months can be difficult to assess remotely, so trust your instinct and seek care when something feels wrong.
 
@@ -31,10 +31,10 @@ Before trying to name the behaviour, look at the whole baby.
 | **Colour** | Usual colour for your baby | Blue, grey, very pale, blotchy or ashen; on brown or black skin, check lips, tongue, gums, palms and soles too |
 | **Response** | Wakes, looks around or reacts normally | Floppy, unusually difficult to wake, unresponsive, stiff for a prolonged period or having rhythmic jerking |
 | **Feeding** | Feeding in their usual newborn pattern | Suddenly not interested, repeatedly unable to feed, or much less effective than usual |
-| **Nappies** | Wet and dirty nappies follow their established pattern | Much drier nappies, no wet nappy for eight hours, or worrying stool or urine colour |
-| **Temperature** | Body feels comfortable and measured temperature is not concerning | **38°C or higher in a baby under three months**, very low temperature, or baby feels unusually hot or cold and seems unwell |
+| **Nappies** | Wet and dirty nappies follow their established pattern | Much drier nappies, no wet nappy for 12 hours, or worrying stool or urine colour |
+| **Temperature** | Body feels comfortable and measured temperature is not concerning | **38°C or higher in a baby under three months**, below 36°C, or baby feels unusually hot or cold and seems unwell |
 
-The [NHS serious-illness checklist](https://www.nhs.uk/baby/health/is-your-baby-or-toddler-seriously-ill/) emphasises breathing, colour, responsiveness, feeding and nappies because those changes can matter more than whether one isolated noise has a reassuring name.
+The [NHS urgent-help guide for babies and young children](https://www.nhs.uk/baby/health/when-to-get-urgent-medical-help-for-babies-and-children-under-5/) emphasises breathing, colour, responsiveness, feeding and nappies because those changes can matter more than whether one isolated noise has a reassuring name.
 
 ## 1. Grunts, snorts and uneven breathing
 
@@ -64,9 +64,9 @@ Never restrain a seizure or put anything in a baby's mouth. Move hazards away, n
 
 ## 4. Wandering eyes and a short focus distance
 
-Newborn vision is still developing. Their eyes may occasionally drift apart, and their sharpest social view is close—roughly the distance to your face during a feed. That can make their gaze seem fleeting.
+Newborn vision is still developing. Their eyes may occasionally drift apart, and their sharpest social view is close, roughly the distance to your face during a feed. That can make their gaze seem fleeting.
 
-The [NHS newborn guide](https://www.nhs.uk/pregnancy/labour-and-birth/getting-to-know-your-newborn/) says an occasional newborn squint can be normal and should usually resolve by around four months. Ask your health visitor or GP if one eye is constantly turned, you notice a white reflection in photographs, the eyes are red or swollen, or the squint continues beyond the expected stage.
+The [NHS squint guide](https://www.nhs.uk/conditions/squint/) says an occasional squint can be common in babies younger than three months. Ask your health visitor or GP if one eye is constantly turned, if an occasional squint continues after three months, or if you notice a white reflection in photographs, redness or swelling.
 
 You do not need flash cards to make vision develop. Your face, voice, gentle movement and ordinary close interaction are enough.
 
@@ -102,7 +102,7 @@ Newborn stool colour also changes quickly: dark sticky meconium comes first, the
 
 ## 9. Feeding again just after feeding
 
-Cluster feeding can make a parent believe that the previous feed “did not count”. In the early weeks, frequent feeding—especially in the evening—can be a normal way for a baby to regulate intake and stimulate milk supply.
+Cluster feeding can make a parent believe that the previous feed “did not count”. In the early weeks, frequent feeding, especially in the evening, can be a normal way for a baby to regulate intake and stimulate milk supply.
 
 Frequency alone does not prove low supply, reflux or a sleep problem. Look at effective feeding, swallowing, comfort, weight and wet nappies with your midwife or feeding professional. Seek timely support for pain, damaged nipples, difficulty attaching, a baby who is too sleepy to feed, fewer wet nappies, repeated forceful vomiting or concern about weight gain.
 
@@ -143,9 +143,8 @@ Call **999** if your baby:
 - has a first seizure
 - has a red or purple rash that does not fade under a glass and seems unwell
 - has a severe allergic reaction
-- is under eight weeks old and you are very worried about them
 
-Seek **urgent same-day advice** from your midwife, GP or NHS 111 for a baby under three months with a temperature of **38°C or higher**, or for concerning changes in feeding, nappies, breathing, colour, vomiting, jaundice, behaviour or crying—even if they do not fit a neat list.
+Seek **urgent same-day advice** from your midwife, GP or NHS 111 for a baby under three months with a temperature of **38°C or higher**, or for concerning changes in feeding, nappies, breathing, colour, vomiting, jaundice, behaviour or crying, even if they do not fit a neat list.
 
 Do not give paracetamol to a baby under two months or ibuprofen to a baby under three months or under 5kg unless a clinician has prescribed it. Do not use an app, chatbot or symptom checker to overrule your concern.
 
@@ -166,14 +165,14 @@ Never delay calling 999 to film, count breaths or complete a log. In an emergenc
 
 ## How OBubba turns 3am searching into a calm pathway
 
-The current Flutter app includes **Grow → Is this normal?**, a newborn-only reassurance hub for roughly the first 13 weeks.
+The current Flutter app includes **Grow → Is this normal?**, a newborn-focused reassurance hub that remains available as a reference at every age.
 
 ![OBubba's real Flutter newborn reassurance screen, showing the Is this normal introduction and the early crying wave.](/obubba-newborn-reassurance-app.jpg "OBubba gives the surprising newborn weeks a calmer visual explanation before parents open the detailed reassurance and safety actions below.")
 
 The screen is built around three decisions tired parents actually need:
 
 1. **Could this be a common newborn surprise?** Eighteen expandable answers cover grunting, sneezing, wandering eyes, breathing patterns, peeling skin, the fontanelle, hiccups, startles, jaundice, vitamin D, poo, early vision, cluster feeding, evening fussiness, newborn spots, cradle cap, trembling and cord care.
-2. **What if the crying is overwhelming me?** A prominent safe-pause action reminds a parent that placing baby safely in the cot and stepping away briefly is allowed—and that shaking is never safe.
+2. **What if the crying is overwhelming me?** A prominent safe-pause action reminds a parent that placing baby safely in the cot and stepping away briefly is allowed, and that shaking is never safe.
 3. **When should I stop reading and get help?** A separate urgent-help action surfaces breathing difficulty, colour change, fever in a young baby, seizure, a non-fading rash, a bulging fontanelle and unusual floppiness or difficulty waking.
 
 The app also presents the normal early crying curve through the six-part PURPLE Crying framework: crying can peak, be unexpected, resist soothing, look pain-like, last a long time and cluster in the evening. Its most important message is not an acronym. It is: *a baby can resist soothing without the parent causing it or failing them*.
@@ -182,7 +181,7 @@ OBubba does not listen to breathing, inspect a rash, measure a temperature or di
 
 Around that hub, the same app keeps feeds, nappies, sleep, temperature, medicine, growth and crying notes in one timeline. That gives a parent a more useful answer to “What changed?” and a cleaner handover to a partner, midwife, health visitor or doctor.
 
-[Explore OBubba's free newborn tracker](/newborn-tracker.html) for quick logging, newborn reassurance, safer-sleep guidance and shared care in one calm place.
+[Turn a 3am question into a calm next step](/app.html?utm_source=newborn_normal_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261014_newborn_normal) in OBubba's free Grow area. You can also keep feeds, nappies, sleep and care notes together for a clearer picture of what has changed.
 
 ## Your 3am plan
 
@@ -194,6 +193,6 @@ Save this sequence before you need it:
 4. **Use a safe pause if crying overwhelms you:** baby on their back in a clear cot, step away briefly and call someone.
 5. **Trust your instinct:** nobody will be annoyed that you asked about a very young baby.
 
-Newborns are noisy, unfinished and startlingly good at looking mysterious. You do not have to know the name of every reflex or rash. You need a reliable way to notice the difference between an ordinary surprise and a baby who needs help—and permission to ask whenever you are unsure.
+Newborns are noisy, unfinished and startlingly good at looking mysterious. You do not have to know the name of every reflex or rash. You need a reliable way to notice the difference between an ordinary surprise and a baby who needs help, and permission to ask whenever you are unsure.
 
 *This UK-oriented article is general information, not a diagnosis or individual medical advice. Newborns can become unwell quickly. Follow your baby's discharge plan and your maternity or neonatal team's advice. Call 999 for an emergency; contact your midwife, GP, health visitor or NHS 111 when you are concerned.*
