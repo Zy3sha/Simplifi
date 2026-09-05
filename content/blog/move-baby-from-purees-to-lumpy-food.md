@@ -212,7 +212,11 @@ The app's food logger also performs live wording-based checks for certain chokin
 
 Use specific food descriptions, then bring concerning patterns to a health visitor, dietitian, GP or feeding professional. The app is a memory and pattern tool—not a swallowing assessment.
 
-**[Try OBubba free →](/app.html)** — keep foods, textures, reactions, iron-rich meals, allergens, milk feeds and temporary step-backs in one calm weaning timeline.
+Food logging and the age-stage **Care → Weaning Progress** guide are available without Premium. Personalised texture-pattern **Guidance** is a Premium feature. OBubba unlocks Premium during pregnancy and through the first two corrected-age months; plan options follow after that early-free period.
+
+**[Track the texture, not the clean bowl →](/app.html?utm_source=weaning_texture_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260924_weaning_texture)**
+
+Keep foods, textures, reactions, iron-rich meals, allergens, milk feeds and temporary step-backs in one calm weaning timeline.
 
 ## When to get help
 
