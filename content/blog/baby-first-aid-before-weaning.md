@@ -11,7 +11,7 @@ heroImage: /obubba-baby-first-aid-before-weaning.jpg
 
 You bought the highchair, steamed the broccoli and checked whether your baby is ready for solids. Then a quieter thought appears: *What would I do if they choked?*
 
-You do not need to become fearless before the first meal. You do need a plan you have practised with your hands—not just a video you once watched at 1am.
+You do not need to become fearless before the first meal. You do need a plan you have practised with your hands, not just a video you once watched at 1am.
 
 Before weaning, the most valuable preparation is to take a practical baby-and-child first-aid course that covers choking and infant CPR. Add safer food preparation, upright supervised meals, emergency numbers and a brief reference that every regular carer can find. An article or app can refresh memory; neither can reproduce feedback from an instructor or the physical feel of positioning a training manikin.
 
@@ -19,12 +19,12 @@ This UK guide explains what to learn, how to reduce risk and what an emergency s
 
 ## The before-weaning first-aid checklist
 
-Try to complete these before—or soon after—the first tastes begin:
+Try to complete these before, or soon after, the first tastes begin:
 
 1. **Book a practical baby-and-child first-aid course.** Choose one that lets you practise choking manoeuvres and CPR on an infant manikin.
 2. **Ask every regular carer to learn.** A partner, grandparent, nanny or nursery worker may be the adult at the meal.
 3. **Learn the difference between gagging and choking.** Gagging is noisy and protective; severe choking may be quiet because air is not moving.
-4. **Practise infant choking first aid.** For a baby under one, this uses back blows and chest thrusts—not abdominal thrusts.
+4. **Practise infant choking first aid.** For a baby under one, this uses back blows and chest thrusts, not abdominal thrusts.
 5. **Practise infant CPR.** Learn how to assess response and breathing, call 999, give rescue breaths and deliver compressions.
 6. **Prepare food by size, shape and texture.** Prevention matters at every meal, even after a course.
 7. **Set up the highchair correctly.** Baby should be alert, securely strapped and sitting upright.
@@ -40,7 +40,7 @@ Gagging is a normal protective reflex as babies learn to move food around their 
 
 Choking means the airway is blocked. In severe choking, a baby may be unable to cry, make noise, cough effectively or breathe. Colour can change; on brown or black skin, blue or grey colour may be easier to see on the gums, inside the lips or fingernails.
 
-The [NHS Best Start in Life guide to gagging and choking](https://www.nhs.uk/best-start-in-life/baby/weaning/safe-weaning/choking-and-gagging-on-food/) describes gagging as loud and choking as quiet. That sound difference is a useful first clue—not a reason to stand back if breathing is ineffective.
+The [NHS Best Start in Life guide to gagging and choking](https://www.nhs.uk/best-start-in-life/baby/weaning/safe-weaning/choking-and-gagging-on-food/) describes gagging as loud and choking as quiet. That sound difference is a useful first clue, not a reason to stand back if breathing is ineffective.
 
 When baby is gagging and breathing, stay calm and let the protective reflex work. Do not put a finger blindly into their mouth, pat their back or try to pull food out when you cannot clearly see and safely grasp it; you could push it further back. Our detailed [gagging-versus-choking guide](/blog/gagging-vs-choking-baby-weaning.html) includes a comparison parents can review before the meal.
 
@@ -59,7 +59,7 @@ For a conscious baby under one with severe choking:
 5. **Alternate up to five back blows and five chest thrusts** until the obstruction clears or baby becomes unresponsive.
 6. **If baby becomes unresponsive, start infant CPR.** Begin with five rescue breaths, as current UK paediatric guidance describes, and follow the call handler.
 
-The [British Red Cross choking guidance](https://www.redcross.org.uk/first-aid/learn-first-aid-for-babies-and-children/choking-baby) demonstrates up to five back blows followed by up to five chest thrusts and says to call 999 if baby is still choking. The [Resuscitation Council UK paediatric life-support guidance](https://www.resus.org.uk/cy/node/36439) describes continuing the alternating cycle and starting CPR with five rescue breaths if the child becomes unconscious.
+The [NHS choking guidance](https://www.nhs.uk/baby/first-aid-and-safety/first-aid/how-to-stop-a-child-from-choking/) describes up to five back blows followed by up to five chest thrusts for a baby under one, calling 999 if the blockage remains, and continuing the cycle until help arrives. If the baby becomes unconscious, call 999 on speaker and start CPR.
 
 Important boundaries:
 
@@ -73,7 +73,7 @@ Suction airway-clearance devices are not a replacement for standard first aid. C
 
 ## What to know about infant CPR
 
-CPR is for a baby who is unresponsive and not breathing normally—not for a baby who is noisily gagging or coughing effectively.
+CPR is for a baby who is unresponsive and not breathing normally, not for a baby who is noisily gagging or coughing effectively.
 
 A practical course should teach you to:
 
@@ -87,7 +87,7 @@ A practical course should teach you to:
 - continue cycles of 30 compressions and two breaths if you are an untrained lone rescuer following public guidance
 - continue until signs of life return or emergency professionals take over
 
-Current [Resuscitation Council UK public CPR guidance](https://www.resus.org.uk/public-resource/how-do-cpr) teaches the two-thumb encircling technique for infant compressions. An instructor can correct placement, depth, seal and pace on a manikin—feedback a written checklist cannot provide.
+Current [Resuscitation Council UK public CPR guidance](https://www.resus.org.uk/public-resource/how-do-cpr) teaches the two-thumb encircling technique for infant compressions. An instructor can correct placement, depth, seal and pace on a manikin, feedback a written checklist cannot provide.
 
 If you freeze in a real emergency, call 999, put the phone on speaker and say clearly that a baby is unresponsive or not breathing normally. The call handler will guide you. Doing imperfect CPR is better than doing nothing because you are trying to recall an illustration exactly.
 
@@ -123,7 +123,7 @@ Food is not the only risk. Coins, beads, pen lids, marbles, deflated balloons an
 
 ### Do not rely on one feeding style as protection
 
-Choking risk is managed through readiness, upright positioning, supervision and suitable food preparation—not by declaring purées or baby-led weaning automatically safe. Babies can choke on food or small objects. Whichever approach you use, progress texture responsively and prepare each food appropriately. See our balanced guide to [baby-led weaning versus spoon-feeding](/blog/baby-led-weaning-vs-spoon-feeding.html).
+Choking risk is managed through readiness, upright positioning, supervision and suitable food preparation, not by declaring purées or baby-led weaning automatically safe. Babies can choke on food or small objects. Whichever approach you use, progress texture responsively and prepare each food appropriately. See our balanced guide to [baby-led weaning versus spoon-feeding](/blog/baby-led-weaning-vs-spoon-feeding.html).
 
 ## Make the environment emergency-ready
 
@@ -145,7 +145,7 @@ Before somebody else serves a meal, confirm:
 - what food is being offered and how it has been prepared
 - known allergies and where prescribed emergency medicine is kept
 - the home address, emergency number and phone location
-- when and how to call you—without delaying 999
+- when and how to call you, without delaying 999
 - that they know infant choking first aid
 
 If they do not know what to do in an emergency, that is information to act on before leaving them to supervise solids.
@@ -168,7 +168,7 @@ The [NHS accident guidance](https://www.nhs.uk/baby/first-aid-and-safety/first-a
 
 A fever is 38°C or more. The [NHS fever guidance](https://www.nhs.uk/symptoms/fever-in-children/) says to call NHS 111 or a GP urgently for a baby under three months with 38°C or higher, or a baby aged three to six months with 39°C or higher. Seek help for other concerning signs regardless of the number.
 
-Call 999 for emergency signs including a child who stops breathing, will not wake, has a first febrile seizure, has a severe allergic reaction, or has a red or purple rash that does not fade under a glass. The [NHS serious-illness checklist](https://www.nhs.uk/baby/health/is-your-baby-or-toddler-seriously-ill/) also flags breathing difficulty, unusual drowsiness, abnormal inconsolable crying, poor feeding and drier nappies.
+Call 999 for emergency signs including a child who stops breathing, will not wake, has a first febrile seizure, has a severe allergic reaction, or has a red or purple rash that does not fade under a glass. The [current NHS urgent-help guidance](https://www.nhs.uk/baby/health/when-to-get-urgent-medical-help-for-babies-and-children-under-5/) also flags breathing difficulty, being difficult to wake, a weak, high-pitched or continuous cry, and no wet nappies for 12 hours.
 
 ### Seizures
 
@@ -212,11 +212,11 @@ The screen opens with the emergency number and non-emergency health route for th
 
 The app deliberately separates **Act now** topics from quick prevention guides, shows steps without making a parent search an article, links to its sources and repeats that it is not a replacement for hands-on training or professional advice. Emergency and health-service wording is localised for supported regions rather than displaying 999 and NHS 111 to every family worldwide.
 
-That is the right role for a baby tracker in an emergency: help a trained adult find a calm reminder while they call the correct service—not ask them to enter symptoms, wait for an AI answer or keep logging.
+That is the right role for a baby tracker in an emergency: help a trained adult find a calm reminder while they call the correct service, not ask them to enter symptoms, wait for an AI answer or keep logging.
 
 Outside an emergency, OBubba's weaning tools help reduce avoidable uncertainty. First Foods includes stage-aware serving notes and allergen information; the readiness checklist keeps “around six months” separate from developmental signs; food and reaction logs create a clearer record for a clinician. None of those tools certifies a food as risk-free or replaces continuous supervision.
 
-[Explore OBubba's free baby tracker](/free-baby-tracker-app.html) for first aid, safe weaning, allergens, sleep, feeds, medicines and shared care in one place.
+[Keep a first-aid quick reference close](/app.html?utm_source=first_aid_weaning_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261013_first_aid_weaning) with OBubba's free Account tools.
 
 ## What to do this week
 
