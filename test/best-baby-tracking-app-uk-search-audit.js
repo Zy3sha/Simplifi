@@ -5,7 +5,7 @@ const ROOT = path.resolve(__dirname, '..');
 const page = fs.readFileSync(path.join(ROOT, 'blog', 'best-baby-tracker-app-uk.html'), 'utf8');
 
 const required = [
-  '<title>Best Baby Tracking App UK — What to Compare | OBubba</title>',
+  '<title>Best Baby Tracker App UK: 7 Things to Compare | OBubba</title>',
   '<link rel="canonical" href="https://obubba.com/blog/best-baby-tracker-app-uk.html"/>',
   'Best baby tracking app UK: the short answer',
   'A 60-second comparison checklist',
