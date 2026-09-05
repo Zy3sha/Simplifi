@@ -699,6 +699,9 @@
             <p>Holds a little space for how <em>you</em> are doing, not just the baby &mdash; because tired parents matter too.</p>
           </article>
         </div>
+        <div style="display:flex;justify-content:center;margin-top:28px">
+          <a class="btn btn-ghost js-shared-care-guide" href="/partner-baby-tracker-app.html" data-content-id="auto_20260905_home_shared_care_guide">Show me how to share the baby record</a>
+        </div>
       </div>
     </section>
 
@@ -1222,6 +1225,24 @@
           var targetUrl = buildStoreUrl(base, storeKey);
           el.href = targetUrl;
           trackDownloadClick(targetUrl);
+        });
+      });
+
+      // Privacy-safe discovery signal for the shared-care guide. The event uses
+      // a fixed content label and does not include a family, code or entered value.
+      var sharedCareGuides = document.querySelectorAll(".js-shared-care-guide");
+      Array.prototype.forEach.call(sharedCareGuides, function (el) {
+        el.addEventListener("click", function () {
+          try {
+            if (typeof window.gtag === "function") {
+              window.gtag("event", "shared_care_guide_click", {
+                event_category: "shared_care",
+                event_label: el.getAttribute("data-content-id") || "home_shared_care_guide",
+                page_location: window.location.origin + window.location.pathname,
+                transport_type: "beacon"
+              });
+            }
+          } catch (e) {}
         });
       });
     })();
