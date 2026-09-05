@@ -214,7 +214,7 @@ Most importantly, the Flutter data engine keeps pumping separate from feeding:
 
 That distinction protects the conclusions parents see. OBubba can help reveal your own pumping pattern, but it cannot assess flange fit, know why output changed, manage a clinical supply plan or guarantee that stored milk is still safe.
 
-**[Try OBubba free →](/app.html)** — pumping, breastfeeds, bottles, nappies, sleep and shared-care context without counting the same milk twice.
+**[Try OBubba free →](/app.html?utm_source=pump_output_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260909_pump_output)** — pumping, breastfeeds, bottles, nappies, sleep and shared-care context without counting the same milk twice.
 
 ## Quick answers
 
