@@ -11,7 +11,7 @@ heroImage: /obubba-baby-sleep-consultant.jpg
 
 At 3am, “put your baby down drowsy but awake” can feel less like advice and more like a riddle.
 
-You may have already tried an earlier bedtime, a later bedtime, more naps, fewer naps, white noise, rocking, feeding and three different wake-window charts. The problem is not always a lack of tips. It is knowing **which problem your family actually has—and which one change is worth trying first**.
+You may have already tried an earlier bedtime, a later bedtime, more naps, fewer naps, white noise, rocking, feeding and three different wake-window charts. The problem is not always a lack of tips. It is knowing **which problem your family actually has and which one change is worth trying first**.
 
 That is the useful part of a baby sleep consultation.
 
@@ -20,7 +20,7 @@ A good sleep consultant should:
 - learn your baby's age, health, feeding and development
 - look at several days and nights rather than judging one difficult evening
 - separate normal waking from a pattern that might respond to change
-- check timing, sleep environment, hunger, discomfort and settling—not blame everything on “bad habits”
+- check timing, sleep environment, hunger, discomfort and settling, rather than blame everything on “bad habits”
 - protect responsive care and safer sleep
 - give you a small, realistic plan your family can actually follow
 - review what happened and adapt instead of declaring that you failed
@@ -121,7 +121,7 @@ Useful measures include:
 - a nap begins to extend
 - the parent feels more confident and less overwhelmed
 
-“Slept through” is not the only success—and for many babies it is not a realistic immediate target.
+“Slept through” is not the only success, and for many babies it is not a realistic immediate target.
 
 ## What should happen before sleep training?
 
@@ -191,7 +191,7 @@ A sensible review rhythm is:
 2. Keep everything else reasonably stable.
 3. Observe for three to five typical days, unless the plan is upsetting, unsuitable or unsafe.
 4. Compare with the starting pattern.
-5. Continue, adjust or stop based on evidence—not guilt.
+5. Continue, adjust or stop based on evidence, not guilt.
 
 Illness, travel and unusual disruption should be marked rather than treated as proof the plan failed.
 
@@ -222,7 +222,7 @@ The NHS specifically recommends speaking to a health visitor when you need more 
 
 ## How OBubba's Sleep Consultant works
 
-OBubba turns the consultation process into a living part of the baby tracker rather than a one-off questionnaire.
+OBubba turns the consultation process into a living part of the baby tracker rather than a one-off questionnaire. It is software, not a human clinician, and it cannot diagnose a medical or feeding problem.
 
 ![OBubba's real Flutter Sleep Consultant screen, showing a gentle plan shaped by the baby's sleep and the family's preferences.](/obubba-sleep-consultant-app.jpg "The real OBubba screen begins with a path, not a prescription, and waits for the baby's own pattern before offering a plan.")
 
@@ -230,12 +230,13 @@ The real Flutter feature:
 
 - reads recent sleep, wake, feed and settling logs
 - uses corrected age when deciding readiness
-- gathers enough nights before claiming it sees a pattern
+- requires at least five logged day profiles before it can produce a full consultation read, while the interface encourages roughly two weeks of nights and naps for a clearer picture
 - ranks findings under what OBubba noticed
 - turns the day into realistic timing ranges
 - recommends one focus for tonight
 - offers **No-cry / Gentle**, **Chair shuffle** and **Parent-led rhythm** approaches
-- keeps more intensive timed-check methods behind both an age gate and an explicit parenting-style choice
+- holds every structured plan until at least 17 corrected weeks
+- keeps timed check-ins behind both a six-month corrected-age gate and an explicit parenting-style choice
 - pauses or redirects when illness, disruption or poor timing makes a formal plan a bad fit
 - follows progress for 14 nights and adapts from what actually happened
 
@@ -244,6 +245,10 @@ The opening message is deliberate: **“A path, not a prescription.”**
 That means the app can say, “Timing first,” “Keep gathering,” or “Nothing to fix tonight” instead of forcing every family into a programme. It also remembers the plan alongside the original logs, so a change can be compared with the baby's real baseline.
 
 OBubba does not ask parents to choose between a useful tracker and supportive guidance. The same record that captures naps, feeds and wakes becomes the evidence for the plan, while the live clock, bedtime routine, sound machine, night-weaning support and parent wellbeing tools remain in the same calm home.
+
+The Sleep Consultant is a **Premium feature** after OBubba's early-free period. Core sleep, feed, wake and nappy logging remains free. Pregnancy and the first two months by corrected age have the wider app unlocked, but a structured sleep plan is deliberately unavailable until around four months. Storefront eligibility and pricing are always shown in the app before purchase.
+
+[Start building the sleep picture OBubba can turn into a plan](/app.html?utm_source=sleep_consultant_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261017_sleep_consultant).
 
 ## What should you log before opening the consultant?
 
@@ -271,7 +276,7 @@ Before paying for or following support, ask:
 5. How many things will we change at once?
 6. How will we measure improvement?
 7. When should I contact a health professional instead?
-8. Will you adapt the plan to our family—or expect our family to adapt to a template?
+8. Will you adapt the plan to our family, or expect our family to adapt to a template?
 
 The answers should make you feel informed, not pressured.
 
@@ -281,6 +286,6 @@ A baby sleep consultant should turn a confusing pile of nights into a clear hypo
 
 The most valuable sentence is rarely “Put the baby to bed at 7:03.” It is more like: “Here is the pattern we can see, here is the gentlest useful change, and here is how we will know whether it helped.”
 
-That is what personalized support should feel like—and what a genuinely helpful baby app should make available when the house is quiet and everyone else is asleep.
+That is what personalised support should feel like, and what a genuinely helpful baby app should make available when the house is quiet and everyone else is asleep.
 
 *This article provides general information and does not replace advice from your health visitor, GP or another qualified health professional.*
