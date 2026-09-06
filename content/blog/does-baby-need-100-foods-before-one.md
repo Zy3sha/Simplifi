@@ -5,6 +5,7 @@ description: "The 100 foods before one challenge can be fun, but it is not a dev
 date: 2026-12-02
 updated: 2026-12-02
 author: OBubba
+status: paused
 tags: 100 foods before one, does baby need 100 foods before one, 100 first foods baby, what counts as a food baby, baby food variety, weaning food tracker, first foods checklist, baby weaning challenge, OBubba weaning tracker
 heroImage: /obubba-100-foods-before-one.jpg
 ---
