@@ -13,7 +13,7 @@ Last week your baby ate fork-mashed potato, soft pasta and little pieces of fami
 
 It can feel as though weaning has gone backwards. Usually, it is more useful to think of it as a **temporary change in what feels manageable**. Sore gums, a blocked nose, tiredness, an over-large texture jump or a few uncomfortable meals can all make softer food easier for a while.
 
-**Do not force the old texture to prove the skill is still there. Offer a comfortable texture, keep one tiny low-pressure opportunity to practise and check for pain, illness or swallowing warning signs. A short step sideways does not erase what your baby has learnt—but a sudden or persistent loss of feeding skill deserves professional advice.**
+**Do not force the old texture to prove the skill is still there. Offer a comfortable texture, keep one tiny low-pressure opportunity to practise and check for pain, illness or swallowing warning signs. A short step sideways does not erase what your baby has learnt, but a sudden or persistent loss of feeding skill deserves professional advice.**
 
 ## What a real texture step-back looks like
 
@@ -107,7 +107,7 @@ For a baby born prematurely or a child with an existing feeding, developmental o
 
 Serve one familiar meal in a comfortable texture. Let your baby set the pace. Note whether there are sore gums, congestion, unusual tiredness, pain, coughing, vomiting or a change in milk feeds.
 
-The goal is a calm, observable meal—not a certain number of spoonfuls.
+The goal is a calm, observable meal, not a certain number of spoonfuls.
 
 ### Day 2: change one physical property
 
@@ -161,11 +161,11 @@ The step-back detector reads texture clues from the parent's food description:
 - **chopped:** chopped, minced, diced or small pieces
 - **family:** family meal, same as us or same as everyone
 
-It compares two precise windows relative to the newest logged meal: days **0–6** and days **7–13**. Each window needs enough texture-labelled meals to calculate a dominant stage—effectively at least three in each—and the current stage must be lower than the previous stage. Ties favour the more advanced stage, so equal evidence does not manufacture a regression.
+It compares two precise windows relative to the newest logged meal: days **0 to 6** and days **7 to 13**. Each window needs enough texture-labelled meals to calculate a dominant stage, effectively at least three in each, and the current stage must be lower than the previous stage. Ties favour the more advanced stage, so equal evidence does not manufacture a regression.
 
 The insight stays silent when texture holds or advances. It also suppresses the present-tense card when the newest solids record is stale, rather than telling a parent that something happened “this week” after logging paused.
 
-When the evidence qualifies, OBubba can show **“Back to softer foods this week”**, report the number of meals it used and suggest checking teething, a cold or another temporary disruption while keeping food pressure-free.
+When the evidence qualifies, OBubba can show **“Back to softer foods this week”**, report the number of meals it used and suggest checking teething, a cold or another temporary disruption while keeping food pressure-free. Those suggestions are possible explanations to consider, not causes the app has proved.
 
 ![The real OBubba Flutter Weaning progress screen showing its texture-stage ladder alongside iron-rich meals, unique foods and the personalised weekly plan.](/obubba-weaning-progress-app.jpg "OBubba's current Weaning progress view. The texture label provides age and stage context; the separate step-back insight compares what the parent actually logged across two weeks.")
 
@@ -173,7 +173,9 @@ This is useful pattern recognition, not a swallowing assessment. The app does no
 
 That honesty is the point: OBubba can notice a change worth looking at without declaring that a baby has lost a skill or telling a parent to push through it.
 
-**[Try OBubba free →](/free-baby-tracker-app.html)** — record what the food actually looked like, how your baby responded and what else was happening, then let the pattern guide one calm next step.
+**[Keep textures and responses together →](/app.html?utm_source=texture_reset_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261116_texture_reset)**
+
+Record what the food actually looked like, how your baby responded and what else was happening, then use the pattern to choose one calm next step.
 
 ## Keep milk, nutrition and safety in view
 
