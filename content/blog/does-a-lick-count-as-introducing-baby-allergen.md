@@ -4,6 +4,8 @@ slug: does-a-lick-count-as-introducing-baby-allergen
 description: "Baby licked egg or peanut but spat it out? Learn what counts as offered, eaten and tolerated, how to log it honestly, and when a reaction needs help."
 date: 2026-11-26
 updated: 2026-11-26
+status: paused
+pauseReason: "Current Allergen Journey can label an uncertain lick as Introduced and then advise regular re-offering; do not publish until offered, eaten and tolerated states are represented safely."
 author: OBubba
 tags: does a lick count as introducing an allergen, baby licked peanut butter, baby spat out allergen, introducing allergens to baby, baby allergen log, egg allergy baby, peanut allergy baby, OBubba Allergen Journey
 heroImage: /obubba-baby-allergen-first-taste.jpg
