@@ -4,6 +4,14 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
 <title>Bubba Care</title>
+<meta name="description" content="Bubba Care shows a carer the baby's current routine, feeds, naps and comfort notes for one shared session. Open the link a parent sent you."/>
+<!-- Self-referencing canonical. Every Bubba Care hand-over is shared as
+     /care.html?code=XXXXXXXX, so without this each shared session looks to
+     Google like a separate near-identical page with no declared original.
+     That is what Search Console reports as "Duplicate without user-selected
+     canonical", and it also risks live sync codes being indexed. This folds
+     every ?code= variant back onto the bare page. -->
+<link rel="canonical" href="https://obubba.com/care.html"/>
 <meta name="theme-color" content="#FFFCF9"/>
 <!-- Carer portal is live-updating. Prevent stale HTML from being served
      by CDN/browser cache so bug fixes and UI changes reach carers on
