@@ -5,6 +5,7 @@ description: "Food throwing can mean exploring, finished, overwhelmed or struggl
 date: 2026-12-09
 updated: 2026-12-09
 author: OBubba
+status: paused
 tags: baby throws food on floor, baby throwing food from highchair, food throwing weaning, baby drops food, baby refusing solids, baby finished eating cues, responsive feeding baby, messy baby eating, OBubba weaning tracker
 heroImage: /obubba-baby-throws-food-floor-weaning.jpg
 ---
