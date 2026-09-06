@@ -4186,7 +4186,7 @@ If baby seems unwell or you are worried, contact the appropriate health professi
         },
       },
       mainEntityOfPage: absoluteUrl(post.urlPath),
-      image: absoluteUrl(SITE.ogImage),
+      image: absoluteUrl(post.ogImage || SITE.ogImage),
       keywords: post.tags.join(', '),
     }),
     body,
