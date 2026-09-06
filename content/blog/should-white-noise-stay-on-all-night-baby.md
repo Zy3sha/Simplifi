@@ -4,6 +4,8 @@ slug: should-white-noise-stay-on-all-night-baby
 description: "Should baby white noise stop after settling or play until morning? Use this calm timer test, understand the new pink-noise evidence and protect hearing."
 date: 2026-11-27
 updated: 2026-11-27
+status: paused
+pauseReason: "Current Sound Machine, sleep-tip and coach wording recommends all-night or continuous white noise and claims resettling benefit; do not publish until duration and benefit guidance is reconciled with the evidence."
 author: OBubba
 tags: should white noise stay on all night, white noise all night baby, when to turn off white noise baby, baby sound machine timer, pink noise baby sleep, white noise baby hearing, baby wakes when white noise stops, OBubba Sound Machine
 heroImage: /obubba-white-noise-all-night-baby.jpg
