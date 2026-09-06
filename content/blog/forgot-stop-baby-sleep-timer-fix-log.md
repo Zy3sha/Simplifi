@@ -15,7 +15,7 @@ This is not a parenting failure, and it does not mean the whole sleep history is
 
 > **Correct the existing sleep with the best honest wake time you have. Do not stop it at the current time merely because that is when you noticed.**
 
-If you remember baby calling at about 6:40am, enter 6:40—not 10:12 when you reopened the app. If the time is uncertain, use a reasonable estimate and add a short note rather than manufacturing minute-perfect data.
+If you remember baby calling at about 6:40am, enter 6:40, not 10:12 when you reopened the app. If the time is uncertain, use a reasonable estimate and add a short note rather than manufacturing minute-perfect data.
 
 ## The quick fix by mistake
 
@@ -26,7 +26,7 @@ If you remember baby calling at about 6:40am, enter 6:40—not 10:12 when you re
 | Timer started late | Edit the start time; keep the end if it is already correct |
 | You stopped the timer accidentally and baby is still asleep | Resume the same sleep if the tracker offers it |
 | You logged the sleep twice | Keep the most complete entry and remove the duplicate |
-| You cannot remember the time at all | Use an approximate range or omit the unusable entry—do not pretend “now” was the wake |
+| You cannot remember the time at all | Add the uncertainty to a note or omit the unusable entry. Do not pretend “now” was the wake |
 | Nap appears to cross midnight | Check whether it was really bedtime; ordinary naps should not wrap into the next day |
 
 The principle is simple: repair the event that happened rather than adding a second event to cancel out the mistake.
@@ -63,7 +63,7 @@ Edit or end the existing nap. Avoid adding a second completed nap on top of the 
 
 Record what happened. The aim is truth, not making the chart look age-typical.
 
-Consider the wider context: illness, recovery, travel, vaccination, a poor previous night or a developmental change. If baby is unusually difficult to wake, not feeding normally when you are worried, has much drier nappies, breathing difficulty or seems seriously unwell, use current [NHS serious-illness guidance](https://www.nhs.uk/baby/health/is-your-baby-or-toddler-seriously-ill/) and seek prompt help. A timer cannot distinguish restorative sleep from reduced responsiveness.
+Consider the wider context: illness, recovery, travel, vaccination, a poor previous night or a developmental change. If baby is unusually difficult to wake, has difficulty breathing, is not feeding or has not had a wet nappy for 12 hours, use current [NHS urgent-help guidance](https://www.nhs.uk/baby/health/when-to-get-urgent-medical-help-for-babies-and-children-under-5/) and seek urgent help. Trust your instincts and get immediate medical help if you think something is seriously wrong. A timer cannot distinguish restorative sleep from reduced responsiveness.
 
 ## Fixing a bedtime timer left running overnight
 
@@ -169,9 +169,9 @@ A recently ended nap can be reopened for up to three hours; a bedtime sleep has 
 
 When a bedtime is reopened, the app also tries to remove the matching morning-wake record so the history does not claim baby is awake and asleep at the same time.
 
-### 5. Reject impossible completed durations
+### 5. Reject impossible completed durations in the manual editor
 
-OBubba blocks a completed nap whose end is not after its start, a nap longer than six hours and a bedtime sleep longer than eighteen hours. Bedtime is allowed to cross midnight; an ordinary nap is not.
+When a parent enters or edits a completed sleep manually, OBubba blocks a nap whose end is not after its start, a nap longer than six hours and a bedtime sleep longer than eighteen hours. Bedtime is allowed to cross midnight; an ordinary nap is not.
 
 These limits do not say a baby “should” nap for a particular duration. They protect against AM/PM mistakes and data shapes the rest of the sleep engine cannot interpret safely.
 
@@ -179,9 +179,11 @@ These limits do not say a baby “should” nap for a particular duration. They 
 
 The live sleep entry carries child identity, and native timer surfaces reconcile against that entry. A morning wake or partner-synced end stops the live state rather than allowing a lock-screen timer to contradict the app.
 
-**[Try OBubba free →](/free-baby-tracker-app.html)** — use a live nap or bedtime timer, correct the start, repair forgotten endings and keep the useful pattern without being punished for one missed tap.
+The live sleep timer and logging controls are free to use. The exact countdown target is a Premium feature, but correcting the record is not.
 
-## What a sleep timer can—and cannot—tell you
+**[Fix the sleep record without starting again](/app.html?utm_source=forgotten_sleep_timer_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261027_forgotten_timer)**. Use OBubba's free nap or bedtime timer, correct the start and repair forgotten endings without being punished for one missed tap.
+
+## What a sleep timer can and cannot tell you
 
 | It can help with | It cannot establish |
 |---|---|
@@ -236,6 +238,6 @@ No. It records the interval the adult supplied. Babies stir, make sounds and hav
 
 - [Lullaby Trust: Keeping a clear cot](https://www.lullabytrust.org.uk/baby-safety/safer-sleep-information/keeping-a-clear-cot/)
 - [Lullaby Trust: Advice for other carers and babysitters](https://www.lullabytrust.org.uk/baby-safety/being-a-parent-or-caregiver/other-carers-babysitters/)
-- [NHS: Is your baby or toddler seriously ill?](https://www.nhs.uk/baby/health/is-your-baby-or-toddler-seriously-ill/)
+- [NHS: When to get urgent medical help for babies and children under 5](https://www.nhs.uk/baby/health/when-to-get-urgent-medical-help-for-babies-and-children-under-5/)
 
 *This UK-oriented article provides general information, not medical advice or a sleep prescription. A timer does not monitor breathing, safe positioning or health. Follow current safer-sleep guidance and seek medical help when your baby seems unwell; call 999 in an emergency.*
