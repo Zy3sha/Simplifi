@@ -21,6 +21,8 @@ for (const required of [
   'Track the next sleep on iPhone',
   'Track the next sleep on Android',
   'auto_20260906_baby_sleep_tracker_search_refresh',
+  '<meta property="og:image" content="https://obubba.com/obubba-baby-sleep-improving-weekly-review.jpg"/>',
+  '<meta name="twitter:image" content="https://obubba.com/obubba-baby-sleep-improving-weekly-review.jpg"/>',
 ]) {
   if (!page.includes(required)) failures.push(`missing sleep-page requirement: ${required}`);
 }
