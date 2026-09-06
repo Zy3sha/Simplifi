@@ -7,6 +7,8 @@ updated: 2026-12-16
 author: OBubba
 tags: baby burn first aid, baby scald what to do, cool burn 20 minutes, child burn NHS 111, baby hot drink burn, should I use ice on burn, cling film burn baby, burns and scalds children UK, baby first aid app, OBubba first aid
 heroImage: /obubba-baby-burn-scald-first-aid.jpg
+status: paused
+pauseReason: "The live First Aid Quick Reference routes every blistering burn and burns on the hands or genitals to the emergency number, while current NHS guidance separates 111, A&E and 999 routes. Publication stays paused until the in-app triage wording is clinically reconciled."
 ---
 
 A mug tips. A small hand touches the oven door. Bath water is hotter than you expected. In the first seconds after a burn or scald, your brain may jump ahead to blame, severity and hospital. Give it one job first:
