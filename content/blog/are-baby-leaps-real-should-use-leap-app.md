@@ -7,6 +7,8 @@ updated: 2026-12-17
 author: OBubba
 tags: are baby leaps real, baby leap app, developmental leaps, wonder weeks evidence, baby fussy leap, baby sleep leap, corrected age, baby milestones, OBubba Grow Waves
 heroImage: /obubba-baby-development-leaps.jpg
+status: paused
+pauseReason: "The article correctly rejects universal leap causation, but Luna's current governing prompt states that leaps wreck sleep, feeding and mood for days to two weeks and tells parents to pause all sleep work during a leap. Publication stays paused until product guidance is consistent."
 ---
 
 Your app says a developmental leap starts tomorrow. Your baby has been clingy, naps are suddenly short and bedtime has become a negotiation. It is tempting to think: **that explains everything**.
