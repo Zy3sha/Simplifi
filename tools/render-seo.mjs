@@ -1360,6 +1360,7 @@ const SHARED_ASSETS = [
   'obubba-weaning-progress-app.jpg',
   'obubba-postpartum-rage-safe-pause.jpg',
   'obubba-parent-room-app.jpg',
+  'obubba-new-parent-mental-load-shared-care.jpg',
   'obubba-baby-fussy-new-skill.jpg',
   'obubba-newborn-is-this-normal.jpg',
   'obubba-newborn-reassurance-app.jpg',
