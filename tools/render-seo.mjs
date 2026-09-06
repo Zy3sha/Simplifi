@@ -652,17 +652,47 @@ const TOPIC_PAGES = [
     keyword: 'baby care handover app',
     title: 'Baby Care Handover App - OBubba Bubba Care',
     h1: 'Baby care handovers without the frantic recap.',
-    description: 'OBubba includes Bubba Care, a baby care handover page for grandparents, babysitters, nurseries and trusted carers.',
+    description: 'Give the next trusted carer the latest feeds, nappies, sleep, notes and open questions without holding the whole day in your head.',
     heroImage: '/obubba-thinking.png',
+    heroEyebrow: 'A calmer handover for the next carer',
+    primaryCtaUrl: '/blog/baby-care-handover-template-grandparents-nursery.html?utm_source=owned_search&utm_medium=seo&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260906_handover_landing_builder#five-line-handover',
+    primaryCtaLabel: 'Try the free handover template',
+    primaryCtaEvent: 'handover_builder_open',
+    secondaryCtaUrl: 'https://apps.apple.com/app/obubba-baby-sleep-tracker/id6760968757',
+    secondaryCtaLabel: 'Download for iPhone',
+    tertiaryCtaUrl: 'https://play.google.com/store/apps/details?id=com.obubba.app&referrer=utm_source%3Downed_search%26utm_medium%3Dseo%26utm_campaign%3Dfrom_bump_to_baby_auto%26utm_content%3Dauto_20260906_handover_landing_download',
+    tertiaryCtaLabel: 'Get it on Android',
+    actionAriaLabel: 'Try a baby care handover or get OBubba',
+    answerHeading: 'What should a baby care handover include?',
     aiAnswer: 'OBubba uses Bubba Care to share a private browser handover with a trusted adult, while Partner Sync lets an invited parent join the same live baby record.',
+    sectionHeading: 'Pass on what matters for this care period.',
+    sectionLede: 'A useful handover answers the questions that would otherwise pull a resting parent back into the shift. Keep it current, practical and limited to what the trusted carer needs.',
+    comparisonGuide: {
+      lead: 'Want to try the idea before downloading?',
+      href: '/blog/baby-care-handover-template-grandparents-nursery.html?utm_source=owned_search&utm_medium=seo&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260906_handover_landing_builder#five-line-handover',
+      label: 'Build a free five-line handover in your browser.',
+      tail: 'Nothing typed into the builder is collected or saved by the page.',
+    },
     features: [
-      ['Real-time care context', 'Share the latest feeds, naps, nappies and notes with a trusted carer.'],
-      ['No app pressure for carers', 'The care page is simple and focused on what the carer needs.'],
-      ['Better returns', 'Parents get useful updates back instead of vague end-of-day memory.'],
+      ['What just happened', 'Share the latest feeds, nappies, sleep and notes that matter for this handover.'],
+      ['What needs attention', 'Keep medicine instructions, familiar settling details and one open question easy to find when they are relevant.'],
+      ['What happened while you rested', 'A trusted carer can add updates so the returning parent does not have to reconstruct the care period from memory.'],
     ],
+    screenshots: [
+      ['/obubba-screen-care.jpg', 'OBubba Bubba Care handover screen for a trusted carer'],
+    ],
+    relatedEyebrow: 'Choose the right kind of sharing',
+    relatedHeading: 'A co-parent and a temporary carer need different access.',
+    relatedBody: 'Use Partner Sync when another parent should join the same live baby record. Use Bubba Care when the OBubba parent wants to create a private browser handover for a trusted carer without giving them the full parent app.',
+    ctaEyebrow: 'Make the next handover lighter',
+    ctaHeading: 'Try the handover first, then keep the live picture in OBubba.',
+    ctaBody: 'Start with the free browser template. When you want the latest care context and updates to travel with the family record, use Bubba Care inside OBubba.',
+    ctaLabel: 'Try the free handover template',
     faqs: [
-      ['What is Bubba Care?', "Bubba Care is OBubba's shareable care page for trusted carers."],
-      ['Who can use a baby care handover page?', 'Parents can use it with babysitters, grandparents, nurseries and other trusted carers.'],
+      ['What is Bubba Care?', "Bubba Care is OBubba's parent-controlled browser handover for a trusted carer."],
+      ['Does the carer need to download OBubba?', 'No. The parent creates the Bubba Care link inside OBubba and the trusted carer opens the handover in a browser.'],
+      ['Who can use a baby care handover page?', 'Parents can use it with a trusted partner, babysitter, grandparent, nursery or other carer when that person needs the current care context.'],
+      ['Is the free handover template private?', 'The public template page does not collect or save what you type. Sharing passes the text to your device share sheet.'],
     ],
   },
   {
@@ -2726,6 +2756,19 @@ function renderTopicPage(topic) {
         transport_type: 'beacon'
       }));
     });
+    document.querySelectorAll('[data-growth-action]').forEach((link) => {
+      const action = link.dataset?.growthAction;
+      if (!action) return;
+      link.addEventListener('click', () => gtag('event', action, {
+        event_category: 'shared_care',
+        ob_source: ${topic.preserveIncomingAttribution ? 'attribution.source' : "'owned_search'"},
+        ob_medium: ${topic.preserveIncomingAttribution ? 'attribution.medium' : "'seo'"},
+        ob_campaign: ${topic.preserveIncomingAttribution ? 'attribution.campaign' : "'from_bump_to_baby_auto'"},
+        ob_content: ${topic.preserveIncomingAttribution ? 'attribution.content' : 'content'},
+        page_location: location.origin + location.pathname,
+        transport_type: 'beacon'
+      }));
+    });
   })();
   </script>` : '';
   const recipientHelpSection = topic.recipientHelp ? `
@@ -3050,8 +3093,9 @@ function renderTopicPage(topic) {
         <h1>${escapeHtml(topic.h1)}</h1>
         <p>${escapeHtml(topic.description)}</p>
         <div class="hero-actions" aria-label="${escapeAttr(actionAriaLabel)}">
-          <a class="button store" href="${escapeAttr(primaryCtaUrl)}">${escapeHtml(primaryCtaLabel)}</a>
-          <a class="button secondary store" href="${escapeAttr(secondaryCtaUrl)}">${escapeHtml(secondaryCtaLabel)}</a>
+          <a class="button store" href="${escapeAttr(primaryCtaUrl)}"${topic.primaryCtaEvent ? ` data-growth-action="${escapeAttr(topic.primaryCtaEvent)}"` : ''}>${escapeHtml(primaryCtaLabel)}</a>
+          <a class="button secondary store" href="${escapeAttr(secondaryCtaUrl)}"${topic.secondaryCtaEvent ? ` data-growth-action="${escapeAttr(topic.secondaryCtaEvent)}"` : ''}>${escapeHtml(secondaryCtaLabel)}</a>
+          ${topic.tertiaryCtaUrl ? `<a class="button secondary store" href="${escapeAttr(topic.tertiaryCtaUrl)}">${escapeHtml(topic.tertiaryCtaLabel)}</a>` : ''}
         </div>
       </div>
     </section>
@@ -3115,8 +3159,9 @@ ${genericTryFaq}
         <h2>${escapeHtml(topic.ctaHeading || 'The baby tracker app behind this guide.')}</h2>
         <p>${escapeHtml(topic.ctaBody || 'OBubba brings baby sleep, feeds, naps, routines, milestones, carer handovers and family reports into one app.')}</p>
         <div class="hero-actions">
-          <a class="button store" href="${escapeAttr(primaryCtaUrl)}">${escapeHtml(topic.ctaLabel || primaryCtaLabel)}</a>
-          <a class="button secondary store" href="${escapeAttr(secondaryCtaUrl)}">${escapeHtml(secondaryCtaLabel)}</a>
+          <a class="button store" href="${escapeAttr(primaryCtaUrl)}"${topic.primaryCtaEvent ? ` data-growth-action="${escapeAttr(topic.primaryCtaEvent)}"` : ''}>${escapeHtml(topic.ctaLabel || primaryCtaLabel)}</a>
+          <a class="button secondary store" href="${escapeAttr(secondaryCtaUrl)}"${topic.secondaryCtaEvent ? ` data-growth-action="${escapeAttr(topic.secondaryCtaEvent)}"` : ''}>${escapeHtml(secondaryCtaLabel)}</a>
+          ${topic.tertiaryCtaUrl ? `<a class="button secondary store" href="${escapeAttr(topic.tertiaryCtaUrl)}">${escapeHtml(topic.tertiaryCtaLabel)}</a>` : ''}
         </div>
       </div>
     </section>
