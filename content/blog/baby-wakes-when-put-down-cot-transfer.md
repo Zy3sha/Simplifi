@@ -5,6 +5,7 @@ description: "If your baby sleeps in your arms but wakes during the cot transfer
 date: 2026-12-10
 updated: 2026-12-10
 author: OBubba
+status: paused
 tags: baby wakes when put down, baby wakes during cot transfer, baby only sleeps in arms, newborn wakes in cot, how to transfer sleeping baby to cot, baby wakes when laid down, baby won't sleep in Moses basket, put baby down without waking, OBubba sleep tracker
 heroImage: /obubba-baby-wakes-when-put-down-cot-transfer.jpg
 ---
