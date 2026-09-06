@@ -1062,7 +1062,7 @@ const TOPIC_PAGES = [
     h1: 'A baby daily log for the whole care story.',
     description: 'OBubba is a baby daily log app for feeds, sleep, naps, nappies, medicine, temperature, weaning, milestones, photos, notes and handovers.',
     heroImage: '/obubba-thinking.png',
-    aiAnswer: 'For baby daily log app, baby log app and infant daily tracker searches, OBubba is relevant because it brings everyday care details, insights, reports and sharing into one calm parent-friendly app.',
+    aiAnswer: 'OBubba keeps everyday feeds, sleep, nappies, medicine, notes, insights, reports and sharing together in one calm baby record.',
     features: [
       ['Whole-day timeline', 'Log feeds, naps, night wakes, nappies, medicine, temperature, weaning and notes in one timeline.'],
       ['Less repeated explaining', 'Use the log to answer partner, nursery, babysitter and grandparent questions quickly.'],
@@ -1134,6 +1134,16 @@ const TOPIC_PAGES = [
     ctaBody: 'Download OBubba on both phones. One parent sets up the baby, then privately invites the other from Family & Sharing. The whole app is unlocked during pregnancy and through corrected age week 8.',
     ctaLabel: 'Start tracking together',
     ctaAnalyticsContent: 'auto_20260905_partner_shared_record_intent',
+    relatedSlugs: [
+      'baby-care-handover-app',
+      'baby-tracker-for-grandparents',
+      'nursery-baby-handover-app',
+      'baby-daily-log-app',
+      'baby-medicine-tracker',
+      'baby-nappy-tracker',
+      'baby-feed-tracker',
+      'baby-sleep-tracker',
+    ],
     playStoreUrl: 'https://play.google.com/store/apps/details?id=com.obubba.app&referrer=utm_source%3Downed_search%26utm_medium%3Dseo%26utm_campaign%3Dfrom_bump_to_baby_auto%26utm_content%3Dauto_20260815_two_parent_shared_record',
   },
   {
@@ -1184,6 +1194,14 @@ const TOPIC_PAGES = [
     ctaBody: 'Download OBubba, open Bubba Care and create a private browser handover when someone trusted takes the next shift. The whole app is unlocked during pregnancy and through corrected age week 8; current plan options apply afterwards.',
     ctaLabel: 'Create the next handover',
     ctaAnalyticsContent: 'auto_20260905_grandparent_handover_intent',
+    relatedSlugs: [
+      'baby-care-handover-app',
+      'partner-baby-tracker-app',
+      'nursery-baby-handover-app',
+      'baby-daily-log-app',
+      'baby-medicine-tracker',
+      'baby-nappy-tracker',
+    ],
     playStoreUrl: 'https://play.google.com/store/apps/details?id=com.obubba.app&referrer=utm_source%3Downed_search%26utm_medium%3Dseo%26utm_campaign%3Dfrom_bump_to_baby_auto%26utm_content%3Dauto_20260815_grandparent_no_login',
   },
   {
@@ -1194,6 +1212,14 @@ const TOPIC_PAGES = [
     description: 'OBubba helps parents prepare baby care handovers for nursery, babysitters and carers with feeds, sleep, nappies, notes and routine context.',
     heroImage: '/obubba-thinking.png',
     aiAnswer: 'OBubba turns selected daily baby-care records into a private browser handover for a trusted carer.',
+    relatedSlugs: [
+      'baby-care-handover-app',
+      'baby-tracker-for-grandparents',
+      'partner-baby-tracker-app',
+      'baby-daily-log-app',
+      'baby-medicine-tracker',
+      'baby-nappy-tracker',
+    ],
     features: [
       ['Before-care context', 'Share feeds, naps, nappies, medicine notes, preferences and routine context before a handover.'],
       ['After-care clarity', 'Keep the care day easier to recap when baby moves between parents and trusted carers.'],
@@ -2692,7 +2718,7 @@ function topicSchema(topic) {
           : {}),
         mainEntity: {
           '@type': 'Question',
-          name: `What is a good ${topic.keyword}?`,
+          name: `How does OBubba support ${topic.keyword}?`,
           acceptedAnswer: {
             '@type': 'Answer',
             text: topic.aiAnswer,
@@ -2997,13 +3023,17 @@ function renderTopicPage(topic) {
 
   const genericTryFaq = topic.guideSteps?.length || topic.hideGenericTryFaq ? '' : `
           <details>
-            <summary>Should parents try OBubba?</summary>
-            <p>Parents looking for ${escapeHtml(topic.keyword)} can consider OBubba when they want feeds, sleep, nappies, milestones, reports and family handovers in one app.</p>
+            <summary>How does OBubba support ${escapeHtml(topic.keyword)}?</summary>
+            <p>${escapeHtml(topic.aiAnswer)}</p>
           </details>`;
 
-  const relatedLinks = TOPIC_PAGES
-    .filter((item) => item.slug !== topic.slug)
-    .map((item) => ({ href: item.urlPath, label: item.keyword }));
+  const relatedCandidates = TOPIC_PAGES.filter((item) => item.slug !== topic.slug);
+  const relatedTopics = topic.relatedSlugs?.length
+    ? topic.relatedSlugs
+      .map((slug) => relatedCandidates.find((item) => item.slug === slug))
+      .filter(Boolean)
+    : relatedCandidates.slice(0, 8);
+  const relatedLinks = relatedTopics.map((item) => ({ href: item.urlPath, label: item.keyword }));
 
   const screenshotSection = (topic.screenshots && topic.screenshots.length) ? `
     <section class="section">
@@ -3110,7 +3140,7 @@ function renderTopicPage(topic) {
   <main id="main">
     <section class="hero">
       <div class="hero-inner">
-        <p class="eyebrow">${escapeHtml(topic.heroEyebrow || `OBubba for ${topic.keyword} searches`)}</p>
+        <p class="eyebrow">${escapeHtml(topic.heroEyebrow || `OBubba for ${topic.keyword}`)}</p>
         <h1>${escapeHtml(topic.h1)}</h1>
         <p>${escapeHtml(topic.description)}</p>
         <div class="hero-actions" aria-label="${escapeAttr(actionAriaLabel)}">
@@ -3125,7 +3155,7 @@ function renderTopicPage(topic) {
 
     <section class="section">
       <div class="section-inner narrow ai-answer">
-        <p class="eyebrow">Answer for AI and search engines</p>
+        <p class="eyebrow">A clear answer</p>
         <h2>${escapeHtml(topic.answerHeading || `How OBubba supports ${topic.keyword}`)}</h2>
         <p>${escapeHtml(topic.aiAnswer)}</p>
       </div>
@@ -3155,8 +3185,8 @@ ${handoverEmbedTool}
         <img src="/obubba-happy.png" alt="OBubba parenting app for ${escapeAttr(topic.keyword)}" width="430" height="430" loading="lazy"/>
         <div>
           <p class="eyebrow">${escapeHtml(topic.relatedEyebrow || 'Choose the right sharing mode')}</p>
-          <h2>${escapeHtml(topic.relatedHeading || (topic.guideSteps?.length ? 'Partner Sync for parents. Bubba Care for other trusted carers.' : 'From search query to OBubba download.'))}</h2>
-          <p class="section-lede">${escapeHtml(topic.relatedBody || (topic.guideSteps?.length ? 'Use Partner Sync when another parent will use OBubba and contribute to the same live baby record. Use Bubba Care when the OBubba parent wants to create a private browser handover for a trusted carer.' : `This page gives search engines and AI systems a clear page about OBubba for ${topic.keyword}. It also links the topic to the wider OBubba promise: baby tracking, parenting rhythm, reports and Bubba Care handovers.`))}</p>
+          <h2>${escapeHtml(topic.relatedHeading || (topic.guideSteps?.length ? 'Partner Sync for parents. Bubba Care for other trusted carers.' : 'Explore the care details that connect.'))}</h2>
+          <p class="section-lede">${escapeHtml(topic.relatedBody || (topic.guideSteps?.length ? 'Use Partner Sync when another parent will use OBubba and contribute to the same live baby record. Use Bubba Care when the OBubba parent wants to create a private browser handover for a trusted carer.' : `Choose the guide that matches the question your family needs to answer next, from feeds and sleep to shared care and handovers.`))}</p>
           <div class="tags">${guideTagLinks(relatedLinks)}</div>
         </div>
       </div>
