@@ -7,6 +7,8 @@ updated: 2026-12-15
 author: OBubba
 tags: what is EPDS, Edinburgh Postnatal Depression Scale, EPDS score meaning, postnatal depression questionnaire, postnatal mood check, EPDS 10 questions, perinatal mental health UK, postnatal anxiety screening, new parent wellbeing app, OBubba Parent Room
 heroImage: /obubba-epds-postnatal-mood-check.jpg
+status: paused
+pauseReason: "The app reproduces the EPDS without the required author, title and source acknowledgement on the in-app copy. Publication stays paused until that attribution and the scoring language receive an authorised product review."
 ---
 
 Perhaps your midwife mentioned a questionnaire. Perhaps an app asked whether you have been able to laugh, cope or look forward to things. Perhaps you saw the phrase **Edinburgh Postnatal Depression Scale** and wondered whether the result would put a diagnosis—or a judgement—next to your name.
