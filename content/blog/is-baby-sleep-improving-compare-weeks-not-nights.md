@@ -68,7 +68,6 @@ This is the most common tracking mistake.
 - No wake logged does not necessarily mean zero wakes.
 - No nap logged does not mean the baby took no naps.
 - No feed logged does not mean the baby had no feeds.
-- A bedtime timer left running is not a 16-hour night.
 
 If a week was only partly recorded, say so. A trustworthy tracker should omit the comparison or show the number of contributing days rather than turning absence into a dramatic improvement.
 
@@ -110,7 +109,7 @@ The weekly digest has several deliberate safeguards:
 - night-wake changes are only compared when both weeks contain at least two nights of real night data
 - nap count and daytime sleep are only compared when both weeks contain at least two nap days
 - total 24-hour sleep needs at least five qualifying days in **each** week, with both night sleep and naps represented
-- unlogged night wakes, naps or feeds are omitted rather than displayed as zero
+- a week with no night data does not display “zero wakes”, and nap or feed figures are omitted when those logs are absent
 
 Small fluctuations stay quiet. A wake change needs to be at least half a wake per night; daytime sleep needs to move by about 20 minutes per day; and total sleep needs to shift by about 30 minutes per day before the digest calls it out. A fall of at least half a nap per day can be labelled as a possible nap transition, not a diagnosis.
 
@@ -118,7 +117,7 @@ OBubba also de-duplicates near-simultaneous wake and feed entries so one waking 
 
 When there is a genuine improvement, the app can surface it as **Your wins this week** in the Parent Room. When the week is bumpier, the language remains observational. It does not grade the parent or call the baby a bad sleeper.
 
-**[Try OBubba free →](/app.html)** — see nights, naps, feeds and growth together, with comparisons that know the difference between zero and not logged.
+**[Try OBubba free →](/app.html?utm_source=obubba_blog&utm_medium=owned_content&utm_campaign=auto_20261111_sleep_progress&utm_content=article_cta)** and see nights, naps, feeds and growth together, with comparisons that know the difference between zero and not logged.
 
 ## How long should you test one sleep change?
 
@@ -146,7 +145,7 @@ Neither number wins automatically. Check bedtime, morning wake, naps, time awake
 
 ### Should I log every tiny stir?
 
-Not necessarily. Choose a definition you can use consistently — for example, wakes that needed parental help or a feed — and keep it the same across both weeks. OBubba can combine duplicate entries around the same waking, but consistent logging still produces a clearer picture.
+Not necessarily. Choose a definition you can use consistently, such as wakes that needed parental help or a feed, and keep it the same across both weeks. OBubba can combine duplicate entries around the same waking, but consistent logging still produces a clearer picture.
 
 ### Does one bad night erase progress?
 
@@ -159,8 +158,8 @@ No. It can show changes and help distinguish an outlier from a repeated pattern.
 ## Sources and further reading
 
 - [NHS: Helping your baby to sleep](https://www.nhs.uk/baby/caring-for-a-newborn/helping-your-baby-to-sleep/)
-- [NHS: Is your baby or toddler seriously ill?](https://www.nhs.uk/baby/health/is-your-baby-or-toddler-seriously-ill/)
-- [The Lullaby Trust: Safer sleep information](https://www.lullabytrust.org.uk/baby-safety/safer-sleep-information/)
+- [NHS: When to get urgent medical help for babies and children under 5](https://www.nhs.uk/baby/health/when-to-get-urgent-medical-help-for-babies-and-children-under-5/)
+- [NHS: Sudden infant death syndrome (SIDS)](https://www.nhs.uk/baby/caring-for-a-newborn/sudden-infant-death-syndrome-sids/)
 - [The Lullaby Trust: Keeping a clear cot](https://www.lullabytrust.org.uk/baby-safety/safer-sleep-information/keeping-a-clear-cot/)
 
 *OBubba is a tracking and education tool, not medical advice or a diagnostic sleep study. Follow current safer-sleep guidance and seek professional help when you are concerned about your baby.*

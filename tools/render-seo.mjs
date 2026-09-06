@@ -1339,6 +1339,7 @@ const SHARED_ASSETS = [
   'obubba-baby-sleep-after-clocks-change.jpg',
   'obubba-same-bedtime-every-night.jpg',
   'obubba-reports-clinic-prep-app.jpg',
+  'obubba-baby-sleep-improving-weekly-review.jpg',
   'obubba-baby-first-aid-before-weaning.jpg',
   'obubba-weaning-safety-app.jpg',
   'obubba-what-baby-wear-to-sleep.jpg',
