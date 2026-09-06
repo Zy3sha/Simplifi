@@ -5,9 +5,35 @@ description: "Baby blues or postnatal depression? Understand the two-week differ
 date: 2026-11-08
 updated: 2026-11-08
 author: OBubba
+status: paused
 tags: baby blues or postnatal depression, postnatal depression signs, postpartum depression UK, baby blues two weeks, postnatal anxiety, postpartum psychosis signs, new mum mental health, OBubba Parent Room
 heroImage: /obubba-baby-blues-postnatal-depression.jpg
 ---
+
+<!--
+SAFETY PAUSE (2026-09-06): Do not publish or promote this article while the
+current Flutter wellbeing cards make unqualified medical claims that severe
+sleep deprivation "doubles PND risk" and that "80% of new parents" experience
+the baby blues. Current NHS guidance supports prompt help for persistent or
+severe symptoms and says the baby blues are common after giving birth, but it
+does not support those exact product claims as written. The second claim also
+incorrectly generalises a post-birth hormonal experience to all new parents.
+
+Required product correction before this article can be reconsidered:
+1. Replace the numerical PND-risk statement with calibrated, source-aligned
+   wording that broken sleep can worsen wellbeing and that severe sleep loss,
+   inability to sleep when given the chance, or difficulty coping deserves
+   prompt support.
+2. Replace "80% of new parents" and "the hormone cliff" with inclusive but
+   clinically precise wording: baby blues are common among people who have
+   recently given birth, usually occur in the first week and usually settle
+   within two weeks.
+3. Retain the present immediate-danger and postpartum-psychosis escalation
+   routes, then obtain suitable clinical/content review and reverify the shipped
+   app before removing this pause.
+
+No Flutter code was changed by this publication safeguard.
+-->
 
 You can love your baby and still feel frightened, flat, angry, numb or unlike yourself. You can be grateful and desperate for a break. You can look as though you are coping while counting the minutes until somebody else walks through the door.
 
