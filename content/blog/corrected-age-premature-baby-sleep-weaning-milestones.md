@@ -1,7 +1,7 @@
 ---
 title: "Corrected Age for Premature Babies: Sleep, Weaning and Milestones"
 slug: corrected-age-premature-baby-sleep-weaning-milestones
-description: "Learn when to use corrected age after premature birth for sleep, growth, milestones and weaning—and when chronological age still matters for safety."
+description: "Learn when to use corrected age after premature birth for sleep, growth, milestones and weaning, and when chronological age still matters for safety."
 date: 2026-11-04
 updated: 2026-11-04
 author: OBubba
@@ -11,13 +11,13 @@ heroImage: /obubba-corrected-age-premature-baby.jpg
 
 Your baby has two ages on paper. One starts on the day they were born. The other starts around the day they were due. Which one should you use when someone asks about naps, first foods, growth or milestones?
 
-**Use corrected age as developmental context after a premature birth—but do not use it for everything.** Sleep expectations, early skills, play and some growth-chart readings may be interpreted using corrected age. Vaccinations follow chronological age in the UK, while fever and medicine decisions need current professional guidance based on the baby's actual age, weight, health and product instructions.
+**Use corrected age as developmental context after a premature birth, but do not use it for everything.** Sleep expectations, early skills, play and some growth-chart readings may be interpreted using corrected age. Routine vaccinations start from time since birth, while fever and medicine decisions need current professional guidance based on the baby's actual age, weight, health and product instructions.
 
 > Corrected age is a fairer comparison, not a deadline and not a diagnosis.
 
 ## Corrected age in 30 seconds
 
-**Chronological age** is time since birth. **Corrected age**—also called adjusted age—is time since the original due date.
+**Chronological age** is time since birth. **Corrected age**, also called adjusted age, is time since the original due date.
 
 You can calculate it in either of two ways:
 
@@ -41,7 +41,7 @@ This is the quick reference worth saving:
 |---|---|---|
 | Early milestones and play ideas | Corrected age | The baby's own progress and any neonatal follow-up plan |
 | Sleep expectations and wake-window guidance | Corrected age as a gentler starting point | Actual sleep history, cues, feeding and health |
-| Growth centiles | Corrected age where the appropriate chart or clinician uses it | Gestation, measurement quality and trend—not one dot |
+| Growth centiles | Corrected age where the appropriate chart or clinician uses it | Gestation, measurement quality and the trend, not one dot |
 | Starting solids | Corrected-age range plus readiness | Feeding skills and individual neonatal/dietetic advice |
 | UK vaccinations | Chronological age | The national schedule and neonatal team's instructions |
 | Fever, medicine suitability and doses | Actual age and current clinical/product advice | Weight, medical history, symptoms and the exact medicine |
@@ -62,11 +62,11 @@ Corrected age can therefore be a kinder starting point for:
 
 It is still only context. There is no clinically exact wake-window prescription for every baby, and premature babies may also have reflux, feeding plans, respiratory needs or follow-up instructions that generic sleep advice cannot account for.
 
-Use the baby's real pattern before an internet timetable. Look at several ordinary days: when sleep actually began, how long it lasted, what happened after feeds and how the baby behaved—not whether a chart said the nap should have happened at 10:12.
+Use the baby's real pattern before an internet timetable. Look at several ordinary days: when sleep actually began, how long it lasted, what happened after feeds and how the baby behaved, not whether a chart said the nap should have happened at 10:12.
 
 ### Before the due date
 
-Before term-equivalent age, do not force a “newborn routine” simply because several weeks have passed since birth. Feeding and medical plans from the neonatal team lead. Sleep may be fragmented, and a baby who is difficult to wake for feeds, unusually floppy, breathing differently or feeding much less needs professional assessment—not schedule troubleshooting.
+Before term-equivalent age, do not force a “newborn routine” simply because several weeks have passed since birth. Feeding and medical plans from the neonatal team lead. Sleep may be fragmented, and a baby who is difficult to wake for feeds, unusually floppy, breathing differently or feeding much less needs professional assessment, not schedule troubleshooting.
 
 Safer-sleep guidance still applies. Put baby on their back in a clear, flat, separate sleep space and follow any extra advice given because of prematurity or medical needs.
 
@@ -135,7 +135,7 @@ A good transition is gradual: give increasing weight to the child's observed pat
 
 ## How the real OBubba Flutter app handles two ages
 
-The current native Flutter app stores the date of birth and estimated due date separately. For a baby born at least about three weeks early, it uses corrected age where developmental timing is the useful frame—including sleep guidance, schedule predictions, play ideas, development windows, milestone context and early weaning screens.
+The current native Flutter app stores the date of birth and estimated due date separately. When those dates show that a baby arrived at least three weeks early, it uses corrected age where developmental timing is the useful frame. This includes sleep guidance, schedule predictions, play ideas, development windows, milestone context and early weaning screens.
 
 ![The real OBubba Flutter Grow screen showing development guidance, growth logging and a weekly play companion](/obubba-app-growth-development-screenshot.jpg "The current OBubba native Flutter Grow screen brings development, growth and an age-aware play idea together without turning progress into a checklist.")
 
@@ -143,9 +143,11 @@ Growth readings use the corrected date where applicable and withhold a percentil
 
 The safety boundary is separate in code: fever checks and medicine-age suitability continue to use actual chronological age. Corrected age is never allowed to make an age-restricted medicine look suitable.
 
-OBubba can organise and personalise context; it cannot determine feeding readiness, diagnose delay, interpret a sick baby or replace a neonatal plan. If the due date is missing or wrong, the guidance cannot correct itself—so check both dates in the child's profile.
+OBubba can organise and personalise context; it cannot determine feeding readiness, diagnose delay, interpret a sick baby or replace a neonatal plan. If the due date is missing or wrong, the guidance cannot correct itself, so check both dates in the child's profile.
 
-**[Try OBubba free →](/app.html)** — keep sleep, feeds, growth, development and weaning in one shared record, with age-aware guidance that respects a premature baby's timeline.
+**[Keep both ages in one shared record →](/app.html?utm_source=corrected_age_premature_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261104_corrected_age)**
+
+Track sleep, feeds, growth, development and weaning together, with age-aware guidance that respects a premature baby's timeline.
 
 ## A calm setup checklist
 
@@ -155,7 +157,7 @@ Before relying on any baby app after premature birth:
 - record gestation once and keep it consistent
 - add the clinical team's feeding, medicine and follow-up instructions outside any generic schedule
 - share access with the adults who log care so dates and doses are not duplicated
-- bring trends and questions—not app verdicts—to appointments
+- bring trends and questions, not app verdicts, to appointments
 - correct a mistaken date rather than “compensating” by editing sleep or milestone logs
 
 Keep both ages available when speaking with a professional: “14 weeks since birth, 6 weeks corrected” is clearer than saying only “about three months.”
@@ -172,7 +174,7 @@ Usually not for everyday developmental expectations. Correction is mainly used a
 
 ### Should a premature baby start solids at six months chronological or corrected?
 
-Neither date should act alone. Use corrected-age framing, the baby's combined readiness signs and individual professional advice—especially after very early birth, illness, feeding difficulty or delayed motor development.
+Neither date should act alone. Use corrected-age framing, the baby's combined readiness signs and individual professional advice, especially after very early birth, illness, feeding difficulty or delayed motor development.
 
 ### Should vaccinations be delayed until corrected age?
 
