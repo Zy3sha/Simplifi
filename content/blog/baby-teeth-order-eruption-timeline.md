@@ -13,7 +13,7 @@ One morning your baby grins and there it is: a tiny white edge in the lower gum.
 
 Both can fit normal development.
 
-Most babies start teething at around 6 months, but some begin before 4 months and some after 12 months. Teeth tend to follow a recognisable order—front teeth, then molars and canines—but the calendar varies widely.
+Most babies start teething at around 6 months, but some begin before 4 months and some after 12 months. Teeth tend to follow a recognisable order, with front teeth followed by molars and canines, but the calendar varies widely.
 
 > **The usual order is:** central incisors, lateral incisors, first molars, canines, then second molars. Lower front teeth commonly appear before their upper partners. Most children have all 20 milk teeth by about 2 to 3 years old.
 
@@ -26,10 +26,10 @@ Most babies start teething at around 6 months, but some begin before 4 months an
 | Upper lateral incisors | **9–13 months** | Teeth appear beside the upper central pair |
 | Lower lateral incisors | **10–16 months** | The lower front row widens |
 | First molars | **13–19 months** | Broad back teeth arrive before the canines in many children |
-| Canines | **16–23 months** | Pointed teeth fill the spaces between incisors and molars |
+| Canines | **16–22 months** | Pointed teeth fill the spaces between incisors and molars |
 | Second molars | **23–33 months** | The final four milk teeth usually complete the set |
 
-These more detailed ranges reflect NHS dental charts and the timeline used in OBubba. The main [NHS teething guide](https://www.nhs.uk/baby/babys-development/teething/baby-teething-symptoms/) gives a simpler sequence: central incisors around 6 months, lateral incisors around 8 months, first molars around 12 months, canines around 18 months and second molars around 24 months.
+These are the broader orientation windows used in OBubba, not NHS deadlines. The [NHS teething guide](https://www.nhs.uk/baby/babys-development/teething/baby-teething-symptoms/) gives a simpler rough sequence: central incisors around 6 months, lateral incisors around 8 months, first molars around 12 months, canines around 18 months and second molars around 24 months.
 
 Neither chart is an appointment. A tooth may arrive earlier, later or in a slightly different order without meaning anything is wrong.
 
@@ -63,7 +63,7 @@ Molars have a broader surface and can feel like a bigger teething event for some
 
 ### Stage 5: canines
 
-Canines—the pointed teeth between lateral incisors and molars—commonly arrive around 16 to 23 months.
+Canines, the pointed teeth between lateral incisors and molars, sit in OBubba's broad 16-to-22-month orientation window. The NHS rough guide places them at around 18 months.
 
 They often fill the noticeable spaces in the upper and lower rows. The eruption order may overlap with molars; bodies do not wait for one neat stage to finish before beginning the next.
 
@@ -113,7 +113,7 @@ The NHS says there is no evidence that teething causes diarrhoea. A true fever i
 
 Two things can happen at once: a tooth may be emerging while the baby also has an infection. If the story does not fit mild, local gum discomfort, look beyond teething.
 
-Our [baby-temperature guide](/blog/baby-temperature-fever-when-to-call-111.html) explains the NHS age thresholds and emergency signs.
+Use the [current NHS fever guidance](https://www.nhs.uk/symptoms/fever-in-children/) for age thresholds and emergency signs.
 
 ## Safe ways to soothe teething discomfort
 
@@ -195,7 +195,7 @@ The first visible edge changes oral care immediately. Start brushing as soon as 
 
 For babies and toddlers under 3, the NHS recommends:
 
-- brushing twice daily—last thing at night and on one other occasion
+- brushing twice daily, last thing at night and on one other occasion
 - using only a tiny smear of toothpaste
 - choosing toothpaste with at least 1,000 ppm fluoride
 - having a grown-up do the brushing
@@ -238,7 +238,7 @@ A recent tooth can also tell the sleep coach to hold off on interpreting disrupt
 
 OBubba cannot see a tooth under the gum, diagnose pain, rule out infection or decide whether delayed eruption needs investigation. The “next likely” highlight is orientation, not prediction.
 
-**[Try OBubba free →](/free-baby-tracker-app.html)** — keep first teeth beside feeds, sleep, medicines, growth and milestones, then turn the moments you log into a first-year story the family can share.
+**[Map baby's first teeth in OBubba →](/app.html?utm_source=baby_teeth_order_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261023_baby_teeth)**. Try OBubba free and keep first teeth beside feeds, sleep, medicines, growth and milestones, then turn the moments you log into a first-year story the family can share.
 
 ## What is worth recording?
 
@@ -273,7 +273,7 @@ Follow the NHS fever and serious-illness guidance for a temperature of 38°C or 
 
 ### Which baby teeth usually come first?
 
-The lower central incisors—the two bottom front teeth—are most often first, commonly around 6 months. Upper front teeth may lead in some babies, and that can still be normal.
+The lower central incisors, the two bottom front teeth, are most often first, commonly around 6 months. Upper front teeth may lead in some babies, and that can still be normal.
 
 ### Can a 3-month-old be teething?
 
@@ -285,7 +285,7 @@ Some babies start after 12 months. If you are concerned, mention it to a dentist
 
 ### Do molars come before canines?
 
-Often, yes. First molars commonly appear around 13 to 19 months, while canines commonly follow around 16 to 23 months. Their windows overlap, so individual order varies.
+Often, yes. OBubba uses broad orientation windows of 13 to 19 months for first molars and 16 to 22 months for canines. The NHS rough guide places first molars at around 12 months and canines at around 18 months. Individual order varies.
 
 ### How long does each tooth hurt?
 
