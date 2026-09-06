@@ -5,6 +5,8 @@ description: "Will extra milk at bedtime buy a longer first stretch? Follow full
 date: 2026-11-29
 updated: 2026-11-29
 author: OBubba
+status: paused
+pauseReason: "Do not publish while the Flutter correlation and intervention engines turn an observed evening-volume association into causal overfull-tummy wording and active instructions to split or trim the final bottle. This conflicts with responsive-feeding guidance and the article's instruction not to cap, ration or pressure milk for a sleep experiment."
 tags: bigger bedtime bottle baby sleep longer, baby bedtime bottle amount, top up baby before bed, baby wakes after big bottle, responsive bottle feeding at night, overfeeding baby bottle sleep, evening bottle night wakes, OBubba bottle tracker
 heroImage: /obubba-bigger-bedtime-bottle-sleep.jpg
 ---
