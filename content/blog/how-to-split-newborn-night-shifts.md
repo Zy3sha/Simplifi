@@ -21,7 +21,7 @@ The goal is not an equal number of wakes. It is two adults who can function safe
 |---|---|---|
 | Early shift / late shift | One adult sleeps early while the other handles the evening, then they swap | A breastfeeding parent may still need to feed or express during their protected block |
 | Alternate complete wakes | Either adult can safely provide the planned feed and resettle | Both adults may keep waking unless rooms and responsibilities are genuinely separate |
-| Feeding parent + support parent | Breastfeeding is being established and baby feeds directly | The support parent owns lifting, changing, winding, settling, water and logging—not passive supervision |
+| Feeding parent + support parent | Breastfeeding is being established and baby feeds directly | The support parent owns lifting, changing, winding, settling, water and logging, not passive supervision |
 | One overnight adult + early-morning relief | One parent copes better at night and the other can start early | The overnight adult still needs a defined recovery block later |
 | Friend or relative daytime shift | A single parent or couple needs sleep but feeding limits overnight cover | The helper must receive safer-sleep, feeding, medicine and emergency instructions |
 
@@ -37,7 +37,7 @@ Keep night interactions low-key: dim light, quiet voices, no play and a return t
 
 ## If you are breastfeeding
 
-In the early days, feeding frequently—including at night—supports milk production. The NHS notes that night breastfeeding is particularly important while supply is becoming established. A plan in which the breastfeeding parent simply skips several needed feeds may affect comfort, supply and the baby's intake.
+In the early days, feeding frequently, including at night, supports milk production. The NHS notes that night breastfeeding is particularly important while supply is becoming established. A plan in which the breastfeeding parent simply skips several needed feeds may affect comfort, supply and the baby's intake.
 
 That does not make the other adult irrelevant. A support shift can own everything around the feed:
 
@@ -57,7 +57,7 @@ Do not introduce top-ups or stretch intervals solely to make a shift chart work.
 Partners may be able to take whole feeding shifts, but the handover still needs precision:
 
 - which milk is being used
-- when the last feed began or ended—pick one household convention
+- when the last feed began or ended, using one household convention
 - amount offered and amount taken
 - any vomiting, coughing, difficulty feeding or unusual sleepiness
 - the next step in an individual feeding plan
@@ -73,7 +73,7 @@ At the swap, use this order:
 3. **Last nappy:** only if it changes what the next adult needs to know.
 4. **Open event:** sleep, feed or night-wake timer still running.
 5. **Safety-critical detail:** medicine actually given, temperature, allergy or clinical instruction.
-6. **Exception:** one sentence such as “coughed through that bottle” or “would not settle flat—please reassess if it repeats”.
+6. **Exception:** one sentence such as “coughed through that bottle” or “would not settle flat, please reassess if it repeats”.
 7. **Ownership:** “You are on duty now; wake me if X happens.”
 
 Do not recite the whole day. A long handover keeps both adults awake and makes the urgent line easier to miss.
@@ -131,9 +131,9 @@ OBubba uses two different sharing tools because a live co-parent and a temporary
 
 ### One shared timeline for regular partners
 
-With **Family sharing**, the second parent enters the baby's sync code and chooses **Connect — live sync**. Both phones then read and write the same child record rather than maintaining two diaries.
+With **Family sharing**, the second parent enters the baby's sync code and chooses **Connect: live sync**. Both phones then read and write the same child record rather than maintaining two diaries.
 
-![The current OBubba Flutter connection screen, where a second parent chooses Connect—live sync instead of importing a separate copy.](/obubba-connect-live-family-sync.jpg "Live sync gives both regular carers one changing baby timeline. The example code field is empty and fictional.")
+![The current OBubba Flutter connection screen, where a second parent chooses live sync instead of importing a separate copy.](/obubba-connect-live-family-sync.jpg "Live sync gives both regular carers one changing baby timeline. The code shown is placeholder text, not a family's code.")
 
 The adult who performs a feed, change or settle records it. At handover, the receiving adult checks the existing timeline instead of recreating the event. This matters because OBubba can deduplicate the *same synced entry* by its stable ID, but it cannot safely assume two separately created 2am bottles describe one physical feed.
 
@@ -141,7 +141,7 @@ Open sleep timers also travel with the shared child record. The Flutter timer lo
 
 ### A compact briefing for the next carer
 
-After at least two logged days, **Bubba Care → Carer briefing** can assemble a copyable page with:
+After at least two logged days, **Bubba Care → Hand-off briefing** can assemble a copyable page with:
 
 - likely next nap and bedtime from the current day plan
 - a short summary of last night
@@ -167,7 +167,9 @@ Access is per child. A partner joining one baby's code does not automatically re
 
 Read the full [two-parent live-sync setup](/blog/share-baby-tracker-with-partner-without-duplicate-logs.html) before the first night rather than troubleshooting at 2am.
 
-**[Try OBubba free →](/app.html)** — one shared overnight timeline, a calmer handover and fewer moments when both exhausted adults are asking what already happened.
+**[Start tracking the night together →](/app.html?utm_source=newborn_night_shifts_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261102_newborn_night_shifts)**
+
+Use one shared overnight timeline for a calmer handover and fewer moments when both exhausted adults are asking what already happened.
 
 ## Morning review: improve the system, not the score
 
@@ -201,8 +203,10 @@ The essentials are feed, meaningful nappy, proper night wake and any medicine or
 
 - [NHS: Helping your baby to sleep](https://www.nhs.uk/baby/caring-for-a-newborn/helping-your-baby-to-sleep/)
 - [NHS: Sleep and tiredness after having a baby](https://www.nhs.uk/baby/support-and-services/sleep-and-tiredness-after-having-a-baby/)
-- [NHS: Breastfeeding—the first few days](https://www.nhs.uk/baby/breastfeeding-and-bottle-feeding/breastfeeding/the-first-few-days/)
+- [NHS: Breastfeeding, the first few days](https://www.nhs.uk/baby/breastfeeding-and-bottle-feeding/breastfeeding/the-first-few-days/)
 - [NHS: Milk supply](https://www.nhs.uk/best-start-in-life/baby/feeding-your-baby/breastfeeding/breastfeeding-challenges/milk-supply/)
+- [NHS: How to make up baby formula](https://www.nhs.uk/baby/breastfeeding-and-bottle-feeding/bottle-feeding/making-up-baby-formula/)
+- [UNICEF UK Baby Friendly Initiative: Caring for your baby at night](https://www.unicef.org.uk/babyfriendly/baby-friendly-resources/sleep-and-night-time-resources/)
 - [The Lullaby Trust: Safer sleep for babies](https://www.lullabytrust.org.uk/baby-safety/safer-sleep-information/)
 
 *OBubba supports organisation, tracking and family handovers. It does not verify feeds, assess milk transfer or supply, supervise sleep, calculate medicine doses, diagnose illness or replace a midwife, health visitor, breastfeeding specialist, pharmacist, GP, NHS 111 or emergency care.*
