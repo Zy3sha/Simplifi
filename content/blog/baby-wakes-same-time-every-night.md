@@ -5,6 +5,7 @@ description: "A clockwork night wake can be hunger, discomfort, a sleep-cycle tr
 date: 2026-12-07
 updated: 2026-12-07
 author: OBubba
+status: paused
 tags: baby wakes same time every night, baby wakes at 2am every night, clockwork night waking baby, habitual night waking baby, why baby wakes every night, baby sleep cycles, scheduled waking baby, night wake tracker, OBubba sleep tracker
 heroImage: /obubba-baby-wakes-same-time-every-night.jpg
 ---
