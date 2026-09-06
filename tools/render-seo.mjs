@@ -4673,6 +4673,7 @@ function main() {
   for (const post of posts) {
     writeAll(`blog/${post.slug}.html`, renderPost(post, posts));
   }
+  writeAll('blog/best-baby-tracker-app-for-new-parents.html', renderRedirect('/blog/best-baby-tracker-app-uk.html'));
   writeAll('robots.txt', renderRobots());
   writeAll('sitemap.xml', renderSitemap(posts));
   writeAll('image-sitemap.xml', renderImageSitemap());
