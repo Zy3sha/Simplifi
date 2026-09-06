@@ -5,6 +5,8 @@ description: "Should milk come before or after a nap? Use hunger cues, reflux co
 date: 2026-10-29
 updated: 2026-10-29
 author: OBubba
+status: paused
+pauseReason: "Do not publish while the Flutter feed-to-nap insight states that feeding close to sleep makes milk the fall-asleep cue and prescribes a longer gap. Current NHS and UNICEF UK guidance prioritises responsive feeding and does not establish that causal claim from timestamp correlation. Reconcile and clinically review the product wording before this acquisition article promotes the insight."
 tags: feed baby before or after nap, baby feeding before nap, feed after nap, eat play sleep routine, baby short naps after feeding, feed to nap gap, responsive feeding routine, baby nap routine, OBubba sleep insights
 heroImage: /obubba-feed-before-or-after-nap.jpg
 ---
