@@ -5,6 +5,8 @@ description: "A practical UK guide to responsive bottle feeding: early hunger an
 date: 2026-11-12
 updated: 2026-11-12
 author: OBubba
+status: paused
+pauseReason: "Do not publish while Flutter's next-bottle engine calculates a deliberately smaller evening bottle and a fuller daytime bottle to support the night, and can tell a family already at the top of an app-defined daily range to offer on cue rather than a full bottle. Current NHS guidance says responsive bottle feeding follows hunger and fullness cues, that babies vary in amount and frequency, and that a big feed does not produce a longer gap. The article's cue-led advice is sound, but promoting the current volume suggestion would create a contradictory under-feeding risk. Remove clock- and sleep-driven volume prescriptions, retain logging and cue-led preparation only, obtain suitable feeding review, and reverify before publication."
 tags: when to offer next bottle, responsive bottle feeding, baby hunger cues, paced bottle feeding, how often should baby bottle feed, baby bottle tracker, formula feeding schedule, OBubba
 heroImage: /obubba-when-offer-next-bottle-responsive-feeding.jpg
 ---
