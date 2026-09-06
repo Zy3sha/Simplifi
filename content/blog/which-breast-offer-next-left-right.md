@@ -5,6 +5,8 @@ description: "Forgot which breast comes next? Use this simple, responsive guide 
 date: 2026-10-24
 updated: 2026-10-24
 author: OBubba
+status: paused
+pauseReason: "Do not publish while the Flutter lactation-engorgement insight advises a warm compress and massage for a strongly underused breast. Current NHS mastitis guidance recommends a cold compress and says not to apply firm pressure. Reconcile and clinically review the product guidance before this acquisition article promotes breast-side logging."
 tags: which breast to offer next, left or right breast next feed, switching sides breastfeeding, alternate breasts breastfeeding, breastfeeding one side per feed, baby prefers one breast, breastfeeding tracker left right, OBubba breastfeeding timer
 heroImage: /obubba-which-breast-next.jpg
 ---
