@@ -37,6 +37,24 @@ const WEB_ICON_PATH = '/obubba-baby-tracker-app-icon-crowned-baby.png';
 
 const BRAND_IMAGES = [
   {
+    path: '/obubba-anxiety-in-pregnancy-support-20261123.jpg',
+    name: 'Pregnant parent pausing with a hand on their chest',
+    title: 'Anxiety in pregnancy support',
+    caption: 'A quiet pause for a pregnant parent deciding whether worry needs professional support.',
+    keywords: 'anxiety in pregnancy, antenatal anxiety, pregnancy mental health support, OBubba',
+    width: 1536,
+    height: 1024,
+  },
+  {
+    path: '/obubba-pregnancy-wellbeing-app-20261123.jpg',
+    name: 'OBubba pregnancy overview featuring the current For you screen',
+    title: 'OBubba pregnancy wellbeing and preparation overview',
+    caption: 'An OBubba campaign visual featuring the current Flutter For you screen, preparation tools and wellbeing route.',
+    keywords: 'OBubba pregnancy app, pregnancy wellbeing app, pregnancy preparation tools, antenatal support',
+    width: 1320,
+    height: 2868,
+  },
+  {
     path: '/icon.png',
     name: 'OBubba app icon',
     title: 'OBubba app icon and logo',
@@ -1374,6 +1392,8 @@ const OUTPUT_ROOTS = process.argv.includes('--root-only')
     ];
 
 const SHARED_ASSETS = [
+  'obubba-anxiety-in-pregnancy-support-20261123.jpg',
+  'obubba-pregnancy-wellbeing-app-20261123.jpg',
   'obubba-baby-nap-rhythm-schedule-20261122.jpg',
   'obubba-reports-range-selector-app-20261122.jpg',
   'obubba-baby-weaning-weekly-meal-plan-20261121.jpg',
