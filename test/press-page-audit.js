@@ -8,6 +8,7 @@ const press = fs.readFileSync(path.join(root, 'press.html'), 'utf8');
 const home = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const sitemap = fs.readFileSync(path.join(root, 'sitemap.xml'), 'utf8');
 const llms = fs.readFileSync(path.join(root, 'llms.txt'), 'utf8');
+const imageSitemap = fs.readFileSync(path.join(root, 'image-sitemap.xml'), 'utf8');
 const structuredDataBlocks = [...press.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
   .map((match) => JSON.parse(match[1]));
 const pressGraph = structuredDataBlocks.flatMap((block) => block['@graph'] || [block]);
@@ -34,14 +35,19 @@ const checks = [
   ['founder contribution measurement', press.includes('data-press-action="founder_contribution_newborn_stages"')],
   ['safe external contribution link', press.includes('target="_blank" rel="noopener" data-press-action="founder_contribution_newborn_stages"')],
   ['stable founder entity', founderEntity?.['@type'] === 'Person' && founderEntity?.name === 'Zyesha Reynolds' && founderEntity?.worksFor?.['@id'] === 'https://obubba.com/#organization'],
+  ['founder entity portrait', founderEntity?.image === 'https://obubba.com/obubba-founder-zyesha-reynolds.jpg'],
   ['verified contribution entity', contributionEntity?.['@type'] === 'Article' && contributionEntity?.author?.['@id'] === 'https://obubba.com/press.html#zyesha-reynolds' && contributionEntity?.datePublished === '2026-08-28'],
-  ['four asset measurements', ['icon', 'feeding', 'care', 'grow'].every((asset) => press.includes(`data-press-action="asset_download_${asset}"`))],
+  ['five asset measurements', ['icon', 'feeding', 'care', 'grow', 'founder'].every((asset) => press.includes(`data-press-action="asset_download_${asset}"`))],
   ['no dynamic URL analytics payload', !/link_url\s*:|location\.(href|search)|URLSearchParams/.test(press)],
   ['press contact', press.includes('hello@obubba.com')],
   ['downloadable icon', press.includes('obubba-baby-tracker-app-icon-crowned-baby.png" download')],
   ['downloadable feeding screen', press.includes('obubba-screen-feeding.jpg" download')],
   ['downloadable care screen', press.includes('obubba-screen-care.jpg" download')],
   ['downloadable grow screen', press.includes('obubba-screen-grow.jpg" download')],
+  ['downloadable founder portrait', press.includes('obubba-founder-zyesha-reynolds.jpg" download')],
+  ['founder portrait exists', fs.existsSync(path.join(root, 'obubba-founder-zyesha-reynolds.jpg'))],
+  ['homepage founder portrait', home.includes('<img src="/obubba-founder-zyesha-reynolds.jpg"') && home.includes('alt="Zyesha Reynolds, founder of OBubba"')],
+  ['founder portrait image discovery', imageSitemap.includes('<loc>https://obubba.com/press.html</loc>') && imageSitemap.includes('<image:loc>https://obubba.com/obubba-founder-zyesha-reynolds.jpg</image:loc>')],
   ['homepage discovery link', home.includes('<a href="/press.html">Press &amp; media</a>')],
   ['sitemap discovery', sitemap.includes('<loc>https://obubba.com/press.html</loc>')],
   ['AI-readable discovery', llms.includes('[press and media resources](https://obubba.com/press.html)')],

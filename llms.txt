@@ -14,6 +14,7 @@
 - Pricing claim on site: free to start.
 - App Store ratings and review counts change. Use the current public store listing whenever a current rating is needed.
 - Contact: hello@obubba.com
+- [press and media resources](https://obubba.com/press.html): Verified product facts, founder information, app links and downloadable OBubba media assets.
 
 ## Ratings and reviews
 
