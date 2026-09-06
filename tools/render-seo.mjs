@@ -214,6 +214,24 @@ const BRAND_IMAGES = [
     height: 1480,
   },
   {
+    path: '/obubba-hospital-bag-checklist-uk-20261120.jpg',
+    name: 'Expectant parents packing a hospital bag',
+    title: 'Calm UK hospital bag preparation',
+    caption: 'Expectant parents packing practical hospital-bag essentials together before the birth.',
+    keywords: 'hospital bag checklist UK, when to pack hospital bag, maternity bag, OBubba pregnancy',
+    width: 1536,
+    height: 1024,
+  },
+  {
+    path: '/obubba-claim-bump-app-20261120.jpg',
+    name: 'OBubba Claim your Bubba pregnancy screen',
+    title: 'Start an OBubba pregnancy profile',
+    caption: 'Official OBubba screenshot showing the pregnancy profile setup with a bump name and due-date context.',
+    keywords: 'OBubba, pregnancy app, bump profile, due date, hospital bag preparation',
+    width: 1206,
+    height: 2622,
+  },
+  {
     path: '/obubba-fireflies-hope-parents-awake.jpg',
     name: 'OBubba Fireflies parent-presence screen',
     title: 'OBubba Fireflies for parents awake together',
@@ -1320,6 +1338,8 @@ const OUTPUT_ROOTS = process.argv.includes('--root-only')
     ];
 
 const SHARED_ASSETS = [
+  'obubba-hospital-bag-checklist-uk-20261120.jpg',
+  'obubba-claim-bump-app-20261120.jpg',
   'obubba-when-will-baby-crawl-20261119.jpg',
   'obubba-milestones-app-20261119.jpg',
   'obubba-baby-vitamin-d-drops.jpg',

@@ -1,19 +1,19 @@
 ---
 title: "When to Pack Your Hospital Bag: A Calm UK Checklist"
 slug: when-to-pack-hospital-bag-checklist-uk
-description: "Pack your hospital bag at least 3 weeks before your due date. Use this practical UK checklist for labour, recovery, baby and your birth supporter—without overpacking."
+description: "When should you pack a hospital bag? Use this practical UK checklist for labour, recovery, baby and your birth supporter without overpacking."
 date: 2026-11-20
 updated: 2026-11-20
 author: OBubba
 tags: when to pack hospital bag, hospital bag checklist UK, maternity hospital bag, what to pack for labour, hospital bag for baby, birth partner hospital bag, caesarean hospital bag, OBubba pregnancy app
-heroImage: /obubba-hospital-bag-checklist-uk.jpg
+heroImage: /obubba-hospital-bag-checklist-uk-20261120.jpg
 ---
 
-The tiny bodysuit is folded. The charger is still beside the sofa. Your maternity notes are needed at tomorrow's appointment. Does the hospital bag have to sit fully packed for a month—and how much of the internet's enormous checklist do you actually need?
+The tiny bodysuit is folded. The charger is still beside the sofa. Your maternity notes are needed at tomorrow's appointment. Does the hospital bag have to sit fully packed for a month, and how much of the internet's enormous checklist do you actually need?
 
-**The NHS suggests packing your hospital bag at least three weeks before your due date.** That is around **37 weeks**, although your own maternity team may advise an earlier date if you are expecting twins or more, have a planned induction or caesarean, have previously given birth early, live far from your unit, or have another individual reason to prepare sooner.
+**The NHS says it may be a good idea to have your hospital bag packed at least three weeks before your due date.** For a 40-week due date, that is around **37 weeks**. Your own maternity team may advise preparing sooner if you are expecting twins or more, have a planned induction or caesarean, have previously given birth early, live far from your unit, or have another individual reason.
 
-The calmest approach is not one giant suitcase. Pack a small labour-and-birth bag, a baby bag and a clearly labelled top-up bag that can stay at home or in the car. Keep the things you still use—phone, medicines, maternity notes and glasses—on a last-minute list by the door.
+The calmest approach is not one giant suitcase. Pack a small labour-and-birth bag, a baby bag and a clearly labelled top-up bag that can stay at home. Keep the things you still use, such as your phone, medicines, maternity notes and glasses, on a last-minute list by the door.
 
 ## The five-minute answer
 
@@ -32,11 +32,11 @@ Check your hospital or birth centre's own list before buying anything. Units dif
 
 ## When should I pack my hospital bag?
 
-The current [NHS hospital-bag checklist](https://www.nhs.uk/best-start-in-life/pregnancy/preparing-for-labour-and-birth/hospital-bag-checklist/) recommends having it packed at least three weeks ahead of the due date. Only about one baby in 20 arrives on the estimated due date, so the date is a planning point rather than an appointment.
+The current [NHS hospital-bag checklist](https://www.nhs.uk/best-start-in-life/pregnancy/preparing-for-labour-and-birth/hospital-bag-checklist/) says it may be a good idea to have it packed at least three weeks ahead of the due date. Only about one baby in 20 arrives on the estimated due date, so the date is a planning point rather than an appointment.
 
 | Your situation | A practical packing plan |
 |---|---|
-| Straightforward singleton pregnancy | gather from 32–34 weeks; aim to finish by 37 weeks |
+| Straightforward singleton pregnancy | gather from 32 to 34 weeks; aim to finish by 37 weeks |
 | Planned induction or caesarean | use the date and hospital-specific instructions from your maternity team |
 | Twins or more, previous early birth, long journey or a higher chance of earlier admission | ask your team when they want you ready; do not wait for a generic week |
 | Home birth planned | prepare the items your home-birth team requests, plus a transfer bag just in case |
@@ -173,7 +173,7 @@ The seat itself is not a suitcase item, but fitting practice belongs on the same
 
 Under current [UK child-car-seat rules](https://www.gov.uk/child-car-seats-the-rules), height-based seats must remain rear-facing until the child is over 15 months. A rear-facing seat must never be used in front of an active frontal airbag. Check both the vehicle manual and seat instructions rather than relying on a social-media fitting video.
 
-Leave coats and bulky layers outside the harness, and use the seat for travel—not as the baby's routine sleep space after arriving home. If your baby needs neonatal or specialist care, follow the discharge team's positioning and travel advice.
+Follow the seat manufacturer's clothing and harness instructions. Use the seat for travel, not as the baby's routine sleep space after arriving home. The NHS advises taking a sleeping baby out of the car seat as soon as you reach your destination. If your baby needs neonatal or specialist care, follow the discharge team's positioning and travel advice.
 
 ## Seven things you can usually leave at home
 
@@ -193,7 +193,7 @@ The useful question is: **Will this item support labour, recovery, feeding, hygi
 
 OBubba's pregnancy experience does not treat the hospital bag as an isolated shopping list. In the current Flutter app, the **For you** hub places **Hospital bag packed** beside other meaningful readiness steps such as **Car seat fitted**, **Safe sleep space ready** and **First tiny clothes washed**.
 
-![The real OBubba Flutter Pregnancy For you hub, showing Hospital bag packed, Car seat fitted, Safe sleep space ready and practical pregnancy tools.](/obubba-pregnancy-preparation-app.jpg "OBubba keeps practical preparation, wellbeing, kick counting, contractions and trusted guides in one pregnancy home.")
+![The real OBubba Flutter Claim your Bubba screen, where a parent can start a pregnancy profile with a bump name and due date.](/obubba-claim-bump-app-20261120.jpg "OBubba begins during pregnancy with a bump profile and due-date context, then continues into the baby's everyday record after birth.")
 
 The underlying preparation guide follows the same mental model as this article:
 
@@ -209,7 +209,7 @@ The same preparation library includes birth preferences, pain-relief options, th
 
 OBubba then continues after the birth, keeping feeds, nappies, sleep, growth, medicines, appointments, milestones, family handovers and memories in the same home. The aim is continuity: prepare gently now, then have a calmer shared record when sleep is short and nobody remembers which pocket holds the muslin.
 
-**[Try OBubba free →](/free-baby-tracker-app.html)** — pregnancy preparation, practical tools and the baby's everyday story in one calm app.
+**[Try OBubba free →](/app.html?utm_source=hospital_bag_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261120_hospital_bag)** Pregnancy preparation, practical tools and the baby's everyday story in one calm app.
 
 ## A 20-minute packing reset
 
@@ -245,7 +245,7 @@ The NHS includes a pillow as an optional comfort item. Use a distinctive pillowc
 
 ### Where should I keep the hospital bag?
 
-Keep it somewhere obvious and accessible—not buried in a loft or locked car. Tell your supporter or backup person where it is and leave the last-minute list attached.
+Keep it somewhere obvious and accessible, not buried in a loft or locked car. Tell your supporter or backup person where it is and leave the last-minute list attached.
 
 ### Can OBubba tell me exactly what my hospital provides?
 
@@ -255,6 +255,7 @@ No. Hospital policies and individual care plans vary. OBubba can organise genera
 
 - [NHS Best Start in Life: Hospital bag checklist](https://www.nhs.uk/best-start-in-life/pregnancy/preparing-for-labour-and-birth/hospital-bag-checklist/)
 - [NHS Best Start in Life: What to include in your birth plan](https://www.nhs.uk/best-start-in-life/pregnancy/preparing-for-labour-and-birth/what-to-include-in-your-birth-plan/)
-- [GOV.UK: Child car seats—the law](https://www.gov.uk/child-car-seats-the-rules)
+- [GOV.UK: Child car seats, the law](https://www.gov.uk/child-car-seats-the-rules)
+- [NHS: Sudden infant death syndrome](https://www.nhs.uk/baby/caring-for-a-newborn/sudden-infant-death-syndrome-sids/)
 
 *This UK-oriented article is general preparation information, not medical advice. Follow your maternity team's individual instructions. Contact your midwife or maternity unit promptly if you think labour may have started, your waters break, you have vaginal bleeding, your baby is moving less than usual, you are under 37 weeks with possible labour, or anything feels wrong. Call 999 in an emergency.*
