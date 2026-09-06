@@ -5,9 +5,39 @@ description: "A calm UK guide to suspected food-allergy reactions during weaning
 date: 2026-11-09
 updated: 2026-11-09
 author: OBubba
+status: paused
 tags: baby food allergy reaction, allergic reaction baby weaning, baby allergy symptoms, food reaction diary baby, allergen tracker, weaning safety, OBubba
 heroImage: /obubba-baby-food-allergy-reaction-log.jpg
 ---
+
+<!--
+SAFETY PAUSE (2026-09-06): Do not publish or promote this article while the
+current Flutter reaction-group card tells a parent to offer one suspected food
+on its own after two different foods from the same allergen group were logged as
+reactions. The article itself says not to repeat a suspected food as a home test,
+and current guidance routes suspected reactions to professional assessment.
+
+The draft also needs editorial correction before reconsideration: its action
+table lists swollen lips under both the emergency and milder-reaction rows, while
+current NHS anaphylaxis guidance says to call 999 if the lips, mouth, throat or
+tongue suddenly become swollen. The Flutter night guidance also says that most
+reactions appear within 72 hours of the second exposure, an unverified rule that
+can misstate both immediate and delayed reactions.
+
+Required correction before this unit can resume:
+1. Remove the app instruction to re-offer a suspected allergen after logged
+   reactions. Route the family to their GP, health visitor or allergy team and
+   only describe reintroduction as clinician-directed.
+2. Remove the second-exposure rule and use source-aligned timing: immediate
+   reactions are usually within minutes and can take up to two hours, while some
+   delayed allergies can take up to three days.
+3. Rewrite the article's action table so sudden lip swelling is never classified
+   as mild, while preserving symptom-led emergency escalation.
+4. Obtain suitable clinical/content review and reverify the shipped app before
+   removing this pause.
+
+No Flutter code was changed by this publication safeguard.
+-->
 
 A rash appears after breakfast. Your baby coughs once. There is yoghurt, egg and toast on the tray. In a frightening moment, parents are expected to decide what matters and remember every detail.
 
