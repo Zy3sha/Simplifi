@@ -1,7 +1,7 @@
 ---
 title: "Should You Track Baby Sleep During Illness, Travel or Nursery?"
 slug: track-baby-sleep-illness-travel-nursery
-description: "Yes—but treat unusual days as context, not a new normal. Learn what to log when baby is ill, travelling, at nursery or with grandparents."
+description: "Yes, but treat unusual days as context, not a new normal. Learn what to log when baby is ill, travelling, at nursery or with grandparents."
 date: 2026-10-26
 updated: 2026-10-26
 author: OBubba
@@ -9,7 +9,7 @@ tags: track baby sleep when sick, baby sleep diary illness, nursery nap tracker,
 heroImage: /obubba-track-sleep-illness-travel-nursery.jpg
 ---
 
-Baby slept for three hours in the car on a travel day. Nursery wrote “about 45 minutes” for the afternoon nap. A cold led to four broken naps and an early bedtime. Should those days go into the sleep tracker—or will they ruin the pattern?
+Baby slept for three hours in the car on a travel day. Nursery wrote “about 45 minutes” for the afternoon nap. A cold led to four broken naps and an early bedtime. Should those days go into the sleep tracker, or will they ruin the pattern?
 
 **Log what genuinely happened, but label why the day was unusual.** The record can still help with care and handovers. It should not automatically become the new definition of your baby's normal routine.
 
@@ -54,7 +54,7 @@ That is why a context label can be more useful than deleting the long nap or pre
 
 ## When baby is ill: care first, routine second
 
-Illness is not a sleep-training data point. A baby with a fever, breathing difficulty, poor feeding, unusual sleepiness or another concerning symptom needs assessment based on the baby—not an optimisation suggestion from a chart.
+Illness is not a sleep-training data point. A baby with a fever, breathing difficulty, poor feeding, unusual sleepiness or another concerning symptom needs assessment based on the baby, not an optimisation suggestion from a chart.
 
 The [NHS guidance on looking after a sick child](https://www.nhs.uk/baby/health/looking-after-a-sick-child/) says sick children often need plenty of rest and advises giving fluids, comfort and quiet activities. It also warns never to fall asleep with a sick baby on a sofa, even when everyone is exhausted.
 
@@ -69,7 +69,7 @@ During illness, log only what reduces mental load or helps a professional unders
 
 Do not wake a sick baby merely to make the log align with the usual nap plan unless a clinician has told you to wake them for feeds, medicines or another reason. Do not delay urgent help to complete an entry.
 
-Contact your GP, NHS 111 or the service named in your baby's care plan when concerned. Call 999 in an emergency. A baby who is difficult to wake, struggling to breathe, not feeding normally when you are worried, has much drier nappies or seems seriously unwell needs prompt attention.
+Contact your GP, NHS 111 or the service named in your baby's care plan when concerned. Call 999 in an emergency. Current NHS guidance lists being difficult to wake, struggling to breathe, not feeding and having no wet nappy for 12 hours among signs that need urgent medical help.
 
 ### What should happen to the schedule afterwards?
 
@@ -112,7 +112,7 @@ If a night is consistently calmer or rougher after family-care days, explore wha
 
 ## Travel days: change the setting, not the safety rules
 
-Travel can alter light exposure, feeds, movement and sleep opportunity before a time-zone change is even involved. Record journey naps and use one clock convention consistently—usually local destination time once you arrive. Add the original time zone in a note if it will prevent confusion.
+Travel can alter light exposure, feeds, movement and sleep opportunity before a time-zone change is even involved. Record journey naps and use one clock convention consistently, usually local destination time once you arrive. Add the original time zone in a note if it will prevent confusion.
 
 Keep the entry simple:
 
@@ -135,10 +135,10 @@ You do not need a diary entry explaining the whole day. Use a repeatable one-lin
 
 Examples:
 
-- “Sick day — slept on and off; fewer feeds; temperature and medicine logged separately.”
-- “Nursery — last nap ended about 3:05pm; very tired at pickup; start wind-down early.”
-- “Grandparents — two short travel-cot naps; cheerful; normal feeds.”
-- “Travel — long car nap 12:20–2:05pm; arrived 5pm; local time.”
+- “Sick day: slept on and off; fewer feeds; temperature and medicine logged separately.”
+- “Nursery: last nap ended about 3:05pm; very tired at pickup; start wind-down early.”
+- “Grandparents: two short travel-cot naps; cheerful; normal feeds.”
+- “Travel: long car nap 12:20 to 2:05pm; arrived 5pm; local time.”
 
 Avoid diagnostic shorthand such as “overtired caused four wakes” unless a professional established the cause. Record observation separately from interpretation.
 
@@ -160,14 +160,14 @@ The day context can also soften short-term sleep guidance and reminder timing du
 ### Important limits in the current app
 
 - Day types are stored per baby, so a sibling does not inherit the wrong “sick” or “travel” day.
-- They are device-local rather than family-synced. A partner on another device may need the context in the shared note or handover too.
+- Day types are saved to the baby's shared family data as well as a local offline copy. Sync is best effort, so critical care context should still be included in the handover.
 - **Home** is the default and does not need to be saved repeatedly.
 - The tag does not verify nursery times, safe-sleep conditions, illness or medicine doses.
 - **Today type** adds interpretation context; it is not the same as deliberately changing the day's schedule.
 
 That last boundary matters. If a travel or sick day really requires a different plan, follow the baby and any professional advice. A label does not make the decision for you.
 
-**[Try OBubba free →](/free-baby-tracker-app.html)** — track real sleep, feeds and nappies, then give unusual days the context they deserve instead of letting one messy day rewrite the story.
+**[Keep unusual days in context with OBubba](/app.html?utm_source=day_types_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261026_day_types)**. Track real sleep, feeds and nappies, then label the day so one messy day does not rewrite the story.
 
 ## A seven-day review without overanalysing
 
@@ -198,7 +198,7 @@ You can stop if tracking adds stress. If a record helps, focus on care-relevant 
 
 ### Should I enter nursery's estimated nap times?
 
-Yes, if they are useful—keep them as honest estimates. Do not invent minute-level precision, and add a short nursery context label so they are not confused with directly observed home naps.
+Yes, if they are useful. Keep them as honest estimates. Do not invent minute-level precision, and add a short nursery context label so they are not confused with directly observed home naps.
 
 ### Can one grandparents day tell me why the night changed?
 
@@ -206,7 +206,7 @@ No. It can suggest a question, but one night cannot identify the cause. Look acr
 
 ### Do day tags sync to my partner in OBubba?
 
-Not currently. The underlying baby logs can be part of shared family care, but Today type tags are stored per baby on the device where they were added. Put critical context in the handover as well.
+Yes. Today type tags are stored per baby and written to the baby's shared family data, with a local copy kept for offline use. Because a sync can still be delayed by connectivity, put critical care context in the handover as well.
 
 ### Does the Sick tag diagnose illness?
 
@@ -216,7 +216,8 @@ No. It is a parent-selected context label. It cannot assess a baby, interpret a 
 
 - [NHS: Looking after a sick child](https://www.nhs.uk/baby/health/looking-after-a-sick-child/)
 - [NHS Best Start in Life: Understanding your baby](https://www.nhs.uk/best-start-in-life/baby/baby-basics/bonding-with-your-baby/understanding-your-baby/)
-- [Lullaby Trust: Safer sleep when staying away from home](https://www.lullabytrust.org.uk/wp-content/uploads/Staying-away-from-home-poster-5.pdf)
+- [Lullaby Trust: Safer sleep on holiday](https://www.lullabytrust.org.uk/baby-safety/travel-and-weather/safer-sleep-on-holiday/)
+- [Lullaby Trust: Car seats](https://www.lullabytrust.org.uk/baby-safety/baby-product-information/car-seats/)
 - [Lullaby Trust: Safer sleep for childminders, nannies and nursery settings](https://www.lullabytrust.org.uk/wp-content/uploads/Safer-Sleep-Awareness-A-Guide-For-Childminders-Foster-Carers-Nannies-and-Nursery-Settings.pdf)
 
 *This UK-oriented article provides general information, not medical advice or a sleep prescription. Follow your baby's individual care plan and current safer-sleep guidance. Contact your midwife, health visitor, GP or NHS 111 when concerned; call 999 in an emergency.*
