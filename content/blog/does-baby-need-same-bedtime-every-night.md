@@ -20,7 +20,7 @@ Consistency should make family life feel more predictable, not turn the evening 
 There are two kinds of consistency:
 
 - **Timing consistency:** bedtime happens in a broadly similar part of the evening.
-- **Sequence consistency:** the same calm steps happen in the same order — perhaps feed, fresh nappy, sleepsuit, dim lights, book, cuddle and bed.
+- **Sequence consistency:** the same calm steps happen in the same order, perhaps feed, fresh nappy, sleepsuit, dim lights, book, cuddle and bed.
 
 The sequence can stay recognisable even when the clock moves. NHS guidance recommends a simple, soothing bedtime routine for babies and a calming, predictable routine at a similar time for young children. It also stresses that babies have individual sleep patterns and that routines need to change as they grow.
 
@@ -59,7 +59,7 @@ But do not withhold feeds, stretch wake time or keep a tired newborn awake to pr
 
 ## Why a similar bedtime can help
 
-A regular evening pattern gives the body repeated cues that sleep is approaching. The NHS describes consistent sleep and wake times as a way to support the body clock, while a predictable wind-down reduces stimulation before bed.
+A regular evening pattern gives the body repeated cues that sleep is approaching. NHS guidance recommends a simple, soothing bedtime routine for babies and a calming, predictable routine at a similar time for young children.
 
 In real family life, the benefits may be simpler:
 
@@ -85,7 +85,7 @@ Useful notes are concrete: “nap ended 5:10pm; asleep 7:38pm; two wakes” is b
 
 ## How to move bedtime earlier
 
-If bedtime has drifted much later than suits the family, avoid a sudden one-hour jump unless there is a clear reason. NHS advice for children suggests bringing the wind-down earlier gradually — often in small steps — until the desired bedtime is reached.
+If bedtime has drifted much later than suits the family, avoid a sudden one-hour jump unless there is a clear reason. NHS advice for children suggests bringing the wind-down earlier gradually, often in small steps, until the desired bedtime is reached.
 
 A gentle approach is:
 
@@ -114,7 +114,7 @@ If all bedtimes are already steady, or steady and variable nights have similar w
 
 Tonight's prediction remains flexible. The Flutter engine takes account of the final nap, unusual daytime sleep, a skipped nap, recent night patterns and any plan the parent has chosen. That is the distinction OBubba is designed around: **learn the family rhythm, protect useful anchors, and adapt when today is different**.
 
-**[Try OBubba free →](/app.html)** — live sleep timers, tomorrow's plan, bedtime predictions, night-wake context and reports built from your baby's own days.
+**[Try OBubba free →](/app.html?utm_source=bedtime_consistency_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261110_bedtime_consistency)**. Live sleep timers, tomorrow's plan, bedtime predictions, night-wake context and reports are built from your baby's own days.
 
 ## When consistency is not the problem
 
@@ -145,7 +145,7 @@ Both can be useful, but the repeatable sequence is often easier to preserve when
 
 ### What if my baby's bedtime changes every day because naps change?
 
-That is common, especially while nap number and length are still changing. Anchor the wind-down, watch the final nap and use a bedtime range. Our [feed-before-or-after-nap guide](/blog/feed-baby-before-or-after-nap.html) and [nap-transition guide](/blog/is-my-baby-ready-to-drop-a-nap.html) can help untangle the day.
+That is common, especially while nap number and length are still changing. Anchor the wind-down, watch the final nap and use a bedtime range. Our [wake-windows-without-stress guide](/blog/baby-wake-windows-without-stress.html) and [nap-transition guide](/blog/is-my-baby-ready-to-drop-a-nap.html) can help untangle the day.
 
 ### Can OBubba prove that bedtime caused fewer wakes?
 
