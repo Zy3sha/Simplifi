@@ -2,8 +2,8 @@
 title: "Does My Baby Need Vitamin D Drops? A Clear UK Guide"
 slug: does-my-baby-need-vitamin-d-drops-uk
 description: "Does your breastfed, combination-fed or formula-fed baby need vitamin D drops? A calm UK guide to doses, the 500ml formula rule and safer use."
-date: 2026-11-06
-updated: 2026-11-06
+date: 2026-09-06
+updated: 2026-09-06
 author: OBubba
 tags: baby vitamin D drops UK, vitamin D breastfed baby, vitamin D combination fed baby, 500ml formula vitamin D, baby vitamins weaning, Healthy Start vitamin drops, newborn vitamin D, OBubba newborn guide
 heroImage: /obubba-baby-vitamin-d-drops.jpg
