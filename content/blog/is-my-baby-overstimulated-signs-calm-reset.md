@@ -5,6 +5,7 @@ description: "Learn the early signs of an overstimulated baby, how to tell them 
 date: 2026-12-12
 updated: 2026-12-12
 author: OBubba
+status: paused
 tags: baby overstimulated signs, how to calm overstimulated baby, newborn overstimulation, overstimulated baby won't sleep, baby needs a break cues, baby crying after play, baby overwhelmed in busy place, calm baby reset, baby sensory overload, OBubba crying helper
 heroImage: /obubba-baby-overstimulated-calm-reset.jpg
 ---
