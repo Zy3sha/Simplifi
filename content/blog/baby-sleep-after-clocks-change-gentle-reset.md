@@ -9,7 +9,7 @@ tags: baby sleep after clocks change, baby waking early clocks go back, daylight
 heroImage: /obubba-baby-sleep-after-clocks-change.jpg
 ---
 
-The clock says 5:12am. Your baby’s body says 6:12am—and apparently the day has begun. Naps arrive “early,” tea feels late and bedtime is suddenly an hour away from the familiar sleepy patch.
+The clock says 5:12am. Your baby’s body says 6:12am, and apparently the day has begun. Naps arrive “early,” tea feels late and bedtime is suddenly an hour away from the familiar sleepy patch.
 
 **You do not need to move the whole routine by an hour in one day.** After the autumn clocks go back, keep the pre-6am environment dark and quiet, anchor the morning with daylight when you want the day to begin, and move naps and bedtime towards the new clock in small steps. Some babies adjust without a plan; others do better with 10–15-minute shifts over several days.
 
@@ -49,7 +49,7 @@ Use the first morning as observation, not an exam. Record what actually happened
 - Before your chosen morning start, keep lights low and interaction quiet.
 - Feed responsively. Hunger does not become invalid because the clock says 5am.
 - Once morning begins, open the curtains and get ordinary daylight.
-- Offer the first nap from the actual wake time and tired cues—not from yesterday’s wall-clock slot.
+- Offer the first nap from the actual wake time and tired cues, not from yesterday’s wall-clock slot.
 - Start the familiar bedtime routine when baby is genuinely approaching sleep, even if that is earlier than you hoped.
 
 The goal is to prevent a tired baby being stretched by a full extra hour.
@@ -91,7 +91,7 @@ An early wake is the part most likely to make parents abandon the gradual plan.
 
 [Newcastle Hospitals' infant-sleep guidance](https://www.newcastle-hospitals.nhs.uk/services/sleep-service/paediatric-sleep/sleep-infants-0-12-months-2/) explains that daylight and darkness help babies develop their body clock and suggests morning outdoor time as a useful cue.
 
-If your baby wakes early for more than a week, also check room light, temperature, noise, hunger, illness, nap timing and bedtime—not just the clock change. Read our [calm guide to early waking](/blog/baby-waking-early-4am-morning.html) for the wider checklist.
+If your baby wakes early for more than a week, also check room light, temperature, noise, hunger, illness, nap timing and bedtime, not just the clock change. Read our [calm guide to early waking](/blog/baby-waking-early-4am-morning.html) for the wider checklist.
 
 ## How to move naps without ruining bedtime
 
@@ -142,19 +142,19 @@ For every sleep, place baby on their back in a clear, separate sleep space with 
 
 ## How the real OBubba Flutter app handles a clock-shift week
 
-The native Flutter app does not silently rewrite a baby's routine because the phone time changed. It keeps the actual sleep log intact, then lets the parent decide whether the family wants to shift.
+The native Flutter app does not silently rewrite a baby's routine because the phone time changed. It keeps the actual sleep log intact, then lets the parent decide whether the family wants to shift. This adjustment is for an older baby with an established rhythm, not a newborn or a baby whose clinical feeding plan sets the day.
 
 In **Track → Adjust Schedule**, a parent can set a preferred wake time, bedtime and nap count, then choose:
 
-- **Just today** for a one-off rescue day
-- **Gradually** to ease wake and bedtime towards the target over three days
+- **Just today** for a one-day wake or bedtime change
+- **Gradually** to ease wake and bedtime towards the target over three calendar days
 - **Every day** for a continuing family preference
 
-The tested gradual engine calculates one step per calendar day and will not overshoot the chosen target. Calendar differences are date-based rather than fixed 24-hour subtraction, so the 23- or 25-hour DST day cannot stall a step or accidentally keep a one-day override active tomorrow.
+Nap count and any pinned nap times are different: they remain in place until the parent resets them to **Auto**, even if **Just today** was selected. The tested gradual engine calculates one wake and bedtime step per calendar day and will not overshoot the chosen target. A one-hour target therefore moves by about 20 minutes per day across the three-day transition. Calendar differences are date-based rather than fixed 24-hour subtraction, so the 23- or 25-hour DST day cannot stall a step or accidentally keep a one-day wake or bedtime override active tomorrow.
 
 ![The real OBubba Flutter Tomorrow's Plan showing predicted wake, naps and bedtime, plus a prompt to adjust the schedule when it is not a normal day](/obubba-tomorrows-plan-nap-bedtime-prediction.jpg "OBubba's current native Flutter Tomorrow's Plan keeps predictions and logged sleep separate. A parent can adjust an unusual week without rewriting what the baby actually did.")
 
-The **Tomorrow's Plan** view projects wake, naps and bedtime from recent usable history. The same resolved schedule is passed to the clock and wind-down reminders, so a manual bedtime adjustment is not shown in one place while the old reminder fires somewhere else.
+The **Tomorrow's Plan** view projects wake, naps and bedtime from recent usable history. When there is not enough usable wake history, it falls back to a 7am starting wake and age-based nap structure, so treat a new or sparsely logged plan as a starting estimate rather than a learned personal rhythm. The same resolved schedule is passed to the clock and wind-down reminders, so a manual bedtime adjustment is not shown in one place while the old reminder fires somewhere else.
 
 ### What OBubba does not assume
 
@@ -168,7 +168,9 @@ The app cannot know whether:
 
 That is why the adjustment is chosen by the parent and remains reversible. Set naps back to **Auto** when you want the live rhythm to lead again.
 
-**[Try OBubba free →](/app.html)** — track what actually happened, see tomorrow's gentle projection and ease the schedule without forcing an hour-long jump.
+**[Track the clock-change week in OBubba →](/app.html?utm_source=clock_change_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261105_clock_change)**
+
+Keep what actually happened separate from the plan, see tomorrow's projection and make a parent-chosen adjustment without rewriting the sleep log.
 
 ## The no-overthinking version
 
