@@ -1302,6 +1302,7 @@ const OUTPUT_ROOTS = process.argv.includes('--root-only')
     ];
 
 const SHARED_ASSETS = [
+  'obubba-forgot-stop-baby-sleep-timer.jpg',
   'obubba-track-sleep-illness-travel-nursery.jpg',
   'obubba-track-twins-without-mixups.jpg',
   'obubba-multi-baby-account-app.jpg',
