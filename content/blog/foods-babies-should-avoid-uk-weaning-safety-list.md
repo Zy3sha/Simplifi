@@ -33,6 +33,9 @@ Here is the quick UK list.
 | Raw shellfish | Avoid; cook thoroughly | Food-poisoning risk |
 | Shark, swordfish and marlin | Avoid for children under 16 | High mercury levels |
 | Unpasteurised and mould-ripened soft cheese | Avoid for babies | Listeria risk |
+| Unpasteurised or raw milk | Avoid | Food-poisoning risk |
+| Fresh pâté made from meat, fish or vegetables | Avoid | Food-poisoning risk |
+| Plant-based drinks | Do not use as a main drink before 12 months | They do not replace breast milk or first infant formula |
 | Raw jelly cubes, hard sweets and marshmallows | Avoid | Choking risk |
 
 The [NHS foods-and-drinks-to-avoid guide](https://www.nhs.uk/best-start-in-life/baby/weaning/safe-weaning/food-and-drinks-to-avoid/) is the primary reference behind this list. Individual advice from your health visitor, GP or dietitian takes priority.
@@ -279,6 +282,12 @@ The checks understand preparation language too. “Mashed banana and quartered g
 That is the value of joining guidance to a tracker: safety information appears at the moment a real meal is being recorded, not only in an article a parent read three weeks ago.
 
 OBubba also remembers allergens already tried, flags recorded reactions, notices whether iron-rich foods are appearing and keeps the feeding story alongside milk, nappies, sleep and growth.
+
+The checker is a text-based prompt, not a food inspection or nutrition-label reader. It cannot see whether a grape was really quartered, find a fish bone, confirm pasteurisation or decide that a packaged product is safe. Parents still need to read the label, prepare food for their baby's stage and supervise every meal.
+
+The Before first tastes guide, First Foods catalogue and solids logging are available without Premium. The full recipe garden is a Premium feature after OBubba's early-free period; the app shows current eligibility and storefront options before purchase.
+
+**[Keep the safety list beside the meal log →](/app.html?utm_source=foods_to_avoid_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261018_foods_to_avoid)**
 
 ## A screenshot-friendly kitchen checklist
 

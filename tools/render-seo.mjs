@@ -1348,6 +1348,8 @@ const SHARED_ASSETS = [
   'obubba-newborn-reassurance-app.jpg',
   'obubba-baby-sleep-consultant.jpg',
   'obubba-sleep-consultant-app.jpg',
+  'obubba-foods-babies-should-avoid.jpg',
+  'obubba-foods-to-avoid-weaning-app.jpg',
   'obubba-app-growth-development-screenshot.jpg',
   'sleep-baby.png',
   'og-image.png',
