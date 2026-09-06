@@ -5,6 +5,7 @@ description: "A weekend lie-in can be welcome—but will Sunday bedtime suffer? 
 date: 2026-12-01
 updated: 2026-12-01
 author: OBubba
+status: paused
 tags: should baby sleep in weekends, baby weekend sleep schedule, toddler weekend lie in, Sunday bedtime resistance toddler, baby social jet lag, same wake time baby every day, Monday baby sleep routine, OBubba weekend sleep pattern
 heroImage: /obubba-baby-weekend-lie-in.jpg
 ---
