@@ -5,9 +5,23 @@ description: "A late last nap can leave a baby wide awake at bedtime—but overt
 date: 2026-11-15
 updated: 2026-11-15
 author: OBubba
+status: paused
 tags: baby fighting bedtime after late nap, wake maintenance zone baby, late nap bedtime battle, baby wide awake at bedtime, baby second wind bedtime, last nap ending too late, baby undertired at bedtime, baby false start after late nap, cap last nap baby, OBubba sleep insight
 heroImage: /obubba-late-last-nap-evening-alertness-window.jpg
 ---
+
+<!--
+SAFETY PAUSE (2026-09-06): Do not publish or promote this article while the
+current Flutter wake-maintenance-zone detector turns a fixed, hand-tuned
+infant alertness curve into a causal bedtime-battle explanation. The detector
+requires last-nap ends and bedtimes, but does not require recorded settling
+difficulty, bedtime resistance or false starts before saying the late nap made
+bedtime a battle. The wake-maintenance-zone study verified during this audit
+used young adult men, not babies, so it does not validate OBubba's fixed infant
+clock curve, 0.72 threshold or 45-minute intervention. Reframe the feature as
+an explicitly experimental timing hypothesis, add direct outcome evidence to
+the detector, and obtain suitable infant-sleep review before acquisition use.
+-->
 
 Your baby wakes from the final nap looking refreshed. An hour later the bath is done, the lights are low—and they are still rolling, chatting or pulling up as if bedtime were an unreasonable suggestion.
 
