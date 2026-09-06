@@ -196,6 +196,24 @@ const BRAND_IMAGES = [
     height: 1000,
   },
   {
+    path: '/obubba-when-will-baby-crawl-20261119.jpg',
+    name: 'Baby practising crawling with a parent nearby',
+    title: 'Safe supervised floor play before crawling',
+    caption: 'A baby practising movement on a clear floor with a parent close by, illustrating OBubba\'s calm guide to crawling signs.',
+    keywords: 'baby crawling signs, safe floor play, when do babies crawl, OBubba milestones',
+    width: 1800,
+    height: 1200,
+  },
+  {
+    path: '/obubba-milestones-app-20261119.jpg',
+    name: 'OBubba milestones and practising-window screen',
+    title: 'OBubba milestones and Skill Forecast entry',
+    caption: 'Official OBubba screenshot showing remembered milestones and a gentle practising-window route to upcoming developmental chapters.',
+    keywords: 'OBubba, baby milestone tracker, Skill Forecast, development record',
+    width: 850,
+    height: 1480,
+  },
+  {
     path: '/obubba-fireflies-hope-parents-awake.jpg',
     name: 'OBubba Fireflies parent-presence screen',
     title: 'OBubba Fireflies for parents awake together',
@@ -1302,6 +1320,8 @@ const OUTPUT_ROOTS = process.argv.includes('--root-only')
     ];
 
 const SHARED_ASSETS = [
+  'obubba-when-will-baby-crawl-20261119.jpg',
+  'obubba-milestones-app-20261119.jpg',
   'obubba-baby-vitamin-d-drops.jpg',
   'obubba-newborn-reassurance-app.jpg',
   'obubba-split-newborn-night-shifts.jpg',
