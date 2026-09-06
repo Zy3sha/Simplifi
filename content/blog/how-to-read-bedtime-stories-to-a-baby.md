@@ -7,6 +7,7 @@ updated: 2026-09-06
 author: OBubba
 tags: bedtime stories for babies, how to read to a baby, baby will not sit still for books, reading to newborn, baby bedtime story routine
 heroImage: /obubba-bedtime-story-baby-wont-sit-still.jpg
+ogImage: /obubba-bedtime-story-baby-wont-sit-still.jpg
 related: simple-baby-bedtime-routine-that-works, five-minute-baby-play-ideas-by-age, baby-memory-book-without-falling-behind, baby-milestones-without-comparison, baby-wont-stop-crying-overwhelmed-safe-reset, cant-sleep-when-baby-sleeps
 ---
 
