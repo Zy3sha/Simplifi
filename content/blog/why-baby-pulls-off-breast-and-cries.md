@@ -5,6 +5,8 @@ description: "Baby pulling off the breast and crying? Use the timing and signs a
 date: 2026-12-14
 updated: 2026-12-14
 author: OBubba
+status: paused
+pauseReason: "Do not publish while the Flutter lactation-engorgement insight can direct breastfeeding parents from side-time data alone to start on the underused breast, hand-express it, apply a warm compress and massage before feeds. Current NHS mastitis guidance prioritises responsive feeding, expressing only enough for comfort, cold relief and avoiding firm pressure. Reconcile and clinically review the product guidance before this acquisition article promotes the Breastfeeding screen and side tracking."
 tags: baby pulls off breast and cries, baby unlatching and crying, fast letdown baby, baby clicking breastfeeding, breastfeeding latch help, baby fusses at breast, breast refusal baby, low milk supply signs, breastfeeding tracker app, OBubba breastfeeding support
 heroImage: /obubba-baby-pulls-off-breast-cries.jpg
 ---
