@@ -1,7 +1,7 @@
 ---
-title: "New Parent Mental Load: Make Invisible Baby Care Visible—Without Keeping Score"
+title: "New Parent Mental Load: Make Invisible Baby Care Visible Without Keeping Score"
 slug: new-parent-mental-load-make-invisible-care-visible
-description: "Feeds, naps, nappies and night wakes add up. Learn how to share the new-parent mental load without scorekeeping—and how OBubba reflects the care you already give."
+description: "Feeds, naps, nappies and night wakes add up. Learn how to share the new-parent mental load without scorekeeping and how OBubba reflects the care you already give."
 date: 2026-11-13
 updated: 2026-11-13
 author: OBubba
@@ -48,7 +48,7 @@ Try this opening instead:
 
 ## A ten-minute care-load reset
 
-Do this during daylight if possible—not at 2am, and not in the middle of a crying spell.
+Do this during daylight if possible, not at 2am or in the middle of a crying spell.
 
 ### 1. Name the recurring work
 
@@ -101,7 +101,7 @@ A shared record is helpful when it prevents duplicate questions and unsafe guess
 Prioritise events another carer genuinely needs:
 
 - when and how the baby fed
-- the measured amount actually taken from a bottle—not an invented breastfeeding volume
+- the measured amount actually taken from a bottle, not an invented breastfeeding volume
 - wet and dirty nappies when intake or illness is a concern
 - sleep start and end times if shifts depend on them
 - medicine name, amount and exact time, checked against the label or professional advice
@@ -120,7 +120,7 @@ After two or three days, ask:
 
 That makes the household process the thing being improved. It avoids turning one exhausted night into a verdict on either parent.
 
-## What a baby-care total can—and cannot—tell you
+## What a baby-care total can and cannot tell you
 
 A month of feeds, naps and nappies can be surprisingly moving when you see it together. It can confirm that the repetitive work was real. It can also reveal that a “quiet” month contained hundreds of moments of care.
 
@@ -135,29 +135,29 @@ But a total cannot tell you:
 
 Counts should be a mirror, not a leaderboard. If they start prompting comparison, guilt or compulsive logging, simplify the record and return to the practical question: **what would make care safer and more sustainable today?**
 
-## How OBubba turns logs into recognition—not a target
+## How OBubba turns logs into recognition, not a target
 
-The Flutter app contains a deliberately gentle monthly feature called **A Month of Love**. It reads the active baby’s last 30 days and can reflect back real logged care such as:
+The Flutter app contains a deliberately gentle monthly feature called **A Month of Love**. It reads the active baby’s last 30 days and reflects back counts from the shared care log, including:
 
-- feeds given
-- hours of baby sleep supported
-- naps held
-- night wakes soothed
-- nappy logs
+- feeds logged
+- hours of baby sleep recorded
+- naps logged
+- recorded night wakes
+- nappy entries
 
 It does not appear for a brand-new or sparsely logged account: the app waits until there are at least 14 days with data and enough feed-and-nap activity for the moment to feel earned. It appears at most once per calendar month for each baby. Zero-value categories are left out.
 
 Most importantly, the code describes the card as **“warm, never a target or a comparison.”** The close is permission to take time back, not a demand to beat last month. Families can keep or share the recap, or simply dismiss it.
 
-That boundary matters. The card aggregates the baby’s shared timeline; it does **not** measure which adult contributed each task or capture every invisible job. OBubba should never be used to audit a partner.
+That boundary matters. The card uses warm phrases such as “naps held” and “nappies changed”, but the underlying data is a count of shared log entries. It cannot prove who physically held a nap, changed a nappy or contributed each task, and it does not capture every invisible job. Treat it as a family-care reflection, never an audit of a partner.
 
 ![OBubba's Parent Room offers a quiet, private wellbeing space alongside recovery guidance and baby tracking.](/obubba-parent-room-app.jpg)
 
-The same philosophy continues in **Care → Parent Room**. It includes a private wellbeing check-in, recovery support and calm prompts for the parent—not only analysis of the baby. When shared access is appropriate, **Account → Family sharing** lets regular carers work from the same child timeline instead of maintaining competing notes.
+The same philosophy continues in **Care → Parent Room**. It includes a private wellbeing check-in, recovery support and calm prompts for the parent, not only analysis of the baby. When shared access is appropriate, **Account → Family sharing** lets regular carers work from the same child timeline instead of maintaining competing notes.
 
 That combination is the useful product promise: record care once, make the handover clearer, notice patterns over time and remember that the person doing the care also matters.
 
-**[Try OBubba free →](/free-baby-tracker-app.html)** — shared feeds, sleep, nappies, medicines, Parent Room support and a monthly care recap designed for recognition rather than competition.
+**[Make the next handover lighter →](/app.html?utm_source=mental_load_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261113_mental_load)** with shared feeds, sleep, nappies, medicines, Parent Room support and a monthly care recap designed for recognition rather than competition.
 
 ## If the load is becoming unsafe
 
@@ -203,7 +203,7 @@ The monthly **A Month of Love** card summarises the baby’s care record; it is 
 
 ### What if I am parenting without a partner?
 
-Shared care can involve a relative, friend, doula, nursery or other trusted carer. Ask for concrete ownership—food delivery, laundry, an accompanied rest window, school pickup or one regular check-in. Your health visitor can also connect you with local services and Family Hubs.
+Shared care can involve a relative, friend, doula, nursery or other trusted carer. Ask for concrete ownership such as food delivery, laundry, an accompanied rest window, school pickup or one regular check-in. Your health visitor can also connect you with local services and Family Hubs.
 
 ## Reliable UK sources
 
@@ -212,6 +212,6 @@ Shared care can involve a relative, friend, doula, nursery or other trusted care
 - [NHS: Postnatal depression](https://www.nhs.uk/mental-health/conditions/postnatal-depression/)
 - [NHS: Find care for your mental health before, during and after pregnancy](https://www.nhs.uk/nhs-services/mental-health-services/find-care-for-your-mental-health-before-during-and-after-pregnancy/)
 - [NHS: Urgent mental health support](https://www.nhs.uk/every-mind-matters/urgent-support/)
-- [NHS children’s health service: Keeping your sleeping baby safe](https://bedslutonchildrenshealth.nhs.uk/sleep/keeping-your-sleeping-baby-safe/)
+- [NHS: Sudden infant death syndrome (SIDS)](https://www.nhs.uk/baby/caring-for-a-newborn/sudden-infant-death-syndrome-sids/)
 
 *This article provides general information for UK parents. It is not medical, mental-health or relationship advice, and OBubba is not a medical device. Seek professional help whenever you are worried about yourself, your baby or another carer.*
