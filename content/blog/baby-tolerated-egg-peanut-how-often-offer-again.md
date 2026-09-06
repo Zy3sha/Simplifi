@@ -1,5 +1,5 @@
 ---
-title: "Baby Tolerated Egg or Peanut—How Often Should You Offer It Again?"
+title: "Baby Tolerated Egg or Peanut: How Often Should You Offer It Again?"
 slug: baby-tolerated-egg-peanut-how-often-offer-again
 description: "Once baby tolerates egg, peanut or another allergen, what happens next? Build a simple repeat-food rotation with safe forms, reaction guidance and no anxious over-tracking."
 date: 2026-11-14
@@ -13,7 +13,7 @@ The first spoonful of egg can feel like an event. You choose a quiet morning, pr
 
 Then the next week arrives and a less dramatic question appears: **do we need to give it again?**
 
-**Yes. Once an allergenic food has been introduced and tolerated, current UK guidance is to make it part of your baby’s usual varied diet rather than treating one taste as a completed checkbox.** The NHS does not prescribe one universal timetable. Allergy UK suggests keeping tolerated allergens such as egg and peanut in the diet ideally at least twice a week; its peanut-specific guidance describes 1–2 teaspoons in a safe form, 2–3 times a week.
+**Yes. Once an allergenic food has been introduced and tolerated, current UK guidance is to make it part of your baby’s usual varied diet rather than treating one taste as a completed checkbox.** The NHS does not prescribe one universal timetable. Allergy UK suggests keeping tolerated allergens such as egg and peanut in the diet ideally at least twice a week; its peanut-specific guidance describes 1 to 2 teaspoons in a safe form, 2 to 3 times a week.
 
 That is a pattern, not a challenge or a guarantee. If your baby has ever reacted, has moderate-to-severe eczema, already has a food allergy or follows a specialist plan, use the advice from your GP, health visitor, dietitian or allergy team instead of a generic rotation.
 
@@ -21,9 +21,9 @@ That is a pattern, not a challenge or a guarantee. If your baby has ever reacted
 
 Introducing an allergen is not like ticking off a museum visit. The aim is for a tolerated food to become ordinary.
 
-The [NHS food-allergy guide](https://www.nhs.uk/baby/weaning-and-feeding/food-allergies-in-babies-and-young-children/) says that foods which can trigger allergy should become part of the baby’s usual diet once introduced and tolerated. It also warns against unnecessarily delaying peanut and hen’s egg beyond 6–12 months.
+The [NHS food-allergy guide](https://www.nhs.uk/baby/weaning-and-feeding/food-allergies-in-babies-and-young-children/) says that foods which can trigger allergy should become part of the baby’s usual diet once introduced and tolerated. It also warns against unnecessarily delaying peanut and hen’s egg beyond 6 to 12 months.
 
-Allergy UK goes one step more practical: after successful introduction, continue the food regularly—ideally at least twice a week. For peanut, its current factsheet suggests 1–2 teaspoons, 2–3 times weekly, served in a safe form.
+Allergy UK goes one step more practical: after successful introduction, continue the food regularly, ideally at least twice a week. For peanut, its current factsheet suggests 1 to 2 teaspoons, 2 to 3 times weekly, served in a safe form.
 
 This does **not** mean:
 
@@ -116,7 +116,7 @@ At every meal, seat your baby upright in a stable highchair, use the harness and
 
 Do not panic or compensate with an oversized portion. Resume the familiar food in its usual safe form.
 
-A holiday, illness, refusal spell or chaotic week can interrupt the routine. A missed serving is not proof that tolerance has vanished. But if the gap is long, if there was any previous symptom, or if you stopped because you were concerned about allergy, get individual advice before restarting—particularly for peanut.
+A holiday, illness, refusal spell or chaotic week can interrupt the routine. A missed serving is not proof that tolerance has vanished. But if the gap is long, if there was any previous symptom, or if you stopped because you were concerned about allergy, get individual advice before restarting, particularly for peanut.
 
 The aim is sustainable family food, not perfect streak maintenance.
 
@@ -149,7 +149,7 @@ Call **999** for breathing difficulty, swelling of the tongue or throat, collaps
 
 Redness only where acidic food touched the skin can be irritant rather than allergy, but parents should not have to diagnose that from a blog. Photograph the area if safe, note the timing and ingredients, and ask for advice when uncertain.
 
-Never use repeated home servings to “prove” that a previous reaction was harmless. The [OBubba reaction guide](/blog/baby-food-allergy-reaction-what-to-do-log.html) explains what to record and when to escalate.
+Never use repeated home servings to “prove” that a previous reaction was harmless. Stop the suspected food, note the timing and ingredients, and follow the [NHS food-allergy guidance](https://www.nhs.uk/baby/weaning-and-feeding/food-allergies-in-babies-and-young-children/) or your baby’s own allergy action plan.
 
 ## Higher-risk babies need an individual starting plan
 
@@ -170,19 +170,21 @@ Opening an allergen shows one of two importantly different states:
 - **Introduced:** the screen reminds the parent to keep the tolerated food in regular rotation, approximately twice a week.
 - **Reaction logged:** the first-taste suggestion is hidden, and the screen says to pause and check with a doctor before offering it again.
 
-The app also has a small confidence insight inspired by repeat exposure. It can say **Looking good with Egg** only when recent records contain at least three clearly tolerated egg meals, no recorded egg reaction—including reactions preserved from older history—and fewer than two ambiguous **Unsure** meals. It is limited to a recent introductory window and appears separately for each allergen.
+The app also has a small confidence insight inspired by repeat exposure. It can say **Looking good with Egg** only when recent records contain at least three clearly tolerated egg meals, no recorded egg reaction, including reactions preserved from older history, and fewer than two ambiguous **Unsure** meals. It is limited to a recent introductory window and appears separately for each allergen.
 
 Those boundaries are more important than the celebratory wording. Three app entries do not medically clear a food. An **Unsure** meal is not silently counted as a clean exposure. A reaction from weeks earlier is not forgotten just because it left the recent timeline.
 
 Food-name recognition is useful but imperfect. “Egg toast” may be recognised; “yellow breakfast” cannot be. A recipe can contain several allergens. Check what actually went into the meal and correct the record rather than trusting an automatic label blindly.
 
-**[Try OBubba free →](/free-baby-tracker-app.html)** — track first introductions, repeat servings, reactions, textures and milk alongside the rest of your baby’s day, with safety boundaries that remember more than a checkbox.
+**[Keep the allergen journey in one place →](/app.html?utm_source=allergen_repeat_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261114_repeat_allergens)**
+
+Track first introductions, repeat servings, reactions, textures and milk alongside the rest of your baby’s day, with safety boundaries that remember more than a checkbox.
 
 ## Frequently asked questions
 
 ### Is one successful peanut serving enough?
 
-No. It is encouraging, but UK guidance recommends keeping tolerated allergenic foods in the usual diet. Allergy UK’s peanut guidance suggests a safe peanut serving 2–3 times a week. Use individual advice for higher-risk babies or any previous concern.
+No. It is encouraging, but UK guidance recommends keeping tolerated allergenic foods in the usual diet. Allergy UK’s peanut guidance suggests a safe peanut serving 2 to 3 times a week. Use individual advice for higher-risk babies or any previous concern.
 
 ### How often should I give egg after introduction?
 
