@@ -646,6 +646,9 @@ const TOPIC_PAGES = [
   },
   {
     slug: 'baby-care-handover-app',
+    contentId: 'auto_20260816_owned_baby-care-handover-app',
+    ctaAnalyticsContent: 'auto_20260816_owned_baby-care-handover-app',
+    preserveIncomingAttribution: true,
     keyword: 'baby care handover app',
     title: 'Baby Care Handover App - OBubba Bubba Care',
     h1: 'Baby care handovers without the frantic recap.',
@@ -2666,6 +2669,27 @@ function renderTopicPage(topic) {
   const secondaryCtaUrl = topic.secondaryCtaUrl || topicPlayStoreUrl;
   const secondaryCtaLabel = topic.secondaryCtaLabel || 'Get it on Android';
   const actionAriaLabel = topic.actionAriaLabel || (topic.primaryCtaUrl ? 'Professional OBubba resources' : 'Download OBubba');
+  const ctaAttributionSetup = topic.preserveIncomingAttribution ? `
+    const fallback = {
+      source: 'owned_search',
+      medium: 'seo',
+      campaign: 'from_bump_to_baby_auto',
+      content: ${JSON.stringify(topic.ctaAnalyticsContent)}
+    };
+    const incoming = new URLSearchParams(location.search);
+    const source = incoming.get('utm_source') || '';
+    const medium = incoming.get('utm_medium') || '';
+    const campaign = incoming.get('utm_campaign') || '';
+    const content = incoming.get('utm_content') || '';
+    const allowedSources = new Set(['owned_search', 'first_night_away_article', 'facebook', 'instagram', 'tiktok', 'email', 'partner_share', 'handover_share']);
+    const allowedMedia = new Set(['seo', 'owned_search', 'organic_social', 'email', 'referral']);
+    const attribution = allowedSources.has(source)
+      && allowedMedia.has(medium)
+      && campaign === 'from_bump_to_baby_auto'
+      && /^auto_[A-Za-z0-9_-]{1,100}$/.test(content)
+      ? { source, medium, campaign, content }
+      : fallback;` : `
+    const content = ${JSON.stringify(topic.ctaAnalyticsContent)};`;
   const ctaAnalytics = topic.ctaAnalyticsContent ? `
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -2687,17 +2711,17 @@ function renderTopicPage(topic) {
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-Y7CHSL1YHZ"></script>
   <script>
   (() => {
-    const content = ${JSON.stringify(topic.ctaAnalyticsContent)};
+    ${ctaAttributionSetup}
     document.querySelectorAll('a.store').forEach((link) => {
       const destination = link.hostname === 'apps.apple.com' ? 'app_store' : link.hostname === 'play.google.com' ? 'google_play' : '';
       if (!destination) return;
       link.addEventListener('click', () => gtag('event', 'store_click', {
         event_category: 'download',
         store: destination,
-        ob_source: 'owned_search',
-        ob_medium: 'seo',
-        ob_campaign: 'from_bump_to_baby_auto',
-        ob_content: content,
+        ob_source: ${topic.preserveIncomingAttribution ? 'attribution.source' : "'owned_search'"},
+        ob_medium: ${topic.preserveIncomingAttribution ? 'attribution.medium' : "'seo'"},
+        ob_campaign: ${topic.preserveIncomingAttribution ? 'attribution.campaign' : "'from_bump_to_baby_auto'"},
+        ob_content: ${topic.preserveIncomingAttribution ? 'attribution.content' : 'content'},
         page_location: location.origin + location.pathname,
         transport_type: 'beacon'
       }));
