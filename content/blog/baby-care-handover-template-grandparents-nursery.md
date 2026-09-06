@@ -17,9 +17,11 @@ Start with the last feed, the last nappy when you are watching output, recent sl
 
 The [practical baby tracker checklist for tired handovers](/blog/baby-tracker-app-checklist-for-new-parents.html) can also help you decide whether a shared record removes work or creates more of it.
 
+If paper is easier for the person taking over, use the free one-page OBubba handover sheet below. It gives both carers space for recent feeds, sleep, nappies, existing medicine instructions, contacts and the hand-back summary. Keep only the details your family actually needs.
+
 ## Copy the short baby handover template
 
-Use the copy or share button above the template. Delete any line your family does not need.
+Use the copy or share button above the template, or download the printable A4 sheet. Delete any line your family does not need.
 
 ## What each line is for
 

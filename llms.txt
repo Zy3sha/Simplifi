@@ -15,6 +15,7 @@
 - App Store ratings and review counts change. Use the current public store listing whenever a current rating is needed.
 - Contact: hello@obubba.com
 - [press and media resources](https://obubba.com/press.html): Verified product facts, founder information, app links and downloadable OBubba media assets.
+- [printable baby care handover sheet](https://obubba.com/resources/obubba-baby-care-handover-sheet.pdf): A free one-page A4 handover for recent feeds, sleep, nappies, existing medicine instructions, contacts and the hand-back summary.
 
 ## Ratings and reviews
 

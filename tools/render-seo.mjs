@@ -3165,7 +3165,10 @@ function renderTopicPage(topic) {
         <p class="section-lede">This five-line builder helps a parent brief a partner, grandparent or trusted carer without creating an account or sending care details to OBubba. The embed is a neutral resource link, not a recommendation or clinical tool.</p>
         <label for="handover-embed-code"><strong>Website embed code</strong></label>
         <textarea class="privacy-embed-code" id="handover-embed-code" readonly spellcheck="false">${escapeHtml(handoverEmbedSnippet)}</textarea>
-        <button class="button" type="button" id="copy-handover-embed">Copy handover embed</button>
+        <div class="hero-actions">
+          <button class="button" type="button" id="copy-handover-embed">Copy handover embed</button>
+          <a class="button secondary" href="/resources/obubba-baby-care-handover-sheet.pdf?utm_source=professional_resource&amp;utm_medium=download&amp;utm_campaign=from_bump_to_baby_auto&amp;utm_content=auto_20260906_handover_printable_professional" download data-growth-action="handover_pdf_download">Download printable A4 handover</a>
+        </div>
         <p class="privacy-embed-status" id="handover-embed-status" role="status" aria-live="polite"></p>
       </div>
     </section>
@@ -3884,6 +3887,7 @@ If baby seems unwell or you are worried, contact the appropriate health professi
           <button class="button secondary" type="button" id="share-handover">Share this checklist</button>
           <button class="button secondary" type="button" id="copy-handover-link">Copy free builder link</button>
           <button class="button secondary" type="button" id="print-handover">Print</button>
+          <a class="button secondary" id="download-handover-pdf" href="/resources/obubba-baby-care-handover-sheet.pdf?utm_source=owned_search&amp;utm_medium=download&amp;utm_campaign=from_bump_to_baby_auto&amp;utm_content=auto_20260906_handover_printable" download>Download the one-page PDF</a>
         </div>
         <p class="handover-builder-link">Share the blank builder without care details: <a id="handover-builder-link" href="https://obubba.com/blog/baby-care-handover-template-grandparents-nursery.html?utm_source=handover_share&amp;utm_medium=copy_share&amp;utm_campaign=from_bump_to_baby_auto&amp;utm_content=five_line_handover_builder#five-line-handover">open the free five-line handover builder</a>.</p>
         <p class="handover-builder-link">Work with families? <a href="/for-professionals.html?utm_source=owned_search&amp;utm_medium=seo&amp;utm_campaign=from_bump_to_baby_auto&amp;utm_content=auto_20260905_handover_embed_discovery#handover-embed-heading">Copy the privacy-bounded builder embed for your website</a>. Sharing the resource does not imply that you endorse OBubba.</p>
@@ -4351,6 +4355,7 @@ function renderSitemap(posts) {
     { loc: '/privacy.html', lastmod: '2026-08-12', priority: '0.3' },
     { loc: '/terms.html', lastmod: '2026-08-12', priority: '0.3' },
     { loc: '/resources/pregnancy-baby-app-privacy-checklist.pdf', lastmod: '2026-08-24', priority: '0.6' },
+    { loc: '/resources/obubba-baby-care-handover-sheet.pdf', lastmod: today, priority: '0.65' },
     ...posts.map((post) => ({ loc: post.urlPath, lastmod: post.updated || post.date, priority: '0.75' })),
   ];
 
@@ -4483,6 +4488,7 @@ function renderLlms(posts) {
 - App Store ratings and review counts change. Use the current public store listing whenever a current rating is needed.
 - Contact: ${SITE.email}
 - [press and media resources](${absoluteUrl('/press.html')}): Verified product facts, founder information, app links and downloadable OBubba media assets.
+- [printable baby care handover sheet](${absoluteUrl('/resources/obubba-baby-care-handover-sheet.pdf')}): A free one-page A4 handover for recent feeds, sleep, nappies, existing medicine instructions, contacts and the hand-back summary.
 
 ## Ratings and reviews
 
