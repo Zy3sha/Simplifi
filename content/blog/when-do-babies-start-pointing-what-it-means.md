@@ -80,7 +80,7 @@ Pointing grows out of several earlier skills. You may notice your baby:
 
 No baby needs to complete this checklist in order. The wider pattern matters because communication is shared across gaze, facial expression, sound, movement and gesture.
 
-## Pointing, reaching and poking are different—but all useful
+## Pointing, reaching and poking are different, but all useful
 
 | What you see | What it may be doing | How to respond |
 |---|---|---|
@@ -169,7 +169,7 @@ If you have concerns about social communication, hearing, vision or development,
 
 ## When should I ask for advice?
 
-The NHS says the 9-to-12-month development review looks at language and learning alongside other areas. It is a natural place to discuss pointing, gestures, response to name, babble, hearing and any other concern—but you can contact the health visiting team sooner.
+The NHS says the 9-to-12-month development review looks at language and learning alongside other areas. It is a natural place to discuss pointing, gestures, response to name, babble, hearing and any other concern, but you can contact the health visiting team sooner.
 
 Ask for advice if:
 
@@ -206,13 +206,13 @@ Pointing is bridged to two optional activities: **Book Pointing** and **Name & P
 
 Those features can reduce the mental load of deciding what to notice or try. They cannot see whether a gesture is purposeful, assess eye gaze, test hearing, observe hand use or diagnose a communication difference. A parent can also misremember a milestone date. The app’s range never overrules a concern.
 
-**[Try OBubba free →](/baby-milestone-tracker.html)** — remember firsts, see gentle next chapters and get tiny age-aware play ideas alongside sleep, feeds, weaning and family memories.
+**[Try OBubba free →](/baby-milestone-tracker.html?utm_source=pointing_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261213_pointing)**. Remember firsts, see gentle next chapters and get tiny age-aware play ideas alongside sleep, feeds, weaning and family memories.
 
 ## A better milestone note
 
 Instead of logging only “pointing: yes”, write what happened:
 
-> **13 December — pointed towards the robin outside, then looked at me and squealed. I said “bird” and they pointed again.**
+> **13 December: pointed towards the robin outside, then looked at me and squealed. I said “bird” and they pointed again.**
 
 That note preserves the communication, not merely the finger position. Other useful examples are:
 
