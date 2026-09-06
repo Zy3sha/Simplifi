@@ -5,6 +5,7 @@ description: "Hunger and comfort can look almost identical. Learn the signs of a
 date: 2026-12-04
 updated: 2026-12-04
 author: OBubba
+status: paused
 tags: is my baby hungry or comfort feeding, baby comfort feeding, comfort sucking or hunger, baby feeding little and often, baby hunger cues, non nutritive sucking, responsive feeding, baby feed tracker, OBubba feeding insights
 heroImage: /obubba-baby-hungry-or-comfort-feeding.jpg
 ---
