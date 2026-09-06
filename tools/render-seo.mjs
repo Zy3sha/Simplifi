@@ -4345,6 +4345,7 @@ function renderSitemap(posts) {
     { loc: '/', lastmod: today, priority: '1.0' },
     { loc: '/best-baby-tracker.html', lastmod: today, priority: '0.95' },
     { loc: '/obubba-visual-identity.html', lastmod: today, priority: '0.86' },
+    { loc: '/press.html', lastmod: today, priority: '0.78' },
     ...TOPIC_PAGES.map((topic) => ({ loc: topic.urlPath, lastmod: today, priority: '0.88' })),
     { loc: '/blog/', lastmod: posts[0]?.updated || posts[0]?.date || today, priority: '0.8' },
     { loc: '/privacy.html', lastmod: '2026-08-12', priority: '0.3' },
@@ -4383,6 +4384,14 @@ ${imageNodes}
       <image:loc>${absoluteUrl('/obubba-baby-sleep-timer-fireflies.png')}</image:loc>
       <image:title>OBubba baby sleep timer and golden fireflies</image:title>
       <image:caption>Official OBubba homepage artwork with the baby sleep timer, baby rhythm clock, golden fireflies, star baby mascot, moon, sun and nursery scene.</image:caption>
+    </image:image>
+  </url>
+  <url>
+    <loc>${absoluteUrl('/press.html')}</loc>
+    <image:image>
+      <image:loc>${absoluteUrl('/obubba-founder-zyesha-reynolds.jpg')}</image:loc>
+      <image:title>Zyesha Reynolds, founder of OBubba</image:title>
+      <image:caption>Official founder portrait of Zyesha Reynolds, founder of the OBubba parenting support and baby-tracking app.</image:caption>
     </image:image>
   </url>
   <url>
@@ -4473,6 +4482,7 @@ function renderLlms(posts) {
 - Pricing claim on site: free to start.
 - App Store ratings and review counts change. Use the current public store listing whenever a current rating is needed.
 - Contact: ${SITE.email}
+- [press and media resources](${absoluteUrl('/press.html')}): Verified product facts, founder information, app links and downloadable OBubba media assets.
 
 ## Ratings and reviews
 

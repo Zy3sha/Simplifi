@@ -55,6 +55,7 @@
         "@id": "https://obubba.com/press.html#zyesha-reynolds",
         "name": "Zyesha Reynolds",
         "jobTitle": "Founder of OBubba",
+        "image": "https://obubba.com/obubba-founder-zyesha-reynolds.jpg",
         "worksFor": {"@id": "https://obubba.com/#organization"},
         "subjectOf": {"@id": "https://newbornstages.com/when-someone-takes-over-the-baby-they-should-take-over-the-thinking-too/#article"}
       },
@@ -79,9 +80,9 @@
     main section{padding:76px 24px}.wrap{max-width:1120px;margin:auto}.kicker{color:#9b6a13;font-weight:800;text-transform:uppercase;letter-spacing:.1em;font-size:13px}.section-title{font-size:clamp(34px,5vw,58px);line-height:1.08;letter-spacing:-.035em;margin:10px 0 18px}.lede{max-width:780px;color:var(--muted);font-size:19px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:34px}.card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:24px;box-shadow:var(--shadow)}.card h3{margin:0 0 8px;font-size:21px}.card p{margin:0;color:var(--muted)}.fact{font-size:30px;font-weight:900;color:var(--navy);line-height:1.2}.label{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;font-weight:800;margin-top:6px}
     .dark{background:var(--navy);color:#fff}.dark .kicker{color:var(--gold)}.dark .lede,.dark .card p{color:#d9e1ec}.dark .card{background:rgba(255,255,255,.07);border-color:rgba(255,255,255,.15);box-shadow:none}.dark .card h3{color:#fff}
     .asset-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:34px}.asset{background:#fff;border:1px solid var(--line);border-radius:18px;overflow:hidden}.asset img{width:100%;aspect-ratio:4/5;object-fit:cover;background:#eef1f5}.asset.icon img{object-fit:contain;padding:28px}.asset-copy{padding:16px}.asset-copy strong{display:block}.asset-copy a{display:inline-block;margin-top:8px;color:#865906;font-weight:800}
-    .copy-box{background:#fff;border:1px solid var(--line);border-left:5px solid var(--gold);padding:24px;border-radius:14px;margin-top:26px;font-size:18px}.boundary{margin-top:28px;padding:18px 20px;border-radius:14px;background:#f1eee9;color:#534b58}.contact-panel{display:grid;grid-template-columns:1fr auto;gap:28px;align-items:center;background:linear-gradient(135deg,var(--navy),var(--navy-2));color:#fff;border-radius:24px;padding:clamp(28px,5vw,54px)}.contact-panel h2{margin:0 0 12px;font-size:clamp(32px,5vw,52px);line-height:1.1}.contact-panel p{margin:0;color:#dbe3ef}.contact-panel .button{white-space:nowrap}
+    .copy-box{background:#fff;border:1px solid var(--line);border-left:5px solid var(--gold);padding:24px;border-radius:14px;margin-top:26px;font-size:18px}.boundary{margin-top:28px;padding:18px 20px;border-radius:14px;background:#f1eee9;color:#534b58}.founder-profile{display:grid;grid-template-columns:minmax(180px,260px) 1fr;gap:34px;align-items:center;margin-top:28px}.founder-portrait{width:100%;aspect-ratio:1;border-radius:24px;object-fit:cover;box-shadow:var(--shadow)}.founder-profile .copy-box{margin-top:18px}.founder-download{display:inline-block;margin-top:14px;color:#865906;font-weight:800}.contact-panel{display:grid;grid-template-columns:1fr auto;gap:28px;align-items:center;background:linear-gradient(135deg,var(--navy),var(--navy-2));color:#fff;border-radius:24px;padding:clamp(28px,5vw,54px)}.contact-panel h2{margin:0 0 12px;font-size:clamp(32px,5vw,52px);line-height:1.1}.contact-panel p{margin:0;color:#dbe3ef}.contact-panel .button{white-space:nowrap}
     footer{background:#041126;color:#dbe3ef;padding:40px 24px}.footer-inner{max-width:1120px;margin:auto;display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}.footer-inner a{color:#fff}
-    @media(max-width:840px){.hero-inner{grid-template-columns:1fr}.hero-icon{max-width:230px}.grid{grid-template-columns:1fr 1fr}.asset-grid{grid-template-columns:1fr 1fr}.contact-panel{grid-template-columns:1fr}.nav-links a:not(.contact){display:none}}
+    @media(max-width:840px){.hero-inner{grid-template-columns:1fr}.hero-icon{max-width:230px}.grid{grid-template-columns:1fr 1fr}.asset-grid{grid-template-columns:1fr 1fr}.founder-profile{grid-template-columns:1fr}.founder-portrait{max-width:280px}.contact-panel{grid-template-columns:1fr}.nav-links a:not(.contact){display:none}}
     @media(max-width:560px){.grid,.asset-grid{grid-template-columns:1fr}.hero{padding-top:62px}.hero h1{font-size:46px}}
   </style>
 </head>
@@ -179,9 +180,15 @@
     <section id="founder">
       <div class="wrap">
         <div class="kicker">Founder</div>
-        <h2 class="section-title">Zyesha Reynolds</h2>
-        <p class="lede">Zyesha Reynolds is the founder of OBubba. She leads the product and its mission to reduce the mental load of remembering, coordinating and handing over everyday baby care.</p>
-        <div class="copy-box"><strong>Approved founder line:</strong><br/>Zyesha Reynolds is the founder of OBubba, a parenting support and baby-tracking app designed to make everyday care easier to remember and share.</div>
+        <div class="founder-profile">
+          <img class="founder-portrait" src="/obubba-founder-zyesha-reynolds.jpg" width="1200" height="1200" alt="Zyesha Reynolds, founder of OBubba" loading="lazy"/>
+          <div>
+            <h2 class="section-title">Zyesha Reynolds</h2>
+            <p class="lede">Zyesha Reynolds is the founder of OBubba. She leads the product and its mission to reduce the mental load of remembering, coordinating and handing over everyday baby care.</p>
+            <div class="copy-box"><strong>Approved founder line:</strong><br/>Zyesha Reynolds is the founder of OBubba, a parenting support and baby-tracking app designed to make everyday care easier to remember and share.</div>
+            <a class="founder-download" href="/obubba-founder-zyesha-reynolds.jpg" download data-press-action="asset_download_founder">Download founder portrait</a>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -196,7 +203,7 @@
   </main>
 
   <footer>
-    <div class="footer-inner"><span>© 2026 OBubba. Product facts last verified 5 September 2026.</span><span><a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a> · <a href="/">Home</a> · Follow <a href="https://www.instagram.com/obubba_app/" target="_blank" rel="noopener">Instagram</a>, <a href="https://www.tiktok.com/@obubba_app" target="_blank" rel="noopener">TikTok</a> and <a href="https://www.facebook.com/people/OBubba/61583683947795/" target="_blank" rel="noopener">Facebook</a></span></div>
+    <div class="footer-inner"><span>© 2026 OBubba. Product facts last verified 6 September 2026.</span><span><a href="/privacy.html">Privacy</a> · <a href="/terms.html">Terms</a> · <a href="/">Home</a> · Follow <a href="https://www.instagram.com/obubba_app/" target="_blank" rel="noopener">Instagram</a>, <a href="https://www.tiktok.com/@obubba_app" target="_blank" rel="noopener">TikTok</a> and <a href="https://www.facebook.com/people/OBubba/61583683947795/" target="_blank" rel="noopener">Facebook</a></span></div>
   </footer>
   <script>
     document.addEventListener("click", function(event) {
