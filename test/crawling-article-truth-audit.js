@@ -64,8 +64,8 @@ assert(
 );
 assert(
   'the article assets are versioned',
-  fs.existsSync('public/obubba-when-will-baby-crawl-20261119.jpg') &&
-    fs.existsSync('public/obubba-milestones-app-20261119.jpg'),
+  fs.existsSync('obubba-when-will-baby-crawl-20261119.jpg') &&
+    fs.existsSync('obubba-milestones-app-20261119.jpg'),
 );
 
 if (process.exitCode) process.exit(process.exitCode);
