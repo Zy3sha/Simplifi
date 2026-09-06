@@ -6,10 +6,10 @@ date: 2026-11-24
 updated: 2026-11-24
 author: OBubba
 tags: why do I stay up after baby sleeps, revenge bedtime procrastination parents, postpartum sleep, new parent exhaustion, doomscrolling at night, parent me time, bedtime routine for parents, OBubba Parent Room
-heroImage: /obubba-parent-scrolling-after-baby-sleeps.jpg
+heroImage: /obubba-parent-scrolling-after-baby-sleeps-20261124.jpg
 ---
 
-The baby is finally asleep. Nobody needs a feed, a nappy or a song. The house is quiet—and instead of going to bed, you reach for your phone.
+The baby is finally asleep. Nobody needs a feed, a nappy or a song. The house is quiet, and instead of going to bed, you reach for your phone.
 
 One reel becomes twenty. You know tomorrow will begin early, but this is the first part of the day that feels entirely yours.
 
@@ -28,7 +28,7 @@ These can overlap. A baby who may wake at any moment also makes “no external b
 | “Every attempt to rest is interrupted by feeding, settling or another child” | too little sleep opportunity | create a specific care handover or protected rest block |
 | “I suddenly need very little sleep and feel unusually energetic, confused or unlike myself” | not ordinary procrastination or tiredness | seek urgent same-day medical assessment, particularly after birth |
 
-The original study that introduced the term found an association with feeling that sleep was insufficient, but it was a small self-report survey—not proof that delaying bedtime causes every poor night. A later systematic review found links with shorter sleep, poorer sleep quality and fatigue, while rating the certainty of the evidence low. Treat the label as a useful description, not a verdict.
+The original study that introduced the term found an association with feeling that sleep was insufficient, but it was a small self-report survey, not proof that delaying bedtime causes every poor night. A later systematic review found links with shorter sleep, poorer sleep quality and fatigue, while rating the certainty of the evidence low. Treat the label as a useful description, not a verdict.
 
 ## Why does the quiet after bedtime feel so hard to surrender?
 
@@ -137,9 +137,9 @@ Seek **urgent same-day assessment** after birth for a sudden lack of need for sl
 
 ## How OBubba's real bedtime wind-down supports the parent
 
-OBubba's production Flutter app does something unusual when a parent starts the baby's live bedtime timer: it turns towards the adult.
+OBubba's production Flutter app does something unusual after the first timer tutorial has been seen. When a parent starts the baby's live bedtime timer on later nights, it turns towards the adult.
 
-The bedtime wind-down first acknowledges the day of feeding, keeping safe and loving. If there is fresh local weather data, it may offer a sleepwear check; stale weather quietly disappears rather than pretending to be current. Then the sheet says, in effect, **this next bit is yours**.
+The bedtime wind-down first acknowledges the day of feeding, keeping safe and loving. Then the sheet says, in effect, **this next bit is yours**.
 
 Its choices include:
 
@@ -149,15 +149,15 @@ Its choices include:
 - **Guilt-free scroll** because judgement is not a sleep strategy
 - **I'm okay, goodnight** when bed is what you need
 
-That “guilt-free scroll” choice matters. OBubba does not pretend every phone minute is harmful or tell a parent what they must do. It creates a decision point between the baby's bedtime and the rest of the evening—the exact moment when an intentional 20 minutes can otherwise become an invisible two hours.
+That “guilt-free scroll” choice matters. OBubba does not pretend every phone minute is harmful or tell a parent what they must do. It creates a decision point between the baby's bedtime and the rest of the evening, the exact moment when an intentional 20 minutes can otherwise become an invisible two hours. It does not set a screen-time limit or make the scroll bounded for you, so use the phone's own timer if you want an endpoint.
 
-![The real OBubba Parent Room in the Flutter app, with a gentle evening message, recovery support and a private parent check-in.](/obubba-parent-room-app.jpg "OBubba's Parent Room gives the adult a quiet place to pause, breathe and check in after the baby is settled.")
+![The current OBubba Parent Room in the Flutter app, with a gentle evening message, recovery support and a private parent check-in.](/obubba-parent-room-app-20261124.jpg "OBubba's Parent Room gives the adult a quiet place to pause, breathe and check in after the baby is settled.")
 
 Inside Parent Room, parents can name how the day feels, use short breathing and grounding exercises, read baby-blues and postnatal-depression guidance, find region-aware support contacts and take a private wellbeing check-in. It complements the baby's sleep record: the timeline shows what the night contained; Parent Room asks how the adult is carrying it.
 
-OBubba cannot tell whether tonight's scrolling restored you, track your screen time, diagnose insomnia or assess your safety. It can make the transition visible, reduce mental load and help you bring a clearer pattern to a partner or health professional.
+OBubba cannot tell whether tonight's scrolling restored you, track your screen time, diagnose insomnia or assess your safety. It offers a visible pause between the baby's bedtime and the rest of the evening, while Parent Room keeps support contacts close.
 
-**[Explore OBubba's baby sleep and parent-support tools →](/app.html)**
+**[Explore OBubba's baby sleep and parent-support tools →](/app.html?utm_source=bedtime_scrolling_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261124_bedtime_scrolling)**
 
 ## Frequently asked questions
 
@@ -175,7 +175,7 @@ Only if that is useful to you. Start with a visible endpoint, preselected conten
 
 ### What if I go to bed but cannot sleep?
 
-That is less like choosing to delay bedtime and more like insomnia or hyperarousal. Do not force sleep. Use a dim, quiet activity if lying awake makes you tense, and seek advice if it persists—especially after birth or with mood and anxiety symptoms.
+That is less like choosing to delay bedtime and more like insomnia or hyperarousal. Do not force sleep. Use a dim, quiet activity if lying awake makes you tense, and seek advice if it persists, especially after birth or with mood and anxiety symptoms.
 
 ### Should I track my own sleep as well as the baby's?
 
@@ -183,7 +183,7 @@ Only if it answers a useful question without increasing clock-watching. A rough 
 
 ## The bottom line
 
-Staying up after the baby sleeps may be your attempt to recover a piece of yourself. That need deserves respect. Give it a name, a protected window and a visible ending—then make bed the easiest next step.
+Staying up after the baby sleeps may be your attempt to recover a piece of yourself. That need deserves respect. Give it a name, a protected window and a visible ending, then make bed the easiest next step.
 
 If you want to sleep but cannot, or your mood, energy or behaviour has changed, do not reduce it to a bad phone habit. Ask for human support.
 
@@ -194,5 +194,6 @@ If you want to sleep but cannot, or your mood, energy or behaviour has changed, 
 - [NHS Every Mind Matters: Fall asleep faster and sleep better](https://www.nhs.uk/every-mind-matters/mental-wellbeing-tips/how-to-fall-asleep-faster-and-sleep-better/)
 - [NHS: Sleep and tiredness after having a baby](https://www.nhs.uk/baby/support-and-services/sleep-and-tiredness-after-having-a-baby/)
 - [NHS: Postpartum psychosis](https://www.nhs.uk/mental-health/conditions/post-partum-psychosis/)
+- [The Lullaby Trust: Sleep deprivation and safer sleep](https://www.lullabytrust.org.uk/baby-safety/being-a-parent-or-caregiver/sleep-deprivation/)
 
 *OBubba provides records, general education and private wellbeing tools. It cannot diagnose or treat insomnia, anxiety, depression or postpartum psychosis, assess immediate safety, replace professional care or guarantee sleep.*

@@ -37,6 +37,24 @@ const WEB_ICON_PATH = '/obubba-baby-tracker-app-icon-crowned-baby.png';
 
 const BRAND_IMAGES = [
   {
+    path: '/obubba-parent-scrolling-after-baby-sleeps-20261124.jpg',
+    name: 'Parent having quiet phone time after the baby sleeps',
+    title: 'Why parents stay up scrolling after baby sleeps',
+    caption: 'A parent reclaiming a quiet moment after the baby has settled for the night.',
+    keywords: 'parent bedtime procrastination, new parent exhaustion, scrolling after baby sleeps, parent me time',
+    width: 1536,
+    height: 1024,
+  },
+  {
+    path: '/obubba-parent-room-app-20261124.jpg',
+    name: 'Current OBubba Parent Room screen',
+    title: 'OBubba Parent Room wellbeing support',
+    caption: 'The current OBubba Parent Room screen with a gentle evening message, recovery route and private check-in.',
+    keywords: 'OBubba Parent Room, parent wellbeing app, postpartum support, new parent check-in',
+    width: 850,
+    height: 1536,
+  },
+  {
     path: '/obubba-anxiety-in-pregnancy-support-20261123.jpg',
     name: 'Pregnant parent pausing with a hand on their chest',
     title: 'Anxiety in pregnancy support',
@@ -1392,6 +1410,8 @@ const OUTPUT_ROOTS = process.argv.includes('--root-only')
     ];
 
 const SHARED_ASSETS = [
+  'obubba-parent-scrolling-after-baby-sleeps-20261124.jpg',
+  'obubba-parent-room-app-20261124.jpg',
   'obubba-anxiety-in-pregnancy-support-20261123.jpg',
   'obubba-pregnancy-wellbeing-app-20261123.jpg',
   'obubba-baby-nap-rhythm-schedule-20261122.jpg',
