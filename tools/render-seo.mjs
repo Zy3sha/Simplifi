@@ -1352,6 +1352,8 @@ const SHARED_ASSETS = [
   'obubba-foods-to-avoid-weaning-app.jpg',
   'obubba-perineal-massage-pregnancy.jpg',
   'obubba-perineal-massage-guide-app.jpg',
+  'obubba-cant-sleep-when-baby-sleeps.jpg',
+  'obubba-parent-wellbeing-checkin-app.jpg',
   'obubba-app-growth-development-screenshot.jpg',
   'sleep-baby.png',
   'og-image.png',
