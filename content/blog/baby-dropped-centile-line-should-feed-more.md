@@ -5,6 +5,8 @@ description: "If your baby's weight has dropped a centile line, should you offer
 date: 2026-10-30
 updated: 2026-10-30
 author: OBubba
+status: paused
+pauseReason: "Do not publish while the Flutter growth-feed insight uses a fixed two-band threshold regardless of birthweight, can reassure a one-band fall as usually nothing to chase, and can prescribe offering feeds more often from app-calculated centiles and feed counts. Current NICE thresholds depend on birthweight and require clinical, developmental and feeding assessment before an individual management plan. Reconcile and clinically review the product guidance before this acquisition article promotes it."
 tags: baby dropped centile line, baby weight dropped centile, should I feed baby more, baby weight gain, faltering growth baby, baby feeding tracker, health visitor baby weight
 heroImage: /obubba-baby-dropped-centile-line.jpg
 ---
