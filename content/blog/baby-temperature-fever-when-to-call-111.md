@@ -5,6 +5,8 @@ description: "Is 38°C a fever in a baby? Learn how to take an accurate temperat
 date: 2026-10-22
 updated: 2026-10-22
 author: OBubba
+status: paused
+pauseReason: "Do not publish while the Flutter health engine and temperature-entry sheet describe 40C as an automatic emergency at any age. Current NHS fever guidance makes 999 action symptom-led, while its sepsis page applies temperature thresholds in the context of possible sepsis. Reconcile and clinically review the product routing before this acquisition article promotes it."
 tags: baby temperature fever, what temperature is a fever baby, baby fever when to call 111, newborn temperature 38, baby temperature 39, how to take baby temperature, fever in babies NHS, baby temperature tracker, OBubba health log
 heroImage: /obubba-baby-temperature-fever-guide.jpg
 ---
