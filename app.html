@@ -226,15 +226,44 @@
     (function () {
       var appStoreUrl = "https://apps.apple.com/gb/app/obubba/id6760968757";
       var playStoreUrl = "https://play.google.com/store/apps/details?id=com.obubba.app";
+      function safeCampaignAttribution() {
+        var incoming = new URLSearchParams(window.location.search || "");
+        var campaign = incoming.get("utm_campaign") || "";
+        var content = incoming.get("utm_content") || "";
+        if (campaign !== "from_bump_to_baby_auto" || !/^auto_[A-Za-z0-9_-]{1,100}$/.test(content)) return "";
+
+        var source = incoming.get("utm_source") || "";
+        var medium = incoming.get("utm_medium") || "";
+        var allowedSources = new Set(["owned_search", "homepage", "instagram", "facebook", "meta", "tiktok", "email", "google", "bing", "referral", "direct"]);
+        var allowedMedia = new Set(["seo", "owned_search", "owned_navigation", "website", "organic_social", "lifecycle", "paid_search", "paid_social", "referral"]);
+        var attribution = new URLSearchParams();
+
+        // Article links historically use a page-specific source such as
+        // bedtime_story_article. Normalise that to owned_search instead of
+        // forwarding arbitrary query values into the Play Install Referrer.
+        if (allowedSources.has(source)) attribution.set("utm_source", source);
+        else if (medium === "owned_search" || medium === "seo") attribution.set("utm_source", "owned_search");
+        if (allowedMedia.has(medium)) attribution.set("utm_medium", medium);
+        attribution.set("utm_campaign", campaign);
+        attribution.set("utm_content", content);
+        return attribution.toString();
+      }
+      function playStoreUrlWithAttribution() {
+        var referrer = safeCampaignAttribution();
+        if (!referrer) return playStoreUrl;
+        var play = new URL(playStoreUrl);
+        play.searchParams.set("referrer", referrer);
+        return play.toString();
+      }
       function storeUrlForDevice() {
         var ua = "";
         var platform = "";
         var search = window.location.search || "";
         try { ua = navigator.userAgent || ""; } catch (e) {}
         try { platform = navigator.userAgentData && navigator.userAgentData.platform || navigator.platform || ""; } catch (e) {}
-        if (search.indexOf("store=android") !== -1) return playStoreUrl;
+        if (search.indexOf("store=android") !== -1) return playStoreUrlWithAttribution();
         if (search.indexOf("store=ios") !== -1) return appStoreUrl;
-        if (/android/i.test(ua) || /android/i.test(platform)) return playStoreUrl;
+        if (/android/i.test(ua) || /android/i.test(platform)) return playStoreUrlWithAttribution();
         if (/iphone|ipad|ipod/i.test(ua)) return appStoreUrl;
         try {
           if (/mac/i.test(platform) && navigator.maxTouchPoints > 1) return appStoreUrl;
