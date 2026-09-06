@@ -1,15 +1,15 @@
 ---
 title: "Does My Baby Have a Nap Schedule Yet? How to Spot the Rhythm"
 slug: does-my-baby-have-nap-schedule-yet
-description: "Learn how to spot your baby's natural nap rhythm without forcing a timetable, what seven days of sleep can tell you, and when an irregular pattern is still normal."
+description: "Learn how to spot your baby's natural nap rhythm without forcing a timetable, what a week of sleep can tell you, and when an irregular pattern is still normal."
 date: 2026-11-22
 updated: 2026-11-22
 author: OBubba
 tags: baby nap schedule, baby nap rhythm, when do babies have a nap schedule, newborn nap schedule, baby sleep pattern, wake windows, baby nap tracker, OBubba sleep reports
-heroImage: /obubba-baby-nap-rhythm-schedule.jpg
+heroImage: /obubba-baby-nap-rhythm-schedule-20261122.jpg
 ---
 
-Yesterday the first nap began at 9:08. Today it was 9:42. Tomorrow you have somewhere to be at 10. Does your baby have a schedule—or are you seeing order in three ordinary naps?
+Yesterday the first nap began at 9:08. Today it was 9:42. Tomorrow you have somewhere to be at 10. Does your baby have a schedule, or are you seeing order in three ordinary naps?
 
 **The short answer:** a useful rhythm is a *range*, not an appointment. Look for the same broad nap windows, a similar number of naps and a reasonably repeatable bedtime across at least a week. Newborn sleep is usually too changeable for a clock-led schedule, and even an established rhythm will wobble with short naps, illness, travel, development and nap transitions.
 
@@ -29,20 +29,20 @@ That distinction matters because false precision creates unnecessary failure. A 
 
 ## When do babies develop a nap schedule?
 
-There is no universal week when naps become predictable. The [NHS says every baby is different](https://www.nhs.uk/best-start-in-life/baby/baby-basics/newborn-and-baby-sleeping-advice-for-parents/your-babys-sleep-patterns/) and that sleep patterns change as babies grow—sometimes just as a routine begins to feel settled.
+There is no universal week when naps become predictable. The [NHS says every baby is different](https://www.nhs.uk/baby/caring-for-a-newborn/helping-your-baby-to-sleep/) and that sleep patterns change as babies grow, sometimes just as a routine begins to feel settled.
 
 Newborns commonly sleep in short and long bursts around feeding. Day and night can be irregular, and a rigid clock schedule is rarely a sensible test of how well anybody is doing.
 
-Over the following months, many families begin to notice anchors: morning starts land in a similar area, the first nap becomes easier to anticipate, and bedtime occupies a recognisable band. The pattern may become clearer as night sleep consolidates, but age alone cannot tell you whether *this* baby's rhythm is stable.
+Over the following months, many families begin to notice anchors: morning starts land in a similar area, the first nap becomes easier to anticipate, and bedtime occupies a recognisable band. Age alone cannot tell you whether *this* baby's rhythm is stable.
 
 Think in phases rather than deadlines:
 
 - **Early weeks:** follow feeding needs, tired cues and medical advice; record only if it lightens your mental load.
-- **Emerging rhythm:** one part of the day—often the first nap or bedtime—starts repeating, while later naps remain mobile.
+- **Emerging rhythm:** one part of the day, often the first nap or bedtime, starts repeating while later naps remain mobile.
 - **Settled rhythm:** several nap windows recur and the usual nap count is fairly clear.
 - **Transition:** two valid day shapes coexist while a nap is being dropped; an occasional extra or missing nap is not bad data.
 
-Corrected age may be more useful for a baby born prematurely. Follow the baby's neonatal or paediatric team where their advice differs from a general guide.
+For a baby born prematurely or following an individual feeding, growth or medical plan, follow the neonatal or paediatric team's advice where it differs from a general guide.
 
 ## Six signs a real rhythm may be emerging
 
@@ -79,11 +79,11 @@ Do not enter “zero naps” for a day you forgot to log. Missing data means unk
 
 ### A worked example
 
-Suppose the first nap started at 9:05, 9:12, 9:20, 9:31, 9:38, 9:46 and 10:18. The most useful summary is not “9:33 exactly”. It might be:
+Suppose the first nap started at 9:05, 9:12, 9:20, 9:31, 9:38, 9:46 and 10:18. The most useful human summary is not “9:33 exactly”. You might call the middle cluster:
 
-> **First nap usually starts around 9:15–9:45.** Earliest observed: 9:05. Latest observed: 10:18.
+> **First nap usually starts around 9:15 to 9:45.** Earliest observed: 9:05. Latest observed: 10:18.
 
-That tells a carer when to lower stimulation while preserving the truth that the day sometimes shifts. If all seven times scatter widely, the honest answer is that the rhythm is still settling.
+That tells a carer when the nap often begins while preserving the truth that the day sometimes shifts. OBubba deliberately rounds its displayed middle band out to whole-hour boundaries, so these same observations would appear as roughly 9:00 to 10:00, with 9:05 and 10:18 retained as the full observed range. If all seven times scatter widely, the honest answer is that the rhythm is still settling.
 
 ## What if every day looks different?
 
@@ -119,13 +119,13 @@ The current Flutter engine:
 
 If there is not enough information, the report stays in a **gathering** state and explains what to log. It does not fill the space with a generic age schedule or hide the lesson behind a paid lock.
 
-![OBubba's real Flutter sleep screen showing the live sleep clock, next-nap guidance and a plan that adapts to the baby's day.](/obubba-sleep-rhythm-app.jpg "OBubba's real Flutter sleep experience. The live Track clock is predictive guidance; the separate Reports view summarises the rhythm actually observed.")
+![OBubba's Reports screen showing selectable time ranges and the baby's logged sleep, feed and growth overview.](/obubba-reports-range-selector-app-20261122.jpg "OBubba Reports keeps the observed record separate from the live next-sleep guidance on Track.")
 
 The live sleep clock on **Track** answers a different question: *what may help today?* It uses the current day and recent pattern to update the next sleep and bedtime guidance. The **Reports** rhythm answers: *what has this baby actually been doing?* Keeping prediction and observation separate makes it easier to notice when the baby's pattern has changed.
 
 Neither surface diagnoses a sleep problem. The app cannot know about pain, breathing, hunger, growth or an unlogged nap from timing alone. It is a calm memory and pattern tool, not a substitute for the baby, the parent or a health professional.
 
-**[Try OBubba free →](/free-baby-tracker-app.html)** — see the next sleep in context, learn the rhythm from real days and share the same picture with every carer.
+**[Try OBubba free →](/app.html?utm_source=nap_rhythm_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261122_nap_rhythm)** to see the next sleep in context, learn the rhythm from real days and keep one shared record with the people helping care for your baby.
 
 ## Keep every nap safer
 
@@ -159,7 +159,7 @@ Follow the baby, not the card. Log what actually happened. A mismatch is useful 
 
 ## Reliable UK sources
 
-- [NHS Best Start in Life: Your baby's sleep patterns](https://www.nhs.uk/best-start-in-life/baby/baby-basics/newborn-and-baby-sleeping-advice-for-parents/your-babys-sleep-patterns/)
+- [NHS: Helping your baby to sleep](https://www.nhs.uk/baby/caring-for-a-newborn/helping-your-baby-to-sleep/)
 - [NHS Best Start in Life: Safer sleep advice for babies](https://www.nhs.uk/best-start-in-life/baby/baby-basics/newborn-and-baby-sleeping-advice-for-parents/safe-sleep-advice-for-babies/)
 - [The Lullaby Trust: Safer sleep overview](https://www.lullabytrust.org.uk/safer-sleep-advice/)
 

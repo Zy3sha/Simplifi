@@ -250,6 +250,24 @@ const BRAND_IMAGES = [
     height: 1800,
   },
   {
+    path: '/obubba-baby-nap-rhythm-schedule-20261122.jpg',
+    name: 'Parent observing a baby\'s natural nap rhythm',
+    title: 'A flexible baby nap rhythm rather than a rigid timetable',
+    caption: 'A parent records the shape of the day while their baby plays, illustrating a calm and flexible approach to nap patterns.',
+    keywords: 'baby nap schedule, baby nap rhythm, when do babies have a nap schedule, OBubba sleep reports',
+    width: 1536,
+    height: 1024,
+  },
+  {
+    path: '/obubba-reports-range-selector-app-20261122.jpg',
+    name: 'OBubba Reports screen with selectable time ranges',
+    title: 'OBubba logged sleep and daily pattern reports',
+    caption: 'Official OBubba screenshot showing selectable report periods and the baby\'s logged sleep, feed and growth overview.',
+    keywords: 'OBubba Reports, baby nap tracker, baby sleep pattern, baby rhythm report',
+    width: 900,
+    height: 1956,
+  },
+  {
     path: '/obubba-fireflies-hope-parents-awake.jpg',
     name: 'OBubba Fireflies parent-presence screen',
     title: 'OBubba Fireflies for parents awake together',
@@ -1356,6 +1374,8 @@ const OUTPUT_ROOTS = process.argv.includes('--root-only')
     ];
 
 const SHARED_ASSETS = [
+  'obubba-baby-nap-rhythm-schedule-20261122.jpg',
+  'obubba-reports-range-selector-app-20261122.jpg',
   'obubba-baby-weaning-weekly-meal-plan-20261121.jpg',
   'obubba-weaning-planner-app-20261121.jpg',
   'obubba-hospital-bag-checklist-uk-20261120.jpg',
