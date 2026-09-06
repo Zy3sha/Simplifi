@@ -5,8 +5,9 @@ description: "Your baby grabs, wriggles or closes the book? Try this calm, age-a
 date: 2026-09-06
 updated: 2026-09-06
 author: OBubba
-tags: bedtime stories for babies, how to read to a baby, baby will not sit still for books, reading to newborn, baby bedtime story routine, books for babies, bedtime routine baby, OBubba bedtime stories
+tags: bedtime stories for babies, how to read to a baby, baby will not sit still for books, reading to newborn, baby bedtime story routine
 heroImage: /obubba-bedtime-story-baby-wont-sit-still.jpg
+related: simple-baby-bedtime-routine-that-works, five-minute-baby-play-ideas-by-age, baby-memory-book-without-falling-behind, baby-milestones-without-comparison, baby-wont-stop-crying-overwhelmed-safe-reset, cant-sleep-when-baby-sleeps
 ---
 
 You open the book. Your baby grabs the cover, chews a corner, wriggles backwards and closes it before the first sentence is over.
@@ -24,6 +25,8 @@ A baby may not understand a plot, moral or every word, but they can take part in
 The [NHS guide to helping a baby learn to talk](https://www.nhs.uk/baby/babys-development/play-and-learning/help-your-baby-learn-to-talk/) says you do not have to read every word; looking at a book and talking about what you can see counts. The Department for Education’s [early-years reading guidance](https://help-for-early-years-providers.education.gov.uk/areas-of-learning/literacy/reading-comprehension) also describes adults sharing books with babies by following a favourite picture, letting them grab or point and talking about what they notice.
 
 At bedtime, a short story can also become one familiar part of winding down. The [NHS baby sleep guide](https://www.nhs.uk/baby/caring-for-a-newborn/helping-your-baby-to-sleep/) includes reading among the calm activities that can form a simple bedtime routine.
+
+If you want the rest of the sequence to feel just as manageable, use our [simple baby bedtime routine](/blog/simple-baby-bedtime-routine-that-works.html) as a flexible starting point rather than a checklist you have to complete perfectly.
 
 That does not make a story a sedative. It cannot guarantee a faster settle, prevent night waking or teach a baby to sleep independently. Its job is smaller and kinder: offer connection and a predictable bridge towards sleep.
 
@@ -166,7 +169,7 @@ If you read from a phone, treat it as **your script**, not a video for the baby 
 - avoid animations, autoplay and rapid visual changes
 - put the device away before placing the baby in their sleep space
 
-The World Health Organization’s [under-five activity guidance](https://www.who.int/news-room/detail/24-04-2019-to-grow-up-healthy-children-need-to-sit-less-and-play-more) distinguishes passive screen viewing from interactive reading and storytelling with a caregiver. If the lit screen makes your baby more alert, preview the story earlier and retell it from memory, or choose a physical book instead.
+The World Health Organization’s [under-five activity guidance](https://www.who.int/news/item/24-04-2019-to-grow-up-healthy-children-need-to-sit-less-and-play-more) encourages interactive, non-screen reading and storytelling with a caregiver during sedentary time. That makes a phone best treated as your script, not the baby’s show. If the lit screen makes your baby more alert, preview the story earlier and retell it from memory, or choose a physical book instead.
 
 ## How OBubba’s current Flutter bedtime-story library works
 
@@ -222,7 +225,8 @@ No single routine step can promise that. Reading can provide a calm, familiar tr
 - [Department for Education: Early-years reading comprehension](https://help-for-early-years-providers.education.gov.uk/areas-of-learning/literacy/reading-comprehension)
 - [National Literacy Trust: Their story starts with you](https://literacytrust.org.uk/early-years/their-story-starts-with-you/)
 - [BookTrust: Bookstart Baby for parents and carers](https://www.booktrust.org.uk/how-we-help/parents-families/bookstart-baby-for-parents-and-carers/)
-- [WHO: Physical activity, sedentary behaviour and sleep for under-fives](https://www.who.int/news-room/detail/24-04-2019-to-grow-up-healthy-children-need-to-sit-less-and-play-more)
+- [WHO: Physical activity, sedentary behaviour and sleep for under-fives](https://www.who.int/news/item/24-04-2019-to-grow-up-healthy-children-need-to-sit-less-and-play-more)
+- [NHS Best Start in Life: Safer sleep](https://www.nhs.uk/best-start-in-life/baby/baby-basics/newborn-and-baby-sleeping-advice-for-parents/safe-sleep-advice-for-babies/)
 - [The Lullaby Trust: Keeping a clear cot](https://www.lullabytrust.org.uk/baby-safety/safer-sleep-information/keeping-a-clear-cot/)
 
 *OBubba provides records, general educational content and a curated reading library. It cannot observe a child, assess language or development, diagnose sleep problems, guarantee safer sleep or replace advice from a health visitor, GP or other qualified professional.*
