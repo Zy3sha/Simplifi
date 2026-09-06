@@ -232,6 +232,24 @@ const BRAND_IMAGES = [
     height: 2622,
   },
   {
+    path: '/obubba-baby-weaning-weekly-meal-plan-20261121.jpg',
+    name: 'Baby exploring a flexible weekly weaning plan',
+    title: 'A calm weekly weaning meal plan',
+    caption: 'A flexible weaning-planning illustration for families choosing safe textures, iron-rich foods and familiar favourites.',
+    keywords: 'baby weaning meal plan, what to feed baby this week, weekly baby food plan, OBubba weaning',
+    width: 1536,
+    height: 1024,
+  },
+  {
+    path: '/obubba-weaning-planner-app-20261121.jpg',
+    name: 'OBubba weaning planner screen',
+    title: 'OBubba first tastes and weaning planner',
+    caption: 'Official OBubba screenshot showing first tastes, allergens, recipe ideas and weekly weaning planning.',
+    keywords: 'OBubba, baby weaning planner, first tastes tracker, allergen log, baby meal plan app',
+    width: 828,
+    height: 1800,
+  },
+  {
     path: '/obubba-fireflies-hope-parents-awake.jpg',
     name: 'OBubba Fireflies parent-presence screen',
     title: 'OBubba Fireflies for parents awake together',
@@ -1338,6 +1356,8 @@ const OUTPUT_ROOTS = process.argv.includes('--root-only')
     ];
 
 const SHARED_ASSETS = [
+  'obubba-baby-weaning-weekly-meal-plan-20261121.jpg',
+  'obubba-weaning-planner-app-20261121.jpg',
   'obubba-hospital-bag-checklist-uk-20261120.jpg',
   'obubba-claim-bump-app-20261120.jpg',
   'obubba-when-will-baby-crawl-20261119.jpg',
