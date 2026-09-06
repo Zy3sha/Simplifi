@@ -5,6 +5,8 @@ description: "Can a baby try egg and peanut on the same day? Learn why UK guidan
 date: 2026-11-01
 updated: 2026-11-01
 author: OBubba
+status: paused
+pauseReason: "Do not publish while Flutter attributes a universal couple-of-days interval to NHS/WHO guidance and says introducing common allergens from around six months and continuing weekly lowers the chance of developing an allergy. Current NHS guidance says to introduce allergenic foods one at a time in small amounts and keep tolerated foods in the usual diet, but does not prescribe one universal multi-day interval; the strongest prevention evidence and higher-risk pathways are more specific. Reconcile and clinically review the product guidance before this acquisition article promotes it."
 tags: introduce two allergens same day baby, baby allergens one at a time, egg and peanut same day baby, allergen introduction baby, weaning allergens schedule, baby food allergy symptoms, allergen tracker app, OBubba
 heroImage: /obubba-introduce-one-allergen-at-a-time.jpg
 ---
