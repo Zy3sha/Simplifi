@@ -5,6 +5,7 @@ description: "A very short first wake window may be normal tiredness, a difficul
 date: 2026-12-05
 updated: 2026-12-05
 author: OBubba
+status: paused
 tags: baby first wake window short, why is first wake window shortest, baby tired after waking up, baby goes back to sleep after morning wake, morning resettle baby, first nap too early, baby wake window morning, OBubba wake window tracker
 heroImage: /obubba-baby-first-wake-window-short.jpg
 ---
