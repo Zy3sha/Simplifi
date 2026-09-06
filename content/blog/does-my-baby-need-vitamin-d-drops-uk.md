@@ -73,7 +73,7 @@ Before the first dose:
 - check the product is suitable for your baby's age
 - find the vitamin D amount in **micrograms**, not just the number of drops
 - read whether the dose uses a drop, pipette, syringe or spoon
-- check whether another supplement—such as cod liver oil—also contains vitamins A or D
+- check whether another supplement, such as cod liver oil, also contains vitamins A or D
 - ask a pharmacist if the label or ingredients are unclear
 
 The NHS warns that too much of some vitamins can be harmful. Keep to the label dose and do not give two vitamin supplements at the same time unless a clinician has specifically told you to. Store the bottle securely away from children.
@@ -114,9 +114,11 @@ If you do not qualify, baby vitamin drops are available from pharmacies and supe
 
 ## How the real OBubba Flutter app handles vitamin D
 
-OBubba's current native Flutter app uses feeding context and baby's chronological age to surface a **low-pressure, one-time vitamin D nudge** during the first year. The reminder appears when breastfeeds are part of the real log, rather than assuming every family feeds in the same way.
+OBubba's current native Flutter app uses feeding context and baby's chronological age to surface a **low-pressure vitamin D nudge** during the first year. The reminder appears when a breastfeed or combination feed has been logged in the previous seven days, rather than assuming every family feeds in the same way.
 
 Its wording reflects the UK distinction: breastfed babies need daily vitamin D, while babies taking 500ml or more fortified formula generally do not need extra. The same answer also appears inside the newborn **Grow → Is this normal?** guide alongside practical reassurance about feeding, poo, skin, breathing and other common early questions.
+
+The reminder does not add up formula volume or decide that a baby has crossed the 500ml threshold. It cannot tell which drops you use or whether today's dose has been given. Those decisions still come from the product label and, when feeding is changing or your baby has a specialist plan, a pharmacist, health visitor or clinical team.
 
 ![The real OBubba native Flutter Is this normal screen, with a calm newborn reassurance library that includes vitamin D guidance](/obubba-newborn-reassurance-app.jpg "OBubba's current native Flutter newborn guide keeps practical reassurance together and separates routine vitamin guidance from urgent medical help.")
 
@@ -128,7 +130,7 @@ OBubba does not choose a brand, prescribe a dose, diagnose a deficiency or know 
 
 Use OBubba as the gentle prompt and context layer; use the product label, pharmacist and your baby's clinical team for the exact supplement decision.
 
-**[Try OBubba free →](/app.html)** — one calm place for feeds, sleep, nappies, development, weaning and the small pieces of guidance that are easy to forget on a tired day.
+**[Try OBubba free →](/app.html?utm_source=vitamin_d_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261106_vitamin_d)**. Keep feeds, sleep, nappies, development, weaning and the small pieces of guidance that are easy to forget on a tired day in one calm place.
 
 ## The screenshot-friendly answer
 
