@@ -1334,6 +1334,7 @@ const SHARED_ASSETS = [
   'obubba-app-ai-coach-screenshot.jpg',
   'obubba-app-growth-development-screenshot.jpg',
   'obubba-corrected-age-premature-baby.jpg',
+  'obubba-baby-sleep-after-clocks-change.jpg',
   'obubba-baby-first-aid-before-weaning.jpg',
   'obubba-weaning-safety-app.jpg',
   'obubba-what-baby-wear-to-sleep.jpg',
