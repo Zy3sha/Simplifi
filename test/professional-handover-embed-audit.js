@@ -11,6 +11,7 @@ const checks = [
   ['no-data boundary', /Nothing typed into the builder is collected or saved by the page/i.test(page)],
   ['neutral resource boundary', /not a recommendation or clinical tool/i.test(page)],
   ['copy control', page.includes('id="copy-handover-embed"') && page.includes("navigator.clipboard.writeText(field.value)")],
+  ['printable professional resource', page.includes('/resources/obubba-baby-care-handover-sheet.pdf?utm_source=professional_resource&amp;utm_medium=download&amp;utm_campaign=from_bump_to_baby_auto&amp;utm_content=auto_20260906_handover_printable_professional') && page.includes('data-growth-action="handover_pdf_download"')],
   ['safe new-tab link', page.includes('target=&quot;_blank&quot; rel=&quot;noopener&quot;')],
   ['no form or third-party script', !/<form/i.test(page) && !/script src=["']https:\/\/(?!www\.googletagmanager\.com)/i.test(page)],
   ['contextual discovery route', handoverGuide.includes('/for-professionals.html?utm_source=owned_search&amp;utm_medium=seo&amp;utm_campaign=from_bump_to_baby_auto&amp;utm_content=auto_20260905_handover_embed_discovery#handover-embed-heading')],
