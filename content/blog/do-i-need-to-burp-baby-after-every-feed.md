@@ -4,6 +4,8 @@ slug: do-i-need-to-burp-baby-after-every-feed
 description: "Does every breast or bottle feed need a burp? Learn when to pause, three gentle winding positions, when to stop trying and which symptoms need help."
 date: 2026-11-25
 updated: 2026-11-25
+status: paused
+pauseReason: "Current Crying Helper and feeding-coach wording turns burping into a routine preventive instruction; do not publish until product guidance is reconciled with cue-led NHS advice."
 author: OBubba
 tags: do I need to burp baby after every feed, how to burp a baby, baby will not burp, trapped wind baby, burping breastfed baby, burping bottle fed baby, baby cries after feeding, OBubba Crying Helper
 heroImage: /obubba-burping-baby-after-feed.jpg
