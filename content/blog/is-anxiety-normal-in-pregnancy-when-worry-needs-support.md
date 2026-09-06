@@ -6,10 +6,10 @@ date: 2026-11-23
 updated: 2026-11-23
 author: OBubba
 tags: anxiety in pregnancy, is anxiety normal in pregnancy, antenatal anxiety, pregnancy panic attacks, intrusive thoughts pregnancy, pregnancy mental health support UK, perinatal anxiety, OBubba pregnancy wellbeing
-heroImage: /obubba-anxiety-in-pregnancy-support.jpg
+heroImage: /obubba-anxiety-in-pregnancy-support-20261123.jpg
 ---
 
-You check the pregnancy app, then the maternity notes, then search the same symptom again. The answer reassures you for ten minutes—but the worry returns before breakfast.
+You check the pregnancy app, then the maternity notes, then search the same symptom again. The answer reassures you for ten minutes, but the worry returns before breakfast.
 
 **Some worry and stress are common in pregnancy. Anxiety deserves support when it is difficult to control, keeps returning, or starts changing how you sleep, concentrate, work, eat, attend appointments or enjoy ordinary life.** You do not need to wait until it becomes unbearable, and you do not need an app to confirm that it is “bad enough”. Tell your midwife or GP what is happening.
 
@@ -55,7 +55,7 @@ Common worry themes include:
 - whether you will bond with the baby or know what to do
 - becoming unwell again after a previous mental-health difficulty
 
-None of those worries makes you ungrateful. The important question is not whether the subject is understandable. It is whether the worry is proportionate, temporary and responsive to support—or whether it keeps demanding more checking and certainty than anyone can supply.
+None of those worries makes you ungrateful. The important question is not whether the subject is understandable. It is whether the worry is proportionate, temporary and responsive to support, or whether it keeps demanding more checking and certainty than anyone can supply.
 
 ## The one-question test
 
@@ -73,7 +73,7 @@ That pattern is worth describing to a professional. “I know I have been reassu
 
 This is a pause before the next decision, not treatment and not a reason to delay maternity advice.
 
-### Minute 0–1: name the worry exactly
+### Minute 0 to 1: name the worry exactly
 
 Write one sentence:
 
@@ -81,13 +81,13 @@ Write one sentence:
 
 Separate what you observed from what anxiety predicts. “I have not felt movement since lunch” is an observation that needs action according to maternity guidance. “The baby will definitely be unwell because I ate one ingredient” is a prediction.
 
-### Minute 1–3: decide whether it belongs to maternity care
+### Minute 1 to 3: decide whether it belongs to maternity care
 
 If the concern involves baby movements, bleeding, fluid loss, severe pain, a severe headache, vision changes, feeling very unwell or another pregnancy warning sign, use your maternity unit's advice now. A breathing exercise must never become a waiting test for an obstetric symptom.
 
 For a mental-health crisis or risk of harm, call 999 or go to A&E. For urgent mental-health help that is not an immediate emergency, call NHS 111 and select the mental-health option where offered locally.
 
-### Minute 3–5: make the body a little less alarmed
+### Minute 3 to 5: make the body a little less alarmed
 
 Put both feet or your back against something supportive. Unclench your jaw. Breathe in gently, then let the out-breath be comfortable and unforced. Repeat for about a minute.
 
@@ -95,7 +95,7 @@ If counting helps, use a slow pattern. If breath-holding, deep breathing or focu
 
 Breathing can lower the volume enough to choose a next step. It cannot prove that you or the pregnancy are medically well, and it does not replace treatment for persistent anxiety.
 
-### Minute 5–8: choose one source and one action
+### Minute 5 to 8: choose one source and one action
 
 Use the NHS, your maternity unit or a professional who knows your pregnancy. Avoid opening six forums to calculate a majority vote.
 
@@ -107,7 +107,7 @@ Choose one action:
 - ask a trusted person to stay with you while you call
 - put the phone down and return to the next ordinary task
 
-### Minute 8–10: close the loop
+### Minute 8 to 10: close the loop
 
 Record the action, not another page of evidence: “Called triage at 14:20; advised ___.” Then stop searching unless the situation changes or you were told to monitor something specific.
 
@@ -169,35 +169,35 @@ Support is more useful when it reduces the work of getting help.
 - Avoid becoming an all-day reassurance service; repeated checking can keep the anxiety loop alive.
 - If they may be unsafe, stay with them and get urgent help.
 
-A partner can say: “This has been affecting your sleep and daily life for a week. We do not have to decide what it is—we can tell the midwife exactly that.”
+A partner can say: “This has been affecting your sleep and daily life for a week. We do not have to decide what it is. We can tell the midwife exactly that.”
 
 ## How the real OBubba Flutter app supports pregnancy wellbeing
 
 OBubba's current pregnancy experience gives the pregnant parent a visible place alongside the baby's week, appointments and preparation.
 
-![The real OBubba Flutter pregnancy experience, where weekly guidance, preparation tools, keepsakes and a dedicated wellbeing route live in one continuous journey.](/obubba-pregnancy-wellbeing-app.jpg "OBubba's real Flutter pregnancy experience. The app supports reflection and signposting; it does not diagnose anxiety or confirm that a pregnancy is medically well.")
+![An OBubba pregnancy overview featuring the current Flutter For you screen, where weekly guidance, preparation tools and a dedicated wellbeing route live in one continuous journey.](/obubba-pregnancy-wellbeing-app-20261123.jpg "An OBubba pregnancy overview featuring the current Flutter For you screen. The app supports reflection and signposting; it does not diagnose anxiety or confirm that a pregnancy is medically well.")
 
 In the live pregnancy journey, the **For you** wellbeing space offers five ordinary states: **Light, Calm, Tired, Worried** and **Low**. One selection per day is saved to the maternal wellbeing record; choosing again replaces that day's entry rather than manufacturing multiple bad days.
 
 The same screen includes a one-minute expanding-and-settling flower with gentle breathing labels, a three-breath “moment together” that does not ask the parent to achieve anything, and an explicit **I need a little more support** action. The breathing visual can be paused and is offered as a calming moment, not a medical result.
 
-That record is deliberately kept **on the device** and outside the shared child-sync record. A partner or carer does not automatically receive sensitive mental-health check-ins simply because they share the baby's care. The parent can clear the maternal data from the app.
+That record is deliberately kept **on the device** and outside the shared child sync record. A partner or carer does not automatically receive sensitive mental health check-ins simply because they share the baby's care. Signing out clears the maternal wellbeing record from that device.
 
-The underlying wellbeing engine is explicit about its boundary: it is a self-reflection tool, not a clinical screening instrument. It computes no depression or anxiety score and returns no diagnosis. A separate **I need a little more support** action opens region-aware contacts and tells the parent to speak to a midwife or GP; immediate-risk wording routes to emergency help rather than another calming exercise.
+The wellbeing feature is a self-reflection tool, not a clinical screening instrument. It computes no depression or anxiety score and returns no diagnosis. The separate **I need a little more support** action opens contacts selected for the device region and tells the parent to speak to a midwife or GP. In the UK list, crisis help includes 999 or NHS 111. It is still a signposting screen, not an assessment of whether someone is safe.
 
 Important limits remain:
 
 | OBubba can help with | OBubba cannot know |
 |---|---|
 | pausing long enough to name today's feeling | whether you have an anxiety disorder |
-| noticing a repeated personal pattern | whether you or the pregnancy are medically well |
-| keeping sensitive mood notes out of the shared baby timeline | who can see your phone or device backups |
+| keeping one daily feeling check-in for personal reflection | whether you or the pregnancy are medically well |
+| keeping the check-in out of the shared baby timeline | who can see your phone or device backups |
 | making support information easier to reach | whether you are safe without asking and assessing you directly |
 | guiding one minute of breathing | whether breathing, therapy or medicine is the right treatment |
 
-Use the check-in to begin a sentence, not end the investigation: “I have chosen Worried most days this week, and the worry is affecting my sleep. I want to tell my midwife.”
+Use the check-in to begin a sentence, not end the investigation: “I feel worried most days, and the worry is affecting my sleep. I want to tell my midwife.”
 
-**[Try OBubba free →](/free-baby-tracker-app.html)** — pregnancy wellbeing, appointments, preparation and keepsakes that continue into sleep, feeds, nappies, weaning, growth and shared care after birth.
+**[Try OBubba free →](/app.html?utm_source=pregnancy_anxiety_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261123_pregnancy_anxiety)**. Pregnancy wellbeing, appointments, preparation and keepsakes continue into sleep, feeds, nappies, weaning, growth and shared care after birth.
 
 ## Frequently asked questions
 
