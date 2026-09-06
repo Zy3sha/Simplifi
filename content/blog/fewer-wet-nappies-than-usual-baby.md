@@ -5,6 +5,8 @@ description: "A practical UK guide to wet-nappy changes: what is normal for newb
 date: 2026-11-18
 updated: 2026-11-18
 author: OBubba
+status: paused
+pauseReason: "The current Flutter hydration helper counts every soiled, dirty and untyped nappy entry as wet. That can suppress a low-output warning or create a wet-nappy trend from records that do not prove urine output. Do not publish until wet status is represented honestly, missing type is treated as unknown, the safety hierarchy is clinically reviewed and the article is reverified."
 tags: fewer wet nappies baby, baby not weeing enough, baby dehydration signs, how many wet nappies baby, dry nappy overnight baby, newborn wet nappies by day, baby wet nappy tracker, no wet nappy 8 hours, baby feeding less wet nappies, OBubba nappy tracker
 heroImage: /obubba-fewer-wet-nappies-usual.jpg
 ---
