@@ -5,9 +5,21 @@ const ROOT = path.resolve(__dirname, '..');
 const page = fs.readFileSync(path.join(ROOT, 'blog', 'best-baby-tracker-app-uk.html'), 'utf8');
 
 const required = [
-  '<title>Best Baby Tracker App UK: 7 Things to Compare | OBubba</title>',
+  '<title>Best Baby Tracker Apps UK 2026: 5 Options Compared | OBubba</title>',
   '<link rel="canonical" href="https://obubba.com/blog/best-baby-tracker-app-uk.html"/>',
-  'Best baby tracking app UK: the short answer',
+  'Best baby tracking apps UK: the short answer',
+  'Five baby tracker apps to compare in the UK',
+  'This comparison is published by OBubba, so it is not an independent ranking.',
+  '<h3>1. OBubba</h3>',
+  '<h3>2. Huckleberry</h3>',
+  '<h3>3. Nara Baby</h3>',
+  '<h3>4. Baby Tracker by Nighp</h3>',
+  '<h3>5. Onoco</h3>',
+  'https://apps.apple.com/gb/app/huckleberry-baby-tracker/id1169136078',
+  'https://apps.apple.com/gb/app/nara-baby-pregnancy-tracker/id1444639029',
+  'https://apps.apple.com/gb/app/baby-tracker-newborn-log/id779656557',
+  'https://apps.apple.com/gb/app/onoco-baby-tracker-schedule/id1529620090',
+  'The comparison does not score medical quality, safety or outcomes.',
   'A 60-second comparison checklist',
   '<li><strong>Everyday logging:</strong>',
   '<li><strong>Two-parent use:</strong>',
