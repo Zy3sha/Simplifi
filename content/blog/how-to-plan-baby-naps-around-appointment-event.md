@@ -5,6 +5,8 @@ description: "Need baby awake for an appointment—or asleep on a journey? Build
 date: 2026-11-03
 updated: 2026-11-03
 author: OBubba
+status: paused
+pauseReason: "Do not publish while the Flutter Schedule Maker builds a clock-based six-nap day for newborns from age-table and neutral-default timing without a newborn hold or a minimum learned-history gate. The article correctly says not to reshape a newborn's feeds and sleep around an appointment or social timetable, so promoting the current tool would contradict that safety boundary. Add a newborn exclusion or clinically reviewed newborn-specific experience, make the generic-default state explicit, and reverify the feature before this acquisition article resumes."
 tags: plan baby naps around appointment, baby nap schedule for event, baby class nap plan, family event with baby, car journey baby nap, flexible baby routine, OBubba Schedule Maker
 heroImage: /obubba-plan-baby-naps-around-event.jpg
 ---
