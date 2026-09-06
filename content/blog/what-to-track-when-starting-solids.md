@@ -5,6 +5,7 @@ description: "Starting a baby food log? Track foods, textures, allergens, reacti
 date: 2026-12-11
 updated: 2026-12-11
 author: OBubba
+status: paused
 tags: what to track starting solids, baby food log, weaning tracker app, baby solids diary, track baby allergens, baby texture progression, iron rich foods baby, baby feeding log, starting solids checklist, OBubba weaning tracker
 heroImage: /obubba-what-track-starting-solids.jpg
 ---
