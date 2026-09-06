@@ -13,7 +13,7 @@ The baby needs soft food with no added salt. One adult wants chilli. Someone els
 
 You do **not** need a miniature parallel kitchen for weaning.
 
-> **Cook one flexible family base, lift out the baby's portion before adult seasoning, then change the texture—not the whole meal.**
+> **Cook one flexible family base, lift out the baby's portion before adult seasoning, then change the texture, not the whole meal.**
 
 That can mean lentil dhal mashed for baby and finished with chilli for adults, pasta sauce served with soft pasta shapes for baby and parmesan at the table, or a tray of vegetables and chicken cut differently for each person.
 
@@ -54,7 +54,7 @@ You do not need all four in every spoonful. Look across several meals rather tha
 
 Milk also remains important throughout the first year. Family meals are introduced alongside breast milk or first infant formula; they do not need to replace milk feeds quickly.
 
-## Six adaptable dinners—not 21 separate baby meals
+## Six adaptable dinners, not 21 separate baby meals
 
 Planning every breakfast, lunch, dinner and snack creates a grid large enough to fail by Tuesday. Begin with **six anchor meals** for the week instead.
 
@@ -133,7 +133,7 @@ Pick at least a couple of meals built around an iron-rich ingredient, such as me
 
 ### 3. Choose one new thing
 
-It might be one new food, one new texture or one new allergen—not all three at once. A small deliberate stretch is easier to understand than a plate full of novelty.
+It might be one new food, one new texture or one new allergen, not all three at once. A small deliberate stretch is easier to understand than a plate full of novelty.
 
 ### 4. Repeat two easy wins
 
@@ -184,11 +184,13 @@ The working flow is:
 5. **Generate six meals.** **This week's plan** saves for the current baby and week, so the family can mark meals tried without the list resetting each time the app opens.
 6. **Build the shopping list.** Ingredients from the chosen recipes are cleaned and deduplicated into a tickable list; “got” checks persist alongside the meal plan.
 
-The app also shows the current texture stage, number of iron-rich meals, unique foods and days since solids began. Those are context—not grades. Nine unique foods is not automatically better parenting than eight, and the app cannot see how much was swallowed from a food name alone.
+The app also shows the current texture stage, number of iron-rich meals, unique foods and days since solids began. Those are context, not grades. Nine unique foods is not automatically better parenting than eight, and the app cannot see how much was swallowed from a food name alone.
 
-**[Try OBubba free →](/free-baby-tracker-app.html)** — keep meals, textures, allergens, reactions, recipe ideas and the week's shopping list beside feeds, sleep, nappies and growth.
+The saved six-meal weekly plan and its shopping list are available in the free app. Free accounts see a smaller set of ranked cookbook ideas, while Premium unlocks the full 77-recipe garden.
 
-## What a meal planner can—and cannot—decide
+**[Turn six adaptable meals into one calmer week →](/app.html?utm_source=family_meals_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261028_family_meals)**. Keep meals, textures, allergens, reactions, recipe ideas and the week's shopping list beside feeds, sleep, nappies and growth.
+
+## What a meal planner can and cannot decide
 
 | It can help with | It cannot decide |
 |---|---|
