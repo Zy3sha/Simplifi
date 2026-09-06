@@ -5,6 +5,7 @@ description: "If your baby keeps pulling to stand in the cot but cannot get down
 date: 2026-12-08
 updated: 2026-12-08
 author: OBubba
+status: paused
 tags: baby standing in cot at bedtime, baby pulls to stand in crib, baby can't get down from standing, baby standing instead of sleeping, baby practising skills at night, baby pull to stand sleep regression, lower cot mattress baby standing, OBubba milestone tracker
 heroImage: /obubba-baby-standing-in-cot-bedtime.jpg
 ---
