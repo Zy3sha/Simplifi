@@ -9,7 +9,7 @@ tags: perineal massage pregnancy, how to do perineal massage, when to start peri
 heroImage: /obubba-perineal-massage-pregnancy.jpg
 ---
 
-Perineal massage can sound either clinical, awkward or like one more item on an already crowded third-trimester list. It is actually an optional birth-preparation technique that you—or a partner you trust—can try privately during the last few weeks of pregnancy.
+Perineal massage can sound either clinical, awkward or like one more item on an already crowded third-trimester list. It is actually an optional birth-preparation technique that you, or a partner you trust, can try privately during the last few weeks of pregnancy.
 
 The short version is:
 
@@ -128,7 +128,7 @@ Stop for:
 - dizziness, feeling faint or feeling unwell
 - distress, panic or a sense that you do not want to continue
 
-Consent applies even when a partner is helping with a health-related technique. Agree on a word that means stop, check in throughout, and stop immediately when asked. A partner's job is to follow—not interpret or persuade past—your feedback.
+Consent applies even when a partner is helping with a health-related technique. Agree on a word that means stop, check in throughout, and stop immediately when asked. A partner's job is to follow your feedback, not interpret it or persuade you to continue.
 
 ## When should you not do perineal massage?
 
@@ -172,16 +172,16 @@ You can add a simple preference to your birth plan: “Please discuss warm compr
 
 ## How OBubba makes this easier to revisit
 
-OBubba's real Flutter pregnancy experience includes a dedicated **Perineal massage** guide alongside the kick counter, contraction timer, week-by-week journey and “Good to know” safety information.
+OBubba's real Flutter pregnancy experience includes a dedicated **Perineal massage** guide alongside its week-by-week journey, preparation tools and “Good to know” safety information.
 
 ![OBubba's real Flutter perineal-massage guide, with a calm four-chapter explanation of timing, preparation, technique and stopping if it hurts.](/obubba-perineal-massage-guide-app.jpg "The real OBubba pregnancy guide keeps this optional technique calm, private and clearly bounded by the advice to stop if it hurts and check with a midwife.")
 
 The guide is intentionally structured as four short chapters:
 
-1. **When to start** — around 34–35 weeks, without turning missed days into failure.
-2. **Getting comfy** — clean hands, warmth, support and unscented lubricant.
-3. **How to do it** — gentle down-and-out pressure followed by a slow U shape.
-4. **Be kind to yourself** — stop if it hurts; this is not a test of birth readiness.
+1. **When to start:** around 34–35 weeks, without turning missed days into failure.
+2. **Getting comfy:** clean hands, warmth, support and unscented lubricant.
+3. **How to do it:** gentle down-and-out pressure followed by a slow U shape.
+4. **Be kind to yourself:** stop if it hurts; this is not a test of birth readiness.
 
 Its safety note says not to massage with bleeding, active thrush or another infection, after waters break, or when a midwife has advised against it. That boundary matters more than a reminder streak.
 
@@ -189,7 +189,9 @@ OBubba does not record intimate details or grade a session. Its job is to keep t
 
 The same pregnancy space carries forward after birth into feeds, nappies, sleep, medicines, growth, appointments and shared care. Parents do not need a separate app for every chapter or have to rebuild context while exhausted.
 
-**[Explore OBubba's pregnancy and baby tools →](/app.html)**
+The whole app is unlocked during pregnancy and remains on OBubba through the first eight corrected weeks after birth. After that early-free period, the app shows current eligibility and storefront options before any purchase.
+
+**[Keep pregnancy preparation and baby tracking together →](/app.html?utm_source=perineal_massage_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261019_perineal_massage)**
 
 ## A realistic five-minute routine
 
