@@ -27,6 +27,10 @@ for (const urlPath of paths) {
   }
   const loaderCount = (html.match(/googletagmanager\.com\/gtag\/js/g) || []).length;
   if (loaderCount !== 1) throw new Error(`${file} has ${loaderCount} Google tag loaders`);
+  if (/send_page_view\s*:\s*false/.test(html)
+      && !/gtag\s*\(\s*['"]event['"]\s*,\s*['"]page_view['"]/.test(html)) {
+    throw new Error(`${file} disables automatic page views without sending a bounded manual page view`);
+  }
   const hasStoreLink = html.includes('apps.apple.com') || html.includes('play.google.com');
   const hasStoreMeasurement = html.includes("gtag('event', 'store_click'")
     || html.includes('window.gtag("event", "press_action"');

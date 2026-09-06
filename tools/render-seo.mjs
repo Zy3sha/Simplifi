@@ -2841,6 +2841,14 @@ function renderTopicPage(topic) {
   <script>
   (() => {
     ${ctaAttributionSetup}
+    gtag('event', 'page_view', {
+      page_title: document.title,
+      page_location: location.origin + location.pathname,
+      ob_source: ${topic.preserveIncomingAttribution ? 'attribution.source' : "'owned_search'"},
+      ob_medium: ${topic.preserveIncomingAttribution ? 'attribution.medium' : "'seo'"},
+      ob_campaign: ${topic.preserveIncomingAttribution ? 'attribution.campaign' : "'from_bump_to_baby_auto'"},
+      ob_content: ${topic.preserveIncomingAttribution ? 'attribution.content' : 'content'}
+    });
     document.querySelectorAll('a.store').forEach((link) => {
       const destination = link.hostname === 'apps.apple.com' ? 'app_store' : link.hostname === 'play.google.com' ? 'google_play' : '';
       if (!destination) return;

@@ -1039,6 +1039,14 @@
       && /^auto_[A-Za-z0-9_-]{1,100}$/.test(content)
       ? { source, medium, campaign, content }
       : fallback;
+    gtag('event', 'page_view', {
+      page_title: document.title,
+      page_location: location.origin + location.pathname,
+      ob_source: attribution.source,
+      ob_medium: attribution.medium,
+      ob_campaign: attribution.campaign,
+      ob_content: attribution.content
+    });
     document.querySelectorAll('a.store').forEach((link) => {
       const destination = link.hostname === 'apps.apple.com' ? 'app_store' : link.hostname === 'play.google.com' ? 'google_play' : '';
       if (!destination) return;
