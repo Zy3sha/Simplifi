@@ -5,6 +5,8 @@ description: "Should you change a wet nappy at every night feed? Use this calm w
 date: 2026-11-28
 updated: 2026-11-28
 author: OBubba
+status: paused
+pauseReason: "Do not publish while the Flutter hydration engine counts Poo, Dirty and untyped nappy logs as wet nappies and can use those inferred wet counts in hydration reassurance and dehydration alerts. This conflicts with the article's promise that Wet, Poo and Dirty remain distinct and that hydration trends use only genuine wet-nappy entries."
 tags: change baby nappy every night feed, change wet nappy at night, nappy change before or after night feed, wake baby for nappy change, newborn night nappy, baby poos during night feed, night nappy rash, OBubba nappy tracker
 heroImage: /obubba-change-nappy-night-feed.jpg
 ---
