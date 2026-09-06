@@ -5,6 +5,7 @@ description: "Fruit is nutritious, but vegetables can take longer to become fami
 date: 2026-12-06
 updated: 2026-12-06
 author: OBubba
+status: paused
 tags: baby only eats fruit, baby refuses vegetables, baby won't eat vegetables, mix fruit and vegetables baby, how to get baby to eat vegetables, baby hates broccoli, less sweet vegetables baby weaning, repeated exposure vegetables, OBubba weaning tracker
 heroImage: /obubba-baby-only-eats-fruit-vegetables.jpg
 ---
