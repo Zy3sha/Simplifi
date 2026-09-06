@@ -1,7 +1,7 @@
 ---
 title: "How to Track Twins Without Mixing Up Feeds, Nappies or Sleep"
 slug: how-to-track-twins-feeds-nappies-sleep
-description: "A low-effort twin baby tracking system for feeds, nappies and sleep—plus when to log separately, what can be shared, and how OBubba handles two babies."
+description: "A low-effort twin baby tracking system for feeds, nappies and sleep, including when to log separately, what can be shared, and how OBubba handles two babies."
 date: 2026-10-25
 updated: 2026-10-25
 author: OBubba
@@ -65,7 +65,7 @@ The [NHS guide to feeding twins and multiples](https://www.nhs.uk/baby/newborn-t
 
 If both babies cue at once, a simultaneous feed may be practical once you have safe positioning and support. If one feeds more effectively, needs a different teat, tires sooner or follows a top-up plan, separate entries keep that difference visible.
 
-For each measured bottle, record the amount that baby actually took—not the amount prepared for both. For breastfeeding, duration and side can jog memory, but minutes do not measure milk transfer. Look at active swallowing, attachment, comfort, nappies and the growth picture, and seek feeding support when concerned.
+For each measured bottle, record the amount that baby actually took, not the amount prepared for both. For breastfeeding, duration and side can jog memory, but minutes do not measure milk transfer. Look at active swallowing, attachment, comfort, nappies and the growth picture, and seek feeding support when concerned.
 
 Avoid a shared feed entry unless the event really is identical enough to remain useful. Even when both began at 10:00, one baby may stop at 10:12 and the other continue. Two records let you correct the finishes without rewriting a fictional synchronized feed.
 
@@ -93,7 +93,7 @@ Seek professional advice based on the baby in front of you, not on whether an ap
 
 The [NHS twins and sleep guidance](https://www.nhs.uk/baby/newborn-twins-and-multiples/twins-and-sleep/) notes that a routine may help, while sleep can be more complicated when babies were premature, feed frequently or have several carers. It suggests that some families try to coordinate night feeds early on, but one twin may begin sleeping through before the other.
 
-That is the useful middle ground: offer familiar anchors—morning light, feeds, winding down and bedtime—without treating one baby's wake as proof the other must wake too.
+That is the useful middle ground: offer familiar anchors such as morning light, feeds, winding down and bedtime, without treating one baby's wake as proof the other must wake too.
 
 Log sleep separately because:
 
@@ -105,7 +105,7 @@ Log sleep separately because:
 
 Separate data prevents a synchronized-looking chart from hiding the baby who is regularly waking, missing feeds or struggling to settle.
 
-Safe sleep matters more than coordination. Put each baby down on their back for every sleep, use a firm, flat, clear sleep space, keep the room smoke-free and follow current safer-sleep guidance. The NHS advises that babies sleep in the same room as a parent for the first six months. If you are considering co-bedding twins, follow the specific NHS guidance and the advice of your maternity or neonatal team—especially if either baby was premature or small at birth.
+Safe sleep matters more than coordination. Put each baby down on their back for every sleep, use a firm, flat, clear sleep space, keep the room smoke-free and follow current safer-sleep guidance. The NHS advises that babies sleep in the same room as a parent for the first six months. If you are considering co-bedding twins, follow the specific NHS guidance and the advice of your maternity or neonatal team, especially if either baby was premature or small at birth.
 
 ## Weaning: same birthday does not mean same readiness
 
@@ -138,7 +138,9 @@ The same boundary continues beyond the daily log. Day tags, sleep history, sleep
 
 That means a family can coordinate care without flattening the babies into a single average.
 
-**[Try OBubba free →](/free-baby-tracker-app.html)** — begin with one baby's feeds, nappies, sleep and memories, then add unlimited babies with Premium when the multi-baby workflow fits your family.
+OBubba does not currently put both babies into one side-by-side dashboard. You switch the active baby when their entries differ and use **Log for all** only when the event genuinely matches. That extra name check is an important part of keeping each history clear.
+
+**[Keep each baby's day clear in OBubba →](/app.html?utm_source=twins_tracking_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261025_twins_tracking)**. Start free with one baby's feeds, nappies, sleep and memories, then add unlimited babies with Premium when the multi-baby workflow fits your family.
 
 ## When “Log for all” genuinely helps
 
