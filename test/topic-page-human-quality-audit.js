@@ -1,13 +1,11 @@
 const fs = require('fs');
 const assert = require('assert');
 
-const pages = [
-  'baby-daily-log-app.html',
-  'partner-baby-tracker-app.html',
-  'baby-tracker-for-grandparents.html',
-  'nursery-baby-handover-app.html',
-  'baby-care-handover-app.html',
-];
+const pages = fs.readdirSync('.')
+  .filter((name) => name.endsWith('.html'))
+  .filter((name) => fs.readFileSync(name, 'utf8').includes('<p class="eyebrow">A clear answer</p>'));
+
+assert.ok(pages.length >= 30, `expected the full generated topic-page library, found ${pages.length}`);
 
 const forbidden = [
   /Answer for AI and search engines/i,
