@@ -9,13 +9,13 @@ tags: how much milk baby starting solids, baby milk intake 6 months, 7 month old
 heroImage: /obubba-milk-baby-starting-solids.jpg
 ---
 
-Starting solids creates a strange new maths problem. Your baby eats three spoonfuls of porridge, drops one bottle feed and suddenly you are wondering whether milk is disappearing too quickly—or whether this is exactly what is meant to happen.
+Starting solids creates a strange new maths problem. Your baby eats three spoonfuls of porridge, drops one bottle feed and suddenly you are wondering whether milk is disappearing too quickly, or whether this is exactly what is meant to happen.
 
 The reassuring answer is that **milk stays central while solids build gradually**. At the beginning, most of a baby's energy and nutrients still come from breast milk or first infant formula. There is no useful millilitre target for a breastfed baby, and formula figures are guides rather than quotas.
 
 For formula-fed babies, the NHS says they may need **around 600ml a day at 7 to 9 months** and **around 400ml a day at 10 to 12 months**. Those numbers are not targets for breast milk, not a minimum every healthy baby must finish, and not a reason to pressure a baby through a bottle.
 
-> **The short version:** keep offering breast milk or first infant formula responsively, let solids grow from tastes towards meals, and judge the transition from the whole picture—feeding cues, wet nappies, growth, energy and what has changed—not one bottle total.
+> **The short version:** keep offering breast milk or first infant formula responsively, let solids grow from tastes towards meals, and judge the transition from the whole picture: feeding cues, wet nappies, growth, energy and what has changed, not one bottle total.
 
 ## Milk and solids by stage
 
@@ -152,7 +152,7 @@ OBubba does not add every feeding-related number together and call it “intake�
 In practice:
 
 - breastfeeds are logged as breastfeeds, without inventing a volume
-- only bottles with an entered amount contribute to measured milk-volume trends
+- bottles and combination feeds with an entered amount contribute to measured milk-volume trends
 - pumping is excluded from intake because expressed milk is not necessarily milk the baby drank
 - solids stay in the weaning journal rather than being converted into millilitres
 - milk, solids, wet nappies and growth can still be viewed in context
@@ -172,7 +172,7 @@ OBubba cannot assess milk transfer at the breast, diagnose dehydration or decide
 
 That is more useful than “I think the baby is drinking less, but I cannot remember when it started.”
 
-**[Try OBubba free →](/free-baby-tracker-app.html)** — keep breastfeeds, measured bottles, pumping, first foods, nappies and growth together without flattening them into one misleading total.
+**[Keep milk and first tastes in one calm timeline →](/app.html?utm_source=milk_starting_solids_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261021_milk_solids)**. Try OBubba free and keep breastfeeds, measured bottles, pumping, first foods, nappies and growth together without flattening them into one misleading total.
 
 ## A calm three-day check when milk seems lower
 
