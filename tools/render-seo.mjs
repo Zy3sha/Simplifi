@@ -1364,6 +1364,8 @@ const SHARED_ASSETS = [
   'obubba-repeat-tolerated-allergens-egg-peanut.jpg',
   'obubba-allergen-journey-app.jpg',
   'obubba-baby-back-to-purees-texture-reset.jpg',
+  'obubba-baby-drinking-less-milk-teething-20261117.jpg',
+  'obubba-teeth-smile-map-app-20261117.jpg',
   'obubba-baby-fussy-new-skill.jpg',
   'obubba-newborn-is-this-normal.jpg',
   'obubba-newborn-reassurance-app.jpg',
