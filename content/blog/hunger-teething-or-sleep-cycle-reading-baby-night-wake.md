@@ -5,6 +5,8 @@ description: "How can you tell why your baby woke at night? Use age, feeding, di
 date: 2026-10-31
 updated: 2026-10-31
 author: OBubba
+status: paused
+pauseReason: "Do not publish while the Flutter wake-reason pattern says a baby's wake can be read by duration and that this can help avoid a full feed. Its inputs are parent-labelled reasons and measured duration, which can describe an association but cannot establish hunger, pain, illness or what the baby needs. Current NHS and UNICEF UK guidance prioritises feeding cues and responsive feeding. Reconcile and clinically review the product guidance before this acquisition article promotes it."
 tags: why did my baby wake at night, baby waking from hunger or habit, baby night wake reasons, baby sleep cycles, teething night waking, baby sleep tracker, night feed baby, OBubba
 heroImage: /obubba-read-baby-night-wake.jpg
 ---
