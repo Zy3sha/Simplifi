@@ -9,7 +9,7 @@ tags: can't sleep when baby sleeps, postpartum insomnia, postnatal anxiety at ni
 heroImage: /obubba-cant-sleep-when-baby-sleeps.jpg
 ---
 
-The baby finally falls asleep. The room is quiet. You have been desperate for this moment—and now your body will not follow.
+The baby finally falls asleep. The room is quiet. You have been desperate for this moment, and now your body will not follow.
 
 You listen for every breath. You replay the last feed. You calculate how long remains before the next wake. Your heart feels alert even though your eyes burn.
 
@@ -68,13 +68,13 @@ The other adult needs the information and confidence to act without repeatedly c
 
 After weeks of waking to tiny sounds, the body can react to the first grunt before conscious thought begins. Normal newborn active sleep is noisy. A safe cot can still feel impossible to stop checking.
 
-Use the baby's safe sleep setup as the completed check: on their back, in a clear separate sleep space, with the appropriate room conditions and no loose items. If you find yourself rechecking despite knowing the setup is unchanged, tell a health professional—especially if the checking is frequent, distressing or expanding into other rituals.
+Use the baby's safe sleep setup as the completed check: on their back, in a clear separate sleep space, with the appropriate room conditions and no loose items. The [current NHS safer-sleep guide](https://www.nhs.uk/best-start-in-life/baby/baby-basics/newborn-and-baby-sleeping-advice-for-parents/safe-sleep-advice-for-babies/) explains the full setup. If you find yourself rechecking despite knowing it is unchanged, tell a health professional, especially if the checking is frequent, distressing or expanding into other rituals.
 
 ### You are afraid of wasting the window
 
 The thought “I have only 47 minutes left” creates a performance test. Clock-watching turns the remaining opportunity into a countdown, and the frustration of not sleeping increases alertness.
 
-The NHS advises not to force sleep. If you are safely off duty and lying awake is making you more tense, sit somewhere dim and comfortable for a few minutes, listen to something quiet or read, then return when sleepiness grows. In the early postnatal period, keep this gentle and practical—you do not need a perfect adult sleep schedule while responding to a newborn.
+The NHS advises not to force sleep. If you are safely off duty and lying awake is making you more tense, sit somewhere dim and comfortable for a few minutes, listen to something quiet or read, then return when sleepiness grows. In the early postnatal period, keep this gentle and practical. You do not need a perfect adult sleep schedule while responding to a newborn.
 
 ### Your mind finally has room to process
 
@@ -108,7 +108,7 @@ This is not a cure for a mental-health condition. It is a way to reduce avoidabl
 
 ### 1. Protect one defined rest block
 
-Choose a realistic window—even 60 to 90 minutes—and assign another capable adult as the active carer. If breastfeeding, they can handle the nappy, settling and bringing the baby to you only when a feed is needed. If bottles are already part of your safe feeding plan, agree who prepares and gives them.
+Choose a realistic window, even 60 to 90 minutes, and assign another capable adult as the active carer. If breastfeeding, they can handle the nappy, settling and bringing the baby to you only when a feed is needed. If bottles are already part of your safe feeding plan, agree who prepares and gives them.
 
 Do not abruptly stretch or replace medically important feeds, particularly for a newborn, a premature baby, weight-gain concerns or when protecting milk supply. Ask your midwife, health visitor or feeding specialist how to create rest without undermining the baby's plan.
 
@@ -146,9 +146,9 @@ Slow breathing may reduce immediate physical arousal. It cannot treat depression
 
 If you become increasingly frustrated, change position or sit somewhere safe and dim. Listen to familiar audio, read something undemanding or simply rest. Return to bed when you feel sleepier.
 
-Avoid taking an over-the-counter sleep product, herbal remedy or somebody else's medication without checking with a doctor or pharmacist—particularly while breastfeeding, recovering from birth, taking other medicines or needing to respond safely to a baby.
+Avoid taking an over-the-counter sleep product, herbal remedy or somebody else's medication without checking with a doctor or pharmacist, particularly while breastfeeding, recovering from birth, taking other medicines or needing to respond safely to a baby.
 
-## What to change tomorrow—not at 2am
+## What to change tomorrow, not at 2am
 
 ### Bring the night into daylight
 
@@ -192,7 +192,7 @@ Speak to a GP, midwife or health visitor promptly if:
 - you dread night approaching
 - symptoms last beyond the first two weeks, are worsening, or worry you at any point
 
-You can choose whichever professional feels easiest. The NHS explains that they can refer to a specialist community perinatal mental-health team where appropriate, and adults can often self-refer to NHS Talking Therapies for anxiety and depression. [Find current NHS perinatal mental-health support](https://www.nhs.uk/nhs-services/mental-health-services/find-care-for-your-mental-health-before-during-and-after-pregnancy/).
+You can choose whichever professional feels easiest. The NHS explains that they can refer to a specialist community perinatal mental-health team where appropriate. In England, eligible adults can also self-refer to NHS Talking Therapies for anxiety and depression. [Find current NHS perinatal mental-health support](https://www.nhs.uk/nhs-services/mental-health-services/find-care-for-your-mental-health-before-during-and-after-pregnancy/).
 
 Partners can also experience depression, anxiety and severe sleep disruption after a baby arrives. They should contact their GP or NHS mental-health services rather than assuming support is only for the person who gave birth.
 
@@ -239,7 +239,9 @@ OBubba's sleep timeline can show how fragmented the nights have been; Parent Roo
 
 That is more useful than another generic instruction to sleep when the baby sleeps.
 
-**[Explore OBubba's baby sleep and parent-support tools →](/app.html)**
+Parent Room and its wellbeing check-in are available without Premium. They are support and reflection tools, not a crisis service or a replacement for human assessment.
+
+**[Put the parent's wellbeing beside the baby log →](/app.html?utm_source=postpartum_insomnia_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261020_postpartum_insomnia)**
 
 ## Frequently asked questions
 
@@ -261,7 +263,7 @@ Ask a GP or pharmacist who knows the exact product, dose, other medicines, your 
 
 ### What if I feel too alert to sleep but not tired?
 
-Sudden lack of need for sleep—especially with high energy, racing thoughts, confusion, unusual beliefs, hallucinations or out-of-character behaviour—needs urgent same-day assessment after birth.
+Sudden lack of need for sleep, especially with high energy, racing thoughts, confusion, unusual beliefs, hallucinations or out-of-character behaviour, needs urgent same-day assessment after birth.
 
 ### Will tracking more help?
 
@@ -271,7 +273,7 @@ Only if it answers a useful question. Record broad sleep opportunities and signi
 
 If the baby is asleep but you cannot switch off, the answer is not to try harder. Create a genuine off-duty block, remove the countdown, lower stimulation and let rest be enough for the moment.
 
-Then look at the pattern. Persistent inability to sleep—especially with anxiety, low mood, intrusive thoughts, pain or difficulty coping—deserves a conversation with a GP, midwife or health visitor. Sudden sleeplessness with extreme energy, racing thoughts, confusion, unusual beliefs or hallucinations is urgent.
+Then look at the pattern. Persistent inability to sleep, especially with anxiety, low mood, intrusive thoughts, pain or difficulty coping, deserves a conversation with a GP, midwife or health visitor. Sudden sleeplessness with extreme energy, racing thoughts, confusion, unusual beliefs or hallucinations is urgent.
 
 Your sleep is not the leftover part of baby care. It is part of keeping the whole family safe.
 
@@ -281,6 +283,7 @@ Your sleep is not the leftover part of baby care. It is part of keeping the whol
 - [NHS: Postnatal depression](https://www.nhs.uk/mental-health/conditions/postnatal-depression/)
 - [NHS: Find mental-health care before, during and after pregnancy](https://www.nhs.uk/nhs-services/mental-health-services/find-care-for-your-mental-health-before-during-and-after-pregnancy/)
 - [NHS: Postpartum psychosis](https://www.nhs.uk/mental-health/conditions/post-partum-psychosis/)
+- [NHS: Safer sleep advice for babies](https://www.nhs.uk/best-start-in-life/baby/baby-basics/newborn-and-baby-sleeping-advice-for-parents/safe-sleep-advice-for-babies/)
 - [NHS Every Mind Matters: Fall asleep faster and sleep better](https://www.nhs.uk/every-mind-matters/mental-wellbeing-tips/how-to-fall-asleep-faster-and-sleep-better/)
 
 *OBubba provides records, general education and a private screening tool. It cannot diagnose insomnia, anxiety, depression, trauma or postpartum psychosis, assess immediate safety, prescribe treatment or replace a GP, midwife, health visitor, perinatal mental-health team or emergency service.*
