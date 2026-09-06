@@ -5,6 +5,8 @@ description: "Cot, contact, pram, carrier or car: where should your baby nap? A 
 date: 2026-11-07
 updated: 2026-11-07
 author: OBubba
+status: paused
+pauseReason: "Do not publish while Flutter can rank a car nap as the longest or happiest location and recommend that car is a good bet for a nap. The motion-nap contradiction guard only suppresses that result when at least 70% of eight or more located naps use contact or motion and sleep-method coaching is enabled, so smaller samples can still produce the unsafe recommendation. Current NHS and Lullaby Trust guidance says car seats are for transport, not routine sleep. Exclude car from recommendation candidates, keep it as a factual log location, and reverify the article before publication."
 tags: where should baby nap, baby naps in pram, baby carrier naps safety, baby sleeps in car seat, contact naps safety, cot naps, on the go baby naps, baby nap location, OBubba nap tracker
 heroImage: /obubba-where-should-baby-nap.jpg
 ---
