@@ -6,7 +6,40 @@
 <title>OBubba — Terms & Conditions</title>
 <meta name="description" content="Read the OBubba terms for baby tracking, subscriptions, estimates, account use, data ownership and important medical boundaries.">
 <link rel="canonical" href="https://obubba.com/terms.html">
-<style>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('consent', 'default', {
+      ad_storage: 'denied',
+      analytics_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied'
+    });
+    gtag('set', 'ads_data_redaction', true);
+    gtag('set', 'allow_google_signals', false);
+    gtag('set', 'allow_ad_personalization_signals', false);
+    gtag('js', new Date());
+    gtag('config', 'G-Y7CHSL1YHZ');
+    document.addEventListener('DOMContentLoaded', () => {
+      document.addEventListener('click', (event) => {
+        const anchor = event.target.closest('a[href]');
+        if (!anchor) return;
+        let target;
+        try { target = new URL(anchor.href, window.location.href); } catch { return; }
+        const store = target.hostname === 'apps.apple.com'
+          ? 'ios'
+          : target.hostname === 'play.google.com' ? 'android' : null;
+        if (!store) return;
+        gtag('event', 'store_click', {
+          store,
+          page_path: window.location.pathname,
+          transport_type: 'beacon'
+        });
+      });
+    });
+  </script>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-Y7CHSL1YHZ"></script>
+  <style>
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 680px; margin: 0 auto; padding: 24px 20px; color: #5B4F5F; line-height: 1.7; background: #FBF5F3; }
   h1 { font-family: 'Playfair Display', Georgia, serif; color: #5B4F5F; font-size: 28px; }
   h2 { color: #C07088; font-size: 18px; margin-top: 28px; }

@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {cookielessAnalytics} from './analytics-snippet.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '..');
@@ -2637,6 +2638,7 @@ function layout({ title, description, canonicalPath, bodyClass = '', heroImage =
   <meta name="twitter:image" content="${image}"/>
   <meta name="theme-color" content="#fffcf9"/>
   <link rel="preload" href="/Parisienne-Regular.ttf" as="font" type="font/truetype" crossorigin/>
+  ${cookielessAnalytics()}
   <style>${siteCss()}</style>
   ${schema}
 </head>

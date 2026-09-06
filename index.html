@@ -29,13 +29,22 @@
   <link rel="icon" type="image/png" href="/obubba-baby-tracker-app-icon-crowned-baby.png"/>
   <link rel="apple-touch-icon" sizes="180x180" href="/obubba-baby-tracker-app-icon-crowned-baby.png"/>
   <link rel="preload" href="/Parisienne-Regular.ttf" as="font" type="font/ttf" crossorigin/>
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-Y7CHSL1YHZ"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
-    gtag("js", new Date());
-    gtag("config", "G-Y7CHSL1YHZ");
+    gtag('consent', 'default', {
+      ad_storage: 'denied',
+      analytics_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied'
+    });
+    gtag('set', 'ads_data_redaction', true);
+    gtag('set', 'allow_google_signals', false);
+    gtag('set', 'allow_ad_personalization_signals', false);
+    gtag('js', new Date());
+    gtag('config', 'G-Y7CHSL1YHZ');
   </script>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-Y7CHSL1YHZ"></script>
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",

@@ -27,6 +27,39 @@
   <meta name="twitter:image" content="https://obubba.com/obubba-overwhelmed-baby-crying-safe-reset.jpg"/>
   <meta name="theme-color" content="#fffcf9"/>
   <link rel="preload" href="/Parisienne-Regular.ttf" as="font" type="font/truetype" crossorigin/>
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('consent', 'default', {
+      ad_storage: 'denied',
+      analytics_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied'
+    });
+    gtag('set', 'ads_data_redaction', true);
+    gtag('set', 'allow_google_signals', false);
+    gtag('set', 'allow_ad_personalization_signals', false);
+    gtag('js', new Date());
+    gtag('config', 'G-Y7CHSL1YHZ');
+    document.addEventListener('DOMContentLoaded', () => {
+      document.addEventListener('click', (event) => {
+        const anchor = event.target.closest('a[href]');
+        if (!anchor) return;
+        let target;
+        try { target = new URL(anchor.href, window.location.href); } catch { return; }
+        const store = target.hostname === 'apps.apple.com'
+          ? 'ios'
+          : target.hostname === 'play.google.com' ? 'android' : null;
+        if (!store) return;
+        gtag('event', 'store_click', {
+          store,
+          page_path: window.location.pathname,
+          transport_type: 'beacon'
+        });
+      });
+    });
+  </script>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-Y7CHSL1YHZ"></script>
   <style>
   :root {
     --cream: #fffcf9;
