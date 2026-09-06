@@ -1,12 +1,12 @@
 ---
 title: "What Should I Feed My Baby This Week? A Simple Weaning Meal Plan"
 slug: what-feed-baby-this-week-weaning-meal-plan
-description: "Build a flexible baby-weaning plan with iron-rich foods, familiar favourites, safe textures and one new allergen at a time—without cooking seven perfect menus."
+description: "Build a flexible baby-weaning plan with iron-rich foods, familiar favourites, safe textures and one new allergen at a time, without cooking seven perfect menus."
 date: 2026-11-21
 updated: 2026-11-21
 author: OBubba
 tags: what to feed baby this week, baby weaning meal plan, 7 month baby meal plan UK, 8 month baby meal plan, 9 month baby meal plan, iron rich foods baby, weaning shopping list, baby food planner app, OBubba weaning
-heroImage: /obubba-baby-weaning-weekly-meal-plan.jpg
+heroImage: /obubba-baby-weaning-weekly-meal-plan-20261121.jpg
 ---
 
 You have porridge, half a sweet potato and a baby who loved lentils on Tuesday but threw them on the floor on Wednesday. What are you supposed to feed them for the rest of the week?
@@ -19,11 +19,11 @@ This guide gives you a simple six-meal planning method for babies who are ready 
 
 Choose six **meal ideas**, not six compulsory days:
 
-1. **Two iron anchors** — for example lentils, beans, egg, fish, meat, tofu or iron-fortified cereal.
-2. **One tolerated-allergen repeat** — a food already introduced and eaten without a reaction, served in an age-appropriate form.
-3. **One possible new allergen** — only if it is appropriate for your baby and you are not following a clinician-led introduction plan.
-4. **One texture step** — the same familiar food made slightly less smooth or offered as a safely prepared finger food.
-5. **One easy family-food adaptation** — take out the baby's portion before adding salt, stock, honey or unsuitable ingredients.
+1. **Two iron anchors**, for example lentils, beans, egg, fish, meat, tofu or iron-fortified cereal.
+2. **One tolerated-allergen repeat**, a food already introduced and eaten without a reaction, served in an age-appropriate form.
+3. **One possible new allergen**, only if it is appropriate for your baby and you are not following a clinician-led introduction plan.
+4. **One texture step**, the same familiar food made slightly less smooth or offered as a safely prepared finger food.
+5. **One easy family-food adaptation**, taking out the baby's portion before adding salt, stock, honey or unsuitable ingredients.
 
 These categories can overlap. Lentil and sweet-potato mash can be an iron anchor, texture practice and a family-food adaptation at once. You are building coverage, not filling a bingo card.
 
@@ -74,7 +74,7 @@ Useful iron-containing foods include:
 - dark green vegetables
 - iron-fortified infant cereal or porridge
 
-Plant sources can be paired with fruit or vegetables containing vitamin C—for example lentils with tomato, beans with pepper, or fortified porridge with berries—to support iron absorption. That does not turn a single meal into a nutrient guarantee; it is simply a useful combination.
+Plant sources can be paired with fruit or vegetables containing vitamin C, for example lentils with tomato, beans with pepper, or fortified porridge with berries, to support iron absorption. That does not turn a single meal into a nutrient guarantee; it is simply a useful combination.
 
 If your baby was born prematurely, has low iron, poor growth, a very restricted diet or follows a vegan diet, use a clinician or paediatric dietitian's individual plan. Do not start an iron supplement from an app or generic meal plan.
 
@@ -94,7 +94,7 @@ Never reintroduce a food after a suspected allergic reaction just because a plan
 
 Call **999** for breathing difficulty, a swollen tongue or throat, collapse, marked floppiness or another possible severe allergic reaction. For a non-emergency suspected reaction, stop the food, note what was eaten and when, and seek prompt advice from your GP, NHS 111 or allergy team as appropriate.
 
-Read [Baby Food Allergy Reaction: What to Do and What to Log](/blog/baby-food-allergy-reaction-what-to-do-log.html) for a clearer safety plan.
+Read the current [NHS guidance on food allergies in babies and young children](https://www.nhs.uk/baby/weaning-and-feeding/food-allergies-in-babies-and-young-children/) and follow any individual advice from your baby's health professional.
 
 ## A texture belongs in the plan too
 
@@ -155,7 +155,7 @@ Do not shop recipe by recipe. Consolidate the ingredients:
 
 Use what is already in the freezer and repeat ingredients across meals. Sweet potato can appear in lentil mash, as a finger-food wedge and in a family stew. Repetition within variety is efficient, not lazy.
 
-## What to batch—and what not to
+## What to batch and what not to
 
 Batch-cook neutral components rather than six fully assembled dishes:
 
@@ -170,7 +170,7 @@ Follow current food-hygiene advice for cooling, storing, defrosting and reheatin
 
 OBubba's current Flutter weaning experience is built around **“little tastes, big firsts”**. It does not begin with a blank seven-day calendar. It starts with the child's corrected-age stage, recent solids history, introduced allergens and lifetime record of reacted-to allergens.
 
-![The real OBubba Flutter Weaning screen, where Try these next uses the child's stage and food history to suggest single-ingredient tastes, iron-rich foods and carefully paced allergens.](/obubba-weaning-planner-app.jpg "OBubba's real weaning home keeps stage, first tastes, allergens, recipes and weekly planning together.")
+![The real OBubba Flutter Weaning screen, where Try these next uses the child's stage and food history to suggest single-ingredient tastes, iron-rich foods and carefully paced allergens.](/obubba-weaning-planner-app-20261121.jpg "OBubba's real weaning home keeps stage, first tastes, allergens, recipes and weekly planning together.")
 
 The recommendation engine then scores age-appropriate recipes:
 
@@ -181,13 +181,13 @@ The recommendation engine then scores age-appropriate recipes:
 5. **Reacted-to allergens are excluded.** The engine checks both recent logs and the child's lifetime reaction set, so a reaction does not become invisible when an older day leaves the active history window.
 6. **The full recipe is scanned.** Allergens mentioned in ingredients, method or serving suggestions are included; an oat dish cannot be called allergen-free merely because a short curated label omitted gluten.
 
-That ranking feeds two different surfaces. **Recipe ideas for you** shows a small set with badges such as iron-rich, new allergen or tried. **This week's plan** turns the top six ideas into a saved list. Tapping a meal marks it tried, and the plan derives a deduplicated shopping list from the recipe ingredients.
+That ranking feeds two different surfaces. **Recipe ideas for you** shows a small set with badges such as iron-rich, new allergen or tried. **This week's plan** can turn six ideas into a saved list. Tapping a meal marks it tried, and the plan derives a deduplicated shopping list from the recipe ingredients. The full recipe garden is a Premium feature; the free surface shows a smaller selection.
 
-The plan is stored separately for each child and each Monday-based week. Shopping and tried ticks persist. Regenerating asks for confirmation because it clears those ticks, and a stale plan drops away when a new week begins.
+The current planner displays six slots labelled Monday to Saturday, but these are flexible planning slots rather than a clinical schedule. The saved plan, shopping ticks and tried ticks persist on that device for that child and Monday-based week. They do not currently sync to a partner's device, and a stale plan drops away when a new week begins.
 
 There are important limits:
 
-- the six ideas are not assigned to days or meal times
+- the day labels are planning prompts, not prescribed days or meal times
 - the ranking is not a dietetic assessment or nutrient calculation
 - it cannot see what the child ate but nobody logged
 - it cannot judge chewing, swallowing, portion size, growth or reaction severity
@@ -198,7 +198,7 @@ This is why OBubba behaves like a **decision aid**, not an automated feeding aut
 
 After the meal, the same app can keep solids, milk, nappies, sleep, reactions, texture progress, growth and shared-carer notes together. That context is more useful than another folder of disconnected recipe screenshots.
 
-**[Try OBubba free →](/free-baby-tracker-app.html)** — get stage-matched first tastes, weaning history and practical planning in the same calm home as sleep, feeds and family care.
+**[Try OBubba free →](/app.html?utm_source=weekly_weaning_plan_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20261121_weekly_weaning_plan)** and keep first tastes, weaning history and practical planning in the same calm home as sleep, feeds and family care.
 
 ## A reusable weekly planning card
 
@@ -233,7 +233,7 @@ Use the ingredients as inspiration, but simplify the frequency, combinations and
 
 ### What if my baby eats none of the planned meal?
 
-The exposure still counts. Stay calm, remove the food without pressure and offer it again another time. Appetite varies. Seek advice for persistent feeding difficulty, pain, choking, dehydration, poor growth or any concern about health.
+The attempt can still be recorded, but do not mark a food as introduced or tolerated unless your baby actually ate it. This matters especially for allergens. Stay calm, remove the food without pressure and offer it again another time when appropriate. Appetite varies. Seek advice for persistent feeding difficulty, pain, choking, dehydration, poor growth or any concern about health.
 
 ### Can I mix spoon feeding and finger foods?
 
