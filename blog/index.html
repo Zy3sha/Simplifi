@@ -27,6 +27,39 @@
   <meta name="twitter:image" content="https://obubba.com/og-image.png"/>
   <meta name="theme-color" content="#fffcf9"/>
   <link rel="preload" href="/Parisienne-Regular.ttf" as="font" type="font/truetype" crossorigin/>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('consent', 'default', {
+      ad_storage: 'denied',
+      analytics_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied'
+    });
+    gtag('set', 'ads_data_redaction', true);
+    gtag('set', 'allow_google_signals', false);
+    gtag('set', 'allow_ad_personalization_signals', false);
+    gtag('js', new Date());
+    gtag('config', 'G-Y7CHSL1YHZ');
+    document.addEventListener('DOMContentLoaded', () => {
+      document.addEventListener('click', (event) => {
+        const anchor = event.target.closest('a[href]');
+        if (!anchor) return;
+        let target;
+        try { target = new URL(anchor.href, window.location.href); } catch { return; }
+        const store = target.hostname === 'apps.apple.com'
+          ? 'ios'
+          : target.hostname === 'play.google.com' ? 'android' : null;
+        if (!store) return;
+        gtag('event', 'store_click', {
+          store,
+          page_path: window.location.pathname,
+          transport_type: 'beacon'
+        });
+      });
+    });
+  </script>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-Y7CHSL1YHZ"></script>
   <style>
   :root {
     --cream: #fffcf9;
@@ -696,6 +729,14 @@
   "blogPost": [
     {
       "@type": "BlogPosting",
+      "headline": "Baby-Led Weaning vs Spoon Feeding: You Don’t Have to Choose",
+      "url": "https://obubba.com/blog/baby-led-weaning-vs-spoon-feeding.html",
+      "datePublished": "2026-09-07",
+      "dateModified": "2026-09-07",
+      "description": "Baby-led weaning, spoon feeding or both? Compare the methods, learn responsive feeding and build a safe mixed approach without turning first foods into a camp."
+    },
+    {
+      "@type": "BlogPosting",
       "headline": "Does My Baby Need Vitamin D Drops? A Clear UK Guide",
       "url": "https://obubba.com/blog/does-my-baby-need-vitamin-d-drops-uk.html",
       "datePublished": "2026-09-06",
@@ -1132,7 +1173,14 @@
       <div class="section-inner">
         <div class="post-list">
 
-      <a class="post-card featured" href="/blog/does-my-baby-need-vitamin-d-drops-uk.html" style="--card-image: url('/obubba-baby-vitamin-d-drops.jpg')">
+      <a class="post-card featured" href="/blog/baby-led-weaning-vs-spoon-feeding.html" style="--card-image: url('/obubba-baby-led-weaning-spoon-feeding.jpg')">
+        <div class="meta">2026-09-07 / OBubba</div>
+        <h2>Baby-Led Weaning vs Spoon Feeding: You Don’t Have to Choose</h2>
+        <p>Baby-led weaning, spoon feeding or both? Compare the methods, learn responsive feeding and build a safe mixed approach without turning first foods into a camp.</p>
+        <span class="read-link">Read the guide</span>
+      </a>
+
+      <a class="post-card" href="/blog/does-my-baby-need-vitamin-d-drops-uk.html">
         <div class="meta">2026-09-06 / OBubba</div>
         <h2>Does My Baby Need Vitamin D Drops? A Clear UK Guide</h2>
         <p>Does your breastfed, combination-fed or formula-fed baby need vitamin D drops? A calm UK guide to doses, the 500ml formula rule and safer use.</p>
