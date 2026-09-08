@@ -6,6 +6,7 @@ date: 2026-09-08
 updated: 2026-09-08
 author: OBubba
 tags: cluster feeding, low milk supply signs, baby feeding constantly, breastfeeding supply, enough breast milk, wet nappies newborn, breastfeeding tracker, feeding help UK, OBubba breastfeeding
+related: newborn-feeding-and-nappy-log, what-to-track-newborn-without-overtracking, how-often-should-you-weigh-your-baby, does-my-baby-need-vitamin-d-drops-uk, newborn-feeding-guide-reflux-safety, share-baby-tracker-with-partner-without-keeping-score
 heroImage: /obubba-cluster-feeding-low-milk-supply.jpg
 ---
 
@@ -159,7 +160,7 @@ Trust the fact that you know your baby. You do not need to collect perfect data 
 
 ## What a feeding log can—and cannot—do
 
-A short record can help when the evening has blurred together. Useful details include:
+A short record can help when the evening has blurred together. If you are deciding how little is enough, our [newborn feeding and nappy log](/blog/newborn-feeding-and-nappy-log.html) keeps the focus on the few details another parent or professional can actually use. Useful details include:
 
 - when feeds began
 - which breast was offered first and whether the second was offered
@@ -181,7 +182,7 @@ Open **Care → Breastfeeding** for a calm support hub covering **Cluster feedin
 
 ![OBubba’s current Flutter Breastfeeding hub, showing its calm topic picker for a fictional example baby.](/obubba-breastfeeding-support-app.jpg "Current OBubba Flutter Breastfeeding hub with fictional example profile data. Its educational cards are general support, not a feeding assessment or diagnosis.")
 
-For a live breastfeed, open **Track → Feed → Breast**. The timer records left and right separately, lets you switch sides, pause and resume, edit the start time and finish the feed. If recent side-tagged history exists, OBubba can show a next-side memory cue. The saved minutes are rounded so the two sides still add up to the recorded total.
+For a live breastfeed, open **Track → Feed → Breast**. The [OBubba breastfeeding tracker](/breastfeeding-tracker.html) records left and right separately, lets you switch sides, pause and resume, edit the start time and finish the feed. If recent side-tagged history exists, OBubba can show a next-side memory cue. The saved minutes are rounded so the two sides still add up to the recorded total.
 
 After enough side-tagged feeds, the Breastfeeding hub may quietly surface a seven-day side pattern when one side dominates the recorded minutes. That is a prompt to notice your record—not an instruction to force equal time and not a judgement about supply.
 

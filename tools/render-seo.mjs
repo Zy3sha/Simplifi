@@ -2552,9 +2552,11 @@ function siteCss() {
     .blog-hero { background-size: 210px auto; background-position: right -28px bottom -24px; }
   }
   @media (max-width: 560px) {
-    .site-nav { padding: 12px 16px; }
+    .site-nav { align-items: center; gap: 10px; padding: 12px 16px; }
     .brand { font-size: 28px; }
+    .nav-links { min-width: 0; flex-wrap: nowrap; }
     .nav-links a:not(.nav-cta) { display: none; }
+    .nav-cta { min-height: 40px; padding: 10px 14px; font-size: 12px; white-space: nowrap; }
     .hero-actions .button { width: 100%; }
     .section { padding-left: 16px; padding-right: 16px; }
     .article-header { padding-left: 18px; padding-right: 18px; }
