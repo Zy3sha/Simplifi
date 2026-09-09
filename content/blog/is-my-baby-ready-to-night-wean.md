@@ -1,7 +1,7 @@
 ---
 title: "Is My Baby Ready to Night Wean? A Gentle Readiness Checklist"
 slug: is-my-baby-ready-to-night-wean
-description: "A calm, readiness-first guide to night weaning: what age can and cannot tell you, how to check daytime feeding and recent nights, when to pause, and what to track."
+description: "A calm, readiness-first guide to night weaning: what age can and cannot tell you, how to check daytime feeding and recent nights, when to pause."
 date: 2026-08-15
 updated: 2026-08-15
 author: OBubba

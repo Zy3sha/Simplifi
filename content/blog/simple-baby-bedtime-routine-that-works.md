@@ -1,7 +1,7 @@
 ---
 title: "A Simple Baby Bedtime Routine You Can Actually Repeat"
 slug: simple-baby-bedtime-routine-that-works
-description: "Build a calm baby bedtime routine that survives late feeds, nursery days and tired parents: the essential cues, shorter versions, safer sleep and OBubba's custom routine guide."
+description: "Build a calm baby bedtime routine that survives late feeds, nursery days and tired parents: the essential cues, shorter versions."
 date: 2026-08-21
 updated: 2026-08-21
 author: OBubba

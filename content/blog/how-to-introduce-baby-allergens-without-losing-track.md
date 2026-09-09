@@ -1,7 +1,7 @@
 ---
 title: "How to Introduce Baby Allergens Without Losing Track"
 slug: how-to-introduce-baby-allergens-without-losing-track
-description: "A calm, practical allergen-introduction plan: when to start, one-at-a-time first tastes, safe serving, what to record, reaction warning signs, and how to keep tolerated foods in rotation."
+description: "A calm, practical allergen-introduction plan: when to start, one-at-a-time first tastes, safe serving, what to record, reaction warning signs."
 date: 2026-08-16
 updated: 2026-08-16
 author: OBubba

@@ -1,7 +1,7 @@
 ---
 title: "Baby Milestones by Age: A Calm First-Year Guide"
 slug: baby-milestones-by-age-first-year
-description: "A calm UK guide to baby milestones from birth to 12 months: broad development windows, corrected age, play ideas, when to ask for help and how OBubba records firsts."
+description: "A calm UK guide to baby milestones from birth to 12 months: broad development windows, corrected age, play ideas, when to ask for help."
 date: 2026-08-31
 updated: 2026-08-31
 author: OBubba

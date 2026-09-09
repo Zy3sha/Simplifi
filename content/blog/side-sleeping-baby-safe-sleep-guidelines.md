@@ -1,7 +1,7 @@
 ---
 title: Side Sleeping Baby: Safe Sleep Guide
 slug: side-sleeping-baby-safe-sleep-guidelines
-description: "A clear, calm guide to side-sleeping, back-sleeping, reflux worries, rolling babies and safe sleep guidelines for babies, with OBubba support for tracking sleep, feeds and baby rhythms."
+description: "A clear, calm guide to side-sleeping, back-sleeping, reflux worries, rolling babies and safe sleep guidelines for babies."
 date: 2026-05-01
 updated: 2026-05-01
 author: OBubba

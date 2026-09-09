@@ -1,7 +1,7 @@
 ---
 title: "Wake Windows by Age: The Gentle Chart from Newborn to Toddler"
 slug: wake-windows-by-age
-description: "A clear wake windows by age chart from newborn to toddler, the sleepy cues to watch for, and why your baby's perfect window is a little different from the chart."
+description: "A wake windows by age chart from newborn to toddler, the sleepy cues to watch for, and why your baby's window differs from the chart."
 date: 2026-06-22
 updated: 2026-06-22
 author: OBubba

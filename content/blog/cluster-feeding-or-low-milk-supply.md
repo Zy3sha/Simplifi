@@ -1,7 +1,7 @@
 ---
 title: "Cluster Feeding or Low Milk Supply? What Parents Can Actually Check"
 slug: cluster-feeding-or-low-milk-supply
-description: "Baby feeding constantly? Learn what cluster feeding can look like, which signs matter more than the clock and when to get breastfeeding help for possible low supply."
+description: "Baby feeding constantly? What cluster feeding looks like, which signs matter more than the clock, and when to get help for possible low supply."
 date: 2026-09-08
 updated: 2026-09-08
 author: OBubba

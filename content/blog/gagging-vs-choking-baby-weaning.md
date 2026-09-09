@@ -1,7 +1,7 @@
 ---
 title: "Gagging vs Choking: What Parents Need to Know Before Weaning"
 slug: gagging-vs-choking-baby-weaning
-description: "Learn the practical difference between gagging and choking, what to do in a choking emergency, how to prepare safer first foods, and how OBubba keeps guidance close without replacing first-aid training."
+description: "Learn the practical difference between gagging and choking, what to do in a choking emergency, how to prepare safer first foods."
 date: 2026-08-17
 updated: 2026-08-17
 author: OBubba

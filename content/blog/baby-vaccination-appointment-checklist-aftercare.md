@@ -1,7 +1,7 @@
 ---
 title: "Baby Vaccination Appointment Checklist: Before and After"
 slug: baby-vaccination-appointment-checklist-aftercare
-description: "A calm UK checklist for your baby's vaccination appointment: what to bring, what to ask, what to track afterwards and how OBubba helps without replacing the Red Book."
+description: "A calm UK checklist for your baby's vaccination appointment: what to bring, what to ask, what to track afterwards."
 date: 2026-08-28
 updated: 2026-08-28
 author: OBubba

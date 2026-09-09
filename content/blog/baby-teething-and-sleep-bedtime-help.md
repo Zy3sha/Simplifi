@@ -1,7 +1,7 @@
 ---
 title: "Baby Teething and Sleep: What Helps at Bedtime?"
 slug: baby-teething-and-sleep-bedtime-help
-description: "A calm, evidence-led guide to teething and sleep: signs to look for, what may ease sore gums, when a temperature needs a separate check and how OBubba keeps the pattern in context."
+description: "A calm, evidence-led guide to teething and sleep: signs to look for, what may ease sore gums, when a temperature needs a separate check."
 date: 2026-08-20
 updated: 2026-08-20
 author: OBubba

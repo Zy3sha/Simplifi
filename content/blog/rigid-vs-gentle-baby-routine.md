@@ -1,7 +1,7 @@
 ---
 title: "Rigid vs. Gentle: Does a Baby Routine Still Matter in 2026?"
 slug: rigid-vs-gentle-baby-routine
-description: "Rigid clock-driven schedules vs gentle, responsive routines — why a baby routine still matters in 2026, and how to find your baby's ideal sleep window without watching the clock."
+description: "Rigid clock-driven schedules vs gentle, responsive routines — why a baby routine still matters in 2026."
 date: 2026-07-29
 updated: 2026-07-29
 author: OBubba

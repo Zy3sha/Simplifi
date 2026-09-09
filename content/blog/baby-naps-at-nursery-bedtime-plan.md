@@ -1,7 +1,7 @@
 ---
 title: "Baby Naps at Nursery: A Calm Plan for Better Bedtime at Home"
 slug: baby-naps-at-nursery-bedtime-plan
-description: "A practical nursery-sleep plan: what to share at drop-off, what to ask at pickup, how to handle short or missed naps, safer-sleep questions and how OBubba keeps away days in context."
+description: "A practical nursery-sleep plan: what to share at drop-off, what to ask at pickup, how to handle short or missed naps, safer-sleep questions."
 date: 2026-08-19
 updated: 2026-08-19
 author: OBubba

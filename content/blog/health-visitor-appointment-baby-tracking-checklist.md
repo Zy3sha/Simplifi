@@ -1,7 +1,7 @@
 ---
 title: "What to Take to a Health Visitor Appointment: A Calm Baby Checklist"
 slug: health-visitor-appointment-baby-tracking-checklist
-description: "Prepare for a baby health visitor or GP appointment without bringing a data dump: what to pack, what to track, the questions to ask and how OBubba builds a clinic-ready summary."
+description: "Prepare for a baby health visitor or GP appointment without bringing a data dump: what to pack, what to track, the questions to ask."
 date: 2026-09-09
 updated: 2026-09-09
 author: OBubba

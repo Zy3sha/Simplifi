@@ -1,7 +1,7 @@
 ---
 title: "When Should You Start Brushing Baby’s Teeth?"
 slug: when-start-brushing-baby-teeth
-description: "Start brushing when the first tooth appears. Learn the right fluoride toothpaste, tiny smear, bedtime technique, dentist timing and how OBubba supports the routine."
+description: "Start brushing when the first tooth appears. Learn the right fluoride toothpaste, tiny smear, bedtime technique, dentist timing."
 date: 2026-09-01
 updated: 2026-09-01
 author: OBubba

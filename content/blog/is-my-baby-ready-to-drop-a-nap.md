@@ -1,7 +1,7 @@
 ---
 title: "Is My Baby Ready to Drop a Nap? A Gentle Transition Guide"
 slug: is-my-baby-ready-to-drop-a-nap
-description: "Learn the signs that a baby may be ready to move from three naps to two or two naps to one, what can mimic a nap transition, and how to protect bedtime while the day changes."
+description: "Learn the signs that a baby may be ready to move from three naps to two or two naps to one, what can mimic a nap transition."
 date: 2026-08-18
 updated: 2026-08-18
 author: OBubba

@@ -3825,9 +3825,37 @@ function renderBlogIndex(posts) {
   });
 }
 
+// SEO length guards. Google truncates a <title> around 60 chars and a meta
+// description around 160, and Semrush flags both. Applied HERE rather than by
+// editing 302 hand-written headlines: the fix then covers every future post in the
+// content calendar automatically, and no authored copy is mangled.
+//   title:       drop the " | OBubba" suffix rather than the headline — the brand
+//                is the least valuable 9 characters, and it is what pushed 97 of
+//                302 posts over the limit on its own.
+//   description: cut at a SENTENCE boundary when there is one, else a word
+//                boundary, so the snippet never ends mid-word.
+const TITLE_MAX = 60;
+const DESC_MAX = 160;
+function seoTitle(base) {
+  const withBrand = `${base} | OBubba`;
+  return withBrand.length <= TITLE_MAX ? withBrand : base;
+}
+function seoDescription(text) {
+  const t = (text || '').trim();
+  if (t.length <= DESC_MAX) return t;
+  // Trim ONLY at a real sentence end. A mid-phrase cut ("…and how OBubba keeps…")
+  // reads worse than a long description AND throws away text Google still indexes
+  // even when it displays a shorter snippet — so where there is no clean sentence
+  // boundary, leave the copy alone. Satisfying an audit tool is not worth shipping
+  // a broken sentence to a parent reading the search result.
+  const window = t.slice(0, DESC_MAX); // NOT DESC_MAX+1: a boundary at 160 yields 161
+  const sentence = Math.max(window.lastIndexOf('. '), window.lastIndexOf('! '), window.lastIndexOf('? '));
+  return sentence >= 80 ? t.slice(0, sentence + 1).trim() : t;
+}
+
 function renderPost(post, posts = []) {
-  const title = `${post.title} | OBubba`;
-  const description = post.description || SITE.description;
+  const title = seoTitle(post.title);
+  const description = seoDescription(post.description || SITE.description);
   const isMinimumUsefulLog = post.slug === 'what-to-track-newborn-without-overtracking';
   const postPlayStoreUrl = isMinimumUsefulLog
     ? `${SITE.playStoreUrl}&referrer=utm_source%3Downed_search%26utm_medium%3Dseo%26utm_campaign%3Dfrom_bump_to_baby_auto%26utm_content%3Dauto_20260815_minimum_useful_log_builder`
@@ -4318,6 +4346,10 @@ function renderRedirect(toPath) {
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta http-equiv="refresh" content="0; url=${escapeAttr(toPath)}"/>
+  <!-- A meta-refresh shim, not content: GitHub Pages cannot issue a real 301. It has
+       no description by design, so without noindex a crawler reports it as a page
+       with a missing meta description AND as a thin duplicate of its target. -->
+  <meta name="robots" content="noindex, follow"/>
   <link rel="canonical" href="${absoluteUrl(toPath)}"/>
   <title>Redirecting to OBubba Blog</title>
 </head>
