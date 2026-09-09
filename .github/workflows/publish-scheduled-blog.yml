@@ -39,6 +39,30 @@ jobs:
       - name: Render posts whose date has arrived
         run: node tools/render-seo.mjs
 
+      - name: Fail if a newly-rendered post references a missing image
+        # The 2026-09-09 bug: 15 published posts referenced /obubba-*.jpg files that
+        # were never committed, so every one shipped with a broken hero image — and
+        # 285 more were queued to do the same, one per day, for eight months. CI only
+        # checks out TRACKED files, so an uncommitted image is invisible here exactly
+        # as it is to a visitor. Fail loudly at publish time instead of silently
+        # degrading the pages that are supposed to bring in organic traffic.
+        run: |
+          set -euo pipefail
+          missing=0
+          for f in blog/*.html; do
+            grep -oE 'src="/[^"]+\.(jpg|jpeg|png|webp)"' "$f" 2>/dev/null \
+              | sed 's/src="\///;s/"$//' | sort -u | while read -r img; do
+                [ -f "$img" ] || echo "  MISSING: $img  (referenced by $f)"
+              done
+          done > /tmp/missing_imgs.txt || true
+          if [ -s /tmp/missing_imgs.txt ]; then
+            echo "Published posts reference images that are not in the repo:"
+            cat /tmp/missing_imgs.txt
+            echo "Commit the images before the post's date arrives."
+            exit 1
+          fi
+          echo "All referenced images present."
+
       - name: Commit and push anything newly due
         run: |
           set -euo pipefail
