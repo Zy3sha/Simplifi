@@ -2,8 +2,8 @@
 title: "What to Take to a Health Visitor Appointment: A Calm Baby Checklist"
 slug: health-visitor-appointment-baby-tracking-checklist
 description: "Prepare for a baby health visitor or GP appointment without bringing a data dump: what to pack, what to track, the questions to ask and how OBubba builds a clinic-ready summary."
-date: 2026-09-10
-updated: 2026-09-10
+date: 2026-09-09
+updated: 2026-09-09
 author: OBubba
 tags: health visitor appointment, baby appointment checklist, what to take to health visitor, baby tracking report, red book baby, baby clinic checklist, GP baby appointment, OBubba reports
 heroImage: /obubba-health-visitor-appointment-checklist.jpg
@@ -92,7 +92,7 @@ For feeding questions, separate different events:
 - solid foods and possible allergen exposure
 - medicines with exact name, strength, dose and time
 
-This avoids double-counting expressed milk once when pumped and again when it is fed. See [is my pump output normal?](/blog/is-my-pump-output-normal.html) for the distinction.
+This avoids double-counting expressed milk once when pumped and again when it is fed. Our guide to [cluster feeding versus low milk supply](/blog/cluster-feeding-or-low-milk-supply.html) explains how to place feeding frequency inside the wider picture.
 
 ### 4. What came out?
 
@@ -165,7 +165,7 @@ For a short appointment, the best workflow is:
 4. check the original entries for any unusual day
 5. take the Red Book as the clinical record
 
-**[Try OBubba free →](/app.html?utm_source=health_visitor_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260910_health_visitor)** — keep feeds, nappies, sleep, temperature, growth and questions together, then turn the useful parts into a calm appointment summary.
+**[Try OBubba free →](/app.html?utm_source=health_visitor_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260909_health_visitor)** — keep feeds, nappies, sleep, temperature, growth and questions together, then turn the useful parts into a calm appointment summary.
 
 ## When a routine appointment should not wait
 

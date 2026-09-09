@@ -2,8 +2,8 @@
 title: "Is My Pump Output Normal? Why One Session Is Not a Supply Test"
 slug: is-my-pump-output-normal
 description: "Pumped less milk than expected? Learn why output varies, what to check before worrying and how to track pumping without mistaking expressed milk for baby intake."
-date: 2026-09-09
-updated: 2026-09-09
+date: 2026-09-16
+updated: 2026-09-16
 author: OBubba
 tags: pump output normal, how much breast milk should I pump, low pumping output, breast pump flange fit, expressing breast milk, exclusive pumping log, pumped milk tracker, OBubba pumping
 heroImage: /obubba-pump-output-normal.jpg
