@@ -2,8 +2,8 @@
 title: "Why Is My Baby Suddenly Clingy? Separation Anxiety and Sleep"
 slug: baby-separation-anxiety-sleep-clingy
 description: "Baby suddenly cries when you leave or wakes looking for you? Learn what separation anxiety can look like, how to help at bedtime and what OBubba can—and cannot—read from recent patterns."
-date: 2026-09-11
-updated: 2026-09-11
+date: 2026-09-10
+updated: 2026-09-10
 author: OBubba
 tags: baby suddenly clingy, baby separation anxiety, separation anxiety sleep baby, baby cries when I leave room, separation anxiety bedtime, 8 month sleep regression, clingy baby at night, OBubba development
 heroImage: /obubba-baby-separation-anxiety-sleep.jpg
@@ -188,7 +188,7 @@ The safeguards matter more than the label:
 
 OBubba can help you notice that clinginess, a changed night pattern and a developmental window overlap. It cannot see the baby, assess attachment, diagnose anxiety, confirm pain or promise the phase will end on a particular date.
 
-**[Try OBubba free →](/app.html?utm_source=separation_anxiety_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260911_separation_anxiety)** — connect sleep, notes, teething, milestones and family context without turning a normal developmental wobble into a verdict.
+**[Try OBubba free →](/app.html?utm_source=separation_anxiety_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260910_separation_anxiety)** — connect sleep, notes, teething, milestones and family context without turning a normal developmental wobble into a verdict.
 
 ## When to ask for help
 
