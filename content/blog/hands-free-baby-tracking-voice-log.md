@@ -2,8 +2,8 @@
 title: "How to Track Baby Feeds and Nappies Hands-Free at 3am"
 slug: hands-free-baby-tracking-voice-log
 description: "Holding a baby with no free hands? Learn to voice-log feeds, nappies, naps and wakes accurately—and review every OBubba entry before saving."
-date: 2026-09-12
-updated: 2026-09-12
+date: 2026-09-11
+updated: 2026-09-11
 author: OBubba
 tags: hands free baby tracker, voice baby tracker, baby feed voice log, nappy tracker voice, log baby feeds at night, baby tracker while breastfeeding, quick baby log, OBubba Quick Log
 heroImage: /obubba-hands-free-baby-tracking.jpg
@@ -145,7 +145,7 @@ That sounds technical, but the parent-facing benefit is simple: tomorrow's night
 
 Quick Log attempts each valid entry and reports how many actually saved. If connectivity prevents every write, the app does not claim success. For several events, it can say that only part of the group logged so you know to check.
 
-**[Try OBubba free →](/app.html?utm_source=voice_log_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260912_voice_log)** — log a whole middle-of-the-night sequence in one sentence, then inspect every entry before it joins the family timeline.
+**[Try OBubba free →](/app.html?utm_source=voice_log_article&utm_medium=owned_search&utm_campaign=from_bump_to_baby_auto&utm_content=auto_20260911_voice_log)** — log a whole middle-of-the-night sequence in one sentence, then inspect every entry before it joins the family timeline.
 
 ## What Quick Log cannot know
 
@@ -231,7 +231,7 @@ Usually not. Log the wakes that help answer a question about feeding, sleep, ill
 - [A simple newborn feeding and nappy log](/blog/newborn-feeding-and-nappy-log.html)
 - [How to log baby medicine and prevent double dosing](/blog/baby-medicine-log-prevent-double-dosing.html)
 - [What to track when your baby wakes at night](/blog/what-to-track-when-baby-wakes-at-night.html)
-- [Is my pump output normal?](/blog/is-my-pump-output-normal.html)
+- [Share baby tracking with your partner without keeping score](/blog/share-baby-tracker-with-partner-without-keeping-score.html)
 - [Baby care handover template for grandparents and nursery](/blog/baby-care-handover-template-grandparents-nursery.html)
 - [What to take to a health visitor appointment](/blog/health-visitor-appointment-baby-tracking-checklist.html)
 

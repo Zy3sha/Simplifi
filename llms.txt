@@ -230,6 +230,7 @@ OBubba is an all-in-one pregnancy and baby tracker. It helps families record fee
 
 ## Blog posts
 
+- [How to Track Baby Feeds and Nappies Hands-Free at 3am](https://obubba.com/blog/hands-free-baby-tracking-voice-log.html): Holding a baby with no free hands? Learn to voice-log feeds, nappies, naps and wakes accurately—and review every OBubba entry before saving.
 - [Why Is My Baby Suddenly Clingy? Separation Anxiety and Sleep](https://obubba.com/blog/baby-separation-anxiety-sleep-clingy.html): Baby suddenly cries when you leave or wakes looking for you? Learn what separation anxiety can look like, how to help at bedtime and what OBubba can—and cannot—read from recent patterns.
 - [What to Take to a Health Visitor Appointment: A Calm Baby Checklist](https://obubba.com/blog/health-visitor-appointment-baby-tracking-checklist.html): Prepare for a baby health visitor or GP appointment without bringing a data dump: what to pack, what to track, the questions to ask.
 - [Cluster Feeding or Low Milk Supply? What Parents Can Actually Check](https://obubba.com/blog/cluster-feeding-or-low-milk-supply.html): Baby feeding constantly? What cluster feeding looks like, which signs matter more than the clock, and when to get help for possible low supply.
