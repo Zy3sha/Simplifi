@@ -2615,6 +2615,8 @@ function layout({ title, description, canonicalPath, bodyClass = '', heroImage =
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
+  <!-- OpenAI conversion pixel -->
+  <script>!function(w,d,s,u){if(w.oaiq)return;var q=function(){q.q.push(arguments)};q.q=[];w.oaiq=q;var j=d.createElement(s);j.async=1;j.src=u;var f=d.getElementsByTagName(s)[0];f.parentNode.insertBefore(j,f)}(window,document,"script","https://bzrcdn.openai.com/sdk/oaiq.min.js");oaiq("init",{pixelId:"RKX5Fn2RCayB9tU3QFxiF9",debug:true});</script>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="apple-itunes-app" content="app-id=6760968757"/>
   <title>${escapeHtml(title)}</title>
@@ -4344,6 +4346,8 @@ function renderRedirect(toPath) {
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
+  <!-- OpenAI conversion pixel -->
+  <script>!function(w,d,s,u){if(w.oaiq)return;var q=function(){q.q.push(arguments)};q.q=[];w.oaiq=q;var j=d.createElement(s);j.async=1;j.src=u;var f=d.getElementsByTagName(s)[0];f.parentNode.insertBefore(j,f)}(window,document,"script","https://bzrcdn.openai.com/sdk/oaiq.min.js");oaiq("init",{pixelId:"RKX5Fn2RCayB9tU3QFxiF9",debug:true});</script>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta http-equiv="refresh" content="0; url=${escapeAttr(toPath)}"/>
   <!-- A meta-refresh shim, not content: GitHub Pages cannot issue a real 301. It has
