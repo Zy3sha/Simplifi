@@ -5,6 +5,7 @@
 
 const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { sendOpenAiConversion, registrationCompleted } = require("./openaiConversions");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
 const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
@@ -3309,4 +3310,18 @@ exports.cleanupBubbaHugs = onSchedule("every 1 hours", async () => {
   oldPresence.docs.forEach(doc => batch.delete(doc.ref));
   oldHugs.docs.forEach(doc => batch.delete(doc.ref));
   if (oldPresence.docs.length > 0 || oldHugs.docs.length > 0) await batch.commit();
+});
+
+// ── OpenAI Ads: report account creation as a conversion ─────────
+// Subscriptions are the money event but they are sparse (~5/day), which starves an
+// ad optimiser. Account creation runs ~40-80/day and is the earliest real activation
+// the backend can observe, so it is the signal worth optimising against.
+// The paid event is reported separately from the App Store webhook in the "subs" codebase.
+exports.reportRegistrationConversion = onDocumentCreated("usernames/{username}", async (event) => {
+  const username = event.params.username;
+  const createdMs = event.data && event.data.createTime
+    ? event.data.createTime.toMillis()
+    : Date.now();
+  // Keyed on username so a replayed trigger deduplicates instead of double-counting.
+  await sendOpenAiConversion(registrationCompleted({ uid: username, timestampMs: createdMs }));
 });

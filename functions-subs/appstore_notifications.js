@@ -31,6 +31,7 @@
 const { onRequest, onCall, HttpsError } = require("firebase-functions/v2/https");
 const { getFirestore } = require("firebase-admin/firestore");
 const fs = require("fs");
+const { sendOpenAiConversion, subscriptionCreated } = require("./openaiConversions");
 const path = require("path");
 
 // Reuses the app initialised in index.js (this module is merged into it).
@@ -179,6 +180,26 @@ exports.appStoreServerNotificationsV2 = onRequest(
       // Idempotent upsert — the ledger of truth for who paid, keyed by the stable
       // originalTransactionId (survives renewals).
       await db().collection("subscriptions").doc(originalTransactionId).set(sub, { merge: true });
+
+      // Report the paid conversion to OpenAI Ads. Production only — sandbox purchases
+      // must never pollute ad optimisation. Awaited on purpose: Cloud Run may freeze the
+      // instance the moment we respond, so fire-and-forget would silently lose events.
+      // Cost is bounded by the relay's own 4s abort, and it swallows every error, so a
+      // bad day at OpenAI can never turn a real subscription into a 500 and an Apple retry.
+      if (env === "Production" && notificationType === "SUBSCRIBED") {
+        // Apple reports price in MILLIunits (7990 = 7.99), OpenAI wants minor units.
+        const amountMinor =
+          typeof txn.price === "number" && txn.currency ? Math.round(txn.price / 10) : undefined;
+        await sendOpenAiConversion(
+          subscriptionCreated({
+            originalTransactionId,
+            productId: txn.productId || null,
+            amountMinor,
+            currency: txn.currency || undefined,
+            timestampMs: typeof txn.purchaseDate === "number" ? txn.purchaseDate : nowMs,
+          })
+        );
+      }
 
       // Resolve the account via the token the client wrote at purchase, then reflect the
       // entitlement into the server→client Premium channel (premium_entitlements/{username}).
