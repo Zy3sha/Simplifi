@@ -230,6 +230,7 @@ OBubba is an all-in-one pregnancy and baby tracker. It helps families record fee
 
 ## Blog posts
 
+- [Baby Tracker Widgets: Log Feeds and Naps Without Opening the App](https://obubba.com/blog/baby-tracker-widgets-lock-screen-siri.html): Hands full? Use OBubba’s home-screen widget, iPhone lock-screen timer, Dynamic Island and Siri to track baby sleep and feeds with fewer taps.
 - [How to Switch Baby Tracker Apps Without Losing Your History](https://obubba.com/blog/switch-baby-tracker-apps-without-losing-history.html): Want a better baby tracker without starting again? Export your CSV, preview what will move and safely bring feeds, nappies and sleep into OBubba.
 - [How to Track Baby Feeds and Nappies Hands-Free at 3am](https://obubba.com/blog/hands-free-baby-tracking-voice-log.html): Holding a baby with no free hands? Learn to voice-log feeds, nappies, naps and wakes accurately—and review every OBubba entry before saving.
 - [Why Is My Baby Suddenly Clingy? Separation Anxiety and Sleep](https://obubba.com/blog/baby-separation-anxiety-sleep-clingy.html): Baby suddenly cries when you leave or wakes looking for you? Learn what separation anxiety can look like, how to help at bedtime and what OBubba can—and cannot—read from recent patterns.
