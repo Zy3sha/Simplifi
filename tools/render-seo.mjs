@@ -2617,11 +2617,11 @@ function footer() {
   </footer>`;
 }
 
-function layout({ title, description, canonicalPath, bodyClass = '', heroImage = '/sleep-baby.png', ogImage = SITE.ogImage, ogType = 'website', schema = '', body, bodyEnd = '' }) {
+function layout({ title, description, canonicalPath, bodyClass = '', heroImage = '/sleep-baby.png', ogImage = SITE.ogImage, ogType = 'website', schema = '', body, bodyEnd = '', lang = 'en', ogLocale = 'en_GB', hreflang = '' }) {
   const canonical = absoluteUrl(canonicalPath);
   const image = absoluteUrl(ogImage);
   return `<!DOCTYPE html>
-<html lang="en">
+<html lang="${lang}">
 <head>
   <meta charset="utf-8"/>
   <!-- OpenAI conversion pixel -->
@@ -2631,7 +2631,7 @@ function layout({ title, description, canonicalPath, bodyClass = '', heroImage =
   <title>${escapeHtml(title)}</title>
   <meta name="description" content="${escapeAttr(description)}"/>
   <meta name="robots" content="index, follow, max-image-preview:large"/>
-  <link rel="canonical" href="${canonical}"/>
+  <link rel="canonical" href="${canonical}"/>${hreflang}
   <link rel="sitemap" type="application/xml" href="/sitemap.xml"/>
   <link rel="sitemap" type="application/xml" href="/image-sitemap.xml"/>
   <link rel="alternate" type="application/rss+xml" title="OBubba Blog" href="/feed.xml"/>
@@ -2644,7 +2644,7 @@ function layout({ title, description, canonicalPath, bodyClass = '', heroImage =
   <meta property="og:description" content="${escapeAttr(description)}"/>
   <meta property="og:image" content="${image}"/>
   <meta property="og:site_name" content="OBubba"/>
-  <meta property="og:locale" content="en_GB"/>
+  <meta property="og:locale" content="${ogLocale}"/>
   <meta name="twitter:card" content="summary_large_image"/>
   <meta name="twitter:title" content="${escapeAttr(title)}"/>
   <meta name="twitter:description" content="${escapeAttr(description)}"/>
@@ -3864,7 +3864,7 @@ function seoDescription(text) {
   return sentence >= 80 ? t.slice(0, sentence + 1).trim() : t;
 }
 
-function renderPost(post, posts = []) {
+function renderPost(post, posts = [], opts = {}) {
   const title = seoTitle(post.title);
   const description = seoDescription(post.description || SITE.description);
   const isMinimumUsefulLog = post.slug === 'what-to-track-newborn-without-overtracking';
@@ -4318,7 +4318,10 @@ If baby seems unwell or you are worried, contact the appropriate health professi
   return layout({
     title,
     description,
-    canonicalPath: post.urlPath,
+    canonicalPath: opts.canonicalPath || post.urlPath,
+    lang: opts.lang || 'en',
+    ogLocale: opts.ogLocale || 'en_GB',
+    hreflang: opts.hreflang || '',
     bodyClass: 'blog-post',
     heroImage: post.heroImage || '/obubba-thinking.png',
     ogImage: post.ogImage || post.heroImage,
@@ -4400,7 +4403,7 @@ LLMs: ${SITE.baseUrl}/llms.txt
 `;
 }
 
-function renderSitemap(posts) {
+function renderSitemap(posts, localized = []) {
   const today = new Date().toISOString().slice(0, 10);
   const urls = [
     { loc: '/', lastmod: today, priority: '1.0' },
@@ -4414,6 +4417,7 @@ function renderSitemap(posts) {
     { loc: '/resources/pregnancy-baby-app-privacy-checklist.pdf', lastmod: '2026-08-24', priority: '0.6' },
     { loc: '/resources/obubba-baby-care-handover-sheet.pdf', lastmod: today, priority: '0.65' },
     ...posts.map((post) => ({ loc: post.urlPath, lastmod: post.updated || post.date, priority: '0.75' })),
+    ...localized.map((post) => ({ loc: post.urlPath, lastmod: post.updated || post.date, priority: '0.7' })),
   ];
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -4704,6 +4708,37 @@ ${postLinks || '- No blog posts published yet.'}
 function main() {
   const posts = readPosts();
 
+  // --- Localized content (SEO in other-language markets) ---
+  // Translations live in content/blog/<lang>/<slug>.md and render to /<lang>/blog/<slug>.html
+  // with correct <html lang>, self-canonical, and reciprocal hreflang alternates.
+  const I18N_LOCALES = ['es', 'fr', 'de', 'pt', 'it'];
+  const OG_LOCALE = { es: 'es_ES', fr: 'fr_FR', de: 'de_DE', pt: 'pt_BR', it: 'it_IT' };
+  const localizedByLang = {};
+  const langsBySlug = {};
+  for (const lang of I18N_LOCALES) {
+    const dir = path.join(ROOT, 'content', 'blog', lang);
+    if (!fs.existsSync(dir)) continue;
+    const list = fs.readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => {
+      const p = parseFrontMatter(fs.readFileSync(path.join(dir, f), 'utf8'), f.replace(/\.md$/, ''));
+      p.urlPath = `/${lang}/blog/${p.slug}.html`;
+      return p;
+    }).filter((p) => p.status !== 'paused' && p.status !== 'draft');
+    localizedByLang[lang] = list;
+    for (const p of list) (langsBySlug[p.slug] = langsBySlug[p.slug] || []).push(lang);
+  }
+  const hreflangFor = (slug) => {
+    const langs = langsBySlug[slug];
+    if (!langs || !langs.length) return '';
+    const enUrl = absoluteUrl(`/blog/${slug}.html`);
+    const links = [
+      `\n  <link rel="alternate" hreflang="x-default" href="${enUrl}"/>`,
+      `\n  <link rel="alternate" hreflang="en" href="${enUrl}"/>`,
+    ];
+    for (const l of langs) links.push(`\n  <link rel="alternate" hreflang="${l}" href="${absoluteUrl(`/${l}/blog/${slug}.html`)}"/>`);
+    return links.join('');
+  };
+  const allLocalized = Object.values(localizedByLang).flat();
+
   const topicFlag = process.argv.indexOf('--topic');
   if (topicFlag !== -1) {
     const requestedSlug = process.argv[topicFlag + 1];
@@ -4744,11 +4779,21 @@ function main() {
   writeAll('blog/index.html', renderBlogIndex(posts));
   writeAll('blog.html', renderRedirect('/blog/'));
   for (const post of posts) {
-    writeAll(`blog/${post.slug}.html`, renderPost(post, posts));
+    writeAll(`blog/${post.slug}.html`, renderPost(post, posts, { hreflang: hreflangFor(post.slug) }));
+  }
+  for (const lang of I18N_LOCALES) {
+    for (const post of (localizedByLang[lang] || [])) {
+      writeAll(`${lang}/blog/${post.slug}.html`, renderPost(post, posts, {
+        lang,
+        ogLocale: OG_LOCALE[lang] || 'en_GB',
+        canonicalPath: `/${lang}/blog/${post.slug}.html`,
+        hreflang: hreflangFor(post.slug),
+      }));
+    }
   }
   writeAll('blog/best-baby-tracker-app-for-new-parents.html', renderRedirect('/blog/best-baby-tracker-app-uk.html'));
   writeAll('robots.txt', renderRobots());
-  writeAll('sitemap.xml', renderSitemap(posts));
+  writeAll('sitemap.xml', renderSitemap(posts, allLocalized));
   writeAll('image-sitemap.xml', renderImageSitemap());
   writeAll('feed.xml', renderFeed(posts));
   writeAll('llms.txt', renderLlms(posts));
