@@ -1,0 +1,29 @@
+# Autonomous competitor watch. Analyses rivals and appends a report to marketing/.
+# Requires the repo secret ANTHROPIC_API_KEY. Runs on GitHub's servers, 24/7.
+name: Agent - competitor watch
+on:
+  schedule:
+    - cron: '23 5 * * *'   # 05:23 UTC daily
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Analyse competitors
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AGENT_MODEL: claude-sonnet-5
+        run: node tools/agent/competitor-watch.mjs
+      - name: Commit report
+        run: |
+          git config user.name "obubba-agent"
+          git config user.email "corranzyesha@gmail.com"
+          git add marketing/competitor-watch.md
+          git diff --cached --quiet || git commit -m "agent(competitor): daily watch report"
+          git push

@@ -1,0 +1,26 @@
+# Autonomous ratings/traction monitor. NO secret needed - runs immediately once merged.
+# Appends daily iOS rating counts for OBubba + rivals to marketing/ratings-monitor.csv.
+name: Agent - ratings monitor
+on:
+  schedule:
+    - cron: '11 5 * * *'   # 05:11 UTC daily
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Snapshot ratings
+        run: node tools/agent/ratings-monitor.mjs
+      - name: Commit
+        run: |
+          git config user.name "obubba-agent"
+          git config user.email "corranzyesha@gmail.com"
+          git add marketing/ratings-monitor.csv
+          git diff --cached --quiet || git commit -m "agent(ratings): daily traction snapshot"
+          git push

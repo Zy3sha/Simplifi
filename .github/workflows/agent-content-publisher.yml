@@ -1,0 +1,29 @@
+# Autonomous SEO content agent. Writes the next scheduled article as a DRAFT for review.
+# Requires the repo secret ANTHROPIC_API_KEY. Runs on GitHub's servers, 24/7.
+name: Agent - SEO content publisher
+on:
+  schedule:
+    - cron: '41 5 * * *'   # 05:41 UTC daily
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Write next draft article
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          AGENT_MODEL: claude-sonnet-5
+        run: node tools/agent/content-publisher.mjs
+      - name: Commit draft
+        run: |
+          git config user.name "obubba-agent"
+          git config user.email "corranzyesha@gmail.com"
+          git add content/blog marketing
+          git diff --cached --quiet || git commit -m "agent(content): draft next SEO sleep article for review"
+          git push
