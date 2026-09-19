@@ -1806,17 +1806,26 @@ function readPosts() {
     .filter((file) => file.endsWith('.md'))
     .map((file) => {
       const source = fs.readFileSync(path.join(dir, file), 'utf8');
-      return parseFrontMatter(source, file.replace(/\.md$/, ''));
+      const post = parseFrontMatter(source, file.replace(/\.md$/, ''));
+      // Publish-all policy (owner decision 2026-09): the whole calendar is live NOW to
+      // compete on published depth. Never emit a FUTURE publication date — search engines
+      // distrust / decline to index future-dated content — so clamp any date still ahead
+      // of today down to today. Skipped when the drip is restored via BLOG_DRIP_SCHEDULE=1.
+      if (process.env.BLOG_DRIP_SCHEDULE !== '1') {
+        const today = new Date().toISOString().slice(0, 10);
+        if (post.date && String(post.date).slice(0, 10) > today) post.date = today;
+        if (post.updated && String(post.updated).slice(0, 10) > today) post.updated = today;
+      }
+      return post;
     })
-    // Honour the publishing schedule. content/blog is a dated content calendar
-    // running months ahead; without this filter every future-dated post rendered,
-    // was linked from the index and listed in the sitemap immediately.
-    // Override to preview the whole calendar: BLOG_INCLUDE_SCHEDULED=1
+    // Publishing policy. content/blog is a dated content calendar. By DEFAULT the whole
+    // library is published immediately (owner decision 2026-09 — publish everything now).
+    // Restore the old day-by-day drip with BLOG_DRIP_SCHEDULE=1. In BOTH modes, paused
+    // and draft sources are never published.
     .filter((post) => {
-      // Editorial safety stop: paused and draft sources must never enter the
-      // generated site, including scheduled-calendar preview builds.
+      // Editorial safety stop: paused and draft sources must never enter the site.
       if (post.status === 'paused' || post.status === 'draft') return false;
-      if (process.env.BLOG_INCLUDE_SCHEDULED === '1') return true;
+      if (process.env.BLOG_DRIP_SCHEDULE !== '1') return true; // default: publish everything
       if (!post.date) return true; // undated posts are evergreen
       const today = new Date().toISOString().slice(0, 10);
       return String(post.date).slice(0, 10) <= today;
