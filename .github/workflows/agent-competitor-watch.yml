@@ -2,8 +2,11 @@
 # Requires the repo secret ANTHROPIC_API_KEY. Runs on GitHub's servers, 24/7.
 name: Agent - competitor watch
 on:
-  schedule:
-    - cron: '23 5 * * *'   # 05:23 UTC daily
+  # DORMANT: this agent calls the Anthropic API (paid) and needs the ANTHROPIC_API_KEY
+  # repo secret. The free change-DETECTOR (agent-competitor-diff.yml) covers the 24/7
+  # watching; this AI analysis only runs if you add a key and re-enable the cron below.
+  # schedule:
+  #   - cron: '23 5 * * *'   # 05:23 UTC daily (re-enable after adding the key)
   workflow_dispatch:
 permissions:
   contents: write

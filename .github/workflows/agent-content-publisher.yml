@@ -2,8 +2,11 @@
 # Requires the repo secret ANTHROPIC_API_KEY. Runs on GitHub's servers, 24/7.
 name: Agent - SEO content publisher
 on:
-  schedule:
-    - cron: '41 5 * * *'   # 05:41 UTC daily
+  # DORMANT: this agent calls the Anthropic API (paid) and needs the ANTHROPIC_API_KEY
+  # repo secret. It will not run on a schedule until you add the key and re-enable the
+  # cron below. Until then it only runs if you manually trigger it (workflow_dispatch).
+  # schedule:
+  #   - cron: '41 5 * * *'   # 05:41 UTC daily (re-enable after adding the key)
   workflow_dispatch:
 permissions:
   contents: write

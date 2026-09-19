@@ -1,0 +1,26 @@
+# FREE competitor change detector. NO API key, no cost. Runs 24/7 on GitHub.
+# Snapshots rivals daily and logs what changed to marketing/competitor-changes.md.
+name: Agent - competitor change detector (free)
+on:
+  schedule:
+    - cron: '29 5 * * *'   # 05:29 UTC daily
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Detect competitor changes
+        run: node tools/agent/competitor-diff.mjs
+      - name: Commit
+        run: |
+          git config user.name "obubba-agent"
+          git config user.email "corranzyesha@gmail.com"
+          git add marketing/competitor-snapshots marketing/competitor-changes.md
+          git diff --cached --quiet || git commit -m "agent(competitor): daily change snapshot"
+          git push
