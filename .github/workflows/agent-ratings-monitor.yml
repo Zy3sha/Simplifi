@@ -22,5 +22,7 @@ jobs:
           git config user.name "obubba-agent"
           git config user.email "corranzyesha@gmail.com"
           git add marketing/ratings-monitor.csv
-          git diff --cached --quiet || git commit -m "agent(ratings): daily traction snapshot"
+          git diff --cached --quiet && { echo "no changes to commit"; exit 0; }
+          git commit -m "agent(ratings): daily traction snapshot"
+          git pull --rebase --autostash origin main || true
           git push

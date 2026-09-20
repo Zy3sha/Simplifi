@@ -21,6 +21,10 @@ jobs:
         run: |
           git config user.name "obubba-agent"
           git config user.email "corranzyesha@gmail.com"
-          git add marketing/competitor-snapshots marketing/competitor-changes.md
-          git diff --cached --quiet || git commit -m "agent(competitor): daily change snapshot"
+          git add marketing/competitor-snapshots
+          # competitor-changes.md only exists once a change is detected; tolerate its absence
+          [ -f marketing/competitor-changes.md ] && git add marketing/competitor-changes.md || true
+          git diff --cached --quiet && { echo "no changes to commit"; exit 0; }
+          git commit -m "agent(competitor): daily change snapshot"
+          git pull --rebase --autostash origin main || true
           git push
