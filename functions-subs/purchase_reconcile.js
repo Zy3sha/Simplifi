@@ -31,9 +31,13 @@ const GRANT_ENABLED = String(process.env.SUB_GRANTS_ENABLED || "").toLowerCase()
 
 // Apple: status 1 active, 3 billing retry, 4 grace. Play: the entitled state strings.
 const APPLE_ENTITLED = new Set([1, 3, 4]);
+// CANCELED means auto-renew is OFF but the subscription runs to its paid-through date —
+// the customer is still entitled until then, and the expiry check below is what ends it.
+// Omitting it here silently under-granted people who had simply turned off renewal.
 const PLAY_ENTITLED = new Set([
   "SUBSCRIPTION_STATE_ACTIVE",
   "SUBSCRIPTION_STATE_IN_GRACE_PERIOD",
+  "SUBSCRIPTION_STATE_CANCELED",
 ]);
 
 function isLive(sub, nowMs) {
@@ -43,7 +47,10 @@ function isLive(sub, nowMs) {
   if (sub.store === "google_play") {
     return sub.subscriptionState ? PLAY_ENTITLED.has(sub.subscriptionState) : false;
   }
-  return sub.status == null ? true : APPLE_ENTITLED.has(sub.status);
+  // Apple: REQUIRE a known-entitled status. This used to read
+  // `sub.status == null ? true : ...`, i.e. it granted whenever the status was missing.
+  // That is the wrong direction to fail in — an unknown state must never mint Premium.
+  return typeof sub.status === "number" && APPLE_ENTITLED.has(sub.status);
 }
 
 /**
