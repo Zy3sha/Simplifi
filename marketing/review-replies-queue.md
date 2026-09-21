@@ -26,3 +26,20 @@ un-root-caused freeze issue.
 
 **One-line:** 20 iOS reviews checked, 0 Play; 0 need a reply (all already answered); 1 real
 signal - the recurring freeze bug is the main thing pulling stars down.
+
+## 2026-09-21 (Review Watch)
+
+**Result: 0 new reviews, 0 need a reply, nothing urgent.**
+- **App Store:** 30 most-recent fetched via ASC API (per-review response relationship checked).
+  ALL answered; newest review is still **2026-08-31** (Kraeofsun, 5★, "Incredible app." — already
+  answered). No new reviews since the last run, no unanswered, no 1-2★/crash/billing/safety.
+- **Google Play:** 0 text reviews in the API's ~7-day window. Nothing to reply to.
+- **No score-drop signal, no crash/payment/safety reports** in the new window.
+
+**Sentiment (unchanged from last run, no new data):** strongly positive; the only recurring
+drag remains the **freeze/glitch** theme + a couple of older 2★ paywall gripes (Valala283
+"features hidden behind paywall", Naaads "dislike new update" — both June/July, already answered).
+Stability > new features stays the highest-ROI ratings lever.
+
+**One-line:** 0 new reviews across both stores (iOS newest 2026-08-31, Play 7-day window empty);
+0 need a reply; nothing urgent.
