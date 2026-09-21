@@ -17,7 +17,7 @@ The 267-article backlog is now fully published. This is the *new* forward pipeli
 | Date | Working title | Primary keyword | Intent | OBubba angle |
 |---|---|---|---|---|
 | Mon W1 | Best Baby Sleep Tracker Apps 2026 (Honest Comparison) | best baby sleep tracker app | commercial | Rank Huckleberry/Napper/nappi/NapNap by use-case; slot OBubba as the one that *predicts naps accurately and fixes the routine* |
-| Wed W1 | Best Baby Sleep Training App: What Actually Works | best sleep training app | commercial | Gentle, data-led sleep training built on the baby's own rhythm |
+| Wed W1 ✅2026-09-21 | Best Baby Sleep Training App: What Actually Works | best sleep training app | commercial | Gentle, data-led sleep training built on the baby's own rhythm — PUBLISHED `best-baby-sleep-training-app` |
 | Fri W1 | Huckleberry Alternative: A Sleep App That Explains *Why* | huckleberry alternative | commercial | Huckleberry predicts; OBubba predicts *and* diagnoses the cause + gives the fix |
 | Mon W2 | Napper vs OBubba: Which Baby Sleep App Fixes Sleep? | napper alternative | commercial | Napper = pretty logging; OBubba = the sleep brain |
 | Wed W2 | The Most Accurate Nap Predictor Apps, Tested | nap predictor app | commercial | Lead with personal-rhythm accuracy vs generic age tables |
