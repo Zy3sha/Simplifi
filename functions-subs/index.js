@@ -4,3 +4,4 @@ const { initializeApp } = require("firebase-admin/app");
 initializeApp();
 Object.assign(exports, require("./appstore_notifications"));
 Object.assign(exports, require("./play_notifications"));
+Object.assign(exports, require("./purchase_reconcile"));
