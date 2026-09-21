@@ -153,7 +153,6 @@ Silence is not a verdict on care. It only means the display conditions were not 
 
 The production card surrounds its counters with a starlit care illustration and the line **“Every light is a moment you showed up.”** This is the exact artwork bundled in the current Flutter screen:
 
-![The exact parent-and-baby illustration used inside OBubba’s current Month of Love card.](/obubba-month-of-love-flutter-art.png "The app treats the recap as a keepsake, using a starlit parent-and-baby illustration rather than a performance dashboard.")
 
 The **Keep / share** control is optional. It opens a branded keepsake card containing the non-zero summary lines, baby’s first name, the current month label and a referral code/QR when one exists. OBubba does not automatically post the recap.
 

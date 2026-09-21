@@ -42,7 +42,6 @@ It then expands that into four steps:
 
 That route matters because tummy time does **not** begin from the Track tab in the current interface. Two focused tests explicitly protect **Grow → Activities** from being replaced with the wrong path.
 
-![A product-design capture from the Flutter repository showing Luna’s answer structure, including a related-tools disclosure and follow-up questions.](/obubba-sources-luna-app.png "This repository design capture illustrates Luna’s structured answer hierarchy. The current implementation labels its route disclosure “Open this in OBubba”; it displays a text path rather than navigating automatically.")
 
 ## How Luna decides this is an app question
 

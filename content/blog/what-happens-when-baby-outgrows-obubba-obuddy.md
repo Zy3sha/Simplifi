@@ -27,7 +27,6 @@ The useful promise is smaller and better:
 
 The handoff starts on OBubba’s **Grow** tab—the same part of the app that already turns age into activities, milestones, developmental waves and parent-friendly stories.
 
-![A genuine OBubba release capture of the Grow experience, where age-appropriate activities, milestones, developmental waves and guides build the context for the later OBuddy graduation card.](/obubba-grow-what-comes-next-app.png "Genuine OBubba Flutter release artwork. The optional OBuddy graduation card is inserted into this Grow experience only for an eligible older child with a usable handoff code.")
 
 The live graduation card says the child is growing up, introduces the next chapter and offers two clear choices:
 

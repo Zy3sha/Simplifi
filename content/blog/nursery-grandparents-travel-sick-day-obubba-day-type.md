@@ -43,7 +43,6 @@ The picker explains each choice:
 
 You can label the day you are viewing, not only today. That means Monday’s nursery label can still be added on Tuesday after the handover sheet arrives.
 
-![An OBubba product-design capture from the Flutter repository showing the Track clock and date navigation used to move between care days.](/obubba-day-type-track-app.png "OBubba product-design capture from the Flutter repository. Today type sits further down Track beneath Log details, and the date controls let a parent label a past day too.")
 
 If you choose the wrong label, reopen the picker and change it. Selecting **Home** removes the stored exception and returns the date to the default context.
 

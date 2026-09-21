@@ -793,7 +793,7 @@
       <div class="article">
         <div class="article-kicker-row">
           <div class="meta">2026-09-21 / OBubba</div>
-          <span class="read-time">11 min read</span>
+          <span class="read-time">10 min read</span>
         </div>
         <h1>Can Luna Show Me Where to Log Tummy Time?</h1>
         <p>Ask Luna where an OBubba feature lives and get the exact in-app path. See how deterministic app help finds tummy time, sleep logs, weaning tools and settings without an AI guess.</p>
@@ -815,7 +815,6 @@
 <p>It then expands that into four steps:</p>
 <ol><li>Open <strong>Grow</strong> and tap <strong>Activities</strong>.</li><li>Tap the gold <strong>Log activity</strong> button.</li><li>Choose <strong>Tummy time</strong>, then <strong>Start live timer instead</strong>.</li><li>When finished, tap <strong>Stop &amp; log</strong> on the timer pill.</li></ol>
 <p>That route matters because tummy time does <strong>not</strong> begin from the Track tab in the current interface. Two focused tests explicitly protect <strong>Grow → Activities</strong> from being replaced with the wrong path.</p>
-<figure><img src="/obubba-sources-luna-app.png" alt="A product-design capture from the Flutter repository showing Luna’s answer structure, including a related-tools disclosure and follow-up questions." loading="lazy"/><figcaption>This repository design capture illustrates Luna’s structured answer hierarchy. The current implementation labels its route disclosure “Open this in OBubba”; it displays a text path rather than navigating automatically.</figcaption></figure>
 <h2>How Luna decides this is an app question</h2>
 <figure><img src="/obubba-luna-app-help-routing.svg" alt="The current Flutter routing path from a natural question to fixed app help, data-grounded care guidance or an honest fallback." loading="lazy"/><figcaption>Precise app questions retrieve a curated route and stay off the generative-AI path. Advice, safety and live-status questions have different handlers so similar words do not force the wrong kind of answer.</figcaption></figure>
 <p>The current code keeps several kinds of question separate.</p>

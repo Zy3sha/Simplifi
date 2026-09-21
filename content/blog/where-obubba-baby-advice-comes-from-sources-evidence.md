@@ -40,7 +40,6 @@ The screen opens with the line **“Trust, with receipts”** and lets you move 
 
 That last part matters. OBubba is not asking you to accept its summary as the final word; it gives you a route out to the organisation itself.
 
-![An OBubba product-design capture from the Flutter repository showing Luna giving an observation explicitly based on the baby's logs, expandable reasoning, related tools and a clear informational-support boundary.](/obubba-sources-luna-app.png "OBubba product-design capture from the Flutter repository. Luna distinguishes an observation based on the baby's logs and labels the support as informational, not medical advice.")
 
 ## What is actually on the source shelf?
 

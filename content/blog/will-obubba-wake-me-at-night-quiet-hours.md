@@ -25,7 +25,6 @@ There are exceptions, device settings still have the final say, and OBubba shoul
 
 Open **Account → the settings gear (or Preferences) → Reminders**. The reminder controls sit alongside the preferences for what OBubba tracks.
 
-![An OBubba product-design capture from the Flutter repository showing the Account screen, settings gear and Help & settings area.](/obubba-account-help-settings-app.png "OBubba product-design capture from the Flutter repository. Use the settings gear or Preferences route to reach the reminder and quiet-hours controls described here.")
 
 The current reminder panel contains:
 

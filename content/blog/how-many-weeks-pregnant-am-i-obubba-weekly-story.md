@@ -93,7 +93,6 @@ Those parts appear within a wider pregnancy home with four areas:
 
 The weekly return is therefore more than a fruit comparison. It connects information, preparation, wellbeing and memory without presenting any of them as a diagnosis.
 
-![Three genuine celestial illustrations from the current OBubba Flutter pregnancy journey at weeks 8, 20 and 36.](/obubba-pregnancy-week-artwork.png "OBubba includes distinct storybook artwork throughout weeks 4–40. The changing illustration marks the journey; it is not an ultrasound, measurement or prediction of an individual baby.")
 
 ## Is the picture what my baby looks like?
 

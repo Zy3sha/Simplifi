@@ -40,7 +40,6 @@ On **Track**, open the relevant day and tap the event in the day’s timeline. E
 
 The clock itself also exposes editable sleep information. When a nap or night sleep is running, **Edit start** changes when that existing sleep began without ending it.
 
-![An OBubba product-design capture from the Flutter repository showing the Track clock, active baby, current date, live sleep and Edit start control.](/obubba-track-edit-start-app.png "OBubba product-design capture from the Flutter repository. The live sleep keeps its original identity while Edit start corrects when it began.")
 
 OBubba reopens the same detailed form used to create:
 

@@ -47,7 +47,6 @@ You can:
 - read the included bedtime stories; and
 - open cached care and warning-sign guidance.
 
-![A product-design overview from OBubba's Flutter repository showing Track, Care, Luna, Grow and Account together.](/obubba-whole-app-offline-overview.png "OBubba product-design overview from the Flutter repository. Core care tools live together, while connection-dependent enhancements can wait.")
 
 The sound machine uses locally generated white, pink and brown noise plus ocean, womb, heartbeat, rain, fan and shushing loops. It does not need a music stream. Bedtime stories are packaged for offline reading too; finishing one can add a reading event to the baby’s story.
 

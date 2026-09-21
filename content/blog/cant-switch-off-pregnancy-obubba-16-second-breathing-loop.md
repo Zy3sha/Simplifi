@@ -65,7 +65,6 @@ But the exact **4–4–4–4** pattern is OBubba’s interface choice. NHS guid
 
 The visual below is a direct widget capture from the current pregnancy Wellbeing code, taken while the two-second point of the **Breathe in…** phase was active.
 
-![The current OBubba Flutter pregnancy Wellbeing breathing card during its breathe-in phase.](/obubba-pregnancy-breathing-app.png "Current Flutter implementation: the circle expands and contracts through four timed phases, while Start becomes Stop. This is a relaxation prompt, not a monitor or symptom checker.")
 
 The surrounding Wellbeing tab begins with five feelings: **Good, Calm, Tired, Anxious** and **Low**. Choosing one reveals a short supportive response for that moment. The selection is not a diagnosis, an anxiety score or a replacement for speaking to someone. It simply acknowledges that the pregnant person belongs in the care picture too.
 
