@@ -43,3 +43,26 @@ Stability > new features stays the highest-ROI ratings lever.
 
 **One-line:** 0 new reviews across both stores (iOS newest 2026-08-31, Play 7-day window empty);
 0 need a reply; nothing urgent.
+
+## 2026-09-22 (Review Watch)
+
+**Result: 0 new reviews, 0 need a reply, nothing urgent.**
+- **App Store:** 50 most-recent fetched via ASC API (per-review `response` relationship
+  checked). ALL answered; newest review is still **2026-08-31** (Kraeofsun, 5★,
+  "Incredible app." — already answered). No new reviews since the last run (2026-09-21),
+  none unanswered, no new 1-2★ / crash / billing / safety.
+- **Google Play:** API returned empty (`{}`) — 0 text reviews in the ~7-day window.
+  Nothing to reply to.
+- **No score-drop signal, no crash/payment/safety reports** in the new window.
+
+**Sentiment (unchanged, no new data):** strongly positive; 5★ reviews keep praising
+nap-prediction accuracy after a few days of logging ("within 3 days my baby is already
+starting to sleep better", "predictions actually become really accurate"). Recurring drags,
+all from OLDER, already-answered reviews: the **freeze/glitch** theme + the
+**breastfeeding-timer-doesn't-persist-in-background** bug (larsenault97, 4★, 2026-07-31) +
+the **duplicate-baby-on-partner-add** glitch (same review) + a couple of older 2★ paywall
+gripes (Valala283 "features hidden behind paywall"). Stability/timer-persistence > new
+features remains the highest-ROI ratings lever.
+
+**One-line:** 0 new reviews across both stores (iOS newest 2026-08-31, Play 7-day window
+empty); 0 need a reply; nothing urgent.
