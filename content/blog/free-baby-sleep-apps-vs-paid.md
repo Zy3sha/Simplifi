@@ -33,9 +33,9 @@ What should *not* be paywalled, in our view, is the basic ability to log your ba
 
 ## Where OBubba's free tier lands
 
-OBubba is built around the two things that actually fix sleep, the **right naps** and a **steady bedtime routine**, and the core tracking is **free**: log feeds, naps, nappies, sleep and more, on a clean day timeline, with **partner sync and Bubba Care carer handovers included** so both parents and any carers see the same picture without paying. That means you can start using it properly, and once you have logged a few days you can see how the nap predictions line up with your own baby, which is the only test that really counts.
+OBubba is **free to download, and core tracking stays free**: log feeds, naps, nappies, sleep and more on a clean day timeline, with live timers, corrections and your full history, plus Bubba Care handovers and a genuine Care library (sound machine, safe-sleep, breastfeeding guidance and the postnatal wellbeing check, which is never paywalled). That is the everyday 3am logging, and it does not expire.
 
-Premium then adds the deeper sleep engine: personalised nap and bedtime guidance, the sleep-brain "why" behind night wakes, trends and reports. For the exact split, see [is OBubba free, and what premium includes](/blog/is-obubba-free-what-premium-includes.html).
+The **predictive layer is Premium**, a subscription: the exact predicted next-nap and bedtime *time*, the readiness meter, tomorrow's plan and the sleep-brain "why" behind night wakes. OBubba does not hide that behind a vague label. To let you test the part that matters on your own baby, it gives new families a **14-day Premium trial**, and pregnancy plus roughly the first two months after birth come with Premium access built in, so you can see how the predictions line up with your baby before you decide whether the subscription earns its place. For the exact split, see [is OBubba free, and what premium includes](/blog/is-obubba-free-what-premium-includes.html).
 
 ## How to test a free baby sleep app properly
 
@@ -46,7 +46,7 @@ Premium then adds the deeper sleep engine: personalised nap and bedtime guidance
 
 ## The bottom line
 
-A **free baby sleep app** is only worth it if the free tier lets you genuinely test the thing that matters: does it predict your baby's naps and help you fix the bedtime routine? OBubba keeps core tracking and partner sharing free for exactly that reason, so you can try the nap predictions on your own baby before deciding whether the premium sleep engine is worth it.
+A **free baby sleep app** is only worth it if you can genuinely test the thing that matters: does it predict your baby's naps and help you fix the bedtime routine? OBubba keeps core tracking free forever and puts the predictive sleep engine on a subscription, but gives you a real 14-day Premium trial (on top of the pregnancy and newborn window) to try the nap predictions on your own baby first, so you decide with real data rather than a guess.
 
 **[Try OBubba free →](/app.html?utm_source=free_vs_paid_article&utm_medium=owned_search&utm_campaign=sleep_positioning&utm_content=free_baby_sleep_app)** — or compare the field in [the best baby sleep tracker apps for 2026](/blog/best-baby-sleep-tracker-app-2026.html) and [the best AI nap predictor apps](/blog/best-ai-nap-predictor-apps-2026.html). To see the sleep features in one place, visit the [baby sleep tracker](/baby-sleep-tracker.html) and [baby nap tracker](/baby-nap-tracker.html) pages.
 
