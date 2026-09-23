@@ -19,6 +19,8 @@ Every good predictor starts the same way: an age-appropriate wake window, then i
 - **NapNap** predicts from positional wake windows, works offline, sells as a one-time lifetime purchase, and can import from Huckleberry.
 - **Napper** pairs prediction with sounds and a big content library.
 - **Snug** and **SnoozyBear** are newer AI-first trackers built around next-nap prediction; SnoozyBear markets a high accuracy figure after about a week of logging (their claim).
+- **Cocoo** leads with fixing short naps and night wakes, shows sleep pressure as a battery-style "energy" view, and pairs it with a gentle AI chat coach. A polished newer entrant. If you are weighing it up, see our [Cocoo alternative comparison](/blog/cocoo-alternative-baby-sleep-app.html).
+- **Nani AI** is a lighter newcomer, sleep and feed logging with AI insight framing; still early on reviews.
 - **Nanit NextNap** ties prediction to the Nanit camera ecosystem.
 
 They are mostly good at the same thing: telling you *when*. Fewer tell you *why*, or what to change.

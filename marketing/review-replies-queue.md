@@ -66,3 +66,22 @@ features remains the highest-ROI ratings lever.
 
 **One-line:** 0 new reviews across both stores (iOS newest 2026-08-31, Play 7-day window
 empty); 0 need a reply; nothing urgent.
+
+## 2026-09-23 (Review Watch)
+
+**Result: 1 new review (Google Play, 5★, positive), 0 urgent.**
+- **App Store:** 50 most-recent fetched via ASC API; ALL answered; newest review still **2026-08-31** (Kraeofsun). No new iOS reviews, no 1-2★/crash/billing/safety.
+- **Google Play:** **1 NEW review** in the window (see draft below). No crash/payment/safety flags.
+- No score-drop signal.
+
+### NEW — Google Play (needs owner approval to post)
+
+**Christiana Danso Seguh — ★★★★★ — 2026-09-22 — app v3.2.23 (en, TECNO device)**
+> "very useful and helpful A good app especially for first time Moms"
+
+DRAFT reply (Luna/OBubba voice):
+> Thank you so much, Christiana. 💛 Being genuinely useful to first-time mums is exactly what we hoped for, so this means the world. If there's ever anything that would make those early days easier, just tell us in the app. Wishing you and your little one calm days and good sleep. — Team OBubba
+
+**Sentiment (unchanged):** strongly positive. This is the first Android text review to land in the API window in a while and it echoes the iOS theme (first-time-parent reassurance + everyday usefulness). No new negative signal. Recurring drags remain older, already-answered iOS reviews (freeze/glitch, breastfeeding-timer background persistence).
+
+**One-line:** 1 new review (Play, 5★ positive); 1 warm reply drafted for owner approval; nothing urgent.
