@@ -22,7 +22,7 @@ The 267-article backlog is now fully published. This is the *new* forward pipeli
 | Mon W2 | Napper vs OBubba: Which Baby Sleep App Fixes Sleep? | napper alternative | commercial | Napper = pretty logging; OBubba = the sleep brain |
 | Wed W2 | The Most Accurate Nap Predictor Apps, Tested | nap predictor app | commercial | Lead with personal-rhythm accuracy vs generic age tables |
 | Fri W2 ✅2026-09-22 | Free Baby Sleep Apps vs Paid: What You Actually Get | free baby sleep app | commercial | Generous free tier + what the premium sleep engine adds — PUBLISHED `free-baby-sleep-apps-vs-paid` |
-| Mon W3 | Best App for Baby Nap Schedule (by age) | baby nap schedule app | commercial | Auto-builds and adapts the nap schedule from real logs |
+| Mon W3 ✅2026-09-23 | Best App for Baby Nap Schedule (by age) | baby nap schedule app | commercial | Auto-builds and adapts the nap schedule from real logs — PUBLISHED `best-app-baby-nap-schedule` |
 
 ## Tier 2 — Pillar sleep guides (high volume, evergreen, link hubs)
 | Date | Working title | Primary keyword | Angle |
