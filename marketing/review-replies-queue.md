@@ -85,3 +85,14 @@ DRAFT reply (Luna/OBubba voice):
 **Sentiment (unchanged):** strongly positive. This is the first Android text review to land in the API window in a while and it echoes the iOS theme (first-time-parent reassurance + everyday usefulness). No new negative signal. Recurring drags remain older, already-answered iOS reviews (freeze/glitch, breastfeeding-timer background persistence).
 
 **One-line:** 1 new review (Play, 5★ positive); 1 warm reply drafted for owner approval; nothing urgent.
+
+## 2026-09-24 (Review Watch)
+
+**Result: 0 NEW reviews since last run, 0 urgent.**
+- **App Store:** 50 most-recent via ASC API; ALL answered; newest still **2026-08-31** (Kraeofsun). No new iOS reviews, no 1-2★/crash/billing/safety.
+- **Google Play:** API window shows only the same **1** review from **2026-09-22** (Christiana Danso Seguh, 5★) that was logged + drafted a reply for on 2026-09-23. Still `replied: false` (owner has not posted the drafted reply yet). NOT a new review; the warm draft from 2026-09-23 still stands and awaits owner approval.
+- No score-drop, no crash/payment/safety signal.
+
+**Sentiment (unchanged):** strongly positive; recurring drags remain OLD, already-answered iOS reviews (freeze/glitch, breastfeeding-timer background persistence).
+
+**One-line:** 0 new reviews; 0 need a new reply (the 2026-09-22 Play 5★ reply is still queued for owner to post); nothing urgent.

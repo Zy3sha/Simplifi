@@ -81,3 +81,25 @@
 5. **[NOTE]** Hold the line on honesty: no fabricated accuracy figure; OBubba's edge stays personalisation + Luna's plain-language "why" + whole-baby breadth + genuine free tier + partner/carer sharing.
 
 **Summary:** SHIPPED a Snug-alternative comparison page; QUEUED the next alt pages (snoozybear, nara), an "OBubba vs the field" hub (owner), and monitor additions. Main read: comparison-content farms (Pebbi/Bambii), not new apps, are now the race.
+
+---
+
+## 2026-09-24 — dense comparison-farm ecosystem; ship Nara-alternative; flag Pippy "free predictions"
+
+**What changed (sources: App Store / Play / listicles, via WebSearch):**
+- **No brand-new entrant** since the Cocoo/Snug wave. The category is consolidating; the movement now is third-party **comparison/listicle farms** multiplying: Pebbi, Pixykid, meetpippy, OurKidsMom, notsalmon, betteroo, outreachz, A Suffolk Mum all run "best baby tracker 2026" and rival-vs-rival pages. These, not new apps, are the SEO race.
+- **Pricing/positioning notes (as listed, unconfirmed):** Bambii ~$44.99/yr with AI analysis included; Napper ~$59.99/yr, sound-library heavy; Nara Baby = simple, low-stress, **free** Huckleberry alternative (no prediction engine); Robin Baby = voice-first AI; **Pippy markets "free nap predictions without a subscription"**; Pixy/Sofi/Napper include sleep prediction in their free tiers.
+- **⚠️ Positioning signal for owner:** several rivals (Pippy, Pixy, Napper free, Sofi) now put **nap prediction in the FREE tier**. OBubba's model gates the *exact predicted time* behind Premium/14-day trial. If "free nap prediction" becomes table stakes, our free tier looks thinner by comparison. Not a fabrication of numbers, just a positioning trend to watch. Product/pricing decision → owner.
+- Ad-library/creator scan: no confirmed new paid pushes surfaced (unconfirmed; Meta Ad Library not directly queried this run).
+
+**Likely impact (unconfirmed on installs):** the comparison farms increasingly capture rival-brand + "best baby tracker" search before OBubba does. OBubba's own alt-page programme is the right counter, but must not tip into thin/doorway content.
+
+**Ranked copyable actions:**
+1. **[SHIPPED]** New comparison page `nara-alternative-baby-sleep-app` — captures the high-volume "Nara alternative" search (Nara is the most-paired rival in the farms, e.g. "Nara vs Huckleberry"). Differentiated angle (Nara = simple free logger; OBubba = same calm + adds the sleep brain + Luna). Honest, free-tier accurate (predictions = Premium/trial), cross-linked.
+2. **[QUEUE, cadence]** Next alt pages `pippy-alternative` + `snoozybear-alternative`, but PACE at ~1-2/week from here (cocoo 09-22, snug 09-23, nara 09-24 is a 3-day burst; PAUSE new alt pages until ~09-28 to protect freshness/avoid doorway-content pattern).
+3. **[QUEUE, owner — product/pricing]** "Free nap prediction" is becoming table stakes among rivals. Consider whether a *limited* free next-nap prediction (e.g. today only, or a lower-precision window) would blunt the "predictions are paywalled" comparison, while keeping the full engine Premium. Pricing/product call.
+4. **[QUEUE]** An "OBubba vs the field" hub page to out-structure Pebbi's "best baby tracker apps 2026" (single strong table → each alt page). Bigger effort; owner tone call.
+5. **[MONITOR]** Add Nara, Pippy, Bambii, Robin Baby to the ratings/diff monitors; watch the farms' publish velocity.
+6. **[NOTE]** Hold honesty: no fabricated accuracy %. Edge stays personalisation + Luna's "why" + whole-baby breadth + partner/carer sharing.
+
+**Summary:** SHIPPED a Nara-alternative comparison page; QUEUED pippy/snoozybear alt pages (now PACED, pause to ~09-28), a "free nap prediction" pricing question (owner), and monitor additions. Main read: comparison farms + "free prediction becoming table stakes" are the live pressures.
