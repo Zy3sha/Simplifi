@@ -16,22 +16,22 @@ The 267-article backlog is now fully published. This is the *new* forward pipeli
 ## Tier 1 — Commercial & comparison (highest intent, front-load these)
 | Date | Working title | Primary keyword | Intent | OBubba angle |
 |---|---|---|---|---|
-| Mon W1 | Best Baby Sleep Tracker Apps 2026 (Honest Comparison) | best baby sleep tracker app | commercial | Rank Huckleberry/Napper/nappi/NapNap by use-case; slot OBubba as the one that *predicts naps accurately and fixes the routine* |
+| Mon W1 ✅covered `best-baby-sleep-tracker-app-2026` | Best Baby Sleep Tracker Apps 2026 (Honest Comparison) | best baby sleep tracker app | commercial | Rank Huckleberry/Napper/nappi/NapNap by use-case; slot OBubba as the one that *predicts naps accurately and fixes the routine* |
 | Wed W1 ✅2026-09-21 | Best Baby Sleep Training App: What Actually Works | best sleep training app | commercial | Gentle, data-led sleep training built on the baby's own rhythm — PUBLISHED `best-baby-sleep-training-app` |
-| Fri W1 | Huckleberry Alternative: A Sleep App That Explains *Why* | huckleberry alternative | commercial | Huckleberry predicts; OBubba predicts *and* diagnoses the cause + gives the fix |
-| Mon W2 | Napper vs OBubba: Which Baby Sleep App Fixes Sleep? | napper alternative | commercial | Napper = pretty logging; OBubba = the sleep brain |
-| Wed W2 | The Most Accurate Nap Predictor Apps, Tested | nap predictor app | commercial | Lead with personal-rhythm accuracy vs generic age tables |
+| Fri W1 ✅covered `huckleberry-alternative-baby-sleep-app` | Huckleberry Alternative: A Sleep App That Explains *Why* | huckleberry alternative | commercial | Huckleberry predicts; OBubba predicts *and* diagnoses the cause + gives the fix |
+| Mon W2 ✅covered `napper-alternative-baby-sleep-app` | Napper vs OBubba: Which Baby Sleep App Fixes Sleep? | napper alternative | commercial | Napper = pretty logging; OBubba = the sleep brain |
+| Wed W2 ✅covered `best-ai-nap-predictor-apps-2026` | The Most Accurate Nap Predictor Apps, Tested | nap predictor app | commercial | Lead with personal-rhythm accuracy vs generic age tables |
 | Fri W2 ✅2026-09-22 | Free Baby Sleep Apps vs Paid: What You Actually Get | free baby sleep app | commercial | Generous free tier + what the premium sleep engine adds — PUBLISHED `free-baby-sleep-apps-vs-paid` |
 | Mon W3 ✅2026-09-23 | Best App for Baby Nap Schedule (by age) | baby nap schedule app | commercial | Auto-builds and adapts the nap schedule from real logs — PUBLISHED `best-app-baby-nap-schedule` |
 
 ## Tier 2 — Pillar sleep guides (high volume, evergreen, link hubs)
 | Date | Working title | Primary keyword | Angle |
 |---|---|---|---|
-| Wed W3 | Wake Windows by Age: The Complete 2026 Chart | wake windows by age | The pillar; OBubba personalises the window per baby |
-| Fri W3 | Baby Sleep Schedule by Age (Newborn to Toddler) | baby sleep schedule by age | Nap count + bedtime by age, then "your baby's actual rhythm" |
-| Mon W4 | The 4-Month Sleep Regression: Survive + Fix It | 4 month sleep regression | Nap+bedtime reset; how OBubba flags it early |
-| Wed W4 | Nap Transitions: 4→3, 3→2, 2→1 Without the Mess | nap transition | When to drop a nap; the accuracy of the signal |
-| Fri W4 | The Perfect Baby Bedtime Routine (that fixes night wakes) | baby bedtime routine | Routine → fewer night wakes; the core thesis |
+| Wed W3 ✅covered `wake-windows-by-age` | Wake Windows by Age: The Complete 2026 Chart | wake windows by age | The pillar; OBubba personalises the window per baby |
+| Fri W3 ✅covered `baby-sleep-schedule-guide` | Baby Sleep Schedule by Age (Newborn to Toddler) | baby sleep schedule by age | Nap count + bedtime by age, then "your baby's actual rhythm" |
+| Mon W4 ✅covered `4-month-sleep-regression` | The 4-Month Sleep Regression: Survive + Fix It | 4 month sleep regression | Nap+bedtime reset; how OBubba flags it early |
+| Wed W4 ✅2026-09-24 | Nap Transitions: 4→3, 3→2, 2→1 Without the Mess | nap transition | PUBLISHED `nap-transitions-4-3-2-1` |
+| Fri W4 ✅covered `simple-baby-bedtime-routine-that-works` | The Perfect Baby Bedtime Routine (that fixes night wakes) | baby bedtime routine | Routine → fewer night wakes; the core thesis |
 | Mon W5 | Overtired Baby: Signs, Fixes, and How to Break the Cycle | overtired baby | Overtiredness = the #1 nap/bedtime lever |
 | Wed W5 | How Much Should a Baby Sleep? (Real Numbers by Age) | how much should a baby sleep | Totals + how OBubba tracks against them |
 | Fri W5 | Catnaps: Why They Happen and How to Extend Them | short naps / catnaps | Wake-window + bedtime fix for 30-min naps |
