@@ -226,28 +226,27 @@
     (function () {
       var appStoreUrl = "https://apps.apple.com/gb/app/obubba/id6760968757";
       var playStoreUrl = "https://play.google.com/store/apps/details?id=com.obubba.app";
-      function storeUrlForDevice() {
+      function destinationForDevice() {
         var ua = "";
         var platform = "";
-        var search = window.location.search || "";
         try { ua = navigator.userAgent || ""; } catch (e) {}
         try { platform = navigator.userAgentData && navigator.userAgentData.platform || navigator.platform || ""; } catch (e) {}
-        if (search.indexOf("store=android") !== -1) return playStoreUrl;
-        if (search.indexOf("store=ios") !== -1) return appStoreUrl;
         if (/android/i.test(ua) || /android/i.test(platform)) return playStoreUrl;
         if (/iphone|ipad|ipod/i.test(ua)) return appStoreUrl;
         try {
           if (/mac/i.test(platform) && navigator.maxTouchPoints > 1) return appStoreUrl;
         } catch (e) {}
-        return appStoreUrl;
+        return "https://obubba.com/";
       }
+      var destination = destinationForDevice();
       var download = document.getElementById("download-now");
       if (download) {
-        download.href = storeUrlForDevice();
+        download.href = destination;
         download.addEventListener("click", function () {
-          download.href = storeUrlForDevice();
+          download.href = destinationForDevice();
         });
       }
+      window.location.replace(destination);
     })();
   </script>
 </body>
