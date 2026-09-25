@@ -103,3 +103,25 @@
 6. **[NOTE]** Hold honesty: no fabricated accuracy %. Edge stays personalisation + Luna's "why" + whole-baby breadth + partner/carer sharing.
 
 **Summary:** SHIPPED a Nara-alternative comparison page; QUEUED pippy/snoozybear alt pages (now PACED, pause to ~09-28), a "free nap prediction" pricing question (owner), and monitor additions. Main read: comparison farms + "free prediction becoming table stakes" are the live pressures.
+
+---
+
+## 2026-09-25 — Owly (named goal-rival) surfaces with AI nap prediction; Pebbi ships features; HOLD shipping for freshness
+
+**What changed (sources: App Store / Play / listicles, via WebSearch):**
+- **NEW-to-watch entrant: Owly: Baby Sleep Tracker AI** (App Store id6759492537). Simple sleep tracker + **smart nap predictions** + feeding logs + white noise + weekly sleep insights. Notable because **Owly is a NAMED rival in OBubba's own goal** ("beat Huckleberry/Owly/Napper") yet has ZERO capture on our side (no alt page). Installs/reviews unconfirmed.
+- **Pebbi shipped real features** (dates unconfirmed): a **Timeline view** (all logs in one editable place), **weekly insights** (trend/pattern spotting), and a **"Since Last" alarm mode** (reminders based on logged events). Pebbi is both a product AND the most aggressive comparison-content farm (pebbi.co/blog), so feature + SEO momentum compound.
+- **Huckleberry** 0.9.306 (last update ~Sep 3, no new sleep feature this pass); **Napper** 6.64.0 (Aug 6, unchanged). **Hushly** (id6759285704, free + IAP, "predict next nap") and **Nanit NextNap** (monitor-tied) already logged. Onoco AI unchanged.
+- Ad-library/creator scan: no confirmed new paid pushes surfaced (unconfirmed; Meta Ad Library not directly queried this run).
+
+**Likely impact (unconfirmed on installs):** the "AI nap prediction" field keeps filling in (Owly, Hushly, Nanit, Onoco, Cocoo, Snug, SnoozyBear). None clearly breaking out. The compounding pressure remains Pebbi (features + comparison farm). Owly matters strategically because it is an explicit OBubba target still uncaptured.
+
+**Ranked copyable actions:**
+1. **[QUEUE → ship ~2026-09-28] `owly-alternative-baby-sleep-app`** — top priority when the alt-page pause lifts. Owly is a named goal-rival with real "Owly alternative"/"Owly vs Huckleberry" search intent and zero current capture. Same proven pattern (nappi/napper/huckleberry/cocoo/snug/nara alts).
+2. **[HOLD — freshness discipline]** Deliberately shipping NOTHING new today. Per the 2026-09-24 note, alt pages were paced to ~1-2/week after a 3-day burst (cocoo 09-22, snug 09-23, nara 09-24); pause runs through ~09-27 to avoid a thin/doorway-content pattern that Google discounts. Resume 09-28 with Owly, then snoozybear/pippy.
+3. **[QUEUE, owner — product]** Pebbi's "weekly insights" + "Timeline" + "Since Last" reminders are table-stakes-raising. OBubba already has reports/insights + timeline; worth confirming our weekly-insight surfacing is as prominent. Product review, not autonomous.
+4. **[QUEUE, owner — product/pricing]** (carried from 09-24, still open) "Free nap prediction" becoming table stakes among rivals (Pippy/Pixy/Napper free/Owly). Decide whether a limited free next-nap prediction blunts the "predictions paywalled" comparison while keeping the full engine Premium.
+5. **[MONITOR]** Add Owly to the ratings/diff monitors alongside Nara/Pippy/Bambii/Robin Baby. Watch Pebbi feature + publish velocity.
+6. **[NOTE]** Hold honesty: no fabricated accuracy %. Edge stays personalisation + Luna's "why" + whole-baby breadth + partner/carer sharing.
+
+**Summary:** SHIPPED nothing new today (deliberate freshness HOLD through ~09-27); QUEUED the `owly-alternative` page as the top 09-28 item plus a Pebbi-features product review and the standing "free prediction" pricing question. Main read: Owly (a named goal-rival) is uncaptured; Pebbi is compounding features + SEO.
