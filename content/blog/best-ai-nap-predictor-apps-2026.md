@@ -30,12 +30,12 @@ They are mostly good at the same thing: telling you *when*. Fewer tell you *why*
 2. **A bedtime that moves with the actual day**, so overtiredness and early waking ease off.
 3. **Plain-language insight** when a night falls apart, naming the likely cause and the next step.
 4. **The whole day connected**, feeds, nappies, growth and milestones alongside sleep.
-5. **A real free tier**, so you can test the predictions on your own baby before paying.
+5. **A real free tier** for core tracking, plus a trial so you can test the predictions on your own baby before committing.
 
 ## Where OBubba fits
 OBubba is built around the two things that actually fix sleep: the **right naps** and a **steady bedtime routine**. It learns your baby's own rhythm, predicts the next nap, flags the wake window, and shows the bedtime that leads to calmer nights. What sets it apart from a pure predictor is **Luna**, the in-app coach, who explains night wakes and split nights in plain language and tells you what to try next. Feeds, nappies, growth and milestones sit alongside sleep, so the day and the night are connected.
 
-Core tracking is free, partner sync and Bubba Care carer handovers are included, and premium adds personalised nap and bedtime guidance, trends and reports.
+Core tracking is free, partner sync and Bubba Care carer handovers are included, and Premium adds the predictive layer, the exact next-nap and bedtime timing, personalised guidance, trends and reports, which you can try during the 14-day trial.
 
 ## The honest bottom line
 If all you want is a next-nap time, most of these apps will give you one, and Huckleberry and NapNap are solid choices. If you want an app that also tells you **why** your baby woke, coaches you through the fix, and keeps the whole day in one place with a real free tier, try OBubba. It is free to download, so compare the nap predictions on your own baby before you decide, that is the only test that counts.

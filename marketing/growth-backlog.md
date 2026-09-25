@@ -29,3 +29,20 @@
 6. **Free Apple surfaces:** in-app events + featuring nomination — owner.
 
 **One-line:** SHIPPED the `wake-windows-by-age` pillar localized into 5 languages; queued next-post localization, the invite-loop surfacing (owner), more Play locales, and the ASO keyword additions.
+
+---
+
+## 2026-09-25 (Growth Scout)
+
+**SHIPPED: localized the high-intent commercial post `best-ai-nap-predictor-apps-2026` into es/fr/de/pt/it.**
+- Rationale: "AI nap predictor" is the fastest-crowding category search (Owly/Snug/SnoozyBear/Cocoo/Nanit/Onoco all now compete on it) and this was the highest-intent commercial post still English-only. Localizing captures the category + rival-brand search in 5 languages. Also **corrected a free-tier overclaim in the English source before translating** (it implied predictions were free to test; per the 2026-09-22 owner correction the displayed prediction is Premium, testable in the 14-day trial) so the fix propagates, not the error.
+- (Separately, the SEO Publisher lane shipped the new English pillar `overtired-baby-signs-fixes`, Mon W5.)
+
+**Backlog (ranked, not done this run):**
+1. Localize next commercial/pillar: `simple-baby-bedtime-routine-that-works` (pillar) and `nap-transitions-4-3-2-1` (just published EN).
+2. Invite/viral loop surfacing (owner, native): 47% convert but only 7.8% send (buried in Account). #1 in-app growth lever.
+3. Play locales beyond current set toward rivals' 28-language footprint (owner store change).
+4. ASO: `short naps` + `night wakes` keywords (owner store-push).
+5. In-app review prompt localization (docs/review_prompt_i18n.md drafted) so non-English installs rate.
+
+**One-line:** SHIPPED best-ai-nap-predictor localized ×5 (es/fr/de/pt/it) + corrected the EN free-tier overclaim; queued next-post localization, invite-loop, Play locales, ASO.
