@@ -96,3 +96,27 @@ DRAFT reply (Luna/OBubba voice):
 **Sentiment (unchanged):** strongly positive; recurring drags remain OLD, already-answered iOS reviews (freeze/glitch, breastfeeding-timer background persistence).
 
 **One-line:** 0 new reviews; 0 need a new reply (the 2026-09-22 Play 5★ reply is still queued for owner to post); nothing urgent.
+
+## 2026-09-25 (Review Watch)
+
+### ⚠️ HIGH PRIORITY — 1 new 2★ (iOS), already answered by owner, but surfaces 2 real product issues
+**"Contradicting, anxiety inducing" — ★★ — Someone else upset — 2026-09-22 (USA)** — status: **already answered** (owner posted a warm, specific reply; no new draft needed). Flagging because the content is product-actionable and touches OBubba's core "never anxiety-inducing" principle:
+1. **Contradictory maternal-sleep safety messaging (PRODUCT):** app told her a 3-week-old waking 4×/night was "perfectly normal… doing a good job", then on day 5 fired a **red-alert** that the mother hadn't recorded a 4-hour sleep stretch and was "in danger / needed immediate help." Reads as alarming + contradictory at ~3 weeks postpartum. → Owner/dev backlog: soften + de-conflict the maternal-sleep red-flag copy so it reads as *gentle support-seeking*, never "you're in danger." (Relates to the "maternal physical red-flag engine → UI" work.)
+2. **Schedule-maker told her to reschedule a DOCTOR'S appointment (BUG/DESIGN):** she logged a 1:40pm appointment, app auto-adjusted, then at 1pm suggested she **move the appointment** to fit the nap. The schedule must always adapt around real-life fixed events, never suggest moving them. → Owner/dev backlog: fixed calendar events are immovable anchors; guidance flows around them.
+- Not a live outage or payment/crash issue, and the owner has already engaged (reply posted), so no push sent. But both items belong on the product backlog.
+
+### NEW — Google Play (needs owner approval to post)
+**Briana Pearson (DauntlessDame42) — ★★★★★ — 2026-09-24 — app v3.2.27 (found via TikTok)**
+> "I had been looking for an app like this for a while, and finally found it via tiktok. this app is useful for new parents and parents who are having trouble keeping track of things among all of the sleepless nights…"
+
+DRAFT reply (Luna/OBubba voice):
+> Thank you so much, Briana. 💛 It means the world that you looked for something like this and that OBubba turned out to be it, and we're so glad TikTok brought you here. Keeping track through the sleepless nights is exactly what we built it for. If there's ever anything that would make it more useful for you, just tell us in the app. Wishing you and your little one calmer nights. — Team OBubba
+
+*(Note: Briana is on v3.2.27 — confirms 3.2.27 is now live in users' hands on Android.)*
+
+### Still queued from 2026-09-23
+- **Christiana Danso Seguh — ★★★★★ — 2026-09-22 (Play)** — warm reply drafted 09-23, still `replied: false`, awaiting owner to post.
+
+**Sentiment:** overwhelmingly positive (Play 5★s citing TikTok discovery + "finally found it"), but the first negative in a while is a thoughtful, specific 2★ that is genuinely product-actionable (anxiety-inducing safety copy + the appointment-reschedule suggestion). Highest-ROI response is fixing those two product behaviours, not a reply (already handled).
+
+**One-line:** 2 new reviews (iOS 2★ already answered + Play 5★ Briana); **1 needs a reply** (Briana draft, + Christiana still queued); **1 HIGH-priority product flag** (contradictory maternal-sleep alert + appointment-reschedule suggestion) for the owner/dev backlog; no live/urgent outage.
