@@ -120,3 +120,28 @@ DRAFT reply (Luna/OBubba voice):
 **Sentiment:** overwhelmingly positive (Play 5★s citing TikTok discovery + "finally found it"), but the first negative in a while is a thoughtful, specific 2★ that is genuinely product-actionable (anxiety-inducing safety copy + the appointment-reschedule suggestion). Highest-ROI response is fixing those two product behaviours, not a reply (already handled).
 
 **One-line:** 2 new reviews (iOS 2★ already answered + Play 5★ Briana); **1 needs a reply** (Briana draft, + Christiana still queued); **1 HIGH-priority product flag** (contradictory maternal-sleep alert + appointment-reschedule suggestion) for the owner/dev backlog; no live/urgent outage.
+
+## 2026-09-26 (Review Watch)
+
+**Result: 2 new reviews (both iOS, both 5★), 0 urgent. 2 warm replies drafted for owner approval.**
+- **App Store:** 2 NEW 5★ (both unanswered) + the 09-22 2★ already answered. No new negative/crash/billing/safety.
+- **Google Play:** no new reviews; Briana (09-24 5★) and Christiana (09-22 5★) drafts from 09-24/09-23 still queued, awaiting owner to post.
+- No score-drop, no urgent signal.
+
+### NEW — App Store (needs owner approval to post)
+
+**Vicky0la — ★★★★★ — 2026-09-24 (Germany, review in German)**
+> "Was für eine tolle App! 💙 … gerade als frischgebackene Mama … besonders beim Thema Schlaf und Routine hat sie uns total geholfen und ich fühle mich dadurch auch viel sicherer."
+
+DRAFT reply (Luna/OBubba voice, in German to match):
+> Vielen lieben Dank, Vicky. 💙 Genau dafür haben wir OBubba gemacht, damit du dich als frischgebackene Mama sicherer fühlst und nicht ständig googeln musst. Dass es gerade beim Schlaf und der Routine so geholfen hat, freut uns riesig. Wenn dir mal etwas fehlt oder du eine Idee hast, schreib uns einfach in der App. Alles Gute für dich und dein kleines Wunder. 💛 — Team OBubba
+
+**Dez247oo — ★★★★★ — 2026-09-24 (USA)**
+> "…My Velcro baby would not sleep independently… Within a month following the app's advice she is now sleeping through the night… She is 8 months old… my mental health has improved so much… can we talk about the fireflies…"
+
+DRAFT reply (Luna/OBubba voice; deliberately humble, not claiming credit for the outcome):
+> This genuinely made our whole team a little teary, thank you. 💛 Every baby is different, so we can't take the credit, but we're so happy the timing and routine gave you something steady to lean on, and that better-slept nights are helping how you feel too. That matters just as much as your little one's sleep. And yes, the fireflies are our favourite corner of the app, made exactly so no one feels alone at 3am. Wishing you both many more calm nights. — Team OBubba
+
+**Sentiment:** overwhelmingly positive and now multi-market (a German 5★ + US 5★ same day, plus TikTok-driven Play installs). The one recent negative (09-22 2★) is already answered and its two product issues are logged for the backlog. Momentum looks healthy; no drag.
+
+**One-line:** 2 new reviews (both iOS 5★, incl. a German one); 2 warm replies drafted for owner approval (+ 2 Play drafts still queued); nothing urgent.
