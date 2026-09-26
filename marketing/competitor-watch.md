@@ -125,3 +125,24 @@
 6. **[NOTE]** Hold honesty: no fabricated accuracy %. Edge stays personalisation + Luna's "why" + whole-baby breadth + partner/carer sharing.
 
 **Summary:** SHIPPED nothing new today (deliberate freshness HOLD through ~09-27); QUEUED the `owly-alternative` page as the top 09-28 item plus a Pebbi-features product review and the standing "free prediction" pricing question. Main read: Owly (a named goal-rival) is uncaptured; Pebbi is compounding features + SEO.
+
+---
+
+## 2026-09-26 — quiet pass; field stable; HOLD continues (Owly ships 09-28)
+
+**What changed (sources: App Store / Play / listicles, via WebSearch):** little of substance.
+- **No new features/pricing** confirmed from the tracked set. Owly 3.0.38 (last update Aug 31, on Play since Jan 2026). Napper still ~$69.99/yr. Huckleberry SweetSpot still Plus-only (paywalled). Pebbi still two-carer free.
+- **nappi** reinforces its wedge as the **"import from everyone" switcher** (imports Huckleberry, Baby Tracker, Nara, Napper, Meu Bebê exports), i.e. it competes on zero switching cost rather than prediction. Worth remembering when we frame "why switch to OBubba".
+- **TinyPal** named in listicles as a broad AI parenting app (sleep + feeding + mood + behaviour + AI insights + screen-time). Adjacent, more "all-in-one AI" than sleep-first. Watch, low urgency.
+- **Paid/creator scan:** no confirmed real ad campaigns. The "nap time commercial" TikTok hits are parody/meme content, not rival ad spend (unconfirmed either way; Meta Ad Library not directly queried).
+
+**Likely impact:** negligible this pass. No rival breakout, no new paid push detected. Standing pressures unchanged (Pebbi features+SEO farm; "free nap prediction" trend).
+
+**Ranked copyable actions:**
+1. **[QUEUE → ship 2026-09-28]** `owly-alternative-baby-sleep-app` (named goal-rival, still top of queue), then snoozybear/pippy at ~1-2/week.
+2. **[HOLD]** Freshness pause continues today (3 alt pages 09-22/23/24; held 09-25/26; resume 09-28). No new page shipped, deliberately.
+3. **[NOTE, positioning]** nappi's "import from any tracker" = zero-switching-cost angle. When we write comparison/switch pages, address data portability (can a parent bring their history to OBubba?) as the counter. Content angle for a future run, not urgent.
+4. **[MONITOR]** Add TinyPal to the watch list alongside Owly/Nara/Pippy/Bambii/Robin Baby.
+5. **[NOTE]** Standing owner items unchanged: "free nap prediction" pricing question + Pebbi weekly-insights parity (both from 09-24/09-25).
+
+**Summary:** SHIPPED nothing (deliberate freshness HOLD, quiet pass with no rival breakout); QUEUED Owly-alternative for 09-28, added TinyPal to monitors, and noted nappi's data-portability angle for a future comparison page.
