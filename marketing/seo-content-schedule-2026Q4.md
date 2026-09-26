@@ -33,7 +33,7 @@ The 267-article backlog is now fully published. This is the *new* forward pipeli
 | Wed W4 ✅2026-09-24 | Nap Transitions: 4→3, 3→2, 2→1 Without the Mess | nap transition | PUBLISHED `nap-transitions-4-3-2-1` |
 | Fri W4 ✅covered `simple-baby-bedtime-routine-that-works` | The Perfect Baby Bedtime Routine (that fixes night wakes) | baby bedtime routine | Routine → fewer night wakes; the core thesis |
 | Mon W5 ✅2026-09-25 | Overtired Baby: Signs, Fixes, and How to Break the Cycle | overtired baby | PUBLISHED `overtired-baby-signs-fixes` |
-| Wed W5 | How Much Should a Baby Sleep? (Real Numbers by Age) | how much should a baby sleep | Totals + how OBubba tracks against them |
+| Wed W5 ✅2026-09-26 | How Much Should a Baby Sleep? (Real Numbers by Age) | how much should a baby sleep | PUBLISHED `how-much-should-a-baby-sleep` |
 | Fri W5 | Catnaps: Why They Happen and How to Extend Them | short naps / catnaps | Wake-window + bedtime fix for 30-min naps |
 
 ## Tier 3 — Nap-prediction-accuracy angle (OBubba's unique wedge)
