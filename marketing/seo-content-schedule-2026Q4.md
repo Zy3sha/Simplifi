@@ -34,12 +34,12 @@ The 267-article backlog is now fully published. This is the *new* forward pipeli
 | Fri W4 ✅covered `simple-baby-bedtime-routine-that-works` | The Perfect Baby Bedtime Routine (that fixes night wakes) | baby bedtime routine | Routine → fewer night wakes; the core thesis |
 | Mon W5 ✅2026-09-25 | Overtired Baby: Signs, Fixes, and How to Break the Cycle | overtired baby | PUBLISHED `overtired-baby-signs-fixes` |
 | Wed W5 ✅2026-09-26 | How Much Should a Baby Sleep? (Real Numbers by Age) | how much should a baby sleep | PUBLISHED `how-much-should-a-baby-sleep` |
-| Fri W5 | Catnaps: Why They Happen and How to Extend Them | short naps / catnaps | Wake-window + bedtime fix for 30-min naps |
+| Fri W5 ✅covered `baby-only-naps-30-minutes-short-naps` | Catnaps: Why They Happen and How to Extend Them | short naps / catnaps | Wake-window + bedtime fix for 30-min naps |
 
 ## Tier 3 — Nap-prediction-accuracy angle (OBubba's unique wedge)
 | Date | Working title | Primary keyword | Angle |
 |---|---|---|---|
-| Mon W6 | How Nap Prediction Actually Works (and why generic charts fail) | nap prediction | The accuracy story; personal rhythm beats age tables |
+| Mon W6 ✅2026-09-27 | How Nap Prediction Actually Works (and why generic charts fail) | nap prediction | PUBLISHED `how-nap-prediction-works` |
 | Wed W6 | Why Your Baby Fights the Nap You Put Them Down For | baby fighting naps | Wrong timing; how the engine finds the right one |
 | Fri W6 | Bedtime Too Early or Too Late? How to Find the Real One | best bedtime for baby | The bedtime lever, measured |
 | Mon W7 | The Science of the Optimal Wake Window (for *your* baby) | optimal wake window | Personalised WW vs textbook |
