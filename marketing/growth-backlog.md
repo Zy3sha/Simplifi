@@ -46,3 +46,19 @@
 5. In-app review prompt localization (docs/review_prompt_i18n.md drafted) so non-English installs rate.
 
 **One-line:** SHIPPED best-ai-nap-predictor localized ×5 (es/fr/de/pt/it) + corrected the EN free-tier overclaim; queued next-post localization, invite-loop, Play locales, ASO.
+
+---
+
+## 2026-09-27 (Growth Scout)
+
+**SHIPPED: localized the `nap-transitions-4-3-2-1` pillar into es/fr/de/pt/it.**
+- Rationale: clean, high-intent evergreen pillar (every parent hits 4→3, 3→2, 2→1), no app-UI/screenshot baggage, so higher ROI-per-effort than the app-heavy bedtime-routine post. Localized internal links to the already-localized wake-windows-by-age / baby-sleep-schedule-guide / 4-month-sleep-regression; predictions framed as Premium/trial (accurate). (Competitor lane separately shipped owly-alternative.)
+
+**Backlog (ranked):**
+1. Localize `simple-baby-bedtime-routine-that-works` — HIGH volume but needs de-app-ifying first (strip the "Care → Bedtime ritual" screenshot section for localized SEO). Slightly more work; do next.
+2. Localize `overtired-baby-signs-fixes` + `how-much-should-a-baby-sleep` (both clean, just published EN).
+3. Invite/viral loop surfacing (owner, native): 47% convert / 7.8% send, buried in Account.
+4. Play locales beyond current set (owner store change).
+5. ASO `short naps` / `night wakes` (owner store-push).
+
+**One-line:** SHIPPED nap-transitions localized ×5; queued bedtime-routine (needs de-app-ifying), overtired + how-much-sleep localization, invite-loop, Play locales, ASO.

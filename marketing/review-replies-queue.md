@@ -145,3 +145,14 @@ DRAFT reply (Luna/OBubba voice; deliberately humble, not claiming credit for the
 **Sentiment:** overwhelmingly positive and now multi-market (a German 5★ + US 5★ same day, plus TikTok-driven Play installs). The one recent negative (09-22 2★) is already answered and its two product issues are logged for the backlog. Momentum looks healthy; no drag.
 
 **One-line:** 2 new reviews (both iOS 5★, incl. a German one); 2 warm replies drafted for owner approval (+ 2 Play drafts still queued); nothing urgent.
+
+## 2026-09-27 (Review Watch)
+
+**Result: 1 new review (iOS 5★), already answered, 0 need a reply, nothing urgent.**
+- **App Store:** 1 NEW — **daf1092 — ★★★★★ — 2026-09-25 — "Great tracker"** — already `answered` (owner replied). Positive, no bug/billing/safety. The Vicky0la (DE) + Dez247oo drafts from 09-26 have been POSTED by the owner (now answered). No new negative.
+- **Google Play:** 0 new. Briana (09-24) + Christiana (09-22) drafts have both been POSTED (now answered). Queue is clear.
+- No score-drop, no crash/payment/safety signal.
+
+**Sentiment:** consistently strong and multi-market (US + a German 5★ this week), owner is actively posting the drafted replies. No drag; the only recent negative (09-22 2★) stays answered with its 2 product issues on the backlog.
+
+**One-line:** 1 new review (iOS 5★, already answered); 0 need a reply; queue fully cleared; nothing urgent.

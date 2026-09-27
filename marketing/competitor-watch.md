@@ -146,3 +146,22 @@
 5. **[NOTE]** Standing owner items unchanged: "free nap prediction" pricing question + Pebbi weekly-insights parity (both from 09-24/09-25).
 
 **Summary:** SHIPPED nothing (deliberate freshness HOLD, quiet pass with no rival breakout); QUEUED Owly-alternative for 09-28, added TinyPal to monitors, and noted nappi's data-portability angle for a future comparison page.
+
+---
+
+## 2026-09-27 — resume alt-page cadence: ship Owly-alternative (named goal-rival)
+
+**What changed (sources: App Store / Play / listicles, via WebSearch):** field stable, no rival breakout.
+- **Owly** (App Store id6759492537 / com.owlyapp.global): confirmed feature set — AI assistant **"Olli"** with weekly sleep analysis, a **"Sleep DNA"** pattern view, age-based wake windows + adaptive nap schedules, feeding/solids/allergy, white noise, **PDF reports**, multi-stage reminders. Free download, premium price unconfirmed. Last app update Aug 31. It's a NAMED OBubba goal-rival ("beat Huckleberry/Owly/Napper") and was uncaptured until today.
+- Huckleberry/Napper/Pebbi/nappi unchanged since the 09-25 pass. No confirmed new paid campaigns (Meta Ad Library not directly queried).
+
+**Likely impact (unconfirmed):** none breaking out. Owly is a credible AI-first rival competing on OBubba's exact "predict + explain" ground, so capturing its brand search matters more than its raw volume today.
+
+**Ranked copyable actions:**
+1. **[SHIPPED]** New comparison page `owly-alternative-baby-sleep-app` — captures "Owly alternative" search; fair to Owly (Olli/Sleep DNA/PDF), positions OBubba on Luna's *in-the-moment* "why" (vs Owly's weekly summary) + whole-day + partner/carer sharing + real free tier + 14-day-trial honesty. Cross-linked to the AI-nap roundup. Ends the 09-25/26/27 freshness pause; back to ~1-2/week.
+2. **[QUEUE]** Next alt pages at ~1-2/week: `snoozybear-alternative` (accuracy-% hook), `pippy-alternative` (free-prediction hook).
+3. **[QUEUE, owner — product/pricing]** Standing item: "free nap prediction" becoming table stakes (Pippy/Pixy/Napper-free/Owly). Decide on a limited free next-nap prediction.
+4. **[MONITOR]** Owly, TinyPal, Nara, Pippy, Bambii, Robin Baby on the ratings/diff monitors; watch Pebbi feature+publish velocity.
+5. **[NOTE]** Hold honesty: no fabricated accuracy %. Edge = personalisation + Luna's "why" + whole-baby + partner/carer sharing.
+
+**Summary:** SHIPPED the Owly-alternative comparison page (resuming cadence after the pause); QUEUED snoozybear/pippy alt pages and the standing free-prediction pricing question. Field otherwise stable, no breakout.
