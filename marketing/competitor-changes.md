@@ -17,3 +17,12 @@
   new/changed:
     - "ratings": 12,
 
+## 2026-09-27
+- **nappi-itunes CHANGED** (https://itunes.apple.com/lookup?id=6758960996)
+  new/changed:
+    - "ratings": 13,
+    - "stars": 4.84615,
+- **napnap-web CHANGED** (https://napnap.baby/)
+  new/changed:
+    - Baby Sleep Tracker App with Nap Predictions | NapNap * { margin: 0; padding: 0; box-sizing: border-box; } body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: 
+
