@@ -2201,6 +2201,24 @@ async function sendPush(uid, { title, body, data = {} }) {
   }
 }
 
+// Idempotent send-guard. Every scheduled reminder used to do: read push_log →
+// bail if already sent → sendPush → THEN write the marker. Under a scheduler
+// retry (these sweeps are slow and time out, so Cloud Scheduler re-runs them)
+// the marker often wasn't written yet, so the SAME notification fired again on
+// every retry — the "pinging every minute" duplicate storm. Fix: CLAIM the
+// marker BEFORE sending, atomically. `.create()` throws if the doc already
+// exists, so only the first run/retry can claim a given key; everyone else
+// returns false and never sends. At-most-once (a failed send won't re-fire),
+// which is the right trade for a nudge — a rare miss beats a spam storm.
+async function reserveOncePush(sentKey) {
+  try {
+    await db.collection("push_log").doc(sentKey).create({ sentAt: new Date() });
+    return true;
+  } catch (_) {
+    return false; // already claimed by an earlier run / concurrent retry
+  }
+}
+
 // Helper: get the user's LOCAL `YYYY-MM-DD` key. `tzOffsetMin` is what JS's
 // getTimezoneOffset() returns — minutes west of UTC (so Europe/London DST is
 // -60, Asia/Tokyo is -540, Los Angeles is 420). A push_log dedupe key keyed
@@ -2278,19 +2296,23 @@ exports.feedReminder = onSchedule("every 30 minutes", async () => {
       const hour = userLocalHour(tzOff);
       if (hour < 7 || hour > 22) return;
 
+      // Respect the parent's reminder prefs. The app mirrors an effective
+      // "feed reminders on" flag into user_activity (settings.feeds AND feeds
+      // tracked). Only skip when it's EXPLICITLY off — fail open for docs
+      // written before the app started mirroring it.
+      if (data.remindFeeds === false) return;
+
       if (lastFeedMs && lastFeedMs < cutoff) {
         const hoursSince = Math.round((Date.now() - lastFeedMs) / 3600000);
-        // Don't spam — check if we already sent a feed reminder today (user-local)
+        // Don't spam — claim the once-a-day marker BEFORE sending (see reserveOncePush).
         const sentKey = `feedReminder_${todayKeyForUser(tzOff)}_${uid}`;
-        const sentDoc = await db.collection("push_log").doc(sentKey).get();
-        if (sentDoc.exists) return;
+        if (!(await reserveOncePush(sentKey))) return;
 
         await sendPush(uid, {
           title: "🍼 Feed Reminder",
           body: `It's been ${hoursSince} hours since the last feed. Time for another?`,
           data: { action: "log_feed", channelId: "obubba_reminders" },
         });
-        await db.collection("push_log").doc(sentKey).set({ sentAt: new Date() });
       }
     } catch (err) {
       logFunctionError("Feed reminder failed", err);
@@ -2316,19 +2338,21 @@ exports.noFeedAlert = onSchedule("every 1 hours", async () => {
       const localHour = userLocalHour(tzOff);
       if (localHour < 10 || localHour > 20) return;
 
+      // Respect the parent's reminder prefs (see feedReminder). Only skip when
+      // feed reminders are EXPLICITLY off; fail open for legacy docs.
+      if (data.remindFeeds === false) return;
+
       // If no feed today (in user's local timezone)
       if (!lastFeed || !isToday(lastFeed, tzOff)) {
-        // Don't spam — one alert per user-local day
+        // Don't spam — claim the once-a-day marker BEFORE sending (see reserveOncePush).
         const sentKey = `noFeed_${todayKeyForUser(tzOff)}_${uid}`;
-        const sentDoc = await db.collection("push_log").doc(sentKey).get();
-        if (sentDoc.exists) return;
+        if (!(await reserveOncePush(sentKey))) return;
 
         await sendPush(uid, {
           title: "🍼 No feeds logged today",
           body: "Tap to log a feed — keeping track helps spot patterns early.",
           data: { action: "log_feed", channelId: "obubba_reminders" },
         });
-        await db.collection("push_log").doc(sentKey).set({ sentAt: new Date() });
       }
     } catch (err) {
       logFunctionError("No feed alert failed", err);
@@ -2360,15 +2384,13 @@ exports.noWakeAlert = onSchedule("every 1 hours", async () => {
 
       if (feedToday && !wakeToday) {
         const sentKey = `noWake_${todayKeyForUser(tzOff)}_${uid}`;
-        const sentDoc = await db.collection("push_log").doc(sentKey).get();
-        if (sentDoc.exists) return;
+        if (!(await reserveOncePush(sentKey))) return;
 
         await sendPush(uid, {
           title: "☀️ Morning wake not logged",
           body: "You've logged a feed but no wake time. Tap to log the morning wake — it helps predict naps accurately.",
           data: { action: "log_wake", channelId: "obubba_reminders" },
         });
-        await db.collection("push_log").doc(sentKey).set({ sentAt: new Date() });
       }
     } catch (err) {
       logFunctionError("No wake alert failed", err);
@@ -2484,15 +2506,13 @@ exports.weeklyDigest = onSchedule("every 1 hours", async () => {
       if (prefs.exists && prefs.data().weeklyDigest === false) return;
 
       const sentKey = `weeklyDigest_${userLocalWeekKey(tzOff)}_${uid}`;
-      const sentDoc = await db.collection("push_log").doc(sentKey).get();
-      if (sentDoc.exists) return;
+      if (!(await reserveOncePush(sentKey))) return;
 
       await sendPush(uid, {
         title: "📊 Your Weekly Summary is Ready",
         body: "See how baby's week went — feeds, sleep patterns, and milestones.",
-        data: { action: "baby_summary", channelId: "obubba_milestones" },
+        data: { action: "weekly_report", channelId: "obubba_milestones" },
       });
-      await db.collection("push_log").doc(sentKey).set({ sentAt: new Date() });
     } catch (err) {
       logFunctionError("Weekly digest failed", err);
     }
@@ -2538,8 +2558,6 @@ exports.weeklyEmailDigest = onSchedule("every 1 hours", async () => {
       if (!email) return;
 
       const sentKey = `weeklyEmailDigest_${userLocalWeekKey(tzOff)}_${uid}`;
-      const sentDoc = await db.collection("push_log").doc(sentKey).get();
-      if (sentDoc.exists) return;
 
       const backupDoc = await db.collection("uid_to_backup").doc(uid).get();
       if (!backupDoc.exists) return;
@@ -2628,11 +2646,13 @@ exports.weeklyEmailDigest = onSchedule("every 1 hours", async () => {
         `You can turn off this email in Account → Preferences.</p>` +
         `</div>`;
 
+      // Claim the once-a-week marker BEFORE queueing the mail so a scheduler
+      // retry can't send the same digest twice (see reserveOncePush).
+      if (!(await reserveOncePush(sentKey))) return;
       await db.collection("mail").add({
         to: email,
         message: { subject, text, html },
       });
-      await db.collection("push_log").doc(sentKey).set({ sentAt: new Date() });
     } catch (err) {
       logFunctionError("Weekly email digest failed", err);
     }
@@ -2662,8 +2682,7 @@ exports.monthlyBirthday = onSchedule("every 1 hours", async () => {
       if (months <= 0 || months > 24) return;
 
       const sentKey = `monthly_${months}_${todayKeyForUser(tzOff)}_${uid}`;
-      const sentDoc = await db.collection("push_log").doc(sentKey).get();
-      if (sentDoc.exists) return;
+      if (!(await reserveOncePush(sentKey))) return;
 
       const name = data.babyName || "Baby";
       await sendPush(uid, {
@@ -2671,7 +2690,6 @@ exports.monthlyBirthday = onSchedule("every 1 hours", async () => {
         body: `Happy ${months}-month birthday! Check the Development tab for new milestones entering ${name}'s window.`,
         data: { action: "development", channelId: "obubba_milestones" },
       });
-      await db.collection("push_log").doc(sentKey).set({ sentAt: new Date() });
     } catch (err) {
       logFunctionError("Monthly birthday failed", err);
     }
@@ -2708,15 +2726,13 @@ exports.developmentPhase = onSchedule("every 1 hours", async () => {
       if (leapIdx === -1) return;
 
       const sentKey = `leap_${ageWeeks}_${todayKeyForUser(tzOff)}_${uid}`;
-      const sentDoc = await db.collection("push_log").doc(sentKey).get();
-      if (sentDoc.exists) return;
+      if (!(await reserveOncePush(sentKey))) return;
 
       await sendPush(uid, {
         title: `🧠 Leap ${leapIdx + 1}: ${leapNames[leapIdx]}`,
         body: `${name} is entering a new developmental leap! Expect fussiness — it's a sign of brain growth. Check Development for details.`,
         data: { action: "development", channelId: "obubba_milestones" },
       });
-      await db.collection("push_log").doc(sentKey).set({ sentAt: new Date() });
     } catch (err) {
       logFunctionError("Development phase failed", err);
     }
@@ -2740,20 +2756,18 @@ exports.milestonesUnlocked = onSchedule("every 1 hours", async () => {
       if (ageWeeks === null) return;
       const name = data.babyName || "Baby";
 
-      // Check weekly — only alert once per week
-      const weekKey = `milestones_w${ageWeeks}_${userLocalWeekKey(tzOff)}_${uid}`;
-      const sentDoc = await db.collection("push_log").doc(weekKey).get();
-      if (sentDoc.exists) return;
-
       // Only notify at key age milestones (every 4 weeks after 8 weeks)
       if (ageWeeks < 8 || ageWeeks % 4 !== 0) return;
+
+      // Once per week max — claim BEFORE sending (see reserveOncePush).
+      const weekKey = `milestones_w${ageWeeks}_${userLocalWeekKey(tzOff)}_${uid}`;
+      if (!(await reserveOncePush(weekKey))) return;
 
       await sendPush(uid, {
         title: `✨ New milestones for ${name}`,
         body: `At ${Math.round(ageWeeks / 4.3)} months, new milestones are entering ${name}'s window. Check the Development tab to see what to look for!`,
         data: { action: "development", channelId: "obubba_milestones" },
       });
-      await db.collection("push_log").doc(weekKey).set({ sentAt: new Date() });
     } catch (err) {
       logFunctionError("Milestones reminder failed", err);
     }
@@ -2781,8 +2795,7 @@ exports.reEngagement = onSchedule("every 1 hours", async () => {
       // Don't spam — once per week max
       const weekNum = userLocalWeekKey(tzOff);
       const sentKey = `reengage_w${weekNum}_${uid}`;
-      const sentDoc = await db.collection("push_log").doc(sentKey).get();
-      if (sentDoc.exists) return;
+      if (!(await reserveOncePush(sentKey))) return;
 
       const name = data.babyName || "Baby";
       const daysSince = Math.round((Date.now() - lastMs) / (24 * 60 * 60 * 1000));
@@ -2800,7 +2813,6 @@ exports.reEngagement = onSchedule("every 1 hours", async () => {
         body: msg.body,
         data: { action: "open", channelId: "obubba_reminders" },
       });
-      await db.collection("push_log").doc(sentKey).set({ sentAt: new Date() });
     } catch (err) {
       logFunctionError("Re-engagement failed", err);
     }
