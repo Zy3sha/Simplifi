@@ -3337,3 +3337,10 @@ exports.reportRegistrationConversion = onDocumentCreated("usernames/{username}",
   // Keyed on username so a replayed trigger deduplicates instead of double-counting.
   await sendOpenAiConversion(registrationCompleted({ uid: username, timestampMs: createdMs }));
 });
+
+// ── Subscription webhook ledger (renew/cancel/grace/refund → source of truth) ─────
+// See subscription_webhooks.js. NOT deploy-ready until the Apple dep + root certs are
+// added and both handlers are sandbox-tested (that file's header lists the steps).
+const subscriptionWebhooks = require("./subscription_webhooks");
+exports.appStoreNotifyV2 = subscriptionWebhooks.appStoreNotifyV2;
+exports.playRtdn = subscriptionWebhooks.playRtdn;
