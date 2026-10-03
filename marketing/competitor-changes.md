@@ -38,3 +38,9 @@
     - "ratings": 15,
     - "stars": 4.86667,
 
+## 2026-10-03
+- **nappi-itunes CHANGED** (https://itunes.apple.com/lookup?id=6758960996)
+  new/changed:
+    - "ratings": 17,
+    - "stars": 4.88235,
+
